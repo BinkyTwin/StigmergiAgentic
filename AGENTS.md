@@ -141,16 +141,64 @@ When generating code for this project:
 - Respect the evaporation schedule (managed by environment)
 
 ### Error Handling
-- Use try-except blocks for external dependencies (Git, LLM API, file I/O)
-- Log errors with full context
-- Trigger guardrails for critical failures
-- Never silently swallow exceptions
+
+Two categories with distinct strategies:
+
+**File Errors (Non-Fatal)** — File fails, loop continues:
+- Illisible file (`IOError`) → Scout skips, logs WARNING
+- AST parse error (`SyntaxError`) → Scout uses regex-only analysis
+- Invalid LLM output → Transformer sets status to `failed`
+- LLM timeout → Retry with exponential backoff (3 attempts)
+- pytest crash (`subprocess.CalledProcessError`) → Tester sets confidence=0.0, logs issues
+- Git conflict (`GitCommandError`) → Validator reverts, status to `failed`
+- Insufficient budget for file → Skip file, log WARNING
+
+**System Errors (Fatal)** — Save state and terminate:
+- Invalid API key (`401 Unauthorized`) → Immediate stop with clear error message
+- Global budget exhausted → Clean stop, export metrics
+- Corrupted JSON (`JSONDecodeError`) → Attempt recovery, or stop
+- Disk full (`OSError`) → Clean stop, log error
+
+In all cases: pheromone state is saved before termination (JSON files remain consistent via file locking)
 
 ### Testing
-- Write pytest tests for all new features
-- Mock LLM API calls in tests
-- Test pheromone evaporation and reinforcement logic
-- Verify guardrail triggers under edge cases
+
+Implement a comprehensive test suite with three levels:
+
+**Unit Tests (9 tests, mocked LLM)**:
+- Pheromone CRUD operations
+- File locking mechanisms
+- Decay and inhibition logic
+- Intensity normalization
+- Pattern detection (AST + regex)
+- Prompt building
+- Guardrail enforcement
+- State machine transitions
+
+**Integration Tests (4 tests, real pheromone store)**:
+- Scout → Transformer handoff
+- Transformer → Tester handoff
+- Tester → Validator handoff
+- Full single-file migration cycle
+
+**End-to-End Test (1 test, real API calls)**:
+- Complete migration of synthetic repo (~15 files, covering all 19 Python 2 patterns)
+
+## Logging
+
+Two distinct log streams:
+
+**1. Operational Log** (Python `logging` standard):
+- Level: `INFO` by default, `DEBUG` with `--verbose` flag
+- Format: `{timestamp} {level} [{agent}] {message}`
+- Output: stdout + rotating file `logs/stigmergic.log`
+- Content: agent activity, decisions, metrics
+
+**2. Audit Log** (JSONL append-only):
+- File: `pheromones/audit_log.jsonl`
+- Format: one JSON object per line
+- Content: every pheromone modification with agent, timestamp, before/after values
+- Purpose: satisfies RQ3 (EU AI Act Art. 14 traceability requirement)
 
 ## Language
 
@@ -163,6 +211,17 @@ All development work should be documented in `documentation/` for thesis annex p
 - Document significant technical choices in `decisions/`
 - Keep running notes in `technical_notes.md`
 
+### Development Workflow
+
+This POC follows a two-phase workflow:
+- **Planning Phase (Claude)**: Architecture design, specification, and implementation planning
+  - See `consigne/plan_poc_stigmergique.md` for detailed architecture (1200+ lines)
+  - See `CLAUDE.md` for high-level guidance to Claude Code
+- **Implementation Phase (Codex)**: Code generation, testing, and verification based on the established plan
+  - Follow the specifications in `consigne/plan_poc_stigmergique.md`
+  - Use the tech stack and patterns defined by Claude
+  - Implement the test suite as specified below
+
 ## Update
 
-Always update AGENTS.md when you make changes to the project. To stay updated with the latest changes, use the command `git log -1` to see the last commit message.
+Always update AGENTS.md and CLAUDE.md when you make changes to the project. To stay updated with the latest changes, use the command `git log -1` to see the last commit message.
