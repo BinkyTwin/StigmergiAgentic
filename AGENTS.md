@@ -226,6 +226,52 @@ This POC follows a two-phase workflow:
   - Use the tech stack and patterns defined by Claude
   - Implement the test suite as specified below
 
+## End-of-Sprint Workflow
+
+When completing a sprint, agents MUST follow the structured workflow to ensure code quality and proper documentation:
+
+### Quick Start
+```bash
+# 1. Run automated validation
+./scripts/sprint_end.sh
+
+# 2. Review checklist
+# See .agent/workflows/end-of-sprint.md for complete checklist
+
+# 3. Make atomic commits
+git add <files>
+git commit -m "type(scope): description"
+
+# 4. Sync and push
+git fetch origin
+git rebase origin/develop
+git push origin <branch>
+
+# 5. Create PR on GitHub
+```
+
+### Commit Convention
+Format: `type(scope): description`
+
+**Types**: `feat`, `fix`, `docs`, `test`, `refactor`, `chore`  
+**Scopes**: `scout`, `transformer`, `tester`, `validator`, `pheromone`, `guardrails`, `metrics`, `loop`, `thesis`
+
+**Examples**:
+- `feat(scout): implement AST pattern detection for print statements`
+- `fix(transformer): correct syntax in f-string conversion`
+- `test(pheromone): add unit tests for intensity decay logic`
+- `docs(thesis): update construction log for sprint 2026-02-10`
+
+### Documentation Updates
+Every sprint MUST update:
+- `documentation/construction_log.md` — Sprint summary, challenges, decisions
+- `AGENTS.md` — If architecture changes
+- `CLAUDE.md` — If workflow changes
+
+### Workflow Files
+- **Checklist**: `.agent/workflows/end-of-sprint.md` — Complete validation checklist
+- **Script**: `scripts/sprint_end.sh` — Automated validation (tests, linting, formatting)
+
 ## Update
 
 Always update AGENTS.md and CLAUDE.md when you make changes to the project. To stay updated with the latest changes, use the command `git log -1` to see the last commit message.

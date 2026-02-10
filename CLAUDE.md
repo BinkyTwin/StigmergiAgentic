@@ -206,5 +206,51 @@ Evaluation uses Pareto frontier analysis comparing stigmergic (4 agents) vs sing
 
 The specification documents in `consigne/` are written in French. Code, comments, and documentation should be in English.
 
+## End-of-Sprint Workflow
+
+When completing a sprint, agents MUST follow the structured workflow to ensure code quality and proper documentation:
+
+### Quick Start
+```bash
+# 1. Run automated validation
+./scripts/sprint_end.sh
+
+# 2. Review checklist
+# See .agent/workflows/end-of-sprint.md for complete checklist
+
+# 3. Make atomic commits
+git add <files>
+git commit -m "type(scope): description"
+
+# 4. Sync and push
+git fetch origin
+git rebase origin/develop
+git push origin <branch>
+
+# 5. Create PR on GitHub
+```
+
+### Commit Convention
+Format: `type(scope): description`
+
+**Types**: `feat`, `fix`, `docs`, `test`, `refactor`, `chore`  
+**Scopes**: `scout`, `transformer`, `tester`, `validator`, `pheromone`, `guardrails`, `metrics`, `loop`, `thesis`
+
+**Examples**:
+- `feat(scout): implement AST pattern detection for print statements`
+- `fix(transformer): correct syntax in f-string conversion`
+- `test(pheromone): add unit tests for intensity decay logic`
+- `docs(thesis): update construction log for sprint 2026-02-10`
+
+### Documentation Updates
+Every sprint MUST update:
+- `documentation/construction_log.md` — Sprint summary, challenges, decisions
+- `CLAUDE.md` — If project architecture or workflow changes
+- `AGENTS.md` — If architecture or commands change
+
+### Workflow Files
+- **Checklist**: `.agent/workflows/end-of-sprint.md` — Complete validation checklist
+- **Script**: `scripts/sprint_end.sh` — Automated validation (tests, linting, formatting)
+
 ## Update
 - Always update CLAUDE.md when you make changes to the project. To stay updated with the latest changes, use the command `git log -1` to see the last commit message.
