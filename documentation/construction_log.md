@@ -67,6 +67,47 @@ Chaque entrée suit ce format :
 
 ---
 
+### 2026-02-10 15:55 — Sprint 1 Environment Bootstrap and Core Medium
+
+**Assistant IA utilisé** : Codex (GPT-5.3 codex)
+
+**Objectif** : Implémenter Sprint 1 de bout en bout (environment store + decay + guardrails + tests) avec exécution standardisée via `uv` et Python 3.11
+
+**Actions effectuées** :
+- Création de la branche `codex/sprint1-environment`
+- Bootstrap de l'environnement local avec `uv` (`uv python install 3.11`, `uv venv`, `uv pip install -r requirements.txt`)
+- Création des modules `environment/decay.py`, `environment/guardrails.py`, `environment/pheromone_store.py`
+- Création de `stigmergy/config.yaml` avec la configuration complète section 4.9
+- Mise en place des tests Sprint 1 (`tests/test_pheromone_store.py`, `tests/test_guardrails.py`)
+- Ajout d'un bootstrap de path pour pytest (`tests/conftest.py`)
+- Validation locale des commandes de test via `uv run pytest` (deux exécutions reproductibles)
+- Mise à jour des guides `AGENTS.md` et `CLAUDE.md` pour inclure le workflow `uv`
+- Ajout d'un ADR Sprint 1 et mise à jour de l'index des ADRs
+
+**Décisions prises** :
+- Standardiser toutes les commandes Python/tests sur `uv run` pour reproductibilité locale
+- Implémenter un pheromone store JSON avec verrouillage POSIX (`fcntl.flock`) + audit trail append-only
+- Garder `requirements.txt` comme source de vérité Sprint 1 (pas de migration `pyproject.toml` à ce stade)
+
+**Problèmes rencontrés** :
+- `ModuleNotFoundError: environment` lors de la collecte pytest → Ajout de `tests/conftest.py` pour injecter la racine du repo dans `sys.path`
+
+**Résultat** : Sprint 1 implémenté et validé localement (tests verts)
+
+**Fichiers modifiés** :
+- `environment/pheromone_store.py` — CRUD JSON, query filters, locking, audit trail, decay
+- `environment/guardrails.py` — Budget guardrail, anti-loop, scope lock, TTL, trace stamping
+- `environment/decay.py` — Decay exponentiel/linéaire et inhibition gamma
+- `stigmergy/config.yaml` — Paramètres initiaux complets
+- `tests/test_pheromone_store.py` — Tests unitaires/intégration ciblée du store
+- `tests/test_guardrails.py` — Tests des contraintes guardrails
+- `tests/conftest.py` — Bootstrap import path pytest
+- `.gitignore` / `.env.example` / `requirements.txt` — Fichiers d'infrastructure Sprint 1
+- `AGENTS.md` / `CLAUDE.md` — Mise à jour des commandes en mode `uv`
+- `documentation/decisions/20260210-sprint1-environment-medium.md` — ADR Sprint 1
+
+---
+
 ## Instructions pour les Futures Entrées
 
 À chaque session de développement :

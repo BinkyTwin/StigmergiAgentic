@@ -194,6 +194,41 @@ results = llm.transform_batch(batch)
 
 ---
 
+## Sprint 1 Implementation Notes (2026-02-10)
+
+### Environment Runtime Standardization (`uv`)
+
+- Local runtime is pinned with `uv` + CPython 3.11 to match the project spec.
+- All validation commands are executed through `uv run` to avoid host Python drift.
+- `requirements.txt` remains the single source of truth for Sprint 1 dependency resolution.
+
+### Pheromone Store Reliability Pattern
+
+- JSON persistence is implemented with file-level locks (`fcntl.flock`) to avoid race corruption.
+- Each `write`/`update` appends an immutable event to `pheromones/audit_log.jsonl`.
+- Query operators support `eq`, `gt`, `gte`, `lt`, `lte`, `in` for deterministic selection.
+
+### Guardrails as Environment-Native Constraints
+
+- Token budget enforcement raises immediately when `total_tokens_used > max_tokens_total`.
+- Scope lock prevents cross-agent concurrent mutation on files in `in_progress`.
+- Zombie lock TTL requeues stale files (`in_progress` -> `pending`) with `retry_count += 1`.
+- Retry anti-loop marks entries as `skipped` once retry ceiling is exceeded.
+
+### Testability and Reproducibility
+
+- Sprint 1 includes focused tests for store CRUD/query/locking/decay and guardrails behavior.
+- Validation sequence was executed twice with identical pass results to check reproducibility.
+- A pytest path bootstrap (`tests/conftest.py`) was added to ensure stable local imports.
+
+### Resume FR (mémoire)
+
+- Le médium stigmergique est maintenant opérationnel de manière autonome (sans agents).
+- Les contraintes de gouvernance sont implémentées côté environnement (pas côté agents).
+- La traçabilité est démontrable via un journal append-only aligné avec RQ3.
+
+---
+
 ## Références Bibliographiques
 
 ### Stigmergie

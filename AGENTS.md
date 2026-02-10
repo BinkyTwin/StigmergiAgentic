@@ -59,27 +59,29 @@ documentation/    → Construction logs, decisions, and technical notes for thes
 ## Commands
 
 ```bash
-# Install dependencies
-pip install -r requirements.txt
+# Bootstrap environment with uv (recommended)
+uv python install 3.11
+uv venv --python 3.11 .venv
+uv pip install -r requirements.txt
 
 # Run the stigmergic POC
-python main.py --repo <python2_repo_url> --config stigmergy/config.yaml
+uv run python main.py --repo <python2_repo_url> --config stigmergy/config.yaml
 
 # Run tests
-pytest tests/ -v
+uv run pytest tests/ -v
 
 # Run a single test file
-pytest tests/test_pheromone_store.py -v
+uv run pytest tests/test_pheromone_store.py -v
 
 # Run baselines for comparison
-python baselines/single_agent.py --repo <url>
-python baselines/sequential.py --repo <url>
+uv run python baselines/single_agent.py --repo <url>
+uv run python baselines/sequential.py --repo <url>
 
 # Export metrics to CSV
-python metrics/export.py --output results.csv
+uv run python metrics/export.py --output results.csv
 
 # Generate Pareto cost-precision analysis
-python metrics/pareto.py --output pareto.png
+uv run python metrics/pareto.py --output pareto.png
 ```
 
 ## Tech Stack
@@ -87,7 +89,8 @@ python metrics/pareto.py --output pareto.png
 - **Python 3.11+**
 - **LLM Provider**: OpenRouter (pony-alpha for dev, Claude Sonnet/GPT-4o for results)
 - **Pheromone store**: local JSON files
-- **Testing**: pytest
+- **Tooling**: uv for Python/runtime orchestration
+- **Testing**: pytest + pytest-cov
 - **Versioning**: Git (local) — the stigmergic medium itself
 - **Config**: YAML (`stigmergy/config.yaml` — thresholds, decay rates, token budget)
 - **Metrics**: CSV + matplotlib (Pareto frontier analysis)
@@ -95,9 +98,10 @@ python metrics/pareto.py --output pareto.png
 ## Key Configuration (`stigmergy/config.yaml`)
 
 Critical thresholds that affect agent behavior:
-- `transformer_intensity_threshold: 0.3` — minimum task pheromone intensity to trigger transformation
-- `validator_confidence_threshold: 0.8` — auto-validate above, auto-rollback below 0.5, escalate between
-- `task_pheromone_decay: -0.05` — evaporation rate per tick
+- `thresholds.transformer_intensity_min: 0.2` — minimum task pheromone intensity to trigger transformation
+- `thresholds.validator_confidence_high: 0.8` — auto-validate above
+- `thresholds.validator_confidence_low: 0.5` — auto-rollback below
+- `pheromones.decay_rate: 0.05` — exponential evaporation rate per tick
 - `max_retry_count: 3` — anti-loop guardrail
 - `max_tokens_total: 100000` — budget ceiling
 

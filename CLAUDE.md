@@ -98,41 +98,43 @@ Required: `OPENROUTER_API_KEY` (set in `.env`, loaded by python-dotenv). See `.e
 ## Commands
 
 ```bash
-# Install dependencies
-pip install -r requirements.txt
+# Bootstrap environment with uv (recommended)
+uv python install 3.11
+uv venv --python 3.11 .venv
+uv pip install -r requirements.txt
 
 # Run the stigmergic POC
-python main.py --repo <python2_repo_url>
+uv run python main.py --repo <python2_repo_url>
 
 # Full CLI options
-python main.py --repo <url> --config stigmergy/config.yaml --max-ticks 50 \
+uv run python main.py --repo <url> --config stigmergy/config.yaml --max-ticks 50 \
   --max-tokens 100000 --model pony-alpha --output-dir metrics/output \
   --verbose --seed 42
 
 # Dry run (no Git writes)
-python main.py --repo <url> --dry-run
+uv run python main.py --repo <url> --dry-run
 
 # Resume interrupted migration
-python main.py --resume
+uv run python main.py --resume
 
 # Review needs_review files
-python main.py --review
+uv run python main.py --review
 
 # Run tests
-pytest tests/ -v
+uv run pytest tests/ -v
 
 # Run a single test file
-pytest tests/test_pheromone_store.py -v
+uv run pytest tests/test_pheromone_store.py -v
 
 # Run baselines for comparison
-python baselines/single_agent.py --repo <url>
-python baselines/sequential.py --repo <url>
+uv run python baselines/single_agent.py --repo <url>
+uv run python baselines/sequential.py --repo <url>
 
 # Export metrics to CSV
-python metrics/export.py --output results.csv
+uv run python metrics/export.py --output results.csv
 
 # Generate Pareto cost-precision analysis
-python metrics/pareto.py --output pareto.png
+uv run python metrics/pareto.py --output pareto.png
 ```
 
 ## Key Configuration (`stigmergy/config.yaml`)
@@ -182,6 +184,7 @@ Two streams: **operational** (Python `logging`, INFO/DEBUG, `logs/stigmergic.log
 - **Python 3.11+**
 - **LLM Provider**: OpenRouter (pony-alpha for dev, Claude Sonnet/GPT-4o for results)
 - **Pheromone store**: local JSON files with fcntl file locking
+- **Tooling**: uv for environment/bootstrap and command execution
 - **Testing**: pytest + pytest-cov
 - **Versioning**: Git (local) — the stigmergic medium itself
 - **Config**: YAML (`stigmergy/config.yaml`)

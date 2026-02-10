@@ -1,0 +1,45 @@
+# === Pheromones ===
+pheromones:
+  task_intensity_weights:
+    pattern_count: 0.6
+    dep_count: 0.4
+  task_intensity_clamp: [0.1, 1.0]
+  decay_type: "exponential"       # "exponential" or "linear"
+  decay_rate: 0.05                # rho for exponential decay
+  inhibition_decay_rate: 0.08     # k_gamma for inhibition
+  inhibition_threshold: 0.1       # gamma max for transformer resume
+
+# === Deep norms thresholds ===
+thresholds:
+  transformer_intensity_min: 0.2
+  validator_confidence_high: 0.8
+  validator_confidence_low: 0.5
+  max_retry_count: 3
+  scope_lock_ttl: 3
+
+# === LLM ===
+llm:
+  provider: "openrouter"
+  model: "pony-alpha"
+  temperature: 0.2
+  max_response_tokens: 4096
+  max_tokens_total: 100000
+  retry_attempts: 3
+  retry_backoff: [1, 2, 4]
+
+# === Loop ===
+loop:
+  max_ticks: 50
+  idle_cycles_to_stop: 2
+
+# === Git ===
+git:
+  shallow_clone: true
+  branch_prefix: "stigmergic-migration"
+  auto_push: false
+
+# === Metrics ===
+metrics:
+  output_dir: "metrics/output"
+  export_format: "csv"
+  pareto_plot: true

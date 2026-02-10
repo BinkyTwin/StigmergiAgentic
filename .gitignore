@@ -1,9 +1,9 @@
-# macOS
-.DS_Store
-.AppleDouble
-.LSOverride
+# Environment
+.env
+.env.local
+.venv/
 
-# Python
+# Python cache and artifacts
 __pycache__/
 *.py[cod]
 *$py.class
@@ -27,23 +27,31 @@ wheels/
 *.egg-info/
 .installed.cfg
 *.egg
+.pytest_cache/
 
-# IDEs
+# IDE
 .vscode/
 .idea/
 *.swp
 *.swo
 *~
 
-# Logs
-*.log
+# Runtime
+target_repo/
+pheromones/*.json
+pheromones/audit_log.jsonl
 logs/
 
-# Environment variables
-.env
-.env.local
+# Metrics output
+metrics/output/
 
 # Temporary files
 *.tmp
 *.bak
 *.cache
+
+# OS
+.DS_Store
+.AppleDouble
+.LSOverride
+Thumbs.db
