@@ -1,0 +1,33 @@
+# Index des ADRs (Architecture Decision Records)
+
+Cet index liste toutes les décisions architecturales prises durant le développement du POC.
+
+## Format de Nommage
+
+Les ADRs suivent le format : `YYYYMMDD-titre-court.md`
+
+## Liste des ADRs
+
+| # | Date | Titre | Statut | Décision |
+|---|------|-------|--------|----------|
+| 001 | 2026-02-09 | [Template ADR](TEMPLATE_ADR.md) | Accepté | Template de base pour tous les ADRs futurs |
+
+---
+
+## Instructions
+
+Quand créer un ADR :
+1. ✅ Choix d'architecture significatif (ex: structure des phéromones)
+2. ✅ Décision de configuration critique (ex: thresholds)
+3. ✅ Changement de dépendance majeure (ex: remplacer OpenRouter par un autre provider)
+4. ✅ Décision impactant les résultats de recherche (ex: méthode de calcul de Pareto)
+
+Quand NE PAS créer un ADR :
+1. ❌ Corrections de bugs simples
+2. ❌ Ajout de commentaires ou documentation
+3. ❌ Refactoring sans changement de comportement
+4. ❌ Mise à jour de dépendances mineures
+
+---
+
+**Dernière mise à jour** : 2026-02-09
