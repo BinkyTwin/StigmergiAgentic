@@ -22,7 +22,7 @@ Un systeme ou **4 agents LLM specialises** migrent automatiquement du code Pytho
 | **RQ2 — Performance** | La coordination stigmergique atteint ou depasse le baseline Agentless (Xia et al., 2024) sur un perimetre de migration Py2→Py3, avec un cout maitrise |
 | **RQ3 — Gouvernance** | Les traces environnementales permettent l'auditabilite complete (tracking + tracing au sens de Santoni de Sio & van den Hoven, 2018) |
 
-**Positionnement scientifique** : Ce POC est la premiere etude empirique appliquant la stigmergie de Grasse (1959) a la coordination d'agents LLM pour la migration de code. Les frameworks multi-agents existants reposent sur des superviseurs centraux (MetaGPT : SOPs hierarchiques, AutoGen : actor model avec routeur, CrewAI : delegation explicite, LangChain/LangGraph : graphes diriges). Notre approche elimine le superviseur au profit d'un medium environnemental (JSON + Git) qui est a la fois le canal de coordination et la trace d'audit. C'est un vide identifie dans la litterature : aucune etude existante n'applique la coordination stigmergique aux agents LLM.
+**Positionnement scientifique** : A notre connaissance, ce POC constitue la premiere etude empirique appliquant la stigmergie de Grasse (1959) a la coordination d'agents LLM pour la migration de code. Les frameworks multi-agents existants reposent sur des superviseurs centraux (MetaGPT : SOPs hierarchiques, AutoGen : actor model avec routeur, CrewAI : delegation explicite, LangChain/LangGraph : graphes diriges). Notre approche elimine le superviseur au profit d'un medium environnemental (JSON + Git) qui est a la fois le canal de coordination et la trace d'audit. Ce vide identifie dans la litterature motive la presente etude.
 
 ### 1.3 Architecture a 30 000 pieds
 
@@ -146,6 +146,8 @@ intensity_i = (S_i - S_min) / (S_max - S_min)
 - Cas degenere : si `S_max == S_min` → `intensity = 0.5` pour tous les fichiers
 - La normalisation se fait sur le batch complet du scan courant
 
+**Note sur l'ordre de migration** : la formule actuelle priorise les fichiers complexes (beaucoup de patterns + beaucoup de dependances). En pratique, les fichiers simples ("feuilles" du graphe d'import) seront traites en premier car le Transformer les prend pendant que les fichiers complexes sont encore en analyse par le Scout ou en attente. Cet ordre de migration est un **comportement emergent** a observer et documenter — c'est un resultat experimental, pas un parametre a forcer. Si l'experience montre que migrer les feuilles d'abord est systematiquement meilleur, on pourrait inverser le poids de `dep_count` (penalite au lieu de bonus) dans une iteration future.
+
 **Evaporation** : decay exponentiel (voir section 3.5)
 
 ### 3.2 Pheromones de STATUT (qualitatives)
@@ -257,12 +259,13 @@ Le decay exponentiel est plus fidele au modele biologique (Grasse, 1959) et offr
 Champ `γ` (gamma) dans les pheromones de statut, mecanisme anti-oscillation :
 
 ```
-γ^(t+1) = γ^t × e^(-k_γ)    ou k_γ = 0.02 (decay plus lent que les taches)
+γ^(t+1) = γ^t × e^(-k_γ)    ou k_γ = 0.08
 ```
 
 - Quand un fichier passe en `retry` : `γ += 0.5`
 - Le Transformer ne reprend un fichier que si `γ < 0.1` (inhibition dissipee)
-- Le decay de γ est plus lent (k_γ = 0.02 vs ρ = 0.05) : l'inhibition persiste plus longtemps que les taches
+- Avec `γ₀ = 0.5` et `k_γ = 0.08`, la reprise est possible apres ~20 ticks (`0.5 × e^(-0.08×20) ≈ 0.10`), compatible avec `max_ticks = 50`
+- **Justification du calibrage** : avec `k_γ = 0.02` (valeur initiale), il faudrait ~81 ticks pour dissiper l'inhibition — incompatible avec la limite de 50 ticks. La valeur `k_γ = 0.08` garantit qu'un fichier en retry a au moins une chance d'etre retente avant la fin de la boucle
 - Cela espace les re-tentatives et evite les oscillations rapides (`retry → pending → transformed → failed → retry`)
 
 ### 3.6 Historique et audit trail
@@ -322,7 +325,7 @@ Ce log satisfait **RQ3** (auditabilite complete) et les exigences de tracabilite
 | De | Vers | Agent | Condition | Effet sur les pheromones |
 |---|---|---|---|---|
 | (nouveau) | `pending` | Scout | Fichier .py detecte avec patterns Py2 | Cree tache + statut |
-| `pending` | `in_progress` | Transformer | `intensity > 0.3` ET `γ < 0.1` | Scope lock acquis |
+| `pending` | `in_progress` | Transformer | `intensity > 0.2` ET `γ < 0.1` | Scope lock acquis |
 | `in_progress` | `transformed` | Transformer | Transformation terminee | Code Py3 ecrit, tokens enregistres |
 | `transformed` | `tested` | Tester | Tests executes | Confidence calculee, issues enregistrees |
 | `tested` | `validated` | Validator | `confidence >= 0.8` | Git commit, `confidence += 0.1` |
@@ -336,6 +339,8 @@ Ce log satisfait **RQ3** (auditabilite complete) et les exigences de tracabilite
 - `retry_count` ne se remet **jamais** a zero — c'est un compteur monotone par fichier
 - `validated` et `skipped` sont des etats **terminaux** — le fichier ne revient jamais dans le pipeline
 - `needs_review` est un etat de **pause** — le fichier attend une intervention humaine (voir section 5.1)
+
+**TTL scope lock (prevention des zombies)** : si un fichier reste en `in_progress` pendant plus de `scope_lock_ttl` ticks (defaut : 3) sans mise a jour, le systeme considere l'agent comme mort et remet le fichier en `pending` avec `retry_count += 1`. Cela evite qu'un crash de l'agent Transformer bloque definitivement un fichier. Le TTL est verifie au debut de chaque tick, avant le decay.
 
 ---
 
@@ -432,6 +437,8 @@ La detection se fait en **deux phases** :
 | 18 | `metaclass_syntax` | `__metaclass__ = Meta` | `class C(metaclass=Meta)` | AST: attribution `__metaclass__` |
 | 19 | `future_imports` | (absent) | `from __future__ import ...` | Absence detectee |
 
+**Note sur le parsing** : le module `ast` de Python 3 ne peut pas parser certaines syntaxes Python 2 (`print "hello"`, `except E, e:`, `raise E, msg`). Pour ces cas, la Phase 1 s'appuie sur les regex. Le Scout doit journaliser la source de detection (`ast` ou `regex`) dans les pheromones de tache pour tracabilite. Si un fichier ne peut etre parse ni par AST ni par regex, le Scout le signale avec un log WARNING et le marque quand meme comme `pending` (le LLM Phase 2 tentera l'analyse).
+
 **Phase 2 — Analyse semantique (LLM)** : pour les cas ambigus que l'AST/regex ne peut pas resoudre (ex: `5 / 2` — division entiere ou flottante ?).
 
 **Dependencies** : detectees via `ast.Import` et `ast.ImportFrom`. Le `dep_count` d'un fichier = nombre de fichiers du projet qu'il importe.
@@ -441,7 +448,7 @@ La detection se fait en **deux phases** :
 | Propriete | Valeur |
 |---|---|
 | **Lit** | `tasks.json` (tri par intensite decroissante), `quality.json` (few-shot), `status.json` |
-| **Seuil d'activation** | `task.intensity > 0.3` ET `status == "pending"` ET `γ < 0.1` |
+| **Seuil d'activation** | `task.intensity > 0.2` ET `status == "pending"` ET `γ < 0.1` |
 | **Action** | Appel LLM pour generer le code Python 3 |
 | **Depose** | Code transforme + diff + statut `transformed` + tokens consommes |
 | **Utilise LLM** | Oui — generation de code |
@@ -623,15 +630,16 @@ pheromones:
   task_intensity_clamp: [0.1, 1.0]
   decay_type: "exponential"        # "exponential" ou "linear"
   decay_rate: 0.05                 # ρ pour decay exponentiel
-  inhibition_decay_rate: 0.02     # k_γ pour inhibition
+  inhibition_decay_rate: 0.08     # k_γ pour inhibition (calibre pour reprise en ~20 ticks)
   inhibition_threshold: 0.1       # γ max pour reprendre un fichier
 
 # === Seuils agents (normes profondes — Grisold et al., 2025) ===
 thresholds:
-  transformer_intensity_min: 0.3   # Intensite min pour activer Transformer
+  transformer_intensity_min: 0.2   # Intensite min pour activer Transformer (abaisse de 0.3 pour eviter la starvation)
   validator_confidence_high: 0.8   # Auto-validate au-dessus
   validator_confidence_low: 0.5    # Auto-rollback en-dessous
   max_retry_count: 3               # Anti-boucle
+  scope_lock_ttl: 3                # Ticks max en in_progress avant release (prevention zombies)
 
 # === LLM ===
 llm:
@@ -726,8 +734,9 @@ Les guardrails se repartissent en deux categories fondamentalement differentes :
 | **Budget tokens** | `if total_tokens > config.max_tokens: terminated = True` | Kapoor et al. (2024) |
 | **Anti-boucle** | `if retry_count > 3: status = "skipped"` | Cursor (2025) lecons apprises |
 | **Scope lock** | Un seul agent peut modifier un fichier a la fois (verrou) | Cursor (2025) |
+| **TTL scope lock** | Si `in_progress` depuis > 3 ticks sans update → retour `pending` + retry | Prevention zombies |
 | **Seuils de confiance** | 0.8 (validate), 0.5 (rollback), entre les deux (escalade) | Configurable |
-| **Seuil d'activation** | `intensity > 0.3` pour declencher le Transformer | Configurable |
+| **Seuil d'activation** | `intensity > 0.2` pour declencher le Transformer | Configurable |
 
 **Normes de surface** (emergentes, dans les pheromones, dynamiques) :
 
@@ -846,6 +855,9 @@ Deux flux de logs distincts :
 | `success_rate` | Ratio | `validated / total` |
 | `rollback_rate` | Ratio | `failed / (validated + failed)` |
 | `human_escalation_rate` | Ratio | `needs_review / total` |
+| `retry_resolution_rate` | Ratio | `retry_then_validated / retry_total` (efficacite des retries) |
+| `starvation_count` | Compteur | Fichiers avec `idle_ticks > 12` sans traitement (indicateur de famine) |
+| `audit_completeness` | Ratio | `events_with_full_trace / total_events` (qualite du trail RQ3) |
 
 ### 6.3 Comparaisons (baselines)
 
@@ -880,7 +892,28 @@ Pour que les comparaisons soient scientifiquement valides, toutes les configurat
 - Frontiere de Pareto tracee
 - Legende : couleur par configuration (stigmergique, single-agent, sequentiel)
 
-### 6.5 Analyse Pareto cout-precision
+### 6.5 Run manifest (reproductibilite)
+
+Chaque run exporte automatiquement un fichier `metrics/output/run_{id}_manifest.json` contenant toutes les informations necessaires pour reproduire l'experience :
+
+```json
+{
+  "run_id": "stigmergic_001",
+  "timestamp_utc": "2026-02-15T14:30:00Z",
+  "target_repo_commit": "abc123",
+  "config_hash": "sha256:...",
+  "prompt_bundle_hash": "sha256:...",
+  "model_provider": "openrouter",
+  "model_name": "pony-alpha",
+  "seed": 42,
+  "python_version": "3.11.5",
+  "dependency_lock_hash": "sha256:..."
+}
+```
+
+Ce manifest permet de verifier que deux runs comparees utilisent bien la meme configuration. Il est exporte en debut de run (avant le premier tick).
+
+### 6.6 Analyse Pareto cout-precision
 
 Pour chaque configuration : plot `(cout en tokens, taux de succes)` → identifier la frontiere de Pareto (Kapoor et al., 2024). Si stigmergique est sur la frontiere ou la domine, le mecanisme est justifie.
 

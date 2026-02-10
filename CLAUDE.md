@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Stigmergic orchestration of multi-agent LLM systems — a POC for a Master's thesis (EMLV). The system uses **4 specialized LLM agents** to automate Python 2 → Python 3 code migration, coordinated **only** through a shared environment (digital pheromones). No agent communicates directly with another; the environment (JSON pheromone files + Git repo) is the sole coordination medium.
 
-This implements Grasse's stigmergy (1959) via the Agents & Artifacts paradigm (Ricci et al., 2007). **This is the first empirical study applying stigmergic coordination to LLM agents** — existing multi-agent frameworks (MetaGPT, AutoGen, CrewAI, LangGraph) all rely on centralized supervisors.
+This implements Grasse's stigmergy (1959) via the Agents & Artifacts paradigm (Ricci et al., 2007). **To our knowledge, this is the first empirical study applying stigmergic coordination to LLM agents** — existing multi-agent frameworks (MetaGPT, AutoGen, CrewAI, LangGraph) all rely on centralized supervisors.
 
 ## Architecture
 
@@ -41,7 +41,7 @@ Transformer reading quality.json = **cognitive stigmergy** (Ricci et al., 2007):
 ### Pheromone Types (JSON files in `pheromones/`)
 
 - **tasks.json** — Task pheromones (Scout deposits). Intensity = min-max normalization: `S_i = pattern_count * 0.6 + dep_count * 0.4`, `intensity_i = (S_i - S_min) / (S_max - S_min)`, clamped to [0.1, 1.0]. Exponential decay: `intensity *= e^(-0.05)` per tick.
-- **status.json** — Status pheromones (all agents). State machine: `pending → in_progress → transformed → tested → validated | failed → retry | skipped`. Includes `inhibition` field (gamma) for anti-oscillation (Rodriguez, 2026): `gamma += 0.5` on retry, Transformer waits until `gamma < 0.1`.
+- **status.json** — Status pheromones (all agents). State machine: `pending → in_progress → transformed → tested → validated | failed → retry | skipped`. Includes `inhibition` field (gamma) for anti-oscillation (Rodriguez, 2026): `gamma += 0.5` on retry, Transformer waits until `gamma < 0.1`. TTL scope lock: `in_progress` > 3 ticks without update → back to `pending` (zombie prevention).
 - **quality.json** — Quality pheromones (Tester/Validator). Initial confidence = `tests_passed / tests_total` (0.5 if no tests). Reinforcement: pass → `+0.1`; fail → `-0.2` + retry. Coverage via pytest-cov (informational).
 - **audit_log.jsonl** — Append-only JSONL audit trail. Every pheromone write logged with agent, timestamp, before/after values. Satisfies RQ3 (EU AI Act Art. 14).
 
@@ -66,7 +66,7 @@ Enforced by the environment, not by agents. Taxonomy from Grisold et al. (2025):
 - **Traceability**: timestamped, agent-signed writes (EU AI Act Art. 14)
 - **Token budget**: hard ceiling from config
 - **Anti-loop**: `retry_count > 3` → skip + log
-- **Scope lock**: one agent per file (mutex)
+- **Scope lock**: one agent per file (mutex) + TTL (3 ticks) for zombie prevention
 - **Confidence thresholds**: 0.8 (validate), 0.5 (rollback), between → escalate
 
 **Surface norms** (emergent, in pheromones):
@@ -141,15 +141,16 @@ python metrics/pareto.py --output pareto.png
 pheromones:
   decay_type: "exponential"          # or "linear"
   decay_rate: 0.05                   # rho for exponential decay
-  inhibition_decay_rate: 0.02        # k_gamma (slower than task decay)
+  inhibition_decay_rate: 0.08         # k_gamma (calibrated for ~20 tick recovery)
   inhibition_threshold: 0.1          # gamma max to resume file
   task_intensity_clamp: [0.1, 1.0]
 
 thresholds:
-  transformer_intensity_min: 0.3
+  transformer_intensity_min: 0.2     # lowered from 0.3 to prevent starvation
   validator_confidence_high: 0.8
   validator_confidence_low: 0.5
   max_retry_count: 3
+  scope_lock_ttl: 3                  # ticks before releasing zombie in_progress
 
 llm:
   model: "pony-alpha"
@@ -196,7 +197,7 @@ The POC validates three research questions:
 
 Evaluation uses Pareto frontier analysis comparing stigmergic (4 agents) vs single-agent vs sequential pipeline. **Baseline fairness** (Kapoor et al., 2024; Gao et al., 2025): same LLM model, same temperature (0.2), same prompt templates, same guardrails, same test repo, >= 5 runs per config, confidence intervals on all metrics.
 
-**Scientific novelty**: first POC applying Grasse's stigmergy (1959) to LLM agent coordination. No existing framework uses decentralized environmental coordination — all rely on supervisors or direct messaging.
+**Scientific novelty**: to our knowledge, first POC applying Grasse's stigmergy (1959) to LLM agent coordination. No existing framework uses decentralized environmental coordination — all rely on supervisors or direct messaging.
 
 ## Language
 
