@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Stigmergic orchestration of multi-agent LLM systems — a POC for a Master's thesis (EMLV). The system uses **4 specialized LLM agents** to automate Python 2 → Python 3 code migration, coordinated **only** through a shared environment (digital pheromones). No agent communicates directly with another; the environment (JSON pheromone files + Git repo) is the sole coordination medium.
 
-This implements Grassé's stigmergy (1959) via the Agents & Artifacts paradigm (Ricci et al., 2007).
+This implements Grasse's stigmergy (1959) via the Agents & Artifacts paradigm (Ricci et al., 2007). **This is the first empirical study applying stigmergic coordination to LLM agents** — existing multi-agent frameworks (MetaGPT, AutoGen, CrewAI, LangGraph) all rely on centralized supervisors.
 
 ## Architecture
 
@@ -14,32 +14,68 @@ This implements Grassé's stigmergy (1959) via the Agents & Artifacts paradigm (
 
 Round-robin (no supervisor): Scout → Transformer → Tester → Validator → repeat. Each agent: `perceive → should_act → decide → execute → deposit`. The deposited trace stimulates the next agent.
 
+**Stop conditions** (OR): all files terminal, token budget exhausted, max ticks (50), or 2 consecutive idle cycles.
+
 ### Agents
 
 | Agent | Role | Uses LLM? |
 |---|---|---|
-| **Scout** | Analyzes Python 2 codebase, deposits task pheromones with priority | Yes |
-| **Transformer** | Reads task pheromones, generates Python 3 code | Yes |
+| **Scout** | Analyzes Python 2 codebase (19 patterns), deposits task pheromones with priority | Yes |
+| **Transformer** | Reads task pheromones, generates Python 3 code with stigmergic few-shot learning | Yes |
 | **Tester** | Runs pytest on transformed files, deposits quality pheromones | No (deterministic) |
 | **Validator** | Commits/reverts/escalates based on confidence thresholds | No |
 
 All agents inherit from `agents/base_agent.py` (abstract class with the perceive→deposit cycle).
 
-### Three Pheromone Types (JSON files in `pheromones/`)
+**Locality permissions** (Heylighen, 2016; Ricci et al., 2007):
 
-- **tasks.json** — Task pheromones (Scout deposits). Intensity = `normalize(pattern_count × 0.6 + dep_count × 0.4)`. Evaporation: -0.05/tick.
-- **status.json** — Status pheromones (all agents). State machine: `pending → in_progress → transformed → tested → validated | failed → retry`.
-- **quality.json** — Quality pheromones (Tester/Validator). Reinforcement: pass → `confidence += 0.1`; fail → `confidence -= 0.2` + retry.
+| Agent | Reads | Writes |
+|---|---|---|
+| **Scout** | `.py` files in target_repo, status.json | tasks.json, status.json (`pending`) |
+| **Transformer** | tasks.json (by intensity), quality.json (few-shot), status.json | `.py` files, status.json (`in_progress`, `transformed`) |
+| **Tester** | status.json (`transformed`), `.py` files | quality.json, status.json (`tested`) |
+| **Validator** | quality.json, status.json (`tested`) | status.json (terminal states), Git ops |
+
+Transformer reading quality.json = **cognitive stigmergy** (Ricci et al., 2007): reading environmental traces, not direct communication.
+
+### Pheromone Types (JSON files in `pheromones/`)
+
+- **tasks.json** — Task pheromones (Scout deposits). Intensity = min-max normalization: `S_i = pattern_count * 0.6 + dep_count * 0.4`, `intensity_i = (S_i - S_min) / (S_max - S_min)`, clamped to [0.1, 1.0]. Exponential decay: `intensity *= e^(-0.05)` per tick.
+- **status.json** — Status pheromones (all agents). State machine: `pending → in_progress → transformed → tested → validated | failed → retry | skipped`. Includes `inhibition` field (gamma) for anti-oscillation (Rodriguez, 2026): `gamma += 0.5` on retry, Transformer waits until `gamma < 0.1`.
+- **quality.json** — Quality pheromones (Tester/Validator). Initial confidence = `tests_passed / tests_total` (0.5 if no tests). Reinforcement: pass → `+0.1`; fail → `-0.2` + retry. Coverage via pytest-cov (informational).
+- **audit_log.jsonl** — Append-only JSONL audit trail. Every pheromone write logged with agent, timestamp, before/after values. Satisfies RQ3 (EU AI Act Art. 14).
+
+### Pheromone Store API
+
+Class `PheromoneStore` in `environment/pheromone_store.py`. 6 methods: `read_all`, `read_one`, `query`, `write`, `update`, `apply_decay`. JSON dicts keyed by filename. File locking via `fcntl.flock`. Write path enforces: auto-timestamp, agent signature, scope lock check, audit log append.
+
+Pheromone files are **artifacts** (Ricci et al., 2007): inspectable (agents read state), controllable (agents modify via guardrails), composable (tasks → status → quality reference chain).
+
+### Git Strategy
+
+- Clone: `git clone --depth 1 {url}`, branch: `stigmergic-migration-{timestamp}`
+- Only Validator commits: `[stigmergic] Migrate {file} to Python 3 (confidence={conf})`
+- Rollback: `git checkout HEAD -- {filepath}`
+- No auto-push (local only)
 
 ### Guardrails (`environment/guardrails.py`)
 
-Enforced by the environment, not by agents:
+Enforced by the environment, not by agents. Taxonomy from Grisold et al. (2025):
+
+**Deep norms** (stable, in config.yaml):
 - **Traceability**: timestamped, agent-signed writes (EU AI Act Art. 14)
 - **Token budget**: hard ceiling from config
-- **Auto-rollback**: `tests_failed > threshold` → git revert
-- **Human escalation**: `0.5 < confidence < 0.8` → needs_review
 - **Anti-loop**: `retry_count > 3` → skip + log
 - **Scope lock**: one agent per file (mutex)
+- **Confidence thresholds**: 0.8 (validate), 0.5 (rollback), between → escalate
+
+**Surface norms** (emergent, in pheromones):
+- Task intensity (evolves with decay)
+- File confidence (evolves with test results)
+- Inhibition gamma (evolves with retries)
+- Auto-rollback (confidence < 0.5 → git revert)
+
+**Human escalation**: `needs_review` files are skipped by the loop. CLI `--review` mode lets humans resolve them. MVP: manual edit of status.json.
 
 ## Project Structure
 
@@ -47,13 +83,17 @@ Enforced by the environment, not by agents:
 agents/           → 4 specialized agents + base_agent.py
 environment/      → pheromone_store.py, guardrails.py, decay.py
 stigmergy/        → loop.py (main loop), config.yaml, llm_client.py (OpenRouter)
-pheromones/       → tasks.json, status.json, quality.json (runtime trace store)
+pheromones/       → tasks.json, status.json, quality.json, audit_log.jsonl
 metrics/          → collector.py, pareto.py, export.py
 baselines/        → single_agent.py, sequential.py (comparison experiments)
 target_repo/      → Python 2 code under migration (cloned dynamically)
 tests/            → pytest test suite
 consigne/         → Architecture plan and literature review (specification docs)
 ```
+
+## Environment Variables
+
+Required: `OPENROUTER_API_KEY` (set in `.env`, loaded by python-dotenv). See `.env.example`.
 
 ## Commands
 
@@ -62,7 +102,21 @@ consigne/         → Architecture plan and literature review (specification doc
 pip install -r requirements.txt
 
 # Run the stigmergic POC
-python main.py --repo <python2_repo_url> --config stigmergy/config.yaml
+python main.py --repo <python2_repo_url>
+
+# Full CLI options
+python main.py --repo <url> --config stigmergy/config.yaml --max-ticks 50 \
+  --max-tokens 100000 --model pony-alpha --output-dir metrics/output \
+  --verbose --seed 42
+
+# Dry run (no Git writes)
+python main.py --repo <url> --dry-run
+
+# Resume interrupted migration
+python main.py --resume
+
+# Review needs_review files
+python main.py --review
 
 # Run tests
 pytest tests/ -v
@@ -81,24 +135,57 @@ python metrics/export.py --output results.csv
 python metrics/pareto.py --output pareto.png
 ```
 
+## Key Configuration (`stigmergy/config.yaml`)
+
+```yaml
+pheromones:
+  decay_type: "exponential"          # or "linear"
+  decay_rate: 0.05                   # rho for exponential decay
+  inhibition_decay_rate: 0.02        # k_gamma (slower than task decay)
+  inhibition_threshold: 0.1          # gamma max to resume file
+  task_intensity_clamp: [0.1, 1.0]
+
+thresholds:
+  transformer_intensity_min: 0.3
+  validator_confidence_high: 0.8
+  validator_confidence_low: 0.5
+  max_retry_count: 3
+
+llm:
+  model: "pony-alpha"
+  temperature: 0.2
+  max_response_tokens: 4096
+  max_tokens_total: 100000
+
+loop:
+  max_ticks: 50
+  idle_cycles_to_stop: 2
+```
+
+## Error Handling
+
+Two categories: **file errors** (non-fatal, file fails but loop continues — e.g., parse errors, LLM timeout, pytest crash) and **system errors** (fatal, save state and terminate — e.g., invalid API key, budget exhausted, corrupted JSON). Pheromone state is always saved before termination via file locking.
+
+## Logging
+
+Two streams: **operational** (Python `logging`, INFO/DEBUG, `logs/stigmergic.log`) for agent activity and metrics, and **audit** (JSONL append-only, `pheromones/audit_log.jsonl`) for every pheromone modification with before/after values (satisfies RQ3).
+
+## Testing
+
+- **9 unit tests** (mocked LLM): pheromone CRUD, locking, decay, inhibition, normalization, pattern detection, prompt building, guardrails, state transitions
+- **4 integration tests** (real pheromone store): scout→transformer, transformer→tester, tester→validator, full single-file cycle
+- **1 E2E test** (real API calls): complete migration of synthetic repo (~15 files, 19 Py2 patterns)
+
 ## Tech Stack
 
 - **Python 3.11+**
 - **LLM Provider**: OpenRouter (pony-alpha for dev, Claude Sonnet/GPT-4o for results)
-- **Pheromone store**: local JSON files
-- **Testing**: pytest
+- **Pheromone store**: local JSON files with fcntl file locking
+- **Testing**: pytest + pytest-cov
 - **Versioning**: Git (local) — the stigmergic medium itself
-- **Config**: YAML (`stigmergy/config.yaml` — thresholds, decay rates, token budget)
+- **Config**: YAML (`stigmergy/config.yaml`)
 - **Metrics**: CSV + matplotlib (Pareto frontier analysis)
-
-## Key Configuration (`stigmergy/config.yaml`)
-
-Critical thresholds that affect agent behavior:
-- `transformer_intensity_threshold: 0.3` — minimum task pheromone intensity to trigger transformation
-- `validator_confidence_threshold: 0.8` — auto-validate above, auto-rollback below 0.5, escalate between
-- `task_pheromone_decay: -0.05` — evaporation rate per tick
-- `max_retry_count: 3` — anti-loop guardrail
-- `max_tokens_total: 100000` — budget ceiling
+- **Env vars**: python-dotenv
 
 ## Research Context
 
@@ -107,7 +194,9 @@ The POC validates three research questions:
 - **RQ2**: Does stigmergic coordination match/exceed Agentless baseline (Xia et al., 2024)?
 - **RQ3**: Do environmental traces enable complete auditability (EU AI Act compliance)?
 
-Evaluation uses Pareto frontier analysis comparing stigmergic (4 agents) vs single-agent vs sequential pipeline vs hierarchical baselines. Minimum 5 runs per configuration for stochastic variability.
+Evaluation uses Pareto frontier analysis comparing stigmergic (4 agents) vs single-agent vs sequential pipeline. **Baseline fairness** (Kapoor et al., 2024; Gao et al., 2025): same LLM model, same temperature (0.2), same prompt templates, same guardrails, same test repo, >= 5 runs per config, confidence intervals on all metrics.
+
+**Scientific novelty**: first POC applying Grasse's stigmergy (1959) to LLM agent coordination. No existing framework uses decentralized environmental coordination — all rely on supervisors or direct messaging.
 
 ## Language
 
@@ -115,4 +204,3 @@ The specification documents in `consigne/` are written in French. Code, comments
 
 ## Update
 - Always update CLAUDE.md when you make changes to the project. To stay updated with the latest changes, use the command `git log -1` to see the last commit message.
-
