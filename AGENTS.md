@@ -25,6 +25,14 @@ Round-robin (no supervisor): Scout → Transformer → Tester → Validator → 
 
 All agents inherit from `agents/base_agent.py` (abstract class with the perceive→deposit cycle).
 
+### Implementation Status (2026-02-11)
+
+Sprint 2 is implemented:
+- `stigmergy/llm_client.py` provides OpenRouter calls with retry, token counting, and budget checks.
+- `agents/scout.py`, `agents/transformer.py`, `agents/tester.py`, `agents/validator.py` are implemented and validated in isolation.
+- `tests/fixtures/synthetic_py2_repo/` provides the versioned synthetic Python 2 fixture repository.
+- Agent handoff integration tests are available in `tests/test_agents_integration.py`.
+
 ### Three Pheromone Types (JSON files in `pheromones/`)
 
 - **tasks.json** — Task pheromones (Scout deposits). Intensity = `normalize(pattern_count × 0.6 + dep_count × 0.4)`. Evaporation: -0.05/tick.
@@ -73,6 +81,13 @@ uv run pytest tests/ -v
 # Run a single test file
 uv run pytest tests/test_pheromone_store.py -v
 
+# Run Sprint 2 agent tests
+uv run pytest tests/test_llm_client.py tests/test_base_agent.py tests/test_scout.py \
+  tests/test_transformer.py tests/test_tester.py tests/test_validator.py -v
+
+# Run Sprint 2 handoff integration tests
+uv run pytest tests/test_agents_integration.py -v
+
 # Run baselines for comparison
 uv run python baselines/single_agent.py --repo <url>
 uv run python baselines/sequential.py --repo <url>
@@ -87,7 +102,7 @@ uv run python metrics/pareto.py --output pareto.png
 ## Tech Stack
 
 - **Python 3.11+**
-- **LLM Provider**: OpenRouter (pony-alpha for dev, Claude Sonnet/GPT-4o for results)
+- **LLM Provider**: OpenRouter (qwen/qwen3-235b-a22b-2507 for dev, Claude Sonnet/GPT-4o for results)
 - **Pheromone store**: local JSON files
 - **Tooling**: uv for Python/runtime orchestration
 - **Testing**: pytest + pytest-cov

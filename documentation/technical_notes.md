@@ -229,6 +229,63 @@ results = llm.transform_batch(batch)
 
 ---
 
+## Sprint 2 Implementation Notes (2026-02-11)
+
+### Agent Runtime Contract
+
+- `BaseAgent` now enforces the shared lifecycle: `perceive -> should_act -> decide -> execute -> deposit`.
+- `run()` returns a deterministic boolean signal (`True` acted, `False` idle), simplifying loop-level stop conditions for Sprint 3.
+- Agent logs are standardized with `[agent_name]` context.
+
+### Scout Detection Strategy
+
+- Pattern detection uses a hybrid pass:
+  - AST pass when file parsing is possible
+  - Regex fallback for Python 2-only syntax that Python 3 AST cannot parse
+- Each detection carries explicit provenance (`source = ast | regex | llm`) in task pheromones for auditability.
+- Task intensity is normalized batch-wise with min-max and clamped to config bounds.
+
+### Transformer Prompting and Selection
+
+- Candidate selection follows environmental constraints only:
+  - `status = pending`
+  - `task.intensity > transformer_intensity_min`
+  - `inhibition < inhibition_threshold`
+- Prompt assembly includes:
+  - task patterns from `tasks.json`
+  - up to 3 validated examples (`confidence >= 0.8`) with overlapping patterns
+  - retry context from prior quality issues when available
+- Status transitions implemented as: `pending -> in_progress -> transformed | failed`.
+
+### Tester Confidence Model
+
+- Test discovery order:
+  1. `tests/test_<module>.py`
+  2. `test_<module>.py` next to source file
+  3. fallback `py_compile + import`
+- Confidence computation:
+  - `tests_passed / tests_total` when tests are discovered
+  - neutral `0.5` when no test exists (fallback success)
+- Coverage is collected when pytest path is used and stored as informational metadata.
+
+### Validator Decisioning and Git Operations
+
+- Confidence thresholds in config now drive terminal routing:
+  - `>= 0.8` -> `validated` + commit + `confidence += 0.1`
+  - `[0.5, 0.8)` -> `needs_review`
+  - `< 0.5` -> rollback + `confidence -= 0.2` + `retry|skipped`
+- Rollback uses file-scoped checkout to preserve unrelated changes in repository state.
+
+### Test Harness and Fixture Isolation
+
+- Added Sprint 2 test suite:
+  - unit tests for `LLMClient`, `BaseAgent`, each specialized agent
+  - integration tests for all required handoffs + full one-file cycle
+- Added fixture repository `tests/fixtures/synthetic_py2_repo/` with all 19 Python 2 patterns represented.
+- Fixture subtree is explicitly ignored from project-level pytest collection to avoid accidental execution as part of core tests.
+
+---
+
 ## Références Bibliographiques
 
 ### Stigmergie

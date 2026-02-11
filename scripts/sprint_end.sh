@@ -70,7 +70,7 @@ uv run pytest tests/ --cov --cov-report=term-missing --no-cov-on-fail || {
 # 3. Linting avec ruff
 print_step "3️⃣  Vérification du code avec Ruff"
 if command -v ruff &> /dev/null; then
-    if ruff check . --fix; then
+    if ruff check . --fix --exclude tests/fixtures; then
         print_success "Code conforme aux standards (auto-corrections appliquées)"
     else
         print_warning "Des warnings Ruff persistent, revue manuelle recommandée"
@@ -82,7 +82,7 @@ fi
 # 4. Formatage avec black
 print_step "4️⃣  Formatage du code avec Black"
 if command -v black &> /dev/null; then
-    black . --quiet
+    black . --quiet --exclude '/tests/fixtures/'
     print_success "Code formaté avec Black"
 else
     print_warning "Black non installé, skipping. Installez avec: uv pip install black"

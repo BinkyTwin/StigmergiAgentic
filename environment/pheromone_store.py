@@ -163,7 +163,9 @@ class PheromoneStore:
                 payload = self._load_json_from_handle(handle)
 
                 for file_key, entry in payload.items():
-                    status_value = status_data.get(file_key, {}).get("status", "pending")
+                    status_value = status_data.get(file_key, {}).get(
+                        "status", "pending"
+                    )
                     if status_value not in {"pending", "retry"}:
                         continue
 
@@ -254,7 +256,9 @@ class PheromoneStore:
                 f"Expected one of: {', '.join(self.file_paths.keys())}"
             )
 
-    def _enforce_scope_lock(self, pheromone_type: str, file_key: str, agent_id: str) -> None:
+    def _enforce_scope_lock(
+        self, pheromone_type: str, file_key: str, agent_id: str
+    ) -> None:
         if pheromone_type == "status":
             status_entry = self.read_one("status", file_key)
         else:
@@ -356,17 +360,27 @@ class PheromoneStore:
     ) -> bool:
         for filter_name, expected_value in filters.items():
             field_name, operator = self._parse_filter(filter_name)
-            current_value = file_key if field_name == "file_key" else entry.get(field_name)
+            current_value = (
+                file_key if field_name == "file_key" else entry.get(field_name)
+            )
 
             if operator == "eq" and current_value != expected_value:
                 return False
-            if operator == "gt" and not self._compare_numeric(current_value, expected_value, op="gt"):
+            if operator == "gt" and not self._compare_numeric(
+                current_value, expected_value, op="gt"
+            ):
                 return False
-            if operator == "gte" and not self._compare_numeric(current_value, expected_value, op="gte"):
+            if operator == "gte" and not self._compare_numeric(
+                current_value, expected_value, op="gte"
+            ):
                 return False
-            if operator == "lt" and not self._compare_numeric(current_value, expected_value, op="lt"):
+            if operator == "lt" and not self._compare_numeric(
+                current_value, expected_value, op="lt"
+            ):
                 return False
-            if operator == "lte" and not self._compare_numeric(current_value, expected_value, op="lte"):
+            if operator == "lte" and not self._compare_numeric(
+                current_value, expected_value, op="lte"
+            ):
                 return False
             if operator == "in" and current_value not in expected_value:
                 return False
@@ -379,7 +393,9 @@ class PheromoneStore:
         field_name, operator = filter_name.rsplit("__", 1)
         return field_name, operator
 
-    def _compare_numeric(self, current_value: Any, expected_value: Any, op: str) -> bool:
+    def _compare_numeric(
+        self, current_value: Any, expected_value: Any, op: str
+    ) -> bool:
         if not isinstance(current_value, (int, float)):
             return False
 

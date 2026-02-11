@@ -19,3 +19,8 @@
 - Bootstrap with `uv` and pinned Python 3.11.
 - Use `uv run` for all python/test commands.
 - Keep dependency source of truth in `requirements.txt` for current sprint.
+
+### Agent Handoff Validation Standard
+- Validate each specialized agent in isolation before enabling chained handoffs.
+- Use pheromone state transitions as the single integration contract across agents.
+- Keep one optional `live_api` smoke test separate from blocking acceptance to preserve deterministic local runs.

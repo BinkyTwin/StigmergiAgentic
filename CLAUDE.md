@@ -38,6 +38,14 @@ All agents inherit from `agents/base_agent.py` (abstract class with the perceive
 
 Transformer reading quality.json = **cognitive stigmergy** (Ricci et al., 2007): reading environmental traces, not direct communication.
 
+### Implementation Status (2026-02-11)
+
+Sprint 2 has been implemented and validated locally:
+- `stigmergy/llm_client.py` is available with OpenRouter retry/backoff, budget gating, and token accounting.
+- `agents/base_agent.py` and all specialized agents are implemented.
+- A versioned synthetic Python 2 fixture repo exists at `tests/fixtures/synthetic_py2_repo/`.
+- Unit and integration test coverage for Sprint 2 flows is implemented in `tests/test_*`.
+
 ### Pheromone Types (JSON files in `pheromones/`)
 
 - **tasks.json** — Task pheromones (Scout deposits). Intensity = min-max normalization: `S_i = pattern_count * 0.6 + dep_count * 0.4`, `intensity_i = (S_i - S_min) / (S_max - S_min)`, clamped to [0.1, 1.0]. Exponential decay: `intensity *= e^(-0.05)` per tick.
@@ -108,7 +116,7 @@ uv run python main.py --repo <python2_repo_url>
 
 # Full CLI options
 uv run python main.py --repo <url> --config stigmergy/config.yaml --max-ticks 50 \
-  --max-tokens 100000 --model pony-alpha --output-dir metrics/output \
+  --max-tokens 100000 --model qwen/qwen3-235b-a22b-2507 --output-dir metrics/output \
   --verbose --seed 42
 
 # Dry run (no Git writes)
@@ -125,6 +133,13 @@ uv run pytest tests/ -v
 
 # Run a single test file
 uv run pytest tests/test_pheromone_store.py -v
+
+# Run Sprint 2 unit tests
+uv run pytest tests/test_llm_client.py tests/test_base_agent.py tests/test_scout.py \
+  tests/test_transformer.py tests/test_tester.py tests/test_validator.py -v
+
+# Run Sprint 2 integration handoffs
+uv run pytest tests/test_agents_integration.py -v
 
 # Run baselines for comparison
 uv run python baselines/single_agent.py --repo <url>
@@ -155,7 +170,7 @@ thresholds:
   scope_lock_ttl: 3                  # ticks before releasing zombie in_progress
 
 llm:
-  model: "pony-alpha"
+  model: "qwen/qwen3-235b-a22b-2507"
   temperature: 0.2
   max_response_tokens: 4096
   max_tokens_total: 100000
@@ -182,7 +197,7 @@ Two streams: **operational** (Python `logging`, INFO/DEBUG, `logs/stigmergic.log
 ## Tech Stack
 
 - **Python 3.11+**
-- **LLM Provider**: OpenRouter (pony-alpha for dev, Claude Sonnet/GPT-4o for results)
+- **LLM Provider**: OpenRouter (qwen/qwen3-235b-a22b-2507 for dev, Claude Sonnet/GPT-4o for results)
 - **Pheromone store**: local JSON files with fcntl file locking
 - **Tooling**: uv for environment/bootstrap and command execution
 - **Testing**: pytest + pytest-cov
