@@ -25,6 +25,17 @@ Round-robin (no supervisor): Scout → Transformer → Tester → Validator → 
 
 All agents inherit from `agents/base_agent.py` (abstract class with the perceive→deposit cycle).
 
+### Implementation Status (2026-02-12)
+
+Sprint 2.5 is implemented:
+- `stigmergy/llm_client.py` provides OpenRouter calls with retry, token counting, and budget checks.
+- `agents/scout.py`, `agents/transformer.py`, `agents/tester.py`, `agents/validator.py` are implemented and validated in isolation.
+- Transformer candidate selection accepts both `pending` and `retry` status entries (with inhibition threshold filtering).
+- `tests/fixtures/synthetic_py2_repo/` provides the versioned synthetic Python 2 fixture repository.
+- Agent handoff integration tests are available in `tests/test_agents_integration.py`.
+- Live API smoke test is opt-in only via `RUN_LIVE_API=1`.
+- Docker infrastructure (`Dockerfile`, `docker-compose.yml`, `Makefile`) provides reproducible containerized execution.
+
 ### Three Pheromone Types (JSON files in `pheromones/`)
 
 - **tasks.json** — Task pheromones (Scout deposits). Intensity = `normalize(pattern_count × 0.6 + dep_count × 0.4)`. Evaporation: -0.05/tick.
@@ -58,6 +69,8 @@ documentation/    → Construction logs, decisions, and technical notes for thes
 
 ## Commands
 
+### Local (uv)
+
 ```bash
 # Bootstrap environment with uv (recommended)
 uv python install 3.11
@@ -73,6 +86,13 @@ uv run pytest tests/ -v
 # Run a single test file
 uv run pytest tests/test_pheromone_store.py -v
 
+# Run Sprint 2 agent tests
+uv run pytest tests/test_llm_client.py tests/test_base_agent.py tests/test_scout.py \
+  tests/test_transformer.py tests/test_tester.py tests/test_validator.py -v
+
+# Run Sprint 2 handoff integration tests
+uv run pytest tests/test_agents_integration.py -v
+
 # Run baselines for comparison
 uv run python baselines/single_agent.py --repo <url>
 uv run python baselines/sequential.py --repo <url>
@@ -84,10 +104,30 @@ uv run python metrics/export.py --output results.csv
 uv run python metrics/pareto.py --output pareto.png
 ```
 
+### Docker (Sprint 2.5)
+
+```bash
+# Build the Docker image
+make docker-build
+
+# Run full test suite in Docker
+make docker-test
+# or: docker compose run --rm test
+
+# Run tests with coverage in Docker
+make docker-test-cov
+
+# Run migration in Docker
+make docker-migrate REPO=<python2_repo_url>
+
+# Interactive shell in Docker container
+make docker-shell
+```
+
 ## Tech Stack
 
 - **Python 3.11+**
-- **LLM Provider**: OpenRouter (pony-alpha for dev, Claude Sonnet/GPT-4o for results)
+- **LLM Provider**: OpenRouter (qwen/qwen3-235b-a22b-2507 for dev, Claude Sonnet/GPT-4o for results)
 - **Pheromone store**: local JSON files
 - **Tooling**: uv for Python/runtime orchestration
 - **Testing**: pytest + pytest-cov

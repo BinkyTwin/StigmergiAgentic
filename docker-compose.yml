@@ -1,0 +1,55 @@
+# =============================================================================
+# StigmergiAgentic — Docker Compose services
+# Sprint 2.5 — Containerized test & migration execution
+# =============================================================================
+#
+# Usage:
+#   docker compose run --rm test              # Run full test suite
+#   docker compose run --rm test-cov          # Tests + coverage report
+#   docker compose run --rm migrate           # Run migration (requires REPO)
+#   docker compose run --rm shell             # Interactive shell
+#
+
+services:
+  # ---- Test runner (default) ----
+  test:
+    build: .
+    command: [ "pytest", "tests/", "-v" ]
+    env_file:
+      - .env
+    volumes:
+      - ./pheromones:/app/pheromones
+
+  # ---- Test runner with coverage ----
+  test-cov:
+    build: .
+    command: [ "pytest", "tests/", "--cov", "--cov-report=term-missing", "-v" ]
+    env_file:
+      - .env
+    volumes:
+      - ./pheromones:/app/pheromones
+
+  # ---- Migration runner ----
+  migrate:
+    build: .
+    command: >
+      python main.py
+        --repo ${REPO:-https://github.com/example/py2-repo}
+        --config stigmergy/config.yaml
+    env_file:
+      - .env
+    volumes:
+      - ./pheromones:/app/pheromones
+      - ./target_repo:/app/target_repo
+      - ./metrics/output:/app/metrics/output
+
+  # ---- Interactive shell ----
+  shell:
+    build: .
+    command: [ "/bin/bash" ]
+    stdin_open: true
+    tty: true
+    env_file:
+      - .env
+    volumes:
+      - ./pheromones:/app/pheromones

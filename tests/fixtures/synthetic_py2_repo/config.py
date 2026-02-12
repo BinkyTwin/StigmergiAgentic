@@ -1,0 +1,2 @@
+DEFAULT_LIMIT = 10
+SERVICE_NAME = "legacy"

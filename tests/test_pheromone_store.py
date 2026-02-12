@@ -182,7 +182,9 @@ def test_audit_log_append_only(store: PheromoneStore) -> None:
     store.update("tasks", "audit.py", agent_id="scout", intensity=0.6)
 
     audit_path = store.pheromone_dir / "audit_log.jsonl"
-    lines = [line for line in audit_path.read_text(encoding="utf-8").splitlines() if line]
+    lines = [
+        line for line in audit_path.read_text(encoding="utf-8").splitlines() if line
+    ]
     events = [json.loads(line) for line in lines]
 
     assert len(events) == 2

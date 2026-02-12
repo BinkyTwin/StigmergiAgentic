@@ -4,7 +4,7 @@
 **Cas d'usage** : Migration Python 2 → Python 3
 **Auteur** : Abdelatif Djeddou — Memoire EMLV
 **Date** : 8 fevrier 2026
-**Provider LLM** : OpenRouter (pony-alpha pour le dev, modele frontiere pour les resultats finaux)
+**Provider LLM** : OpenRouter (qwen/qwen3-235b-a22b-2507 pour le dev, modele frontiere pour les resultats finaux)
 
 ---
 
@@ -644,7 +644,7 @@ thresholds:
 # === LLM ===
 llm:
   provider: "openrouter"
-  model: "pony-alpha"              # Dev model
+  model: "qwen/qwen3-235b-a22b-2507"              # Dev model
   temperature: 0.2
   max_response_tokens: 4096
   max_tokens_total: 100000         # Budget plafond
@@ -694,7 +694,7 @@ python main.py --review                    # Traiter les fichiers needs_review
 | `--config` | str | `stigmergy/config.yaml` | Fichier de configuration |
 | `--max-ticks` | int | 50 | Override max ticks |
 | `--max-tokens` | int | 100000 | Override budget tokens |
-| `--model` | str | `pony-alpha` | Override modele LLM |
+| `--model` | str | `qwen/qwen3-235b-a22b-2507` | Override modele LLM |
 | `--output-dir` | str | `metrics/output` | Dossier de sortie metriques |
 | `--verbose` | flag | False | Logging DEBUG |
 | `--dry-run` | flag | False | Simulation sans ecriture Git |
@@ -871,7 +871,7 @@ Deux flux de logs distincts :
 
 Pour que les comparaisons soient scientifiquement valides, toutes les configurations doivent respecter :
 
-- **Meme modele LLM** : pony-alpha (dev) ou modele frontiere (resultats), identique pour toutes les configs
+- **Meme modele LLM** : qwen/qwen3-235b-a22b-2507 (dev) ou modele frontiere (resultats), identique pour toutes les configs
 - **Meme temperature** : 0.2 pour toutes les configurations
 - **Memes prompt templates** : adaptes au format single-agent mais meme contenu semantique
 - **Memes guardrails** : budget tokens identique, max retries identique
@@ -904,7 +904,7 @@ Chaque run exporte automatiquement un fichier `metrics/output/run_{id}_manifest.
   "config_hash": "sha256:...",
   "prompt_bundle_hash": "sha256:...",
   "model_provider": "openrouter",
-  "model_name": "pony-alpha",
+  "model_name": "qwen/qwen3-235b-a22b-2507",
   "seed": 42,
   "python_version": "3.11.5",
   "dependency_lock_hash": "sha256:..."
@@ -925,13 +925,13 @@ Pour chaque configuration : plot `(cout en tokens, taux de succes)` → identifi
 
 **Objectif** : le medium stigmergique fonctionne independamment des agents.
 
-- [ ] `pheromone_store.py` : CRUD JSON (read, write, query par filtre) + file locking
-- [ ] `decay.py` : mecanisme d'evaporation exponentiel + inhibition
-- [ ] `guardrails.py` : verifications basiques (budget, anti-boucle, scope lock, tracabilite)
-- [ ] `config.yaml` : parametres initiaux complets (section 4.9)
-- [ ] `tests/test_pheromone_store.py` : tests unitaires du store
-- [ ] `tests/test_guardrails.py` : tests des contraintes
-- [ ] `.gitignore`, `.env.example`, `requirements.txt` (section 12.1)
+- [x] `pheromone_store.py` : CRUD JSON (read, write, query par filtre) + file locking
+- [x] `decay.py` : mecanisme d'evaporation exponentiel + inhibition
+- [x] `guardrails.py` : verifications basiques (budget, anti-boucle, scope lock, tracabilite)
+- [x] `config.yaml` : parametres initiaux complets (section 4.9)
+- [x] `tests/test_pheromone_store.py` : tests unitaires du store
+- [x] `tests/test_guardrails.py` : tests des contraintes
+- [x] `.gitignore`, `.env.example`, `requirements.txt` (section 12.1)
 
 **Livrable** : un store de pheromones testable avec `pytest`, decay fonctionnel, guardrails actifs.
 
@@ -939,16 +939,29 @@ Pour chaque configuration : plot `(cout en tokens, taux de succes)` → identifi
 
 **Objectif** : chaque agent fonctionne isolement avec l'environnement.
 
-- [ ] `llm_client.py` : client OpenRouter (pony-alpha) avec retry exponentiel et token counting
-- [ ] `base_agent.py` : classe abstraite avec le cycle perceive → should_act → decide → execute → deposit
-- [ ] `scout.py` : scan d'un fichier Py2 (19 patterns), depot de pheromones de tache (normalisation min-max)
-- [ ] `transformer.py` : lecture pheromone de tache, generation Py3 avec few-shot stigmergique, depot du resultat
-- [ ] `tester.py` : detection de `transformed`, execution pytest, depot de qualite (confidence initiale, coverage)
-- [ ] `validator.py` : lecture qualite, commit/rollback/escalade
-- [ ] Creer le depot synthetique Python 2 de test (section 8.1)
-- [ ] Tests unitaires de chaque agent en isolation
+- [x] `llm_client.py` : client OpenRouter (qwen/qwen3-235b-a22b-2507) avec retry exponentiel et token counting
+- [x] `base_agent.py` : classe abstraite avec le cycle perceive → should_act → decide → execute → deposit
+- [x] `scout.py` : scan d'un fichier Py2 (19 patterns), depot de pheromones de tache (normalisation min-max)
+- [x] `transformer.py` : lecture pheromone de tache, generation Py3 avec few-shot stigmergique, depot du resultat
+- [x] `tester.py` : detection de `transformed`, execution pytest, depot de qualite (confidence initiale, coverage)
+- [x] `validator.py` : lecture qualite, commit/rollback/escalade
+- [x] Creer le depot synthetique Python 2 de test (section 8.1)
+- [x] Tests unitaires de chaque agent en isolation
 
 **Livrable** : chaque agent peut tourner seul sur 1 fichier et deposer ses traces correctement.
+
+### Sprint 2.5 — Docker Infrastructure (1 jour)
+
+**Objectif** : containeriser l'execution des tests et des migrations pour garantir la reproductibilite independamment de la machine hote.
+
+- [x] `Dockerfile` : image multi-stage (builder avec uv + runner avec git + Python 3.11-slim)
+- [x] `docker-compose.yml` : services test, test-cov, migrate, shell
+- [x] `.dockerignore` : exclusions pour build context optimise
+- [x] `Makefile` : raccourcis Docker (`make docker-test`, `make docker-build`, etc.) + locaux
+- [x] Validation : `docker compose run --rm test` reproduit les memes resultats que `uv run pytest tests/ -v`
+- [x] ADR Sprint 2.5 + mise a jour documentaire complete
+
+**Livrable** : infrastructure Docker fonctionnelle pour execution reproductible des tests et migrations. CI-ready.
 
 ### Sprint 3 — Boucle complete + metriques (3 jours)
 
@@ -983,7 +996,7 @@ Pour chaque configuration : plot `(cout en tokens, taux de succes)` → identifi
 
 - [ ] Test sur un 2e depot plus gros (~50-100 fichiers)
 - [ ] Test avec un modele frontiere (Claude Sonnet / GPT-4o via OpenRouter)
-- [ ] Comparaison pony-alpha vs modele frontiere (qualite, cout, comportement emergent)
+- [ ] Comparaison qwen/qwen3-235b-a22b-2507 vs modele frontiere (qualite, cout, comportement emergent)
 - [ ] Test de resilience : que se passe-t-il si un agent echoue ? si l'API timeout ?
 - [ ] Documentation finale du POC
 
@@ -1070,7 +1083,7 @@ Chaque pattern apparait dans 2-4 fichiers. `data_processor.py` et `models.py` co
 |---|---|---|
 | **Langage** | Python 3.11+ | Ecosysteme naturel pour le sujet |
 | **LLM Provider** | OpenRouter | Flexibilite de modele (gratuit → payant) |
-| **LLM Phase dev** | pony-alpha | Gratuit, suffisant pour valider l'architecture |
+| **LLM Phase dev** | qwen/qwen3-235b-a22b-2507 | Gratuit, suffisant pour valider l'architecture |
 | **LLM Phase resultats** | Claude Sonnet / GPT-4o | Resultats publiables |
 | **Store pheromones** | Fichiers JSON locaux | Simple, versionnable, inspectable |
 | **Tests** | pytest + pytest-cov | Standard Python, output parsable |
@@ -1085,7 +1098,7 @@ Chaque pattern apparait dans 2-4 fichiers. `data_processor.py` et `models.py` co
 
 | Risque | Probabilite | Impact | Mitigation |
 |---|---|---|---|
-| pony-alpha trop faible pour generer du code correct | Haute | Moyen | Valider l'archi d'abord, switcher de modele pour les resultats |
+| qwen/qwen3-235b-a22b-2507 trop faible pour generer du code correct | Haute | Moyen | Valider l'archi d'abord, switcher de modele pour les resultats |
 | Boucle infinie (agent retry sans fin) | Moyenne | Haut | Anti-boucle (max 3 retries) + inhibition γ + budget tokens |
 | Conflits Git entre agents | Moyenne | Moyen | Scope lock (1 agent par fichier) |
 | Latence API degradant l'experience | Moyenne | Faible | Round-robin sequentiel suffit, async optionnel |
@@ -1112,7 +1125,7 @@ Chaque pattern apparait dans 2-4 fichiers. `data_processor.py` et `models.py` co
 - [ ] Creer le repo GitHub `stigmergic-poc`
 - [ ] Initialiser l'environnement Python (`requirements.txt`)
 - [ ] Configurer `.env` avec la cle API OpenRouter
-- [ ] Verifier que pony-alpha fonctionne sur un prompt simple de migration
+- [ ] Verifier que qwen/qwen3-235b-a22b-2507 fonctionne sur un prompt simple de migration
 - [ ] Preparer le depot synthetique Python 2 de test (section 8.1)
 - [ ] Relire les sections 2, 3 et 9 de la revue pour ancrer les choix de design
 
