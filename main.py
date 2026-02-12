@@ -137,6 +137,12 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         default=None,
         help="Override llm.max_tokens_total",
     )
+    parser.add_argument(
+        "--max-budget-usd",
+        type=float,
+        default=None,
+        help="Override llm.max_budget_usd (0 disables cost cap)",
+    )
     parser.add_argument("--model", type=str, default=None, help="Override llm model")
     parser.add_argument(
         "--output-dir",
@@ -173,6 +179,8 @@ def _apply_cli_overrides(config: dict[str, Any], args: argparse.Namespace) -> No
         config.setdefault("loop", {})["max_ticks"] = int(args.max_ticks)
     if args.max_tokens is not None:
         config.setdefault("llm", {})["max_tokens_total"] = int(args.max_tokens)
+    if args.max_budget_usd is not None:
+        config.setdefault("llm", {})["max_budget_usd"] = float(args.max_budget_usd)
     if args.model:
         config.setdefault("llm", {})["model"] = str(args.model)
     if args.output_dir:
@@ -356,6 +364,8 @@ def _build_run_manifest(
         "prompt_bundle_hash": f"sha256:{prompt_bundle_hash}",
         "model_provider": config.get("llm", {}).get("provider", "openrouter"),
         "model_name": config.get("llm", {}).get("model", ""),
+        "max_tokens_total": config.get("llm", {}).get("max_tokens_total"),
+        "max_budget_usd": config.get("llm", {}).get("max_budget_usd", 0.0),
         "seed": seed,
         "python_version": sys.version.split()[0],
         "dependency_lock_hash": f"sha256:{dependency_lock_hash}",

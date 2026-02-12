@@ -22,7 +22,12 @@ def _build_config() -> dict:
                 "compile_import_fail": 0.4,
                 "related_regression": 0.6,
                 "pass_or_inconclusive": 0.8,
-            }
+            },
+            "optional_dependency_hints": [
+                "requires that",
+                "pip install",
+                "optional dependency",
+            ],
         },
         "thresholds": {
             "max_retry_count": 3,
@@ -225,3 +230,49 @@ def test_tester_fallback_missing_py2_stdlib_module_is_related_failure(
     assert quality is not None
     assert quality["confidence"] == 0.4
     assert quality["metadata"]["test_mode"] == "fallback_compile_import_fail"
+
+
+def test_tester_optional_dependency_message_is_inconclusive(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    repo_path = tmp_path / "repo"
+    repo_path.mkdir(parents=True)
+
+    (repo_path / "plugin_example.py").write_text(
+        "raise RuntimeError('This optional dependency is missing; pip install extras')\n",
+        encoding="utf-8",
+    )
+
+    store = PheromoneStore(_build_config(), base_path=tmp_path)
+    store.write(
+        "status",
+        "plugin_example.py",
+        {"status": "transformed", "retry_count": 0, "inhibition": 0.0},
+        agent_id="transformer",
+    )
+
+    tester = Tester(
+        name="tester",
+        config=_build_config(),
+        pheromone_store=store,
+        target_repo_path=repo_path,
+    )
+
+    monkeypatch.setattr(
+        tester,
+        "_run_global_pytest",
+        lambda file_path: {
+            "tests_total": 1,
+            "tests_passed": 0,
+            "tests_failed": 1,
+            "issues": ["This optional dependency is missing; pip install extras"],
+            "classification": "inconclusive",
+        },
+    )
+
+    tester.run()
+    quality = store.read_one("quality", "plugin_example.py")
+    assert quality is not None
+    assert quality["confidence"] == 0.8
+    assert quality["metadata"]["test_mode"] == "fallback_global_inconclusive"

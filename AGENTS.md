@@ -14,7 +14,7 @@ This implements Grassé's stigmergy (1959) via the Agents & Artifacts paradigm (
 
 Round-robin (no supervisor): Scout → Transformer → Tester → Validator → repeat. Each agent: `perceive → should_act → decide → execute → deposit`. The deposited trace stimulates the next agent.
 
-Stop conditions are OR-combined: all files terminal, token budget exhausted, max ticks reached, or idle cycle threshold reached.
+Stop conditions are OR-combined: all files terminal, token/USD budget exhausted, max ticks reached, or idle cycle threshold reached.
 
 ### Agents
 
@@ -51,7 +51,7 @@ Sprint 3 is implemented and gate-validated:
 
 Enforced by the environment, not by agents:
 - **Traceability**: timestamped, agent-signed writes (EU AI Act Art. 14)
-- **Token budget**: hard ceiling from config
+- **Token and cost budget**: hard ceilings from config
 - **Auto-rollback**: `tests_failed > threshold` → git revert
 - **Human escalation**: `0.5 < confidence < 0.8` → needs_review
 - **Anti-loop**: `retry_count > 3` → skip + log
@@ -87,6 +87,9 @@ uv run python main.py --repo <python2_repo_url> --config stigmergy/config.yaml
 
 # Run with pinned repo ref (tag/branch/commit)
 uv run python main.py --repo <python2_repo_url> --repo-ref <ref> --config stigmergy/config.yaml
+
+# Run with explicit USD budget cap
+uv run python main.py --repo <python2_repo_url> --max-budget-usd 3.5 --config stigmergy/config.yaml
 
 # Review needs_review files interactively
 uv run python main.py --review --repo <python2_repo_url> --repo-ref <ref>
@@ -160,6 +163,10 @@ Critical thresholds that affect agent behavior:
 - `pheromones.decay_rate: 0.05` — exponential evaporation rate per tick
 - `max_retry_count: 3` — anti-loop guardrail
 - `max_tokens_total: 200000` — budget ceiling (Sprint 3 gate tuning)
+- `llm.max_response_tokens: 0` — disables explicit completion cap (thinking-friendly)
+- `llm.estimated_completion_tokens: 4096` — budget pre-check estimate when uncapped
+- `llm.max_budget_usd: 0.0` — optional cost ceiling (disabled by default)
+- `llm.pricing_endpoint` — OpenRouter pricing endpoint used for pre-call cost estimate
 - `tester.fallback_quality.compile_import_fail: 0.4`
 - `tester.fallback_quality.related_regression: 0.6`
 - `tester.fallback_quality.pass_or_inconclusive: 0.8`

@@ -39,6 +39,7 @@ class MetricsCollector:
         agents_acted: Mapping[str, bool],
         status_entries: Mapping[str, Mapping[str, Any]],
         total_tokens: int,
+        total_cost_usd: float = 0.0,
     ) -> None:
         """Record one loop tick worth of metrics."""
         normalized_statuses: dict[str, str] = {
@@ -60,6 +61,11 @@ class MetricsCollector:
         )
         tokens_per_file = (
             float(total_tokens) / float(terminal_or_failed)
+            if terminal_or_failed > 0
+            else 0.0
+        )
+        cost_per_file_usd = (
+            float(total_cost_usd) / float(terminal_or_failed)
             if terminal_or_failed > 0
             else 0.0
         )
@@ -104,8 +110,10 @@ class MetricsCollector:
             "files_failed": files_failed,
             "files_needs_review": files_needs_review,
             "total_tokens": int(total_tokens),
+            "total_cost_usd": round(float(total_cost_usd), 6),
             "total_ticks": total_ticks,
             "tokens_per_file": round(tokens_per_file, 6),
+            "cost_per_file_usd": round(cost_per_file_usd, 6),
             "success_rate": round(success_rate, 6),
             "rollback_rate": round(rollback_rate, 6),
             "human_escalation_rate": round(human_escalation_rate, 6),
@@ -126,6 +134,7 @@ class MetricsCollector:
                 "files_failed": 0,
                 "files_needs_review": 0,
                 "total_tokens": 0,
+                "total_cost_usd": 0.0,
                 "success_rate": 0.0,
                 "rollback_rate": 0.0,
                 "human_escalation_rate": 0.0,
@@ -143,6 +152,7 @@ class MetricsCollector:
             "files_failed": last["files_failed"],
             "files_needs_review": last["files_needs_review"],
             "total_tokens": last["total_tokens"],
+            "total_cost_usd": last["total_cost_usd"],
             "success_rate": last["success_rate"],
             "rollback_rate": last["rollback_rate"],
             "human_escalation_rate": last["human_escalation_rate"],
@@ -199,4 +209,3 @@ class MetricsCollector:
                 full_trace_events += 1
 
         return float(full_trace_events) / float(total_events)
-

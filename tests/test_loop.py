@@ -11,8 +11,9 @@ from stigmergy.loop import run_loop
 class FakeLLMClient:
     """Minimal LLM stub for loop tests."""
 
-    def __init__(self, total_tokens_used: int = 0) -> None:
+    def __init__(self, total_tokens_used: int = 0, total_cost_usd: float = 0.0) -> None:
         self.total_tokens_used = total_tokens_used
+        self.total_cost_usd = total_cost_usd
 
     def call(self, prompt: str, system: str | None = None):  # type: ignore[no-untyped-def]
         class Response:
@@ -45,6 +46,7 @@ def _build_config(base_path: Path) -> dict:
         },
         "llm": {
             "max_tokens_total": 100000,
+            "max_budget_usd": 0.0,
         },
         "loop": {
             "max_ticks": 10,
@@ -91,6 +93,20 @@ def test_loop_stops_on_budget_exhaustion(tmp_path: Path) -> None:
         config=config,
         target_repo_path=repo_path,
         llm_client=FakeLLMClient(total_tokens_used=10),
+    )
+    assert result["stop_reason"] == "budget_exhausted"
+
+
+def test_loop_stops_on_cost_budget_exhaustion(tmp_path: Path) -> None:
+    repo_path = tmp_path / "repo"
+    repo_path.mkdir(parents=True)
+    config = _build_config(tmp_path)
+    config["llm"]["max_budget_usd"] = 0.01
+
+    result = run_loop(
+        config=config,
+        target_repo_path=repo_path,
+        llm_client=FakeLLMClient(total_tokens_used=1, total_cost_usd=0.02),
     )
     assert result["stop_reason"] == "budget_exhausted"
 

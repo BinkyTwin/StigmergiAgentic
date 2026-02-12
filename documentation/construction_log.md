@@ -256,6 +256,56 @@ Chaque entrée suit ce format :
 
 ---
 
+### 2026-02-12 23:25 — Sprint 3 Patch: Uncapped Output + Cost Budgeting (OpenRouter Pricing)
+
+**Assistant IA utilisé** : Codex (GPT-5)
+
+**Objectif** : Supprimer le cap output bloquant (`max_response_tokens=4096`) pour les modèles thinking, puis ajouter un budget coût (USD) piloté par tokens réels + pricing OpenRouter.
+
+**Actions effectuées** :
+- Mise à jour `stigmergy/llm_client.py` :
+  - `max_response_tokens <= 0` désactive l’envoi de `max_tokens` à OpenRouter.
+  - Ajout d’un budget coût optionnel (`max_budget_usd`) avec pré-check estimatif.
+  - Récupération pricing modèle via endpoint OpenRouter (`/api/v1/models/user`).
+  - Comptage coût post-call via `usage.cost` (fallback estimation par tokens si nécessaire).
+- Mise à jour `main.py` :
+  - Nouvel argument CLI `--max-budget-usd`.
+  - Manifest enrichi avec `max_tokens_total` et `max_budget_usd`.
+- Mise à jour `stigmergy/loop.py`, `metrics/collector.py`, `metrics/export.py` :
+  - Stop condition budget sur coût USD.
+  - Exposition des métriques `total_cost_usd` et `cost_per_file_usd`.
+- Mise à jour `stigmergy/config.yaml` :
+  - `llm.max_response_tokens: 0`
+  - `llm.estimated_completion_tokens`
+  - `llm.max_budget_usd`
+  - `llm.pricing_endpoint`, `llm.pricing_api_timeout_seconds`, `llm.pricing_strict`
+- Extension des tests :
+  - `tests/test_llm_client.py` (uncapped payload + cost budget + usage.cost + fallback pricing)
+  - `tests/test_loop.py` (budget coût)
+  - `tests/test_main.py` (override CLI coût)
+  - `tests/test_metrics.py` (export/cohérence coût)
+- Mise à jour docs projet :
+  - `AGENTS.md`, `CLAUDE.md`
+  - ADR `documentation/decisions/20260212-sprint3-llm-cost-budget-and-uncapped-output.md`
+  - `documentation/decisions/INDEX.md`
+
+**Décisions prises** :
+- Conserver les deux garde-fous simultanément : `max_tokens_total` + `max_budget_usd` (optionnel).
+- Utiliser pricing OpenRouter pour pré-estimation et `usage.cost` pour mesure réelle dès qu’il est disponible.
+- Laisser `max_budget_usd=0.0` par défaut pour compatibilité rétroactive.
+
+**Résultat** :
+- Le cap output n’est plus imposé par défaut.
+- Le run expose désormais le coût cumulé et peut être stoppé sur budget USD.
+
+**Validation** :
+- `uv run pytest tests/ -q` → `60 passed, 1 skipped`
+- Smoke run:
+  - `uv run python main.py --repo tests/fixtures/synthetic_py2_repo --config stigmergy/config.yaml --seed 42 --max-ticks 1 --verbose`
+  - Vérification runtime : payload sans `max_tokens`, summary avec `total_cost_usd`.
+
+---
+
 ## Instructions pour les Futures Entrées
 
 À chaque session de développement :

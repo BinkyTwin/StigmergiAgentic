@@ -21,8 +21,10 @@ TICK_FIELDNAMES = [
     "files_failed",
     "files_needs_review",
     "total_tokens",
+    "total_cost_usd",
     "total_ticks",
     "tokens_per_file",
+    "cost_per_file_usd",
     "success_rate",
     "rollback_rate",
     "human_escalation_rate",
@@ -60,4 +62,3 @@ def write_manifest_json(path: Path, manifest: Mapping[str, Any]) -> None:
     with path.open("w", encoding="utf-8") as handle:
         json.dump(manifest, handle, indent=2, sort_keys=True)
         handle.write("\n")
-

@@ -72,6 +72,7 @@ def run_loop(
     max_ticks = int(loop_config.get("max_ticks", 50))
     idle_cycles_to_stop = int(loop_config.get("idle_cycles_to_stop", 2))
     max_tokens_total = int(config.get("llm", {}).get("max_tokens_total", 100000))
+    max_budget_usd = float(config.get("llm", {}).get("max_budget_usd", 0.0))
 
     collector = MetricsCollector(audit_log_path=active_store.audit_log_path)
 
@@ -99,11 +100,13 @@ def run_loop(
 
         status_entries = active_store.read_all("status")
         total_tokens = int(active_llm_client.total_tokens_used)
+        total_cost_usd = float(getattr(active_llm_client, "total_cost_usd", 0.0))
         collector.record_tick(
             tick=tick,
             agents_acted=agents_acted,
             status_entries=status_entries,
             total_tokens=total_tokens,
+            total_cost_usd=total_cost_usd,
         )
 
         any_acted = any(agents_acted.values())
@@ -116,6 +119,9 @@ def run_loop(
             stop_reason = "all_terminal"
             break
         if total_tokens >= max_tokens_total:
+            stop_reason = "budget_exhausted"
+            break
+        if max_budget_usd > 0.0 and total_cost_usd >= max_budget_usd:
             stop_reason = "budget_exhausted"
             break
         if idle_cycles >= idle_cycles_to_stop:
@@ -164,4 +170,3 @@ def _all_terminal(status_entries: dict[str, dict[str, Any]]) -> bool:
 def _default_run_id() -> str:
     now = datetime.now(timezone.utc).replace(microsecond=0)
     return now.strftime("%Y%m%dT%H%M%SZ")
-

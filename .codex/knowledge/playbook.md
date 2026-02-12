@@ -34,3 +34,8 @@
 - Treat mounted working directories as persistent mountpoints: clear contents, not mount roots.
 - For git URL sources on mounted targets, clone into a temp path then copy into the mountpoint.
 - Use a named Docker volume for high-churn target repositories to avoid host bind-mount deadlocks on macOS.
+
+### Cost-Aware LLM Budgeting Standard
+- Keep `max_response_tokens <= 0` to avoid hard truncation on reasoning-heavy tasks.
+- Use `max_tokens_total` as deterministic safety ceiling and `max_budget_usd` as optional spend ceiling.
+- Read `usage.cost` when available; fallback to pricing-based token estimation for pre-call checks and cost continuity.

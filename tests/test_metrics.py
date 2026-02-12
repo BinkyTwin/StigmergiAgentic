@@ -31,17 +31,20 @@ def test_metrics_collector_retry_resolution_and_summary(tmp_path: Path) -> None:
         agents_acted={"scout": True, "transformer": False, "tester": False, "validator": False},
         status_entries={"module.py": {"status": "retry"}},
         total_tokens=10,
+        total_cost_usd=0.01,
     )
     collector.record_tick(
         tick=1,
         agents_acted={"scout": False, "transformer": True, "tester": True, "validator": True},
         status_entries={"module.py": {"status": "validated"}},
         total_tokens=20,
+        total_cost_usd=0.02,
     )
 
     summary = collector.build_summary(stop_reason="all_terminal")
     assert summary["retry_resolution_rate"] == 1.0
     assert summary["success_rate"] == 1.0
+    assert summary["total_cost_usd"] == 0.02
     assert summary["stop_reason"] == "all_terminal"
 
 
@@ -73,6 +76,7 @@ def test_metrics_collector_starvation_and_audit_completeness(tmp_path: Path) -> 
             agents_acted={"scout": False, "transformer": False, "tester": False, "validator": False},
             status_entries={"a.py": {"status": "pending"}},
             total_tokens=0,
+            total_cost_usd=0.0,
         )
 
     last = collector.tick_rows[-1]
@@ -101,8 +105,10 @@ def test_metrics_export_writes_expected_files(tmp_path: Path) -> None:
                 "files_failed": 0,
                 "files_needs_review": 0,
                 "total_tokens": 12,
+                "total_cost_usd": 0.12,
                 "total_ticks": 1,
                 "tokens_per_file": 12.0,
+                "cost_per_file_usd": 0.12,
                 "success_rate": 0.0,
                 "rollback_rate": 0.0,
                 "human_escalation_rate": 0.0,

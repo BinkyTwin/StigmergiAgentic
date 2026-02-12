@@ -14,7 +14,7 @@ This implements Grasse's stigmergy (1959) via the Agents & Artifacts paradigm (R
 
 Round-robin (no supervisor): Scout → Transformer → Tester → Validator → repeat. Each agent: `perceive → should_act → decide → execute → deposit`. The deposited trace stimulates the next agent.
 
-**Stop conditions** (OR): all files terminal, token budget exhausted, max ticks (50), or 2 consecutive idle cycles.
+**Stop conditions** (OR): all files terminal, token/USD budget exhausted, max ticks (50), or 2 consecutive idle cycles.
 
 ### Agents
 
@@ -78,7 +78,7 @@ Enforced by the environment, not by agents. Taxonomy from Grisold et al. (2025):
 
 **Deep norms** (stable, in config.yaml):
 - **Traceability**: timestamped, agent-signed writes (EU AI Act Art. 14)
-- **Token budget**: hard ceiling from config
+- **Token and cost budget**: hard ceiling from config
 - **Anti-loop**: `retry_count > 3` → skip + log
 - **Scope lock**: one agent per file (mutex) + TTL (3 ticks) for zombie prevention
 - **Confidence thresholds**: 0.8 (validate), 0.5 (rollback), between → escalate
@@ -125,7 +125,7 @@ uv run python main.py --repo <python2_repo_url> --repo-ref <ref> --config stigme
 
 # Full CLI options
 uv run python main.py --repo <url> --config stigmergy/config.yaml --max-ticks 50 \
-  --max-tokens 100000 --model qwen/qwen3-235b-a22b-2507 --output-dir metrics/output \
+  --max-tokens 100000 --max-budget-usd 3.5 --model qwen/qwen3-235b-a22b-2507 --output-dir metrics/output \
   --verbose --seed 42
 
 # Dry run (no Git writes)
@@ -208,8 +208,11 @@ thresholds:
 llm:
   model: "qwen/qwen3-235b-a22b-2507"
   temperature: 0.2
-  max_response_tokens: 4096
+  max_response_tokens: 0            # 0 disables explicit completion cap
+  estimated_completion_tokens: 4096 # budget pre-check estimate when uncapped
   max_tokens_total: 200000
+  max_budget_usd: 0.0               # 0 disables cost cap
+  pricing_endpoint: "https://openrouter.ai/api/v1/models/user"
 
 loop:
   max_ticks: 50

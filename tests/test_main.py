@@ -112,6 +112,21 @@ def test_main_forwards_repo_ref(tmp_path: Path, monkeypatch: pytest.MonkeyPatch)
     assert captured["repo_ref"] == "0.6.2"
 
 
+def test_apply_cli_overrides_supports_max_budget_usd() -> None:
+    config: dict = {}
+    args = main_module._parse_args(
+        [
+            "--repo",
+            "tests/fixtures/synthetic_py2_repo",
+            "--max-budget-usd",
+            "1.75",
+        ]
+    )
+
+    main_module._apply_cli_overrides(config=config, args=args)
+    assert config["llm"]["max_budget_usd"] == pytest.approx(1.75)
+
+
 def test_review_mode_validate_action(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     config = {
         "pheromones": {

@@ -60,3 +60,22 @@ Implemented and validated the full Sprint 3 runtime with deterministic stop cond
 - Local real gate: `metrics/output/run_20260212T170936Z_summary.json` (`success_rate=0.913043`)
 - Docker synthetic gate: `metrics/output/run_20260212T173610Z_summary.json` (`success_rate=0.95`)
 - Docker real gate: `metrics/output/run_20260212T173704Z_summary.json` (`success_rate=0.869565`)
+
+## 2026-02-12 — Sprint 3 Patch: Uncapped Output and USD Cost Budget
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `impact_score`: `8/10`
+- `confidence`: `high`
+- `scope`: `LLM client budget model, loop/metrics propagation, CLI budget override`
+
+### Outcome
+Removed hard completion capping by default and introduced an optional USD budget control based on OpenRouter model pricing (pre-call estimate) and `usage.cost` (post-call accounting), with cost metrics exported per run.
+
+### Reusable Patterns (1-3)
+1. For thinking-heavy LLM workflows, prefer uncapped completion output (`max_tokens` omitted) and control spend with a separate budget mechanism instead of truncation.
+2. Combine two budget layers: token ceiling for deterministic guardrails and cost ceiling for monetary governance.
+3. Persist cumulative run cost in the same metrics stream as token usage to enable direct cost-quality analysis.
+
+### Evidence
+- `uv run pytest tests/ -q` (`60 passed, 1 skipped`)
+- `uv run python main.py --repo tests/fixtures/synthetic_py2_repo --config stigmergy/config.yaml --seed 42 --max-ticks 1 --verbose` (`total_cost_usd` present, uncapped request payload)

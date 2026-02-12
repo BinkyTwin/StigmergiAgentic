@@ -35,6 +35,7 @@ services:
     environment:
       REPO: ${REPO:-}
       REPO_REF: ${REPO_REF:-}
+      SEED: ${SEED:-}
     command:
       - /bin/sh
       - -c
@@ -43,6 +44,9 @@ services:
         CMD="python main.py --repo \"$${REPO:-https://github.com/example/py2-repo}\" --config stigmergy/config.yaml"
         if [ -n "$${REPO_REF:-}" ]; then
           CMD="$$CMD --repo-ref \"$${REPO_REF}\""
+        fi
+        if [ -n "$${SEED:-}" ]; then
+          CMD="$$CMD --seed \"$${SEED}\""
         fi
         eval "$$CMD"
     env_file:

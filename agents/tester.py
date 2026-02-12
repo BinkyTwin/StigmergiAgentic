@@ -370,6 +370,8 @@ class Tester(BaseAgent):
             return True
         if "systemexit" in lowered:
             return True
+        if self._contains_optional_dependency_hint(output):
+            return True
 
         missing_modules = self._extract_missing_modules(output)
         if missing_modules:
@@ -390,6 +392,8 @@ class Tester(BaseAgent):
         if "systemexit" in lowered:
             return True
         if "no tests ran" in lowered:
+            return True
+        if self._contains_optional_dependency_hint(output):
             return True
 
         missing_modules = self._extract_missing_modules(output)
@@ -419,6 +423,25 @@ class Tester(BaseAgent):
             return False
 
         return True
+
+    def _contains_optional_dependency_hint(self, output: str) -> bool:
+        lowered_output = output.lower()
+        return any(hint in lowered_output for hint in self._optional_dependency_hints())
+
+    def _optional_dependency_hints(self) -> list[str]:
+        hints = self.config.get("tester", {}).get("optional_dependency_hints")
+        if isinstance(hints, list):
+            normalized: list[str] = []
+            for item in hints:
+                if isinstance(item, str) and item.strip():
+                    normalized.append(item.strip().lower())
+            if normalized:
+                return normalized
+        return [
+            "requires that",
+            "pip install",
+            "optional dependency",
+        ]
 
     def _fallback_quality_thresholds(self) -> dict[str, float]:
         fallback_config = (
