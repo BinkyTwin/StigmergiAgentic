@@ -87,7 +87,7 @@ def test_transformer_selects_highest_intensity_and_transforms(tmp_path: Path) ->
     store.write(
         "status",
         "target.py",
-        {"status": "pending", "retry_count": 1, "inhibition": 0.0},
+        {"status": "retry", "retry_count": 1, "inhibition": 0.0},
         agent_id="scout",
     )
     store.write(

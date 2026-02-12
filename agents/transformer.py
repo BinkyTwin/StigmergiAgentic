@@ -13,7 +13,9 @@ class Transformer(BaseAgent):
     """Consume task pheromones and produce transformed Python 3 files."""
 
     def perceive(self) -> dict[str, Any]:
-        pending_entries = self.store.query("status", status="pending")
+        candidate_status_entries = self.store.query(
+            "status", status__in={"pending", "retry"}
+        )
         threshold_config = self.config.get("thresholds", {})
         pheromone_config = self.config.get("pheromones", {})
 
@@ -21,7 +23,7 @@ class Transformer(BaseAgent):
         inhibition_threshold = float(pheromone_config.get("inhibition_threshold", 0.1))
 
         candidates: list[dict[str, Any]] = []
-        for file_key, status_entry in pending_entries.items():
+        for file_key, status_entry in candidate_status_entries.items():
             task_entry = self.store.read_one("tasks", file_key)
             if not task_entry:
                 continue

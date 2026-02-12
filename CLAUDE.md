@@ -43,8 +43,10 @@ Transformer reading quality.json = **cognitive stigmergy** (Ricci et al., 2007):
 Sprint 2.5 has been implemented and validated:
 - `stigmergy/llm_client.py` is available with OpenRouter retry/backoff, budget gating, and token accounting.
 - `agents/base_agent.py` and all specialized agents are implemented.
+- Transformer candidate selection now reads both `pending` and `retry` statuses (while respecting inhibition threshold).
 - A versioned synthetic Python 2 fixture repo exists at `tests/fixtures/synthetic_py2_repo/`.
 - Unit and integration test coverage for Sprint 2 flows is implemented in `tests/test_*`.
+- Live API smoke is opt-in only (`RUN_LIVE_API=1`) to avoid default flakiness/cost.
 - Docker infrastructure for reproducible test/migration execution is in place (`Dockerfile`, `docker-compose.yml`, `Makefile`).
 
 ### Pheromone Types (JSON files in `pheromones/`)

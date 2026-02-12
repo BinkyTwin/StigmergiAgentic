@@ -108,6 +108,9 @@ def test_extract_code_block() -> None:
 
 @pytest.mark.live_api
 def test_live_api_smoke(monkeypatch: pytest.MonkeyPatch) -> None:
+    if os.environ.get("RUN_LIVE_API") != "1":
+        pytest.skip("Set RUN_LIVE_API=1 to enable live API smoke test")
+
     api_key = os.environ.get("OPENROUTER_API_KEY")
     if not api_key:
         pytest.skip("OPENROUTER_API_KEY not set")

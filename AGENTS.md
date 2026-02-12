@@ -30,8 +30,10 @@ All agents inherit from `agents/base_agent.py` (abstract class with the perceive
 Sprint 2.5 is implemented:
 - `stigmergy/llm_client.py` provides OpenRouter calls with retry, token counting, and budget checks.
 - `agents/scout.py`, `agents/transformer.py`, `agents/tester.py`, `agents/validator.py` are implemented and validated in isolation.
+- Transformer candidate selection accepts both `pending` and `retry` status entries (with inhibition threshold filtering).
 - `tests/fixtures/synthetic_py2_repo/` provides the versioned synthetic Python 2 fixture repository.
 - Agent handoff integration tests are available in `tests/test_agents_integration.py`.
+- Live API smoke test is opt-in only via `RUN_LIVE_API=1`.
 - Docker infrastructure (`Dockerfile`, `docker-compose.yml`, `Makefile`) provides reproducible containerized execution.
 
 ### Three Pheromone Types (JSON files in `pheromones/`)
