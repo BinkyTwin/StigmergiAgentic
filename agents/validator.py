@@ -36,6 +36,7 @@ class Validator(BaseAgent):
         file_key = action["file_key"]
         quality_entry = action["quality_entry"]
         status_entry = action["status_entry"]
+        dry_run = self._is_dry_run()
 
         confidence = float(quality_entry.get("confidence", 0.0))
         thresholds = self.config.get("thresholds", {})
@@ -49,7 +50,8 @@ class Validator(BaseAgent):
         try:
             if confidence >= high:
                 updated_confidence = min(1.0, confidence + 0.1)
-                self._commit_file(file_key=file_key, confidence=updated_confidence)
+                if not dry_run:
+                    self._commit_file(file_key=file_key, confidence=updated_confidence)
                 return {
                     "success": True,
                     "file_key": file_key,
@@ -57,7 +59,10 @@ class Validator(BaseAgent):
                     "updated_confidence": updated_confidence,
                     "retry_count": retry_count,
                     "inhibition": inhibition,
-                    "decision_metadata": {"decision": "auto_validate"},
+                    "decision_metadata": {
+                        "decision": "auto_validate",
+                        "dry_run": dry_run,
+                    },
                 }
 
             if confidence >= low:
@@ -68,11 +73,15 @@ class Validator(BaseAgent):
                     "updated_confidence": confidence,
                     "retry_count": retry_count,
                     "inhibition": inhibition,
-                    "decision_metadata": {"decision": "human_escalation"},
+                    "decision_metadata": {
+                        "decision": "human_escalation",
+                        "dry_run": dry_run,
+                    },
                 }
 
             updated_confidence = max(0.0, confidence - 0.2)
-            self._rollback_file(file_key=file_key)
+            if not dry_run:
+                self._rollback_file(file_key=file_key)
 
             next_retry_count = retry_count + 1
             next_status = "retry" if next_retry_count <= max_retry_count else "skipped"
@@ -88,6 +97,7 @@ class Validator(BaseAgent):
                 "decision_metadata": {
                     "decision": "rollback",
                     "max_retry_count": max_retry_count,
+                    "dry_run": dry_run,
                 },
             }
         except Exception as exc:  # noqa: BLE001
@@ -159,3 +169,6 @@ class Validator(BaseAgent):
             ) from exc
         except GitCommandError as exc:
             raise RuntimeError(f"Failed to access git repo: {exc}") from exc
+
+    def _is_dry_run(self) -> bool:
+        return bool(self.config.get("runtime", {}).get("dry_run", False))

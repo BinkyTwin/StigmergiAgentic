@@ -106,6 +106,22 @@ def test_extract_code_block() -> None:
     assert client.extract_code_block(text) == "print('ok')"
 
 
+def test_extract_code_block_strips_unclosed_fence() -> None:
+    os.environ["OPENROUTER_API_KEY"] = "sk-test"
+    client = LLMClient(_build_config())
+
+    text = "```python\nprint('ok')\n"
+    assert client.extract_code_block(text) == "print('ok')"
+
+
+def test_extract_code_block_strips_fence_lines_only() -> None:
+    os.environ["OPENROUTER_API_KEY"] = "sk-test"
+    client = LLMClient(_build_config())
+
+    text = "```python\nx = 1\n```\n"
+    assert client.extract_code_block(text) == "x = 1"
+
+
 @pytest.mark.live_api
 def test_live_api_smoke(monkeypatch: pytest.MonkeyPatch) -> None:
     if os.environ.get("RUN_LIVE_API") != "1":

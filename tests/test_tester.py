@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
 from agents.tester import Tester
 from environment.pheromone_store import PheromoneStore
 
@@ -14,6 +16,13 @@ def _build_config() -> dict:
             "decay_type": "exponential",
             "decay_rate": 0.05,
             "inhibition_decay_rate": 0.08,
+        },
+        "tester": {
+            "fallback_quality": {
+                "compile_import_fail": 0.4,
+                "related_regression": 0.6,
+                "pass_or_inconclusive": 0.8,
+            }
         },
         "thresholds": {
             "max_retry_count": 3,
@@ -68,7 +77,7 @@ def test_tester_runs_pytest_and_deposits_quality(tmp_path: Path) -> None:
     assert status["status"] == "tested"
 
 
-def test_tester_fallback_compile_import_sets_neutral_confidence(tmp_path: Path) -> None:
+def test_tester_fallback_compile_import_sets_adaptive_confidence(tmp_path: Path) -> None:
     repo_path = tmp_path / "repo"
     repo_path.mkdir(parents=True)
 
@@ -96,5 +105,123 @@ def test_tester_fallback_compile_import_sets_neutral_confidence(tmp_path: Path) 
 
     quality = store.read_one("quality", "fallback_module.py")
     assert quality is not None
-    assert quality["tests_total"] == 0
-    assert quality["confidence"] == 0.5
+    assert quality["confidence"] == 0.8
+    assert quality["metadata"]["test_mode"].startswith("fallback_global_")
+
+
+def test_tester_fallback_related_regression_sets_medium_confidence(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    repo_path = tmp_path / "repo"
+    repo_path.mkdir(parents=True)
+
+    (repo_path / "module.py").write_text("def value():\n    return 1\n", encoding="utf-8")
+
+    store = PheromoneStore(_build_config(), base_path=tmp_path)
+    store.write(
+        "status",
+        "module.py",
+        {"status": "transformed", "retry_count": 0, "inhibition": 0.0},
+        agent_id="transformer",
+    )
+
+    tester = Tester(
+        name="tester",
+        config=_build_config(),
+        pheromone_store=store,
+        target_repo_path=repo_path,
+    )
+
+    monkeypatch.setattr(
+        tester,
+        "_run_global_pytest",
+        lambda file_path: {
+            "tests_total": 1,
+            "tests_passed": 0,
+            "tests_failed": 1,
+            "issues": ["module.py regression"],
+            "classification": "related",
+        },
+    )
+
+    tester.run()
+    quality = store.read_one("quality", "module.py")
+    assert quality is not None
+    assert quality["confidence"] == 0.6
+
+
+def test_tester_fallback_usage_on_import_is_inconclusive(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    repo_path = tmp_path / "repo"
+    repo_path.mkdir(parents=True)
+
+    (repo_path / "cli_module.py").write_text(
+        "raise SystemExit('Usage: cli_module.py <arg>')\n",
+        encoding="utf-8",
+    )
+
+    store = PheromoneStore(_build_config(), base_path=tmp_path)
+    store.write(
+        "status",
+        "cli_module.py",
+        {"status": "transformed", "retry_count": 0, "inhibition": 0.0},
+        agent_id="transformer",
+    )
+
+    tester = Tester(
+        name="tester",
+        config=_build_config(),
+        pheromone_store=store,
+        target_repo_path=repo_path,
+    )
+
+    monkeypatch.setattr(
+        tester,
+        "_run_global_pytest",
+        lambda file_path: {
+            "tests_total": 1,
+            "tests_passed": 0,
+            "tests_failed": 1,
+            "issues": ["Usage: cli_module.py <arg>"],
+            "classification": "inconclusive",
+        },
+    )
+
+    tester.run()
+    quality = store.read_one("quality", "cli_module.py")
+    assert quality is not None
+    assert quality["confidence"] == 0.8
+    assert quality["metadata"]["test_mode"] == "fallback_global_inconclusive"
+
+
+def test_tester_fallback_missing_py2_stdlib_module_is_related_failure(
+    tmp_path: Path,
+) -> None:
+    repo_path = tmp_path / "repo"
+    repo_path.mkdir(parents=True)
+
+    (repo_path / "legacy_import.py").write_text("import urllib2\n", encoding="utf-8")
+
+    store = PheromoneStore(_build_config(), base_path=tmp_path)
+    store.write(
+        "status",
+        "legacy_import.py",
+        {"status": "transformed", "retry_count": 0, "inhibition": 0.0},
+        agent_id="transformer",
+    )
+
+    tester = Tester(
+        name="tester",
+        config=_build_config(),
+        pheromone_store=store,
+        target_repo_path=repo_path,
+    )
+
+    tester.run()
+    quality = store.read_one("quality", "legacy_import.py")
+    assert quality is not None
+    assert quality["confidence"] == 0.4
+    assert quality["metadata"]["test_mode"] == "fallback_compile_import_fail"

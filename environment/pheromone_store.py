@@ -249,6 +249,85 @@ class PheromoneStore:
 
         self._append_audit_events(audit_events)
 
+    def maintain_status(self, current_tick: int) -> dict[str, list[str]]:
+        """Apply status maintenance transitions atomically.
+
+        This method handles:
+        - zombie lock release using scope lock TTL
+        - retry queue release (`retry` -> `pending`) at tick start
+        """
+        path = self.file_paths["status"]
+        audit_events: list[dict[str, Any]] = []
+        ttl_released: list[str] = []
+        retry_requeued: list[str] = []
+
+        with path.open("r+", encoding="utf-8") as handle:
+            fcntl.flock(handle.fileno(), fcntl.LOCK_EX)
+            try:
+                payload = self._load_json_from_handle(handle)
+                previous_payload = copy.deepcopy(payload)
+
+                ttl_released = self.guardrails.enforce_scope_lock_ttl(
+                    payload, current_tick=current_tick
+                )
+                for file_key in ttl_released:
+                    previous_entry = previous_payload.get(file_key, {})
+                    updated_entry = payload.get(file_key, {})
+                    audit_events.append(
+                        {
+                            "timestamp": utc_timestamp(),
+                            "agent": "system_ttl",
+                            "pheromone_type": "status",
+                            "file_key": file_key,
+                            "action": "update",
+                            "fields_changed": {
+                                "status": updated_entry.get("status"),
+                                "retry_count": updated_entry.get("retry_count"),
+                            },
+                            "previous_values": {
+                                "status": previous_entry.get("status"),
+                                "retry_count": previous_entry.get("retry_count"),
+                            },
+                        }
+                    )
+
+                for file_key, entry in payload.items():
+                    if entry.get("status") != "retry":
+                        continue
+
+                    previous_status = entry.get("status")
+                    entry["previous_status"] = previous_status
+                    entry["status"] = "pending"
+                    entry["timestamp"] = utc_timestamp()
+                    entry["updated_by"] = "system_retry"
+                    retry_requeued.append(file_key)
+
+                    audit_events.append(
+                        {
+                            "timestamp": utc_timestamp(),
+                            "agent": "system_retry",
+                            "pheromone_type": "status",
+                            "file_key": file_key,
+                            "action": "update",
+                            "fields_changed": {
+                                "status": "pending",
+                            },
+                            "previous_values": {
+                                "status": previous_status,
+                            },
+                        }
+                    )
+
+                self._dump_json_to_handle(handle, payload)
+            finally:
+                fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
+
+        self._append_audit_events(audit_events)
+        return {
+            "ttl_released": sorted(ttl_released),
+            "retry_requeued": sorted(retry_requeued),
+        }
+
     def _validate_pheromone_type(self, pheromone_type: str) -> None:
         if pheromone_type not in self.file_paths:
             raise PheromoneStoreError(

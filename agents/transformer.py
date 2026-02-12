@@ -22,7 +22,9 @@ class Transformer(BaseAgent):
         intensity_min = float(threshold_config.get("transformer_intensity_min", 0.2))
         inhibition_threshold = float(pheromone_config.get("inhibition_threshold", 0.1))
 
-        candidates: list[dict[str, Any]] = []
+        preferred_candidates: list[dict[str, Any]] = []
+        fallback_candidates: list[dict[str, Any]] = []
+        inhibited_candidates: list[dict[str, Any]] = []
         for file_key, status_entry in candidate_status_entries.items():
             task_entry = self.store.read_one("tasks", file_key)
             if not task_entry:
@@ -30,22 +32,34 @@ class Transformer(BaseAgent):
 
             intensity = float(task_entry.get("intensity", 0.0))
             inhibition = float(status_entry.get("inhibition", 0.0))
-            if intensity <= intensity_min:
-                continue
+
+            candidate = {
+                "file_key": file_key,
+                "intensity": intensity,
+                "inhibition": inhibition,
+                "status_entry": status_entry,
+                "task_entry": task_entry,
+            }
             if inhibition >= inhibition_threshold:
+                inhibited_candidates.append(candidate)
                 continue
 
-            candidates.append(
-                {
-                    "file_key": file_key,
-                    "intensity": intensity,
-                    "inhibition": inhibition,
-                    "status_entry": status_entry,
-                    "task_entry": task_entry,
-                }
-            )
+            fallback_candidates.append(candidate)
+            if intensity > intensity_min:
+                preferred_candidates.append(candidate)
 
-        candidates.sort(key=lambda item: (-item["intensity"], item["file_key"]))
+        if preferred_candidates:
+            candidates = preferred_candidates
+            candidates.sort(key=lambda item: (-item["intensity"], item["file_key"]))
+            return {"candidates": candidates}
+
+        if fallback_candidates:
+            candidates = fallback_candidates
+            candidates.sort(key=lambda item: (-item["intensity"], item["file_key"]))
+            return {"candidates": candidates}
+
+        candidates = inhibited_candidates
+        candidates.sort(key=lambda item: (item["inhibition"], -item["intensity"], item["file_key"]))
         return {"candidates": candidates}
 
     def should_act(self, perception: dict[str, Any]) -> bool:

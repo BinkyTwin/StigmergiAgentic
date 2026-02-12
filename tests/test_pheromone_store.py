@@ -191,3 +191,38 @@ def test_audit_log_append_only(store: PheromoneStore) -> None:
     assert events[0]["action"] == "write"
     assert events[1]["action"] == "update"
     assert events[1]["fields_changed"]["intensity"] == 0.6
+
+
+def test_maintain_status_requeues_retry_and_releases_ttl(store: PheromoneStore) -> None:
+    store.write(
+        "status",
+        "retry.py",
+        {"status": "retry", "retry_count": 1, "inhibition": 0.5},
+        agent_id="validator",
+    )
+    store.write(
+        "status",
+        "zombie.py",
+        {
+            "status": "in_progress",
+            "retry_count": 0,
+            "inhibition": 0.0,
+            "lock_owner": "transformer",
+            "lock_acquired_tick": -10,
+        },
+        agent_id="transformer",
+    )
+
+    changes = store.maintain_status(current_tick=10)
+
+    retry_entry = store.read_one("status", "retry.py")
+    zombie_entry = store.read_one("status", "zombie.py")
+
+    assert retry_entry is not None
+    assert retry_entry["status"] == "pending"
+    assert "retry.py" in changes["retry_requeued"]
+
+    assert zombie_entry is not None
+    assert zombie_entry["status"] == "pending"
+    assert zombie_entry["retry_count"] == 1
+    assert "zombie.py" in changes["ttl_released"]

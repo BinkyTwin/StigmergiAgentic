@@ -14,6 +14,7 @@ Les ADRs suivent le format : `YYYYMMDD-titre-court.md`
 | 002 | 2026-02-10 | [Sprint 1 Environment Medium and Runtime Standardization](20260210-sprint1-environment-medium.md) | Accepté | JSON store + POSIX locking + append-only audit + uv runtime |
 | 003 | 2026-02-11 | [Sprint 2 Agent Layer, LLM Client, and Synthetic Fixture Strategy](20260210-sprint2-agents-unitaires.md) | Accepté | Agents unitaires + client LLM + fixtures versionnées + tests mock-first |
 | 004 | 2026-02-12 | [Sprint 2.5 Docker Infrastructure for Tests & Migrations](20260212-sprint2.5-docker-infrastructure.md) | Accepté | Docker multi-stage + docker-compose + Makefile pour exécution reproductible |
+| 005 | 2026-02-12 | [Sprint 3 Full Orchestration Loop with Blocking Gate on docopt/docopt@0.6.2](20260212-sprint3-loop-gating-docopt.md) | Accepté | Loop/CLI/metrics Sprint 3 + fallback adaptatif + gate bloquant local/Docker validé |
 
 ---
 

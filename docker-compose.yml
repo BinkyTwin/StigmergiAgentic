@@ -6,7 +6,7 @@
 # Usage:
 #   docker compose run --rm test              # Run full test suite
 #   docker compose run --rm test-cov          # Tests + coverage report
-#   docker compose run --rm migrate           # Run migration (requires REPO)
+#   REPO=<url|path> REPO_REF=<tag|branch|sha> docker compose run --rm migrate
 #   docker compose run --rm shell             # Interactive shell
 #
 
@@ -32,15 +32,24 @@ services:
   # ---- Migration runner ----
   migrate:
     build: .
-    command: >
-      python main.py
-        --repo ${REPO:-https://github.com/example/py2-repo}
-        --config stigmergy/config.yaml
+    environment:
+      REPO: ${REPO:-}
+      REPO_REF: ${REPO_REF:-}
+    command:
+      - /bin/sh
+      - -c
+      - |
+        set -e
+        CMD="python main.py --repo \"$${REPO:-https://github.com/example/py2-repo}\" --config stigmergy/config.yaml"
+        if [ -n "$${REPO_REF:-}" ]; then
+          CMD="$$CMD --repo-ref \"$${REPO_REF}\""
+        fi
+        eval "$$CMD"
     env_file:
       - .env
     volumes:
       - ./pheromones:/app/pheromones
-      - ./target_repo:/app/target_repo
+      - target_repo_data:/app/target_repo
       - ./metrics/output:/app/metrics/output
 
   # ---- Interactive shell ----
@@ -53,3 +62,6 @@ services:
       - .env
     volumes:
       - ./pheromones:/app/pheromones
+
+volumes:
+  target_repo_data:

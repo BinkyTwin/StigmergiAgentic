@@ -22,6 +22,7 @@ RETRYABLE_STATUS_CODES = {429, 500, 502, 503}
 CODE_BLOCK_RE = re.compile(
     r"```(?:python)?\n(?P<code>.*?)```", re.DOTALL | re.IGNORECASE
 )
+FENCE_LINE_RE = re.compile(r"^\s*```(?:python|py)?\s*$", re.IGNORECASE)
 
 
 @dataclass
@@ -113,11 +114,27 @@ class LLMClient:
         raise last_error
 
     def extract_code_block(self, text: str) -> str:
-        """Extract code from markdown fenced block, fallback to raw text."""
-        match = CODE_BLOCK_RE.search(text)
-        if match:
-            return match.group("code").strip()
-        return text.strip()
+        """Extract code from markdown fences and sanitize stray markdown wrappers."""
+        matches = list(CODE_BLOCK_RE.finditer(text))
+        if matches:
+            longest = max(matches, key=lambda match: len(match.group("code")))
+            return longest.group("code").strip()
+
+        raw = text.strip()
+        if not raw:
+            return raw
+
+        lines = raw.splitlines()
+        cleaned_lines: list[str] = []
+        for index, line in enumerate(lines):
+            if FENCE_LINE_RE.match(line):
+                # Strip isolated markdown fences such as ```python / ``` wrappers.
+                continue
+            if index == 0 and line.strip().startswith("```"):
+                continue
+            cleaned_lines.append(line)
+
+        return "\n".join(cleaned_lines).strip()
 
     def _build_messages(self, prompt: str, system: str | None) -> list[dict[str, str]]:
         messages: list[dict[str, str]] = []

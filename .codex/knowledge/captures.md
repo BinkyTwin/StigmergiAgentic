@@ -38,3 +38,25 @@ Implemented all Sprint 2 units end-to-end: OpenRouter client, four isolated agen
 ### Evidence
 - `uv run pytest tests/ -v` (`29 passed, 1 skipped`)
 - `uv run pytest tests/test_agents_integration.py -v` (all handoff scenarios passed)
+
+## 2026-02-12 — Sprint 3 Full Loop + Blocking Gate Validation
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `impact_score`: `9/10`
+- `confidence`: `high`
+- `scope`: `Sprint 3 orchestration loop, CLI, metrics, adaptive tester fallback, Docker gate execution`
+
+### Outcome
+Implemented and validated the full Sprint 3 runtime with deterministic stop conditions, per-run artifacts, adaptive quality fallback, and successful blocking gates on both synthetic and real repositories (local + Docker).
+
+### Reusable Patterns (1-3)
+1. For mixed script/library repos, treat compile-success + usage/optional-dependency import failures as `inconclusive` signals instead of hard failures, while keeping legacy stdlib misses (for example `urllib2`) as related failures.
+2. Sanitize LLM outputs before file writes by stripping markdown fence wrappers (including unclosed fences) to avoid test/code corruption on retries.
+3. In Docker on macOS, avoid bind-mount churn for actively rewritten repos by using a named volume for the working tree and implementing mountpoint-safe cleanup logic.
+
+### Evidence
+- Local: `uv run pytest tests/ -q` (`49 passed, 1 skipped`)
+- Local synthetic gate: `metrics/output/run_20260212T170852Z_summary.json` (`success_rate=0.95`)
+- Local real gate: `metrics/output/run_20260212T170936Z_summary.json` (`success_rate=0.913043`)
+- Docker synthetic gate: `metrics/output/run_20260212T173610Z_summary.json` (`success_rate=0.95`)
+- Docker real gate: `metrics/output/run_20260212T173704Z_summary.json` (`success_rate=0.869565`)
