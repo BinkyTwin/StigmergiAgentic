@@ -163,7 +163,7 @@ Critical thresholds that affect agent behavior:
 - `pheromones.decay_rate: 0.05` — exponential evaporation rate per tick
 - `max_retry_count: 3` — anti-loop guardrail
 - `max_tokens_total: 200000` — budget ceiling (Sprint 3 gate tuning)
-- `llm.max_response_tokens: 0` — disables explicit completion cap (thinking-friendly)
+- `llm.max_response_tokens` — deprecated/ignored (client never sends `max_tokens`)
 - `llm.estimated_completion_tokens: 4096` — budget pre-check estimate when uncapped
 - `llm.max_budget_usd: 0.0` — optional cost ceiling (disabled by default)
 - `llm.pricing_endpoint` — OpenRouter pricing endpoint used for pre-call cost estimate

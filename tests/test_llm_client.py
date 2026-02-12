@@ -48,7 +48,8 @@ def _build_config() -> dict:
             "model": "qwen/qwen3-235b-a22b-2507",
             "temperature": 0.2,
             "max_response_tokens": 256,
-            "max_tokens_total": 2000,
+            "estimated_completion_tokens": 256,
+            "max_tokens_total": 10000,
             "retry_attempts": 3,
             "retry_backoff": [1, 2, 4],
         }
@@ -122,7 +123,7 @@ def test_llm_client_omits_max_tokens_when_uncapped(
     assert "max_tokens" not in fake_completions.last_kwargs
 
 
-def test_llm_client_sends_max_tokens_when_configured(
+def test_llm_client_ignores_max_tokens_even_when_configured(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setenv("OPENROUTER_API_KEY", "sk-test")
@@ -135,7 +136,7 @@ def test_llm_client_sends_max_tokens_when_configured(
 
     result = client.call(prompt="hello")
     assert result.content == "ok"
-    assert fake_completions.last_kwargs["max_tokens"] == 512
+    assert "max_tokens" not in fake_completions.last_kwargs
 
 
 def test_llm_client_cost_budget_check_blocks_call(monkeypatch: pytest.MonkeyPatch) -> None:

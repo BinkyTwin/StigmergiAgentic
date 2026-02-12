@@ -306,6 +306,31 @@ Chaque entrée suit ce format :
 
 ---
 
+### 2026-02-12 23:30 — Patch Runtime: hard-disable `max_tokens` and Docker freshness
+
+**Assistant IA utilisé** : Codex (GPT-5)
+
+**Objectif** : Supprimer définitivement toute possibilité d’envoyer `max_tokens` au provider pour éviter les truncations involontaires.
+
+**Actions effectuées** :
+- Modification `stigmergy/llm_client.py` :
+  - le client n’envoie jamais `max_tokens` (hard-disable),
+  - `llm.max_response_tokens` est explicitement ignoré avec warning si non nul.
+- Mise à jour des tests `tests/test_llm_client.py` pour refléter ce comportement.
+- Mise à jour docs `AGENTS.md`, `CLAUDE.md`, `stigmergy/config.yaml` (clé conservée mais marquée deprecated/ignored).
+- Rebuild image Docker et smoke run verbose pour vérifier le payload réel.
+
+**Résultat** :
+- Plus aucun `max_tokens` envoyé depuis le runtime, y compris en Docker.
+
+**Validation** :
+- `uv run pytest tests/test_llm_client.py -q` → `10 passed, 1 skipped`
+- `uv run pytest tests/ -q` → `60 passed, 1 skipped`
+- `docker compose run --rm migrate python main.py --repo tests/fixtures/synthetic_py2_repo --config stigmergy/config.yaml --max-ticks 1 --verbose`
+  - payload OpenRouter observé sans champ `max_tokens`.
+
+---
+
 ## Instructions pour les Futures Entrées
 
 À chaque session de développement :

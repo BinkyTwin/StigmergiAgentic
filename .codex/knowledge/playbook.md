@@ -39,3 +39,8 @@
 - Keep `max_response_tokens <= 0` to avoid hard truncation on reasoning-heavy tasks.
 - Use `max_tokens_total` as deterministic safety ceiling and `max_budget_usd` as optional spend ceiling.
 - Read `usage.cost` when available; fallback to pricing-based token estimation for pre-call checks and cost continuity.
+
+### No-Output-Cap Runtime Policy
+- Never send `max_tokens` in LLM chat completion payloads for migration runs.
+- Treat `llm.max_response_tokens` as deprecated/ignored to prevent accidental regressions from config changes.
+- Rebuild Docker runtime image before gate runs after any LLM client policy change.

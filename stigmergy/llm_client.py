@@ -64,10 +64,14 @@ class LLMClient:
         self.temperature = float(llm_config.get("temperature", 0.2))
         raw_max_response_tokens = llm_config.get("max_response_tokens", 0)
         max_response_tokens = int(raw_max_response_tokens)
-        # 0 (or negative) disables explicit max_tokens cap for thinking-heavy runs.
-        self.max_response_tokens: int | None = (
-            max_response_tokens if max_response_tokens > 0 else None
-        )
+        # Hard-disable explicit max_tokens: thinking-heavy migrations should never
+        # be truncated by a client-side completion cap.
+        self.max_response_tokens: int | None = None
+        if max_response_tokens > 0:
+            LOGGER.warning(
+                "llm.max_response_tokens=%s is ignored: client never sends max_tokens",
+                max_response_tokens,
+            )
         self.estimated_completion_tokens = int(
             llm_config.get("estimated_completion_tokens", 4096)
         )
@@ -150,8 +154,6 @@ class LLMClient:
                     "messages": self._build_messages(prompt=prompt, system=system),
                     "temperature": self.temperature,
                 }
-                if self.max_response_tokens is not None:
-                    request_payload["max_tokens"] = self.max_response_tokens
 
                 response = self.client.chat.completions.create(
                     **request_payload,

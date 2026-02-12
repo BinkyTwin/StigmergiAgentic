@@ -208,7 +208,7 @@ thresholds:
 llm:
   model: "qwen/qwen3-235b-a22b-2507"
   temperature: 0.2
-  max_response_tokens: 0            # 0 disables explicit completion cap
+  max_response_tokens: 0            # deprecated/ignored: client never sends max_tokens
   estimated_completion_tokens: 4096 # budget pre-check estimate when uncapped
   max_tokens_total: 200000
   max_budget_usd: 0.0               # 0 disables cost cap
