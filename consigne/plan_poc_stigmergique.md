@@ -925,13 +925,13 @@ Pour chaque configuration : plot `(cout en tokens, taux de succes)` → identifi
 
 **Objectif** : le medium stigmergique fonctionne independamment des agents.
 
-- [ ] `pheromone_store.py` : CRUD JSON (read, write, query par filtre) + file locking
-- [ ] `decay.py` : mecanisme d'evaporation exponentiel + inhibition
-- [ ] `guardrails.py` : verifications basiques (budget, anti-boucle, scope lock, tracabilite)
-- [ ] `config.yaml` : parametres initiaux complets (section 4.9)
-- [ ] `tests/test_pheromone_store.py` : tests unitaires du store
-- [ ] `tests/test_guardrails.py` : tests des contraintes
-- [ ] `.gitignore`, `.env.example`, `requirements.txt` (section 12.1)
+- [x] `pheromone_store.py` : CRUD JSON (read, write, query par filtre) + file locking
+- [x] `decay.py` : mecanisme d'evaporation exponentiel + inhibition
+- [x] `guardrails.py` : verifications basiques (budget, anti-boucle, scope lock, tracabilite)
+- [x] `config.yaml` : parametres initiaux complets (section 4.9)
+- [x] `tests/test_pheromone_store.py` : tests unitaires du store
+- [x] `tests/test_guardrails.py` : tests des contraintes
+- [x] `.gitignore`, `.env.example`, `requirements.txt` (section 12.1)
 
 **Livrable** : un store de pheromones testable avec `pytest`, decay fonctionnel, guardrails actifs.
 
@@ -939,14 +939,14 @@ Pour chaque configuration : plot `(cout en tokens, taux de succes)` → identifi
 
 **Objectif** : chaque agent fonctionne isolement avec l'environnement.
 
-- [ ] `llm_client.py` : client OpenRouter (qwen/qwen3-235b-a22b-2507) avec retry exponentiel et token counting
-- [ ] `base_agent.py` : classe abstraite avec le cycle perceive → should_act → decide → execute → deposit
-- [ ] `scout.py` : scan d'un fichier Py2 (19 patterns), depot de pheromones de tache (normalisation min-max)
-- [ ] `transformer.py` : lecture pheromone de tache, generation Py3 avec few-shot stigmergique, depot du resultat
-- [ ] `tester.py` : detection de `transformed`, execution pytest, depot de qualite (confidence initiale, coverage)
-- [ ] `validator.py` : lecture qualite, commit/rollback/escalade
-- [ ] Creer le depot synthetique Python 2 de test (section 8.1)
-- [ ] Tests unitaires de chaque agent en isolation
+- [x] `llm_client.py` : client OpenRouter (qwen/qwen3-235b-a22b-2507) avec retry exponentiel et token counting
+- [x] `base_agent.py` : classe abstraite avec le cycle perceive → should_act → decide → execute → deposit
+- [x] `scout.py` : scan d'un fichier Py2 (19 patterns), depot de pheromones de tache (normalisation min-max)
+- [x] `transformer.py` : lecture pheromone de tache, generation Py3 avec few-shot stigmergique, depot du resultat
+- [x] `tester.py` : detection de `transformed`, execution pytest, depot de qualite (confidence initiale, coverage)
+- [x] `validator.py` : lecture qualite, commit/rollback/escalade
+- [x] Creer le depot synthetique Python 2 de test (section 8.1)
+- [x] Tests unitaires de chaque agent en isolation
 
 **Livrable** : chaque agent peut tourner seul sur 1 fichier et deposer ses traces correctement.
 
