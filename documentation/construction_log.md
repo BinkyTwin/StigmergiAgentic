@@ -158,6 +158,47 @@ Chaque entrée suit ce format :
 
 ---
 
+### 2026-02-12 10:50 — Sprint 2.5 Docker Infrastructure for Tests & Migrations
+
+**Assistant IA utilisé** : Antigravity (Claude)
+
+**Objectif** : Containeriser l'exécution des tests et des migrations dans Docker pour garantir la reproductibilité indépendamment de la machine hôte. Préparer l'infrastructure CI.
+
+**Actions effectuées** :
+- Création du `Dockerfile` multi-stage (builder avec uv + runner avec git + Python 3.11-slim)
+- Création de `docker-compose.yml` avec 4 services : test, test-cov, migrate, shell
+- Création de `.dockerignore` pour optimiser le build context
+- Création du `Makefile` avec raccourcis Docker et locaux
+- Création de l'ADR Sprint 2.5 (`documentation/decisions/20260212-sprint2.5-docker-infrastructure.md`)
+- Mise à jour de l'index des ADRs, `CLAUDE.md`, `AGENTS.md`, `construction_log.md`
+- Ajout du Sprint 2.5 dans `consigne/plan_poc_stigmergique.md`
+
+**Décisions prises** :
+- Docker comme couche de reproductibilité, `uv` préservé pour le dev local rapide (double voie d'exécution)
+- Image multi-stage pour minimiser la taille finale (builder séparé du runner)
+- Volumes montés pour `pheromones/`, `target_repo/`, et `metrics/output/` (persistence entre runs)
+- `.env` passé via `env_file` dans docker-compose (pas copié dans l'image)
+
+**Problèmes rencontrés** :
+- Aucun problème majeur
+
+**Résultat** : Sprint 2.5 implémenté — Docker build + tests validés dans le conteneur
+
+**Fichiers créés** :
+- `Dockerfile` — Image multi-stage Python 3.11 + uv + git
+- `docker-compose.yml` — Services test, test-cov, migrate, shell
+- `.dockerignore` — Exclusions pour build context optimisé
+- `Makefile` — Raccourcis Docker et locaux
+- `documentation/decisions/20260212-sprint2.5-docker-infrastructure.md` — ADR Sprint 2.5
+
+**Fichiers modifiés** :
+- `documentation/decisions/INDEX.md` — Ajout ADR 004
+- `CLAUDE.md` — Section Docker Commands + statut Sprint 2.5
+- `AGENTS.md` — Section Docker Commands + statut Sprint 2.5
+- `consigne/plan_poc_stigmergique.md` — Ajout Sprint 2.5
+
+---
+
 ## Instructions pour les Futures Entrées
 
 À chaque session de développement :

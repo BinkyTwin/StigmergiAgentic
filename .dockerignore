@@ -1,0 +1,42 @@
+# Python artifacts
+.venv/
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Git
+.git/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Environment secrets
+.env
+.env.local
+
+# Runtime artifacts (rebuilt inside container)
+target_repo/
+pheromones/*.json
+pheromones/audit_log.jsonl
+logs/
+metrics/output/
+
+# Documentation (not needed for execution)
+documentation/
+consigne/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Agent config
+.agent/
+.codex/
+.gemini/

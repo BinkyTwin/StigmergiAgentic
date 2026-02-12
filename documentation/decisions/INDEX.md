@@ -13,6 +13,7 @@ Les ADRs suivent le format : `YYYYMMDD-titre-court.md`
 | 001 | 2026-02-09 | [Template ADR](TEMPLATE_ADR.md) | Accepté | Template de base pour tous les ADRs futurs |
 | 002 | 2026-02-10 | [Sprint 1 Environment Medium and Runtime Standardization](20260210-sprint1-environment-medium.md) | Accepté | JSON store + POSIX locking + append-only audit + uv runtime |
 | 003 | 2026-02-11 | [Sprint 2 Agent Layer, LLM Client, and Synthetic Fixture Strategy](20260210-sprint2-agents-unitaires.md) | Accepté | Agents unitaires + client LLM + fixtures versionnées + tests mock-first |
+| 004 | 2026-02-12 | [Sprint 2.5 Docker Infrastructure for Tests & Migrations](20260212-sprint2.5-docker-infrastructure.md) | Accepté | Docker multi-stage + docker-compose + Makefile pour exécution reproductible |
 
 ---
 
@@ -32,4 +33,4 @@ Quand NE PAS créer un ADR :
 
 ---
 
-**Dernière mise à jour** : 2026-02-11
+**Dernière mise à jour** : 2026-02-12

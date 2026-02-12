@@ -25,13 +25,14 @@ Round-robin (no supervisor): Scout → Transformer → Tester → Validator → 
 
 All agents inherit from `agents/base_agent.py` (abstract class with the perceive→deposit cycle).
 
-### Implementation Status (2026-02-11)
+### Implementation Status (2026-02-12)
 
-Sprint 2 is implemented:
+Sprint 2.5 is implemented:
 - `stigmergy/llm_client.py` provides OpenRouter calls with retry, token counting, and budget checks.
 - `agents/scout.py`, `agents/transformer.py`, `agents/tester.py`, `agents/validator.py` are implemented and validated in isolation.
 - `tests/fixtures/synthetic_py2_repo/` provides the versioned synthetic Python 2 fixture repository.
 - Agent handoff integration tests are available in `tests/test_agents_integration.py`.
+- Docker infrastructure (`Dockerfile`, `docker-compose.yml`, `Makefile`) provides reproducible containerized execution.
 
 ### Three Pheromone Types (JSON files in `pheromones/`)
 
@@ -66,6 +67,8 @@ documentation/    → Construction logs, decisions, and technical notes for thes
 
 ## Commands
 
+### Local (uv)
+
 ```bash
 # Bootstrap environment with uv (recommended)
 uv python install 3.11
@@ -97,6 +100,26 @@ uv run python metrics/export.py --output results.csv
 
 # Generate Pareto cost-precision analysis
 uv run python metrics/pareto.py --output pareto.png
+```
+
+### Docker (Sprint 2.5)
+
+```bash
+# Build the Docker image
+make docker-build
+
+# Run full test suite in Docker
+make docker-test
+# or: docker compose run --rm test
+
+# Run tests with coverage in Docker
+make docker-test-cov
+
+# Run migration in Docker
+make docker-migrate REPO=<python2_repo_url>
+
+# Interactive shell in Docker container
+make docker-shell
 ```
 
 ## Tech Stack

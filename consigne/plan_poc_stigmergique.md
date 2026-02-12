@@ -950,6 +950,19 @@ Pour chaque configuration : plot `(cout en tokens, taux de succes)` → identifi
 
 **Livrable** : chaque agent peut tourner seul sur 1 fichier et deposer ses traces correctement.
 
+### Sprint 2.5 — Docker Infrastructure (1 jour)
+
+**Objectif** : containeriser l'execution des tests et des migrations pour garantir la reproductibilite independamment de la machine hote.
+
+- [x] `Dockerfile` : image multi-stage (builder avec uv + runner avec git + Python 3.11-slim)
+- [x] `docker-compose.yml` : services test, test-cov, migrate, shell
+- [x] `.dockerignore` : exclusions pour build context optimise
+- [x] `Makefile` : raccourcis Docker (`make docker-test`, `make docker-build`, etc.) + locaux
+- [x] Validation : `docker compose run --rm test` reproduit les memes resultats que `uv run pytest tests/ -v`
+- [x] ADR Sprint 2.5 + mise a jour documentaire complete
+
+**Livrable** : infrastructure Docker fonctionnelle pour execution reproductible des tests et migrations. CI-ready.
+
 ### Sprint 3 — Boucle complete + metriques (3 jours)
 
 **Objectif** : les 4 agents tournent ensemble, coordonnes uniquement par les pheromones.

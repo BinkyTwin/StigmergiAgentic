@@ -38,13 +38,14 @@ All agents inherit from `agents/base_agent.py` (abstract class with the perceive
 
 Transformer reading quality.json = **cognitive stigmergy** (Ricci et al., 2007): reading environmental traces, not direct communication.
 
-### Implementation Status (2026-02-11)
+### Implementation Status (2026-02-12)
 
-Sprint 2 has been implemented and validated locally:
+Sprint 2.5 has been implemented and validated:
 - `stigmergy/llm_client.py` is available with OpenRouter retry/backoff, budget gating, and token accounting.
 - `agents/base_agent.py` and all specialized agents are implemented.
 - A versioned synthetic Python 2 fixture repo exists at `tests/fixtures/synthetic_py2_repo/`.
 - Unit and integration test coverage for Sprint 2 flows is implemented in `tests/test_*`.
+- Docker infrastructure for reproducible test/migration execution is in place (`Dockerfile`, `docker-compose.yml`, `Makefile`).
 
 ### Pheromone Types (JSON files in `pheromones/`)
 
@@ -150,6 +151,30 @@ uv run python metrics/export.py --output results.csv
 
 # Generate Pareto cost-precision analysis
 uv run python metrics/pareto.py --output pareto.png
+```
+
+## Docker Commands (Sprint 2.5)
+
+```bash
+# Build the Docker image
+make docker-build
+# or: docker compose build
+
+# Run full test suite in Docker
+make docker-test
+# or: docker compose run --rm test
+
+# Run tests with coverage in Docker
+make docker-test-cov
+# or: docker compose run --rm test-cov
+
+# Run migration in Docker
+make docker-migrate REPO=<python2_repo_url>
+# or: REPO=<url> docker compose run --rm migrate
+
+# Interactive shell in Docker container
+make docker-shell
+# or: docker compose run --rm shell
 ```
 
 ## Key Configuration (`stigmergy/config.yaml`)
