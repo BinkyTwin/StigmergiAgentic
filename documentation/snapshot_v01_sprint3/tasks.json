@@ -1,0 +1,527 @@
+{
+  "conftest.py": {
+    "created_by": "scout",
+    "dep_count": 1,
+    "dependencies": [
+      "docopt.py"
+    ],
+    "intensity": 0.09512294245007141,
+    "pattern_count": 1,
+    "pattern_details": [
+      {
+        "line": 1,
+        "pattern": "future_imports",
+        "source": "regex"
+      }
+    ],
+    "patterns_found": [
+      "future_imports"
+    ],
+    "timestamp": "2026-02-12T23:42:31Z",
+    "updated_by": "system_decay"
+  },
+  "docopt.py": {
+    "created_by": "scout",
+    "dep_count": 0,
+    "dependencies": [],
+    "intensity": 0.09512294245007141,
+    "pattern_count": 1,
+    "pattern_details": [
+      {
+        "line": 1,
+        "pattern": "future_imports",
+        "source": "regex"
+      }
+    ],
+    "patterns_found": [
+      "future_imports"
+    ],
+    "timestamp": "2026-02-12T23:42:31Z",
+    "updated_by": "system_decay"
+  },
+  "examples/arguments_example.py": {
+    "created_by": "scout",
+    "dep_count": 1,
+    "dependencies": [
+      "docopt.py"
+    ],
+    "intensity": 0.09512294245007141,
+    "pattern_count": 1,
+    "pattern_details": [
+      {
+        "line": 1,
+        "pattern": "future_imports",
+        "source": "regex"
+      }
+    ],
+    "patterns_found": [
+      "future_imports"
+    ],
+    "timestamp": "2026-02-12T23:42:31Z",
+    "updated_by": "system_decay"
+  },
+  "examples/calculator_example.py": {
+    "created_by": "scout",
+    "dep_count": 1,
+    "dependencies": [
+      "docopt.py"
+    ],
+    "intensity": 0.09512294245007141,
+    "pattern_count": 1,
+    "pattern_details": [
+      {
+        "line": 1,
+        "pattern": "future_imports",
+        "source": "regex"
+      }
+    ],
+    "patterns_found": [
+      "future_imports"
+    ],
+    "timestamp": "2026-02-12T23:42:31Z",
+    "updated_by": "system_decay"
+  },
+  "examples/counted_example.py": {
+    "created_by": "scout",
+    "dep_count": 1,
+    "dependencies": [
+      "docopt.py"
+    ],
+    "intensity": 0.09512294245007141,
+    "pattern_count": 1,
+    "pattern_details": [
+      {
+        "line": 1,
+        "pattern": "future_imports",
+        "source": "regex"
+      }
+    ],
+    "patterns_found": [
+      "future_imports"
+    ],
+    "timestamp": "2026-02-12T23:42:31Z",
+    "updated_by": "system_decay"
+  },
+  "examples/git/git.py": {
+    "created_by": "scout",
+    "dep_count": 1,
+    "dependencies": [
+      "docopt.py"
+    ],
+    "intensity": 0.09512294245007141,
+    "pattern_count": 1,
+    "pattern_details": [
+      {
+        "line": 1,
+        "pattern": "future_imports",
+        "source": "regex"
+      }
+    ],
+    "patterns_found": [
+      "future_imports"
+    ],
+    "timestamp": "2026-02-12T23:42:31Z",
+    "updated_by": "system_decay"
+  },
+  "examples/git/git_add.py": {
+    "created_by": "scout",
+    "dep_count": 1,
+    "dependencies": [
+      "docopt.py"
+    ],
+    "intensity": 0.09512294245007141,
+    "pattern_count": 1,
+    "pattern_details": [
+      {
+        "line": 1,
+        "pattern": "future_imports",
+        "source": "regex"
+      }
+    ],
+    "patterns_found": [
+      "future_imports"
+    ],
+    "timestamp": "2026-02-12T23:42:31Z",
+    "updated_by": "system_decay"
+  },
+  "examples/git/git_branch.py": {
+    "created_by": "scout",
+    "dep_count": 1,
+    "dependencies": [
+      "docopt.py"
+    ],
+    "intensity": 0.09512294245007141,
+    "pattern_count": 1,
+    "pattern_details": [
+      {
+        "line": 1,
+        "pattern": "future_imports",
+        "source": "regex"
+      }
+    ],
+    "patterns_found": [
+      "future_imports"
+    ],
+    "timestamp": "2026-02-12T23:42:31Z",
+    "updated_by": "system_decay"
+  },
+  "examples/git/git_checkout.py": {
+    "created_by": "scout",
+    "dep_count": 1,
+    "dependencies": [
+      "docopt.py"
+    ],
+    "intensity": 0.09512294245007141,
+    "pattern_count": 1,
+    "pattern_details": [
+      {
+        "line": 1,
+        "pattern": "future_imports",
+        "source": "regex"
+      }
+    ],
+    "patterns_found": [
+      "future_imports"
+    ],
+    "timestamp": "2026-02-12T23:42:31Z",
+    "updated_by": "system_decay"
+  },
+  "examples/git/git_clone.py": {
+    "created_by": "scout",
+    "dep_count": 1,
+    "dependencies": [
+      "docopt.py"
+    ],
+    "intensity": 0.09512294245007141,
+    "pattern_count": 1,
+    "pattern_details": [
+      {
+        "line": 1,
+        "pattern": "future_imports",
+        "source": "regex"
+      }
+    ],
+    "patterns_found": [
+      "future_imports"
+    ],
+    "timestamp": "2026-02-12T23:42:31Z",
+    "updated_by": "system_decay"
+  },
+  "examples/git/git_commit.py": {
+    "created_by": "scout",
+    "dep_count": 1,
+    "dependencies": [
+      "docopt.py"
+    ],
+    "intensity": 0.09512294245007141,
+    "pattern_count": 1,
+    "pattern_details": [
+      {
+        "line": 1,
+        "pattern": "future_imports",
+        "source": "regex"
+      }
+    ],
+    "patterns_found": [
+      "future_imports"
+    ],
+    "timestamp": "2026-02-12T23:42:31Z",
+    "updated_by": "system_decay"
+  },
+  "examples/git/git_push.py": {
+    "created_by": "scout",
+    "dep_count": 1,
+    "dependencies": [
+      "docopt.py"
+    ],
+    "intensity": 0.09512294245007141,
+    "pattern_count": 1,
+    "pattern_details": [
+      {
+        "line": 1,
+        "pattern": "future_imports",
+        "source": "regex"
+      }
+    ],
+    "patterns_found": [
+      "future_imports"
+    ],
+    "timestamp": "2026-02-12T23:42:31Z",
+    "updated_by": "system_decay"
+  },
+  "examples/git/git_remote.py": {
+    "created_by": "scout",
+    "dep_count": 1,
+    "dependencies": [
+      "docopt.py"
+    ],
+    "intensity": 0.09512294245007141,
+    "pattern_count": 1,
+    "pattern_details": [
+      {
+        "line": 1,
+        "pattern": "future_imports",
+        "source": "regex"
+      }
+    ],
+    "patterns_found": [
+      "future_imports"
+    ],
+    "timestamp": "2026-02-12T23:42:31Z",
+    "updated_by": "system_decay"
+  },
+  "examples/naval_fate.py": {
+    "created_by": "scout",
+    "dep_count": 1,
+    "dependencies": [
+      "docopt.py"
+    ],
+    "intensity": 0.09512294245007141,
+    "pattern_count": 1,
+    "pattern_details": [
+      {
+        "line": 1,
+        "pattern": "future_imports",
+        "source": "regex"
+      }
+    ],
+    "patterns_found": [
+      "future_imports"
+    ],
+    "timestamp": "2026-02-12T23:42:31Z",
+    "updated_by": "system_decay"
+  },
+  "examples/odd_even_example.py": {
+    "created_by": "scout",
+    "dep_count": 1,
+    "dependencies": [
+      "docopt.py"
+    ],
+    "intensity": 0.09512294245007141,
+    "pattern_count": 1,
+    "pattern_details": [
+      {
+        "line": 1,
+        "pattern": "future_imports",
+        "source": "regex"
+      }
+    ],
+    "patterns_found": [
+      "future_imports"
+    ],
+    "timestamp": "2026-02-12T23:42:31Z",
+    "updated_by": "system_decay"
+  },
+  "examples/options_example.py": {
+    "created_by": "scout",
+    "dep_count": 1,
+    "dependencies": [
+      "docopt.py"
+    ],
+    "intensity": 0.09512294245007141,
+    "pattern_count": 1,
+    "pattern_details": [
+      {
+        "line": 1,
+        "pattern": "future_imports",
+        "source": "regex"
+      }
+    ],
+    "patterns_found": [
+      "future_imports"
+    ],
+    "timestamp": "2026-02-12T23:42:31Z",
+    "updated_by": "system_decay"
+  },
+  "examples/options_shortcut_example.py": {
+    "created_by": "scout",
+    "dep_count": 1,
+    "dependencies": [
+      "docopt.py"
+    ],
+    "intensity": 0.09512294245007141,
+    "pattern_count": 1,
+    "pattern_details": [
+      {
+        "line": 1,
+        "pattern": "future_imports",
+        "source": "regex"
+      }
+    ],
+    "patterns_found": [
+      "future_imports"
+    ],
+    "timestamp": "2026-02-12T23:42:31Z",
+    "updated_by": "system_decay"
+  },
+  "examples/quick_example.py": {
+    "created_by": "scout",
+    "dep_count": 1,
+    "dependencies": [
+      "docopt.py"
+    ],
+    "intensity": 0.09512294245007141,
+    "pattern_count": 1,
+    "pattern_details": [
+      {
+        "line": 1,
+        "pattern": "future_imports",
+        "source": "regex"
+      }
+    ],
+    "patterns_found": [
+      "future_imports"
+    ],
+    "timestamp": "2026-02-12T23:42:31Z",
+    "updated_by": "system_decay"
+  },
+  "examples/validation_example.py": {
+    "created_by": "scout",
+    "dep_count": 1,
+    "dependencies": [
+      "docopt.py"
+    ],
+    "intensity": 0.09512294245007141,
+    "pattern_count": 1,
+    "pattern_details": [
+      {
+        "line": 1,
+        "pattern": "future_imports",
+        "source": "regex"
+      }
+    ],
+    "patterns_found": [
+      "future_imports"
+    ],
+    "timestamp": "2026-02-12T23:42:31Z",
+    "updated_by": "system_decay"
+  },
+  "language_agnostic_testee.py": {
+    "created_by": "scout",
+    "dep_count": 1,
+    "dependencies": [
+      "docopt.py"
+    ],
+    "intensity": 0.36237311409551004,
+    "pattern_count": 3,
+    "pattern_details": [
+      {
+        "line": 1,
+        "pattern": "future_imports",
+        "source": "regex"
+      },
+      {
+        "line": 8,
+        "pattern": "print_statement",
+        "source": "regex"
+      },
+      {
+        "line": 10,
+        "pattern": "print_statement",
+        "source": "regex"
+      }
+    ],
+    "patterns_found": [
+      "future_imports",
+      "print_statement"
+    ],
+    "timestamp": "2026-02-12T23:42:31Z",
+    "updated_by": "system_decay"
+  },
+  "language_agnostic_tester.py": {
+    "created_by": "scout",
+    "dep_count": 0,
+    "dependencies": [],
+    "intensity": 1.0,
+    "pattern_count": 8,
+    "pattern_details": [
+      {
+        "line": 1,
+        "pattern": "future_imports",
+        "source": "regex"
+      },
+      {
+        "line": 34,
+        "pattern": "print_statement",
+        "source": "regex"
+      },
+      {
+        "line": 35,
+        "pattern": "print_statement",
+        "source": "regex"
+      },
+      {
+        "line": 41,
+        "pattern": "print_statement",
+        "source": "regex"
+      },
+      {
+        "line": 42,
+        "pattern": "print_statement",
+        "source": "regex"
+      },
+      {
+        "line": 43,
+        "pattern": "print_statement",
+        "source": "regex"
+      },
+      {
+        "line": 44,
+        "pattern": "print_statement",
+        "source": "regex"
+      },
+      {
+        "line": 48,
+        "pattern": "print_statement",
+        "source": "regex"
+      }
+    ],
+    "patterns_found": [
+      "future_imports",
+      "print_statement"
+    ],
+    "timestamp": "2026-02-12T23:42:20Z"
+  },
+  "setup.py": {
+    "created_by": "scout",
+    "dep_count": 1,
+    "dependencies": [
+      "docopt.py"
+    ],
+    "intensity": 0.09512294245007141,
+    "pattern_count": 1,
+    "pattern_details": [
+      {
+        "line": 1,
+        "pattern": "future_imports",
+        "source": "regex"
+      }
+    ],
+    "patterns_found": [
+      "future_imports"
+    ],
+    "timestamp": "2026-02-12T23:42:31Z",
+    "updated_by": "system_decay"
+  },
+  "test_docopt.py": {
+    "created_by": "scout",
+    "dep_count": 1,
+    "dependencies": [
+      "docopt.py"
+    ],
+    "intensity": 0.09512294245007141,
+    "pattern_count": 1,
+    "pattern_details": [
+      {
+        "line": 446,
+        "pattern": "unicode_literal",
+        "source": "regex"
+      }
+    ],
+    "patterns_found": [
+      "unicode_literal"
+    ],
+    "timestamp": "2026-02-12T23:42:31Z",
+    "updated_by": "system_decay"
+  }
+}

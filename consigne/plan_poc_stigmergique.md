@@ -967,13 +967,13 @@ Pour chaque configuration : plot `(cout en tokens, taux de succes)` → identifi
 
 **Objectif** : les 4 agents tournent ensemble, coordonnes uniquement par les pheromones.
 
-- [ ] `loop.py` : boucle round-robin avec 4 criteres d'arret
-- [ ] `main.py` : point d'entree CLI complet (section 4.10)
-- [ ] `collector.py` : enregistrement metriques a chaque tick
-- [ ] `export.py` : export CSV/JSON des resultats
-- [ ] Premier run complet sur le depot synthetique
-- [ ] Debug des interactions emergentes (boucles infinies, agents inactifs, conflits)
-- [ ] Ajustement des seuils et du decay_rate
+- [x] `loop.py` : boucle round-robin avec 4 criteres d'arret
+- [x] `main.py` : point d'entree CLI complet (section 4.10)
+- [x] `collector.py` : enregistrement metriques a chaque tick
+- [x] `export.py` : export CSV/JSON des resultats
+- [x] Premier run complet sur le depot synthetique
+- [x] Debug des interactions emergentes (boucles infinies, agents inactifs, conflits)
+- [x] Ajustement des seuils et du decay_rate
 
 **Livrable** : un POC qui migre un petit depot Py2→Py3 de bout en bout, avec logs et metriques exportables.
 

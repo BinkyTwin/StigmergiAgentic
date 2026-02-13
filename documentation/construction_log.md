@@ -331,6 +331,52 @@ Chaque entrée suit ce format :
 
 ---
 
+### 2026-02-13 00:55 — Documentation V0.1 Sprint 3 & Snapshot des Données
+
+**Assistant IA utilisé** : Antigravity (Claude)
+
+**Objectif** : Documenter l'état complet du POC V0.1 après Sprint 3, sauvegarder les données de phéromones et métriques, et analyser l'évolution des résultats entre gate runs.
+
+**Actions effectuées** :
+- Analyse approfondie du système de phéromones (normalisation, decay, inhibition, ticks)
+- Exploration du mécanisme d'abandon (soft decay, hard skip, needs_review)
+- Étude détaillée de la détection de patterns Scout (19 patterns, AST + Regex hybride)
+- Analyse des 13 gate runs Sprint 3 pour identifier meilleur/pire résultats
+- Création du dossier `documentation/snapshot_v01_sprint3/` avec copies figées des phéromones
+- Sauvegarde des métriques best run (22/23 = 95.65%) et worst run (20/23 = 86.96%)
+- Création de `documentation/V01_SPRINT3_README.md` — documentation complète de version
+- Création de `scripts/verify_migration.sh` — script de vérification des migrations
+- Modification de `stigmergy/config.yaml` : `max_tokens_total` 200k → 1M
+
+**Décisions prises** :
+- Ne pas utiliser LangChain/LangGraph : ces frameworks imposent une orchestration centralisée incompatible avec la stigmergie (innovation scientifique du POC)
+- Augmenter le budget tokens pour permettre la migration de repos plus volumineux
+- Sauvegarder les métriques extrêmes (best/worst) pour documenter l'évolution dans le mémoire
+
+**Observations clés** :
+- **Stigmergie cognitive confirmée** : le run 4 (phéromones persistées) n'utilise que 22k tokens vs 151k pour le meilleur run initial → le système apprend et évite de refaire le travail validé
+- **Impact du patch uncapped** : +8.7% (86.96% → 95.65%) après suppression du cap output
+- **Score stable** : 91-96% sur docopt@0.6.2 à travers les runs
+- `estimated_completion_tokens: 4096` est un pre-check de budget, pas un cap réel
+
+**Résultat** : Documentation V0.1 Sprint 3 complète avec données sauvegardées
+
+**Fichiers créés** :
+- `documentation/V01_SPRINT3_README.md` — README de version avec architecture, résultats, améliorations
+- `documentation/snapshot_v01_sprint3/tasks.json` — Copie figée des tâches
+- `documentation/snapshot_v01_sprint3/status.json` — Copie figée des statuts
+- `documentation/snapshot_v01_sprint3/quality.json` — Copie figée de la qualité
+- `documentation/snapshot_v01_sprint3/audit_log.jsonl` — Copie du journal d'audit
+- `documentation/snapshot_v01_sprint3/metrics_best_run/` — Métriques du run 22/23 (95.65%)
+- `documentation/snapshot_v01_sprint3/metrics_worst_run/` — Métriques du run 20/23 (86.96%)
+- `scripts/verify_migration.sh` — Script de vérification migration
+
+**Fichiers modifiés** :
+- `stigmergy/config.yaml` — `max_tokens_total`: 200000 → 1000000
+- `documentation/construction_log.md` — Cette entrée
+
+---
+
 ## Instructions pour les Futures Entrées
 
 À chaque session de développement :

@@ -1,0 +1,16 @@
+{
+  "audit_completeness": 1.0,
+  "files_failed": 0,
+  "files_needs_review": 0,
+  "files_total": 23,
+  "files_validated": 20,
+  "human_escalation_rate": 0.0,
+  "retry_resolution_rate": 0.0,
+  "rollback_rate": 0.0,
+  "run_id": "20260212T173704Z",
+  "starvation_count": 0,
+  "stop_reason": "all_terminal",
+  "success_rate": 0.869565,
+  "total_ticks": 32,
+  "total_tokens": 118618
+}
