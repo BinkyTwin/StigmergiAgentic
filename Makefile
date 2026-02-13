@@ -22,8 +22,8 @@ docker-test: ## Run full test suite in Docker
 docker-test-cov: ## Run tests with coverage report in Docker
 	docker compose run --rm test-cov
 
-docker-migrate: ## Run migration in Docker (usage: make docker-migrate REPO=<url>)
-	REPO=$(REPO) docker compose run --rm migrate
+docker-migrate: ## Run migration in Docker (usage: make docker-migrate REPO=<url> REPO_REF=<tag|branch|sha> SEED=<int>)
+	REPO=$(REPO) REPO_REF=$(REPO_REF) SEED=$(SEED) docker compose run --rm migrate
 
 docker-shell: ## Open an interactive shell in the Docker container
 	docker compose run --rm shell

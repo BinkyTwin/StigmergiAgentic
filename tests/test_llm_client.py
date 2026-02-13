@@ -8,7 +8,7 @@ from types import SimpleNamespace
 import pytest
 from openai import APIConnectionError, APIStatusError, APITimeoutError, AuthenticationError
 
-from stigmergy.llm_client import LLMClient
+from stigmergy.llm_client import LLMClient, ModelPricing
 
 
 class RetryableStubError(Exception):
@@ -21,9 +21,11 @@ class FakeCompletions:
     def __init__(self, outcomes: list[object]) -> None:
         self.outcomes = list(outcomes)
         self.calls = 0
+        self.last_kwargs: dict[str, object] = {}
 
-    def create(self, **_: object) -> object:
+    def create(self, **kwargs: object) -> object:
         self.calls += 1
+        self.last_kwargs = kwargs
         current = self.outcomes.pop(0)
         if isinstance(current, Exception):
             raise current
@@ -46,7 +48,8 @@ def _build_config() -> dict:
             "model": "qwen/qwen3-235b-a22b-2507",
             "temperature": 0.2,
             "max_response_tokens": 256,
-            "max_tokens_total": 2000,
+            "estimated_completion_tokens": 256,
+            "max_tokens_total": 10000,
             "retry_attempts": 3,
             "retry_backoff": [1, 2, 4],
         }
@@ -54,12 +57,17 @@ def _build_config() -> dict:
 
 
 def _make_response(
-    content: str, prompt_tokens: int = 10, completion_tokens: int = 20
+    content: str,
+    prompt_tokens: int = 10,
+    completion_tokens: int = 20,
+    cost: float | str | None = None,
 ) -> object:
     return SimpleNamespace(
         choices=[SimpleNamespace(message=SimpleNamespace(content=content))],
         usage=SimpleNamespace(
-            prompt_tokens=prompt_tokens, completion_tokens=completion_tokens
+            prompt_tokens=prompt_tokens,
+            completion_tokens=completion_tokens,
+            cost=cost,
         ),
     )
 
@@ -98,12 +106,126 @@ def test_llm_client_budget_check_blocks_call(monkeypatch: pytest.MonkeyPatch) ->
         client.call(prompt="x" * 500)
 
 
+def test_llm_client_omits_max_tokens_when_uncapped(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("OPENROUTER_API_KEY", "sk-test")
+    config = _build_config()
+    config["llm"]["max_response_tokens"] = 0
+    config["llm"]["max_tokens_total"] = 10_000
+
+    client = LLMClient(config)
+    fake_completions = FakeCompletions([_make_response("ok")])
+    client.client = FakeOpenAIClient(fake_completions)
+
+    result = client.call(prompt="hello")
+    assert result.content == "ok"
+    assert "max_tokens" not in fake_completions.last_kwargs
+
+
+def test_llm_client_ignores_max_tokens_even_when_configured(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("OPENROUTER_API_KEY", "sk-test")
+    config = _build_config()
+    config["llm"]["max_response_tokens"] = 512
+
+    client = LLMClient(config)
+    fake_completions = FakeCompletions([_make_response("ok")])
+    client.client = FakeOpenAIClient(fake_completions)
+
+    result = client.call(prompt="hello")
+    assert result.content == "ok"
+    assert "max_tokens" not in fake_completions.last_kwargs
+
+
+def test_llm_client_cost_budget_check_blocks_call(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("OPENROUTER_API_KEY", "sk-test")
+    monkeypatch.setattr(
+        LLMClient,
+        "_fetch_model_pricing",
+        lambda self: ModelPricing(
+            prompt_cost_per_token_usd=0.001,
+            completion_cost_per_token_usd=0.001,
+        ),
+    )
+
+    config = _build_config()
+    config["llm"]["max_budget_usd"] = 0.001
+    client = LLMClient(config)
+
+    with pytest.raises(RuntimeError, match="Cost budget exceeded before call"):
+        client.call(prompt="x" * 200)
+
+
+def test_llm_client_uses_usage_cost_when_available(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("OPENROUTER_API_KEY", "sk-test")
+    config = _build_config()
+    config["llm"]["max_budget_usd"] = 100
+
+    client = LLMClient(config)
+    fake_completions = FakeCompletions([_make_response("ok", cost="0.0125")])
+    client.client = FakeOpenAIClient(fake_completions)
+
+    response = client.call(prompt="hello")
+
+    assert response.cost_usd == pytest.approx(0.0125)
+    assert client.total_cost_usd == pytest.approx(0.0125)
+
+
+def test_llm_client_estimates_cost_when_usage_cost_missing(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("OPENROUTER_API_KEY", "sk-test")
+    monkeypatch.setattr(
+        LLMClient,
+        "_fetch_model_pricing",
+        lambda self: ModelPricing(
+            prompt_cost_per_token_usd=0.0001,
+            completion_cost_per_token_usd=0.0002,
+            request_cost_usd=0.0003,
+        ),
+    )
+    config = _build_config()
+    config["llm"]["max_budget_usd"] = 10
+
+    client = LLMClient(config)
+    fake_completions = FakeCompletions(
+        [_make_response("ok", prompt_tokens=10, completion_tokens=20, cost=None)]
+    )
+    client.client = FakeOpenAIClient(fake_completions)
+
+    response = client.call(prompt="hello")
+
+    expected = 10 * 0.0001 + 20 * 0.0002 + 0.0003
+    assert response.cost_usd == pytest.approx(expected)
+    assert client.total_cost_usd == pytest.approx(expected)
+
+
 def test_extract_code_block() -> None:
     os.environ["OPENROUTER_API_KEY"] = "sk-test"
     client = LLMClient(_build_config())
 
     text = "prefix\n```python\nprint('ok')\n```\nsuffix"
     assert client.extract_code_block(text) == "print('ok')"
+
+
+def test_extract_code_block_strips_unclosed_fence() -> None:
+    os.environ["OPENROUTER_API_KEY"] = "sk-test"
+    client = LLMClient(_build_config())
+
+    text = "```python\nprint('ok')\n"
+    assert client.extract_code_block(text) == "print('ok')"
+
+
+def test_extract_code_block_strips_fence_lines_only() -> None:
+    os.environ["OPENROUTER_API_KEY"] = "sk-test"
+    client = LLMClient(_build_config())
+
+    text = "```python\nx = 1\n```\n"
+    assert client.extract_code_block(text) == "x = 1"
 
 
 @pytest.mark.live_api

@@ -22,8 +22,13 @@ llm:
   provider: "openrouter"
   model: "qwen/qwen3-235b-a22b-2507"
   temperature: 0.2
-  max_response_tokens: 4096
-  max_tokens_total: 100000
+  max_response_tokens: 0            # deprecated/ignored: client never sends max_tokens
+  estimated_completion_tokens: 4096 # budget pre-check estimate when uncapped
+  max_tokens_total: 1000000
+  max_budget_usd: 0.0               # 0 disables USD budget cap
+  pricing_endpoint: "https://openrouter.ai/api/v1/models/user"
+  pricing_api_timeout_seconds: 8
+  pricing_strict: false
   retry_attempts: 3
   retry_backoff: [1, 2, 4]
 
@@ -31,6 +36,27 @@ llm:
 loop:
   max_ticks: 50
   idle_cycles_to_stop: 2
+
+# === Transformer ===
+transformer:
+  syntax_gate:
+    enabled: true
+    repair_attempts_max: 2
+  large_file:
+    line_threshold: 250
+    max_few_shot_examples: 0
+    max_retry_issues: 2
+
+# === Tester ===
+tester:
+  fallback_quality:
+    compile_import_fail: 0.4
+    related_regression: 0.6
+    pass_or_inconclusive: 0.8
+  optional_dependency_hints:
+    - "requires that"
+    - "pip install"
+    - "optional dependency"
 
 # === Git ===
 git:

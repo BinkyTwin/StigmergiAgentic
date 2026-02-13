@@ -26,6 +26,9 @@ def _build_config() -> dict:
         "llm": {
             "max_tokens_total": 100000,
         },
+        "runtime": {
+            "dry_run": False,
+        },
     }
 
 
@@ -181,3 +184,52 @@ def test_validator_rolls_back_low_confidence_to_retry(tmp_path: Path) -> None:
     assert quality is not None
     assert quality["confidence"] == 0.0
     assert "return 1" in restored_content
+
+
+def test_validator_dry_run_skips_git_mutations(tmp_path: Path) -> None:
+    repo = _init_repo_with_file(
+        tmp_path / "repo", "module.py", "def value():\n    return 1\n"
+    )
+    repo_path = Path(repo.working_tree_dir or "")
+
+    (repo_path / "module.py").write_text(
+        "def value():\n    return 2\n", encoding="utf-8"
+    )
+
+    config = _build_config()
+    config["runtime"]["dry_run"] = True
+
+    store = PheromoneStore(config, base_path=tmp_path)
+    store.write(
+        "status",
+        "module.py",
+        {"status": "tested", "retry_count": 0, "inhibition": 0.0},
+        agent_id="tester",
+    )
+    store.write(
+        "quality",
+        "module.py",
+        {
+            "confidence": 0.95,
+            "tests_total": 1,
+            "tests_passed": 1,
+            "tests_failed": 0,
+            "coverage": 1.0,
+            "issues": [],
+        },
+        agent_id="tester",
+    )
+
+    validator = Validator(
+        name="validator",
+        config=config,
+        pheromone_store=store,
+        target_repo_path=repo_path,
+    )
+    validator.run()
+
+    status = store.read_one("status", "module.py")
+    assert status is not None
+    assert status["status"] == "validated"
+    assert status["metadata"]["dry_run"] is True
+    assert len(list(repo.iter_commits("HEAD"))) == 1

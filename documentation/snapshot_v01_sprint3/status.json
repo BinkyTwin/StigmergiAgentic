@@ -1,0 +1,288 @@
+{
+  "conftest.py": {
+    "created_by": "scout",
+    "inhibition": 0.0,
+    "metadata": {
+      "patterns_found": [
+        "future_imports"
+      ]
+    },
+    "retry_count": 0,
+    "status": "pending",
+    "timestamp": "2026-02-12T23:42:20Z"
+  },
+  "docopt.py": {
+    "created_by": "scout",
+    "inhibition": 0.0,
+    "metadata": {
+      "patterns_found": [
+        "future_imports"
+      ]
+    },
+    "retry_count": 0,
+    "status": "pending",
+    "timestamp": "2026-02-12T23:42:20Z"
+  },
+  "examples/arguments_example.py": {
+    "created_by": "scout",
+    "inhibition": 0.0,
+    "metadata": {
+      "patterns_found": [
+        "future_imports"
+      ]
+    },
+    "retry_count": 0,
+    "status": "pending",
+    "timestamp": "2026-02-12T23:42:20Z"
+  },
+  "examples/calculator_example.py": {
+    "created_by": "scout",
+    "inhibition": 0.0,
+    "metadata": {
+      "patterns_found": [
+        "future_imports"
+      ]
+    },
+    "retry_count": 0,
+    "status": "pending",
+    "timestamp": "2026-02-12T23:42:20Z"
+  },
+  "examples/counted_example.py": {
+    "created_by": "scout",
+    "inhibition": 0.0,
+    "metadata": {
+      "patterns_found": [
+        "future_imports"
+      ]
+    },
+    "retry_count": 0,
+    "status": "pending",
+    "timestamp": "2026-02-12T23:42:20Z"
+  },
+  "examples/git/git.py": {
+    "created_by": "scout",
+    "inhibition": 0.0,
+    "metadata": {
+      "patterns_found": [
+        "future_imports"
+      ]
+    },
+    "retry_count": 0,
+    "status": "pending",
+    "timestamp": "2026-02-12T23:42:20Z"
+  },
+  "examples/git/git_add.py": {
+    "created_by": "scout",
+    "inhibition": 0.0,
+    "metadata": {
+      "patterns_found": [
+        "future_imports"
+      ]
+    },
+    "retry_count": 0,
+    "status": "pending",
+    "timestamp": "2026-02-12T23:42:20Z"
+  },
+  "examples/git/git_branch.py": {
+    "created_by": "scout",
+    "inhibition": 0.0,
+    "metadata": {
+      "patterns_found": [
+        "future_imports"
+      ]
+    },
+    "retry_count": 0,
+    "status": "pending",
+    "timestamp": "2026-02-12T23:42:20Z"
+  },
+  "examples/git/git_checkout.py": {
+    "created_by": "scout",
+    "inhibition": 0.0,
+    "metadata": {
+      "patterns_found": [
+        "future_imports"
+      ]
+    },
+    "retry_count": 0,
+    "status": "pending",
+    "timestamp": "2026-02-12T23:42:20Z"
+  },
+  "examples/git/git_clone.py": {
+    "created_by": "scout",
+    "inhibition": 0.0,
+    "metadata": {
+      "patterns_found": [
+        "future_imports"
+      ]
+    },
+    "retry_count": 0,
+    "status": "pending",
+    "timestamp": "2026-02-12T23:42:20Z"
+  },
+  "examples/git/git_commit.py": {
+    "created_by": "scout",
+    "inhibition": 0.0,
+    "metadata": {
+      "patterns_found": [
+        "future_imports"
+      ]
+    },
+    "retry_count": 0,
+    "status": "pending",
+    "timestamp": "2026-02-12T23:42:20Z"
+  },
+  "examples/git/git_push.py": {
+    "created_by": "scout",
+    "inhibition": 0.0,
+    "metadata": {
+      "patterns_found": [
+        "future_imports"
+      ]
+    },
+    "retry_count": 0,
+    "status": "pending",
+    "timestamp": "2026-02-12T23:42:20Z"
+  },
+  "examples/git/git_remote.py": {
+    "created_by": "scout",
+    "inhibition": 0.0,
+    "metadata": {
+      "patterns_found": [
+        "future_imports"
+      ]
+    },
+    "retry_count": 0,
+    "status": "pending",
+    "timestamp": "2026-02-12T23:42:20Z"
+  },
+  "examples/naval_fate.py": {
+    "created_by": "scout",
+    "inhibition": 0.0,
+    "metadata": {
+      "patterns_found": [
+        "future_imports"
+      ]
+    },
+    "retry_count": 0,
+    "status": "pending",
+    "timestamp": "2026-02-12T23:42:20Z"
+  },
+  "examples/odd_even_example.py": {
+    "created_by": "scout",
+    "inhibition": 0.0,
+    "metadata": {
+      "patterns_found": [
+        "future_imports"
+      ]
+    },
+    "retry_count": 0,
+    "status": "pending",
+    "timestamp": "2026-02-12T23:42:20Z"
+  },
+  "examples/options_example.py": {
+    "created_by": "scout",
+    "inhibition": 0.0,
+    "metadata": {
+      "patterns_found": [
+        "future_imports"
+      ]
+    },
+    "retry_count": 0,
+    "status": "pending",
+    "timestamp": "2026-02-12T23:42:20Z"
+  },
+  "examples/options_shortcut_example.py": {
+    "created_by": "scout",
+    "inhibition": 0.0,
+    "metadata": {
+      "patterns_found": [
+        "future_imports"
+      ]
+    },
+    "retry_count": 0,
+    "status": "pending",
+    "timestamp": "2026-02-12T23:42:20Z"
+  },
+  "examples/quick_example.py": {
+    "created_by": "scout",
+    "inhibition": 0.0,
+    "metadata": {
+      "patterns_found": [
+        "future_imports"
+      ]
+    },
+    "retry_count": 0,
+    "status": "pending",
+    "timestamp": "2026-02-12T23:42:20Z"
+  },
+  "examples/validation_example.py": {
+    "created_by": "scout",
+    "inhibition": 0.0,
+    "metadata": {
+      "patterns_found": [
+        "future_imports"
+      ]
+    },
+    "retry_count": 0,
+    "status": "pending",
+    "timestamp": "2026-02-12T23:42:20Z"
+  },
+  "language_agnostic_testee.py": {
+    "created_by": "scout",
+    "inhibition": 0.0,
+    "metadata": {
+      "diff_lines": 9,
+      "large_file_mode": false,
+      "latency_ms": 1155,
+      "patterns_migrated": [
+        "future_imports",
+        "print_statement"
+      ],
+      "repair_attempts_used": 0,
+      "syntax_gate_passed": true,
+      "tokens_used": 661
+    },
+    "previous_status": "in_progress",
+    "retry_count": 0,
+    "status": "transformed",
+    "timestamp": "2026-02-12T23:42:32Z",
+    "updated_by": "transformer"
+  },
+  "language_agnostic_tester.py": {
+    "created_by": "scout",
+    "inhibition": 0.0,
+    "metadata": {
+      "decision": "auto_validate",
+      "dry_run": false
+    },
+    "previous_status": "tested",
+    "retry_count": 0,
+    "status": "validated",
+    "timestamp": "2026-02-12T23:42:31Z",
+    "updated_by": "validator"
+  },
+  "setup.py": {
+    "created_by": "scout",
+    "inhibition": 0.0,
+    "metadata": {
+      "patterns_found": [
+        "future_imports"
+      ]
+    },
+    "retry_count": 0,
+    "status": "pending",
+    "timestamp": "2026-02-12T23:42:20Z"
+  },
+  "test_docopt.py": {
+    "created_by": "scout",
+    "inhibition": 0.0,
+    "metadata": {
+      "patterns_found": [
+        "unicode_literal"
+      ]
+    },
+    "retry_count": 0,
+    "status": "pending",
+    "timestamp": "2026-02-12T23:42:20Z"
+  }
+}

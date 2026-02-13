@@ -24,3 +24,23 @@
 - Validate each specialized agent in isolation before enabling chained handoffs.
 - Use pheromone state transitions as the single integration contract across agents.
 - Keep one optional `live_api` smoke test separate from blocking acceptance to preserve deterministic local runs.
+
+### Adaptive Fallback Quality Standard
+- Run fallback in two phases: compile/import baseline first, then global pytest classification.
+- Classify runtime/import failures into `related` vs `inconclusive`; reserve hard failures for syntax and migration-related import regressions.
+- Keep confidence mapping explicit in config (`compile_import_fail`, `related_regression`, `pass_or_inconclusive`) and align validator thresholds against it.
+
+### Docker Mountpoint Reliability Standard
+- Treat mounted working directories as persistent mountpoints: clear contents, not mount roots.
+- For git URL sources on mounted targets, clone into a temp path then copy into the mountpoint.
+- Use a named Docker volume for high-churn target repositories to avoid host bind-mount deadlocks on macOS.
+
+### Cost-Aware LLM Budgeting Standard
+- Keep `max_response_tokens <= 0` to avoid hard truncation on reasoning-heavy tasks.
+- Use `max_tokens_total` as deterministic safety ceiling and `max_budget_usd` as optional spend ceiling.
+- Read `usage.cost` when available; fallback to pricing-based token estimation for pre-call checks and cost continuity.
+
+### No-Output-Cap Runtime Policy
+- Never send `max_tokens` in LLM chat completion payloads for migration runs.
+- Treat `llm.max_response_tokens` as deprecated/ignored to prevent accidental regressions from config changes.
+- Rebuild Docker runtime image before gate runs after any LLM client policy change.

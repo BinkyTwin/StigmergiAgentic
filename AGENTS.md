@@ -14,6 +14,8 @@ This implements Grassé's stigmergy (1959) via the Agents & Artifacts paradigm (
 
 Round-robin (no supervisor): Scout → Transformer → Tester → Validator → repeat. Each agent: `perceive → should_act → decide → execute → deposit`. The deposited trace stimulates the next agent.
 
+Stop conditions are OR-combined: all files terminal, token/USD budget exhausted, max ticks reached, or idle cycle threshold reached.
+
 ### Agents
 
 | Agent | Role | Uses LLM? |
@@ -27,26 +29,29 @@ All agents inherit from `agents/base_agent.py` (abstract class with the perceive
 
 ### Implementation Status (2026-02-12)
 
-Sprint 2.5 is implemented:
-- `stigmergy/llm_client.py` provides OpenRouter calls with retry, token counting, and budget checks.
-- `agents/scout.py`, `agents/transformer.py`, `agents/tester.py`, `agents/validator.py` are implemented and validated in isolation.
-- Transformer candidate selection accepts both `pending` and `retry` status entries (with inhibition threshold filtering).
-- `tests/fixtures/synthetic_py2_repo/` provides the versioned synthetic Python 2 fixture repository.
-- Agent handoff integration tests are available in `tests/test_agents_integration.py`.
-- Live API smoke test is opt-in only via `RUN_LIVE_API=1`.
-- Docker infrastructure (`Dockerfile`, `docker-compose.yml`, `Makefile`) provides reproducible containerized execution.
+Sprint 3 is implemented and gate-validated:
+- `main.py` provides CLI orchestration with `--repo-ref`, `--resume`, `--review`, `--dry-run`, and run manifest hashing.
+- `stigmergy/loop.py` implements full round-robin execution and 4 stop conditions (`all_terminal`, `budget_exhausted`, `max_ticks`, `idle_cycles`).
+- `metrics/collector.py` and `metrics/export.py` export `run_{id}_ticks.csv`, `run_{id}_summary.json`, `run_{id}_manifest.json`.
+- `environment/pheromone_store.py` includes tick maintenance for `retry -> pending` and TTL lock release.
+- `agents/tester.py` includes adaptive fallback confidence with inconclusive/related handling and robust compile checks.
+- `agents/validator.py` supports runtime `dry_run` (no git mutations).
+- Full Sprint 3 test suite is available (`test_loop.py`, `test_metrics.py`, `test_main.py` + extensions).
+- Sprint 3 blocking gates pass:
+  - synthetic fixture run: 19/20 validated (95%)
+  - real repo `docopt/docopt@0.6.2`: 21/23 validated local (91.3%), 20/23 validated Docker (86.96%).
 
 ### Three Pheromone Types (JSON files in `pheromones/`)
 
 - **tasks.json** — Task pheromones (Scout deposits). Intensity = `normalize(pattern_count × 0.6 + dep_count × 0.4)`. Evaporation: -0.05/tick.
-- **status.json** — Status pheromones (all agents). State machine: `pending → in_progress → transformed → tested → validated | failed → retry`.
+- **status.json** — Status pheromones (all agents). State machine: `pending → in_progress → transformed → tested → validated | needs_review | failed → retry | skipped`.
 - **quality.json** — Quality pheromones (Tester/Validator). Reinforcement: pass → `confidence += 0.1`; fail → `confidence -= 0.2` + retry.
 
 ### Guardrails (`environment/guardrails.py`)
 
 Enforced by the environment, not by agents:
 - **Traceability**: timestamped, agent-signed writes (EU AI Act Art. 14)
-- **Token budget**: hard ceiling from config
+- **Token and cost budget**: hard ceilings from config
 - **Auto-rollback**: `tests_failed > threshold` → git revert
 - **Human escalation**: `0.5 < confidence < 0.8` → needs_review
 - **Anti-loop**: `retry_count > 3` → skip + log
@@ -80,6 +85,15 @@ uv pip install -r requirements.txt
 # Run the stigmergic POC
 uv run python main.py --repo <python2_repo_url> --config stigmergy/config.yaml
 
+# Run with pinned repo ref (tag/branch/commit)
+uv run python main.py --repo <python2_repo_url> --repo-ref <ref> --config stigmergy/config.yaml
+
+# Run with explicit USD budget cap
+uv run python main.py --repo <python2_repo_url> --max-budget-usd 3.5 --config stigmergy/config.yaml
+
+# Review needs_review files interactively
+uv run python main.py --review --repo <python2_repo_url> --repo-ref <ref>
+
 # Run tests
 uv run pytest tests/ -v
 
@@ -92,6 +106,9 @@ uv run pytest tests/test_llm_client.py tests/test_base_agent.py tests/test_scout
 
 # Run Sprint 2 handoff integration tests
 uv run pytest tests/test_agents_integration.py -v
+
+# Run Sprint 3 loop/metrics/cli tests
+uv run pytest tests/test_loop.py tests/test_metrics.py tests/test_main.py -v
 
 # Run baselines for comparison
 uv run python baselines/single_agent.py --repo <url>
@@ -119,6 +136,8 @@ make docker-test-cov
 
 # Run migration in Docker
 make docker-migrate REPO=<python2_repo_url>
+# Run migration in Docker with pinned ref
+make docker-migrate REPO=<python2_repo_url> REPO_REF=<ref>
 
 # Interactive shell in Docker container
 make docker-shell
@@ -143,7 +162,14 @@ Critical thresholds that affect agent behavior:
 - `thresholds.validator_confidence_low: 0.5` — auto-rollback below
 - `pheromones.decay_rate: 0.05` — exponential evaporation rate per tick
 - `max_retry_count: 3` — anti-loop guardrail
-- `max_tokens_total: 100000` — budget ceiling
+- `max_tokens_total: 200000` — budget ceiling (Sprint 3 gate tuning)
+- `llm.max_response_tokens` — deprecated/ignored (client never sends `max_tokens`)
+- `llm.estimated_completion_tokens: 4096` — budget pre-check estimate when uncapped
+- `llm.max_budget_usd: 0.0` — optional cost ceiling (disabled by default)
+- `llm.pricing_endpoint` — OpenRouter pricing endpoint used for pre-call cost estimate
+- `tester.fallback_quality.compile_import_fail: 0.4`
+- `tester.fallback_quality.related_regression: 0.6`
+- `tester.fallback_quality.pass_or_inconclusive: 0.8`
 
 ## Research Context
 

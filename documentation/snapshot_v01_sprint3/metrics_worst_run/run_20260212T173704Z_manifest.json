@@ -1,0 +1,13 @@
+{
+  "config_hash": "sha256:20c7d4743674e754445ac76e54f490572f3be2d8b71842a24c13e34cc6e7a591",
+  "dependency_lock_hash": "sha256:d83fa69ec6ade9d2bb0cfda4c0e6da6b86a8b5d3e0be2af53b1584b76c458e33",
+  "model_name": "qwen/qwen3-235b-a22b-2507",
+  "model_provider": "openrouter",
+  "prompt_bundle_hash": "sha256:ec688520d764af9c5c120d8bb37b79500f7ef6d4f36f11742b62f84c0bda4e30",
+  "python_version": "3.11.14",
+  "run_id": "20260212T173704Z",
+  "seed": null,
+  "target_repo_commit": "944641a7357376a43151bd4a3ca44f9c07c4d1ae",
+  "target_repo_path": "/app/target_repo",
+  "timestamp_utc": "2026-02-12T17:37:04Z"
+}

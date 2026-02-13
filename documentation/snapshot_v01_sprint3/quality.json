@@ -1,0 +1,20 @@
+{
+  "language_agnostic_tester.py": {
+    "confidence": 0.9,
+    "coverage": 0.0,
+    "created_by": "tester",
+    "issues": [
+      "Usage: language_agnostic_tester.py ./path/to/executable/testee [ID ...]",
+      "Traceback (most recent call last): File \"<frozen runpy>\", line 198, in _run_module_as_main File \"<frozen runpy>\", line 88, in _run_code File \"/opt/venv/lib/python3.11/site-packages/pytest/__main__.py\", line 9, in <module> raise SystemExit(pytest.console_main()) ^^^^^^^^^^^^^^^^^^^^^ File \"/opt/ve..."
+    ],
+    "metadata": {
+      "test_file": null,
+      "test_mode": "fallback_global_inconclusive"
+    },
+    "tests_failed": 1,
+    "tests_passed": 0,
+    "tests_total": 1,
+    "timestamp": "2026-02-12T23:42:31Z",
+    "updated_by": "validator"
+  }
+}

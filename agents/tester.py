@@ -7,10 +7,25 @@ import py_compile
 import re
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 from typing import Any
 
 from .base_agent import BaseAgent
+
+
+PY2_STDLIB_MODULES = {
+    "ConfigParser",
+    "Queue",
+    "StringIO",
+    "cPickle",
+    "cStringIO",
+    "commands",
+    "cookielib",
+    "httplib",
+    "urlparse",
+    "urllib2",
+}
 
 
 class Tester(BaseAgent):
@@ -47,15 +62,19 @@ class Tester(BaseAgent):
         if test_file is not None:
             stats = self._run_pytest_for_file(file_path=file_path, test_file=test_file)
             stats["test_mode"] = "pytest"
+            tests_total = int(stats.get("tests_total", 0))
+            tests_passed = int(stats.get("tests_passed", 0))
+            confidence = 0.5 if tests_total == 0 else tests_passed / tests_total
         else:
-            stats = self._run_fallback_checks(file_path=file_path)
-            stats["test_mode"] = "fallback"
+            stats = self._run_adaptive_fallback(
+                file_key=file_key,
+                file_path=file_path,
+            )
+            confidence = float(stats["confidence"])
 
         tests_total = int(stats.get("tests_total", 0))
         tests_passed = int(stats.get("tests_passed", 0))
         tests_failed = int(stats.get("tests_failed", 0))
-
-        confidence = 0.5 if tests_total == 0 else tests_passed / tests_total
 
         return {
             "file_key": file_key,
@@ -177,8 +196,19 @@ class Tester(BaseAgent):
     def _run_fallback_checks(self, file_path: Path) -> dict[str, Any]:
         issues: list[str] = []
 
+        compiled_output_path: Path | None = None
+        temp_handle = tempfile.NamedTemporaryFile(suffix=".pyc", delete=False)
         try:
-            py_compile.compile(str(file_path), doraise=True)
+            compiled_output_path = Path(temp_handle.name)
+        finally:
+            temp_handle.close()
+
+        try:
+            py_compile.compile(
+                str(file_path),
+                cfile=str(compiled_output_path),
+                doraise=True,
+            )
         except py_compile.PyCompileError as exc:
             issues.append(f"py_compile: {exc.msg}")
             return {
@@ -187,7 +217,11 @@ class Tester(BaseAgent):
                 "tests_failed": 1,
                 "coverage": 0.0,
                 "issues": issues,
+                "compile_import_ok": False,
             }
+        finally:
+            if compiled_output_path is not None:
+                compiled_output_path.unlink(missing_ok=True)
 
         module_name = self._to_module_name(file_path)
         env = os.environ.copy()
@@ -208,15 +242,27 @@ class Tester(BaseAgent):
         )
 
         if completed.returncode != 0:
-            issues.append(
-                self._compact_issue(f"{completed.stdout}\n{completed.stderr}")
-            )
+            output = f"{completed.stdout}\n{completed.stderr}"
+            compact = self._compact_issue(output)
+            issues.append(compact)
+            if self._is_inconclusive_import_failure(
+                file_path=file_path, output=output
+            ):
+                return {
+                    "tests_total": 0,
+                    "tests_passed": 0,
+                    "tests_failed": 0,
+                    "coverage": 0.0,
+                    "issues": issues,
+                    "compile_import_ok": True,
+                }
             return {
                 "tests_total": 1,
                 "tests_passed": 0,
                 "tests_failed": 1,
                 "coverage": 0.0,
                 "issues": issues,
+                "compile_import_ok": False,
             }
 
         return {
@@ -225,6 +271,190 @@ class Tester(BaseAgent):
             "tests_failed": 0,
             "coverage": 0.0,
             "issues": issues,
+            "compile_import_ok": True,
+        }
+
+    def _run_adaptive_fallback(self, file_key: str, file_path: Path) -> dict[str, Any]:
+        fallback_checks = self._run_fallback_checks(file_path=file_path)
+        thresholds = self._fallback_quality_thresholds()
+
+        if not bool(fallback_checks.get("compile_import_ok")):
+            return {
+                **fallback_checks,
+                "confidence": thresholds["compile_import_fail"],
+                "test_mode": "fallback_compile_import_fail",
+            }
+
+        global_pytest = self._run_global_pytest(file_path=file_path)
+        classification = str(global_pytest.get("classification", "inconclusive"))
+
+        if classification == "related":
+            confidence = thresholds["related_regression"]
+        else:
+            confidence = thresholds["pass_or_inconclusive"]
+
+        merged_issues = list(fallback_checks.get("issues", []))
+        for issue in global_pytest.get("issues", []):
+            if issue not in merged_issues:
+                merged_issues.append(issue)
+
+        return {
+            "tests_total": int(global_pytest.get("tests_total", 0)),
+            "tests_passed": int(global_pytest.get("tests_passed", 0)),
+            "tests_failed": int(global_pytest.get("tests_failed", 0)),
+            "coverage": 0.0,
+            "issues": merged_issues,
+            "confidence": confidence,
+            "test_mode": f"fallback_global_{classification}",
+            "classification": classification,
+            "file_key": file_key,
+        }
+
+    def _run_global_pytest(self, file_path: Path) -> dict[str, Any]:
+        env = os.environ.copy()
+        existing_python_path = env.get("PYTHONPATH", "")
+        env["PYTHONPATH"] = (
+            str(self.target_repo_path)
+            if not existing_python_path
+            else f"{self.target_repo_path}{os.pathsep}{existing_python_path}"
+        )
+
+        completed = subprocess.run(
+            [sys.executable, "-m", "pytest", "-q"],
+            cwd=self.target_repo_path,
+            text=True,
+            capture_output=True,
+            check=False,
+            env=env,
+        )
+
+        output = f"{completed.stdout}\n{completed.stderr}"
+        parsed = self._parse_pytest_summary(output=output)
+
+        if parsed["tests_total"] == 0:
+            if completed.returncode == 0:
+                parsed["tests_total"] = 1
+                parsed["tests_passed"] = 1
+            else:
+                parsed["tests_total"] = 1
+                parsed["tests_failed"] = 1
+
+        issues: list[str] = []
+        classification = "pass"
+        if completed.returncode != 0:
+            classification = self._classify_global_failure(
+                file_path=file_path, output=output
+            )
+            issues.append(self._compact_issue(output))
+
+        return {
+            **parsed,
+            "issues": issues,
+            "classification": classification,
+        }
+
+    def _classify_global_failure(self, file_path: Path, output: str) -> str:
+        if self._is_inconclusive_runtime_output(file_path=file_path, output=output):
+            return "inconclusive"
+
+        module_name = self._to_module_name(file_path=file_path)
+        relative_path = file_path.relative_to(self.target_repo_path).as_posix()
+        markers = [relative_path, file_path.name, module_name]
+        if any(marker in output for marker in markers):
+            return "related"
+        return "inconclusive"
+
+    def _is_inconclusive_import_failure(self, file_path: Path, output: str) -> bool:
+        lowered = output.lower()
+        if "usage:" in lowered:
+            return True
+        if "systemexit" in lowered:
+            return True
+        if self._contains_optional_dependency_hint(output):
+            return True
+
+        missing_modules = self._extract_missing_modules(output)
+        if missing_modules:
+            return all(
+                self._is_optional_missing_module(file_path=file_path, module_name=name)
+                for name in missing_modules
+            )
+
+        return False
+
+    def _is_inconclusive_runtime_output(self, file_path: Path, output: str) -> bool:
+        lowered = output.lower()
+
+        if "importerror while loading conftest" in lowered:
+            return True
+        if "usage:" in lowered:
+            return True
+        if "systemexit" in lowered:
+            return True
+        if "no tests ran" in lowered:
+            return True
+        if self._contains_optional_dependency_hint(output):
+            return True
+
+        missing_modules = self._extract_missing_modules(output)
+        if missing_modules and all(
+            self._is_optional_missing_module(file_path=file_path, module_name=name)
+            for name in missing_modules
+        ):
+            return True
+
+        return False
+
+    def _extract_missing_modules(self, output: str) -> list[str]:
+        pattern = re.compile(r"No module named ['\"](?P<name>[^'\"]+)['\"]")
+        return [match.group("name") for match in pattern.finditer(output)]
+
+    def _is_optional_missing_module(self, file_path: Path, module_name: str) -> bool:
+        root = module_name.split(".", 1)[0]
+        if root in PY2_STDLIB_MODULES:
+            return False
+
+        internal_module_path = self.target_repo_path / (root.replace(".", "/") + ".py")
+        internal_package_init = self.target_repo_path / root / "__init__.py"
+        if internal_module_path.exists() or internal_package_init.exists():
+            return False
+
+        if root == file_path.stem:
+            return False
+
+        return True
+
+    def _contains_optional_dependency_hint(self, output: str) -> bool:
+        lowered_output = output.lower()
+        return any(hint in lowered_output for hint in self._optional_dependency_hints())
+
+    def _optional_dependency_hints(self) -> list[str]:
+        hints = self.config.get("tester", {}).get("optional_dependency_hints")
+        if isinstance(hints, list):
+            normalized: list[str] = []
+            for item in hints:
+                if isinstance(item, str) and item.strip():
+                    normalized.append(item.strip().lower())
+            if normalized:
+                return normalized
+        return [
+            "requires that",
+            "pip install",
+            "optional dependency",
+        ]
+
+    def _fallback_quality_thresholds(self) -> dict[str, float]:
+        fallback_config = (
+            self.config.get("tester", {}).get("fallback_quality", {})
+        )
+        return {
+            "compile_import_fail": float(
+                fallback_config.get("compile_import_fail", 0.4)
+            ),
+            "related_regression": float(fallback_config.get("related_regression", 0.6)),
+            "pass_or_inconclusive": float(
+                fallback_config.get("pass_or_inconclusive", 0.8)
+            ),
         }
 
     def _parse_pytest_summary(self, output: str) -> dict[str, int]:

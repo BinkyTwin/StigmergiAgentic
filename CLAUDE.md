@@ -14,7 +14,7 @@ This implements Grasse's stigmergy (1959) via the Agents & Artifacts paradigm (R
 
 Round-robin (no supervisor): Scout → Transformer → Tester → Validator → repeat. Each agent: `perceive → should_act → decide → execute → deposit`. The deposited trace stimulates the next agent.
 
-**Stop conditions** (OR): all files terminal, token budget exhausted, max ticks (50), or 2 consecutive idle cycles.
+**Stop conditions** (OR): all files terminal, token/USD budget exhausted, max ticks (50), or 2 consecutive idle cycles.
 
 ### Agents
 
@@ -40,14 +40,17 @@ Transformer reading quality.json = **cognitive stigmergy** (Ricci et al., 2007):
 
 ### Implementation Status (2026-02-12)
 
-Sprint 2.5 has been implemented and validated:
-- `stigmergy/llm_client.py` is available with OpenRouter retry/backoff, budget gating, and token accounting.
-- `agents/base_agent.py` and all specialized agents are implemented.
-- Transformer candidate selection now reads both `pending` and `retry` statuses (while respecting inhibition threshold).
-- A versioned synthetic Python 2 fixture repo exists at `tests/fixtures/synthetic_py2_repo/`.
-- Unit and integration test coverage for Sprint 2 flows is implemented in `tests/test_*`.
-- Live API smoke is opt-in only (`RUN_LIVE_API=1`) to avoid default flakiness/cost.
-- Docker infrastructure for reproducible test/migration execution is in place (`Dockerfile`, `docker-compose.yml`, `Makefile`).
+Sprint 3 has been implemented and validated:
+- `main.py` now provides full CLI controls (`--repo-ref`, `--resume`, `--review`, `--dry-run`) plus run manifest hashing.
+- `stigmergy/loop.py` implements the full round-robin orchestrator and all stop conditions.
+- `metrics/collector.py` + `metrics/export.py` generate per-tick CSV, summary JSON, and manifest JSON.
+- `environment/pheromone_store.py` now performs tick maintenance (`retry -> pending`, TTL zombie lock release).
+- `agents/tester.py` includes adaptive fallback confidence with inconclusive/related classification and robust py_compile handling.
+- `agents/validator.py` respects dry-run mode for git commit/revert paths.
+- Sprint 3 tests are added (`tests/test_loop.py`, `tests/test_metrics.py`, `tests/test_main.py`).
+- Gate runs pass on both required repositories:
+  - synthetic fixture: 19/20 validated (95%)
+  - real repo `docopt/docopt@0.6.2`: 21/23 validated local (91.3%), 20/23 validated Docker (86.96%).
 
 ### Pheromone Types (JSON files in `pheromones/`)
 
@@ -75,7 +78,7 @@ Enforced by the environment, not by agents. Taxonomy from Grisold et al. (2025):
 
 **Deep norms** (stable, in config.yaml):
 - **Traceability**: timestamped, agent-signed writes (EU AI Act Art. 14)
-- **Token budget**: hard ceiling from config
+- **Token and cost budget**: hard ceiling from config
 - **Anti-loop**: `retry_count > 3` → skip + log
 - **Scope lock**: one agent per file (mutex) + TTL (3 ticks) for zombie prevention
 - **Confidence thresholds**: 0.8 (validate), 0.5 (rollback), between → escalate
@@ -117,9 +120,12 @@ uv pip install -r requirements.txt
 # Run the stigmergic POC
 uv run python main.py --repo <python2_repo_url>
 
+# Run with pinned repo ref (tag/branch/commit)
+uv run python main.py --repo <python2_repo_url> --repo-ref <ref> --config stigmergy/config.yaml
+
 # Full CLI options
 uv run python main.py --repo <url> --config stigmergy/config.yaml --max-ticks 50 \
-  --max-tokens 100000 --model qwen/qwen3-235b-a22b-2507 --output-dir metrics/output \
+  --max-tokens 100000 --max-budget-usd 3.5 --model qwen/qwen3-235b-a22b-2507 --output-dir metrics/output \
   --verbose --seed 42
 
 # Dry run (no Git writes)
@@ -130,6 +136,9 @@ uv run python main.py --resume
 
 # Review needs_review files
 uv run python main.py --review
+
+# Review with explicit target repo/ref
+uv run python main.py --review --repo <python2_repo_url> --repo-ref <ref>
 
 # Run tests
 uv run pytest tests/ -v
@@ -172,7 +181,7 @@ make docker-test-cov
 
 # Run migration in Docker
 make docker-migrate REPO=<python2_repo_url>
-# or: REPO=<url> docker compose run --rm migrate
+# or: REPO=<url> REPO_REF=<ref> docker compose run --rm migrate
 
 # Interactive shell in Docker container
 make docker-shell
@@ -199,12 +208,21 @@ thresholds:
 llm:
   model: "qwen/qwen3-235b-a22b-2507"
   temperature: 0.2
-  max_response_tokens: 4096
-  max_tokens_total: 100000
+  max_response_tokens: 0            # deprecated/ignored: client never sends max_tokens
+  estimated_completion_tokens: 4096 # budget pre-check estimate when uncapped
+  max_tokens_total: 200000
+  max_budget_usd: 0.0               # 0 disables cost cap
+  pricing_endpoint: "https://openrouter.ai/api/v1/models/user"
 
 loop:
   max_ticks: 50
   idle_cycles_to_stop: 2
+
+tester:
+  fallback_quality:
+    compile_import_fail: 0.4
+    related_regression: 0.6
+    pass_or_inconclusive: 0.8
 ```
 
 ## Error Handling
