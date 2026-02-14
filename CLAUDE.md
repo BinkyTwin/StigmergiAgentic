@@ -38,9 +38,9 @@ All agents inherit from `agents/base_agent.py` (abstract class with the perceive
 
 Transformer reading quality.json = **cognitive stigmergy** (Ricci et al., 2007): reading environmental traces, not direct communication.
 
-### Implementation Status (2026-02-12)
+### Implementation Status (2026-02-13)
 
-Sprint 3 has been implemented and validated:
+Sprint 3 has been implemented and validated, and Sprint 4 baseline tooling is now implemented:
 - `main.py` now provides full CLI controls (`--repo-ref`, `--resume`, `--review`, `--dry-run`) plus run manifest hashing.
 - `stigmergy/loop.py` implements the full round-robin orchestrator and all stop conditions.
 - `metrics/collector.py` + `metrics/export.py` generate per-tick CSV, summary JSON, and manifest JSON.
