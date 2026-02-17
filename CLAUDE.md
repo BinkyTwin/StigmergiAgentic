@@ -314,3 +314,5 @@ Every sprint MUST update:
 
 ## Update
 - Always update CLAUDE.md when you make changes to the project. To stay updated with the latest changes, use the command `git log -1` to see the last commit message.
+
+- Mobile-readable snapshot document: `documentation/MOBILE_RESULTS.md` (quick scoreboard + JSON extracts).

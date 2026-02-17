@@ -433,3 +433,31 @@ Chaque entrée suit ce format :
 - `AGENTS.md`
 - `CLAUDE.md`
 - `documentation/construction_log.md`
+
+---
+
+### 2026-02-14 19:55 — Mobile-friendly Sprint 4 snapshot document
+
+**Assistant IA utilisé** : Codex (GPT-5)
+
+**Objectif** : Fournir un livrable lisible sur téléphone avec les résultats Sprint 4 sans dépendre des artefacts non commités.
+
+**Actions effectuées** :
+- Génération d'un snapshot de comparaison rapide (single-agent, sequential, stigmergic) sur un mini repo Py2.
+- Création de `documentation/MOBILE_RESULTS.md` avec:
+  - scoreboard compact (success/tokens/USD),
+  - extrait JSON des summaries,
+  - résumé Pareto,
+  - commandes de reproduction.
+- Mise à jour de `AGENTS.md` et `CLAUDE.md` pour référencer le document mobile.
+
+**Résultat** :
+- Le lecteur peut consulter l'état des résultats directement sur mobile via un seul fichier markdown.
+
+**Fichiers créés** :
+- `documentation/MOBILE_RESULTS.md`
+
+**Fichiers modifiés** :
+- `AGENTS.md`
+- `CLAUDE.md`
+- `documentation/construction_log.md`

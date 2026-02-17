@@ -41,6 +41,7 @@ Sprint 3 is implemented and gate-validated, and Sprint 4 baseline tooling is now
 - `baselines/sequential.py` implements a fixed-stage baseline (Scout→Transformer→Tester→Validator by batches) for fairness comparison.
 - `metrics/pareto.py` generates Pareto cost-precision plots with error bars from repeated runs.
 - Sprint 4 support tests include `tests/test_pareto.py`.
+- Mobile-readable snapshot document: `documentation/MOBILE_RESULTS.md` (quick scoreboard + JSON extracts).
 - Sprint 3 blocking gates pass:
   - synthetic fixture run: 19/20 validated (95%)
   - real repo `docopt/docopt@0.6.2`: 21/23 validated local (91.3%), 20/23 validated Docker (86.96%).
