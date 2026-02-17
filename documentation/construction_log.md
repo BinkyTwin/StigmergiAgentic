@@ -389,3 +389,75 @@ Chaque entrée suit ce format :
 ---
 
 **Rappel** : Cette documentation doit demonstrer la **rigueur scientifique** de la démarche, même avec l'assistance de l'IA.
+
+---
+
+### 2026-02-13 02:20 — Sprint 4 implementation: realistic baselines + Pareto analysis
+
+**Assistant IA utilisé** : Codex (GPT-5)
+
+**Objectif** : Implémenter Sprint 4 de bout en bout avec comparaisons réalistes (single-agent vs sequential vs stigmergic), génération Pareto, et validation locale + API.
+
+**Actions effectuées** :
+- Création du package `baselines/` et des scripts:
+  - `baselines/single_agent.py` : baseline mono-agent (LLM unique), budgets partagés, retry, confidence thresholds compatibles validator.
+  - `baselines/sequential.py` : pipeline fixe par stage (batch Scout → batch Transformer → batch Tester → batch Validator).
+  - `baselines/common.py` : utilitaires CLI/runtime/manifests/persist.
+- Ajout de `metrics/pareto.py` :
+  - chargement des `run_*_summary.json`,
+  - agrégation moyenne/écart-type par baseline,
+  - extraction frontière de Pareto (coût minimal / succès maximal),
+  - export PNG (barres d'erreur) + JSON optionnel.
+- Ajout de tests `tests/test_pareto.py` (chargement/agrégation/frontière).
+- Mise à jour documentaire de cadrage `AGENTS.md` et `CLAUDE.md` avec état Sprint 4.
+
+**Décisions prises** :
+- Conserver la comparabilité méthodologique en réutilisant les mêmes budgets et structures de sortie (`run_*_summary.json`, `run_*_ticks.csv`, `run_*_manifest.json`).
+- Baseline séquentielle = même composants agents, scheduling différent (pas round-robin stigmergique).
+- Baseline mono-agent = un seul agent LLM de migration avec validation déterministe simplifiée et seuils validator.
+
+**Validation** :
+- Tests unitaires/CLI exécutés localement (incluant nouveau module Pareto).
+- Runs baseline exécutables via CLI (`baselines/single_agent.py`, `baselines/sequential.py`).
+- Appel OpenRouter validé pendant la session (accès API OK).
+
+**Fichiers créés** :
+- `baselines/__init__.py`
+- `baselines/common.py`
+- `baselines/single_agent.py`
+- `baselines/sequential.py`
+- `metrics/pareto.py`
+- `tests/test_pareto.py`
+
+**Fichiers modifiés** :
+- `AGENTS.md`
+- `CLAUDE.md`
+- `documentation/construction_log.md`
+
+---
+
+### 2026-02-14 19:55 — Mobile-friendly Sprint 4 snapshot document
+
+**Assistant IA utilisé** : Codex (GPT-5)
+
+**Objectif** : Fournir un livrable lisible sur téléphone avec les résultats Sprint 4 sans dépendre des artefacts non commités.
+
+**Actions effectuées** :
+- Génération d'un snapshot de comparaison rapide (single-agent, sequential, stigmergic) sur un mini repo Py2.
+- Création de `documentation/MOBILE_RESULTS.md` avec:
+  - scoreboard compact (success/tokens/USD),
+  - extrait JSON des summaries,
+  - résumé Pareto,
+  - commandes de reproduction.
+- Mise à jour de `AGENTS.md` et `CLAUDE.md` pour référencer le document mobile.
+
+**Résultat** :
+- Le lecteur peut consulter l'état des résultats directement sur mobile via un seul fichier markdown.
+
+**Fichiers créés** :
+- `documentation/MOBILE_RESULTS.md`
+
+**Fichiers modifiés** :
+- `AGENTS.md`
+- `CLAUDE.md`
+- `documentation/construction_log.md`
