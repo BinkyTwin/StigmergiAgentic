@@ -245,9 +245,7 @@ class Tester(BaseAgent):
             output = f"{completed.stdout}\n{completed.stderr}"
             compact = self._compact_issue(output)
             issues.append(compact)
-            if self._is_inconclusive_import_failure(
-                file_path=file_path, output=output
-            ):
+            if self._is_inconclusive_import_failure(file_path=file_path, output=output):
                 return {
                     "tests_total": 0,
                     "tests_passed": 0,
@@ -444,9 +442,7 @@ class Tester(BaseAgent):
         ]
 
     def _fallback_quality_thresholds(self) -> dict[str, float]:
-        fallback_config = (
-            self.config.get("tester", {}).get("fallback_quality", {})
-        )
+        fallback_config = self.config.get("tester", {}).get("fallback_quality", {})
         return {
             "compile_import_fail": float(
                 fallback_config.get("compile_import_fail", 0.4)

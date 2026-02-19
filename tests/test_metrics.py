@@ -28,14 +28,24 @@ def test_metrics_collector_retry_resolution_and_summary(tmp_path: Path) -> None:
 
     collector.record_tick(
         tick=0,
-        agents_acted={"scout": True, "transformer": False, "tester": False, "validator": False},
+        agents_acted={
+            "scout": True,
+            "transformer": False,
+            "tester": False,
+            "validator": False,
+        },
         status_entries={"module.py": {"status": "retry"}},
         total_tokens=10,
         total_cost_usd=0.01,
     )
     collector.record_tick(
         tick=1,
-        agents_acted={"scout": False, "transformer": True, "tester": True, "validator": True},
+        agents_acted={
+            "scout": False,
+            "transformer": True,
+            "tester": True,
+            "validator": True,
+        },
         status_entries={"module.py": {"status": "validated"}},
         total_tokens=20,
         total_cost_usd=0.02,
@@ -73,7 +83,12 @@ def test_metrics_collector_starvation_and_audit_completeness(tmp_path: Path) -> 
     for tick in range(4):
         collector.record_tick(
             tick=tick,
-            agents_acted={"scout": False, "transformer": False, "tester": False, "validator": False},
+            agents_acted={
+                "scout": False,
+                "transformer": False,
+                "tester": False,
+                "validator": False,
+            },
             status_entries={"a.py": {"status": "pending"}},
             total_tokens=0,
             total_cost_usd=0.0,

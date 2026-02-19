@@ -52,18 +52,24 @@ def _write_config(path: Path) -> None:
     path.write_text(yaml.safe_dump(payload), encoding="utf-8")
 
 
-def test_main_requires_repo_for_run(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_main_requires_repo_for_run(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     config_path = tmp_path / "config.yaml"
     _write_config(config_path)
 
-    monkeypatch.setattr(main_module, "_configure_logging", lambda base_path, verbose: None)
+    monkeypatch.setattr(
+        main_module, "_configure_logging", lambda base_path, verbose: None
+    )
     monkeypatch.setattr(main_module, "load_dotenv", lambda *args, **kwargs: None)
 
     with pytest.raises(ValueError, match="--repo is required"):
         main_module.main(["--config", str(config_path)])
 
 
-def test_main_forwards_repo_ref(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_main_forwards_repo_ref(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     config_path = tmp_path / "config.yaml"
     _write_config(config_path)
 
@@ -80,21 +86,28 @@ def test_main_forwards_repo_ref(tmp_path: Path, monkeypatch: pytest.MonkeyPatch)
         captured["repo_ref"] = repo_ref
         return prepared_repo_path, repo
 
-    monkeypatch.setattr(main_module, "_configure_logging", lambda base_path, verbose: None)
+    monkeypatch.setattr(
+        main_module, "_configure_logging", lambda base_path, verbose: None
+    )
     monkeypatch.setattr(main_module, "load_dotenv", lambda *args, **kwargs: None)
     monkeypatch.setattr(main_module, "_prepare_target_repo", fake_prepare)
     monkeypatch.setattr(main_module, "_reset_pheromone_state", lambda base_path: None)
     monkeypatch.setattr(
         main_module,
         "_build_run_manifest",
-        lambda **kwargs: {"run_id": kwargs["run_id"], "target_repo_commit": repo.head.commit.hexsha},
+        lambda **kwargs: {
+            "run_id": kwargs["run_id"],
+            "target_repo_commit": repo.head.commit.hexsha,
+        },
     )
     monkeypatch.setattr(main_module, "ensure_output_dir", lambda output_dir: output_dir)
     monkeypatch.setattr(main_module, "write_manifest_json", lambda path, manifest: None)
     monkeypatch.setattr(
         main_module,
         "run_loop",
-        lambda config, target_repo_path: {"summary": {"stop_reason": "idle_cycles", "success_rate": 1.0}},
+        lambda config, target_repo_path: {
+            "summary": {"stop_reason": "idle_cycles", "success_rate": 1.0}
+        },
     )
 
     exit_code = main_module.main(
@@ -127,7 +140,9 @@ def test_apply_cli_overrides_supports_max_budget_usd() -> None:
     assert config["llm"]["max_budget_usd"] == pytest.approx(1.75)
 
 
-def test_review_mode_validate_action(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_review_mode_validate_action(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     config = {
         "pheromones": {
             "decay_type": "exponential",

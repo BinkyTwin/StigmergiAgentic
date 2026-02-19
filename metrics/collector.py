@@ -57,7 +57,10 @@ class MetricsCollector:
 
         total_ticks = tick + 1
         terminal_or_failed = (
-            files_validated + statuses.count("skipped") + files_needs_review + files_failed
+            files_validated
+            + statuses.count("skipped")
+            + files_needs_review
+            + files_failed
         )
         tokens_per_file = (
             float(total_tokens) / float(terminal_or_failed)
@@ -74,14 +77,10 @@ class MetricsCollector:
         )
         rollback_denom = files_validated + files_failed
         rollback_rate = (
-            float(files_failed) / float(rollback_denom)
-            if rollback_denom > 0
-            else 0.0
+            float(files_failed) / float(rollback_denom) if rollback_denom > 0 else 0.0
         )
         human_escalation_rate = (
-            float(files_needs_review) / float(files_total)
-            if files_total > 0
-            else 0.0
+            float(files_needs_review) / float(files_total) if files_total > 0 else 0.0
         )
         retry_total = len(self._files_with_retry)
         retry_resolution_rate = (
@@ -188,7 +187,11 @@ class MetricsCollector:
         if not self.audit_log_path.exists():
             return 1.0
 
-        lines = [line.strip() for line in self.audit_log_path.read_text(encoding="utf-8").splitlines() if line.strip()]
+        lines = [
+            line.strip()
+            for line in self.audit_log_path.read_text(encoding="utf-8").splitlines()
+            if line.strip()
+        ]
         total_events = len(lines)
         if total_events == 0:
             return 1.0
@@ -205,7 +208,10 @@ class MetricsCollector:
             if not isinstance(event, dict):
                 continue
 
-            if all(field in event and event.get(field) not in (None, "") for field in required_fields):
+            if all(
+                field in event and event.get(field) not in (None, "")
+                for field in required_fields
+            ):
                 full_trace_events += 1
 
         return float(full_trace_events) / float(total_events)

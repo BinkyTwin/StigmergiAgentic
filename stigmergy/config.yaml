@@ -28,6 +28,7 @@ llm:
   max_budget_usd: 0.0               # 0 disables USD budget cap
   pricing_endpoint: "https://openrouter.ai/api/v1/models/user"
   pricing_api_timeout_seconds: 8
+  request_timeout_seconds: 300
   pricing_strict: false
   retry_attempts: 3
   retry_backoff: [1, 2, 4]
@@ -36,6 +37,7 @@ llm:
 loop:
   max_ticks: 50
   idle_cycles_to_stop: 2
+  sequential_stage_action_cap: 50
 
 # === Transformer ===
 transformer:

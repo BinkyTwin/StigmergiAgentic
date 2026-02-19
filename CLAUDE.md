@@ -38,9 +38,9 @@ All agents inherit from `agents/base_agent.py` (abstract class with the perceive
 
 Transformer reading quality.json = **cognitive stigmergy** (Ricci et al., 2007): reading environmental traces, not direct communication.
 
-### Implementation Status (2026-02-12)
+### Implementation Status (2026-02-17)
 
-Sprint 3 has been implemented and validated:
+Sprint 3 has been implemented and validated, and Sprint 4 closure tooling is now implemented:
 - `main.py` now provides full CLI controls (`--repo-ref`, `--resume`, `--review`, `--dry-run`) plus run manifest hashing.
 - `stigmergy/loop.py` implements the full round-robin orchestrator and all stop conditions.
 - `metrics/collector.py` + `metrics/export.py` generate per-tick CSV, summary JSON, and manifest JSON.
@@ -48,6 +48,9 @@ Sprint 3 has been implemented and validated:
 - `agents/tester.py` includes adaptive fallback confidence with inconclusive/related classification and robust py_compile handling.
 - `agents/validator.py` respects dry-run mode for git commit/revert paths.
 - Sprint 3 tests are added (`tests/test_loop.py`, `tests/test_metrics.py`, `tests/test_main.py`).
+- Sprint 4 tests now include Pareto + baseline coverage (`tests/test_pareto.py`, `tests/test_baselines_common.py`, `tests/test_baselines_single_agent.py`, `tests/test_baselines_sequential.py`).
+- `metrics/pareto.py` now supports per-run plotting (`--plot-mode per-run`), required baseline validation (`--require-baselines`), and CI95 export payloads.
+- Unbounded 5x3 benchmark batch on `docopt/docopt@0.6.2` is available in `metrics/output/sprint4_20260217_full` with `pareto.png` and `pareto_summary.json`.
 - Gate runs pass on both required repositories:
   - synthetic fixture: 19/20 validated (95%)
   - real repo `docopt/docopt@0.6.2`: 21/23 validated local (91.3%), 20/23 validated Docker (86.96%).
@@ -157,11 +160,28 @@ uv run pytest tests/test_agents_integration.py -v
 uv run python baselines/single_agent.py --repo <url>
 uv run python baselines/sequential.py --repo <url>
 
+# Run thesis-grade unbounded benchmark (5 runs/mode)
+uv run python baselines/single_agent.py --repo <url> --repo-ref <ref> --model <model> --runs 5
+uv run python baselines/sequential.py --repo <url> --repo-ref <ref> --model <model> --runs 5
+for i in 1 2 3 4 5; do
+  uv run python main.py --repo <url> --repo-ref <ref> --model <model>
+done
+
+# Optional bounded smoke benchmark (fast sanity check)
+uv run python baselines/single_agent.py --repo <url> --repo-ref <ref> --max-ticks 1 --max-tokens 5000 --runs 5
+uv run python baselines/sequential.py --repo <url> --repo-ref <ref> --max-ticks 1 --max-tokens 5000 --runs 5
+for i in 1 2 3 4 5; do
+  uv run python main.py --repo <url> --repo-ref <ref> --max-ticks 1 --max-tokens 5000
+done
+
 # Export metrics to CSV
 uv run python metrics/export.py --output results.csv
 
 # Generate Pareto cost-precision analysis
 uv run python metrics/pareto.py --output pareto.png
+uv run python metrics/pareto.py --input-dir <out_dir> --output <out_dir>/pareto.png \
+  --plot-mode per-run --require-baselines stigmergic,single_agent,sequential \
+  --export-json <out_dir>/pareto_summary.json
 ```
 
 ## Docker Commands (Sprint 2.5)
@@ -213,10 +233,12 @@ llm:
   max_tokens_total: 200000
   max_budget_usd: 0.0               # 0 disables cost cap
   pricing_endpoint: "https://openrouter.ai/api/v1/models/user"
+  request_timeout_seconds: 300      # avoid long stuck requests on provider side
 
 loop:
   max_ticks: 50
   idle_cycles_to_stop: 2
+  sequential_stage_action_cap: 50   # optional cap per stage/tick for sequential baseline
 
 tester:
   fallback_quality:
@@ -314,3 +336,5 @@ Every sprint MUST update:
 
 ## Update
 - Always update CLAUDE.md when you make changes to the project. To stay updated with the latest changes, use the command `git log -1` to see the last commit message.
+
+- Mobile-readable snapshot document: `documentation/MOBILE_RESULTS.md` (quick scoreboard + JSON extracts).
