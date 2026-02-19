@@ -228,3 +228,21 @@ Added built-in anti-429 controls to the shared LLM client (inter-call pacing, 42
 ### Evidence
 - `uv run pytest tests/test_llm_client.py -q` (`15 passed, 1 skipped`)
 - `uv run ruff check stigmergy/llm_client.py tests/test_llm_client.py tests/conftest.py` (`All checks passed`)
+
+## 2026-02-19 — Default Runtime Switch Back to OpenRouter
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `impact_score`: `7/10`
+- `confidence`: `high`
+- `scope`: `Provider default reconfiguration for faster repeated runs`
+
+### Outcome
+Switched project defaults back to OpenRouter (`qwen/qwen3-235b-a22b-2507`) and disabled inter-call pacing by default to reduce wall-clock time for benchmark batches, while keeping anti-429 controls available.
+
+### Reusable Patterns (1-3)
+1. Keep provider-specific resilience controls configurable so defaults can be tuned quickly per provider behavior.
+2. For throughput-focused benchmark phases, disable global pacing and rely on retry/backoff floors only.
+3. Validate provider switches immediately with a one-shot smoke call and token accounting check.
+
+### Evidence
+- `uv run python - <<'PY' ... provider='openrouter' ...` (`ok=1`, `tokens=24`, `content=pong`)

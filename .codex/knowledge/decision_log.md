@@ -87,3 +87,11 @@
 - `rationale`: Repeated Sprint 5 runs encountered frequent Z.ai `429` responses; centralized pacing/backoff is required for stable batch execution.
 - `alternatives_rejected`: Handle delays only in shell loops, or raise retries without pacing control.
 - `linked_adr`: `documentation/decisions/TBD-sprint5-anti429-llm-pacing.md`
+
+## 2026-02-19 (Provider Default Rollback to OpenRouter)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: Restore OpenRouter as default runtime provider/model for Sprint execution (`qwen/qwen3-235b-a22b-2507`) and disable default inter-call pacing.
+- `rationale`: User prioritizes faster campaign throughput; current Z.ai rate-limiting profile introduced repeated delays and unstable batch progress.
+- `alternatives_rejected`: Keep Z.ai default with long enforced pacing intervals.
+- `linked_adr`: `documentation/decisions/TBD-sprint5-openrouter-default-rollback.md`

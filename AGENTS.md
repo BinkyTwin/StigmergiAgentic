@@ -168,7 +168,7 @@ make docker-shell
 ## Tech Stack
 
 - **Python 3.11+**
-- **LLM Provider**: Configurable (`openrouter` or `zai`). Sprint 5 frontier default: `zai` + `glm-5`.
+- **LLM Provider**: Configurable (`openrouter` or `zai`). Current default: `openrouter` + `qwen/qwen3-235b-a22b-2507`.
 - **Pheromone store**: local JSON files
 - **Tooling**: uv for Python/runtime orchestration
 - **Testing**: pytest + pytest-cov

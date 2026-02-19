@@ -75,3 +75,4 @@
 - Add a minimum inter-call interval in the shared LLM client for burst control during iterative loops.
 - Apply a dedicated backoff floor for HTTP 429 and merge with provider-provided `Retry-After` when available.
 - Add retry jitter to avoid synchronized retry spikes in repeated benchmark batches.
+- Tune defaults per provider: keep pacing disabled (`0`) when throughput is priority and provider stability allows it.

@@ -650,3 +650,34 @@ Chaque entrée suit ce format :
 - `AGENTS.md`
 - `CLAUDE.md`
 - `documentation/construction_log.md`
+
+
+---
+
+### 2026-02-19 17:30 — Switch back to OpenRouter default (faster run cadence)
+
+**Assistant IA utilisé** : Codex (GPT-5)
+
+**Objectif** : revenir à OpenRouter pour éviter les ralentissements liés aux contraintes anti-429 observées sur Z.ai pendant les runs répétés.
+
+**Actions effectuées** :
+- Reconfiguration du default runtime :
+  - `llm.provider: openrouter`
+  - `llm.model: qwen/qwen3-235b-a22b-2507`
+  - `llm.base_url: https://openrouter.ai/api/v1`
+  - `llm.pricing_endpoint` réactivé OpenRouter
+- Ajustement cadence anti-429 pour limiter la latence :
+  - `min_call_interval_seconds: 0.0` (désactivé),
+  - `min_429_backoff_seconds: 8.0`.
+- Alignement docs :
+  - `AGENTS.md` et `CLAUDE.md` mis à jour (default provider/model).
+- Smoke test OpenRouter exécuté (`pong`) avec tokens comptabilisés.
+
+**Validation** :
+- Smoke test OpenRouter ✅ (`tokens=24`, réponse `pong`).
+
+**Fichiers modifiés** :
+- `stigmergy/config.yaml`
+- `AGENTS.md`
+- `CLAUDE.md`
+- `documentation/construction_log.md`

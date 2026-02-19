@@ -130,7 +130,7 @@ uv run python main.py --repo <python2_repo_url> --repo-ref <ref> --config stigme
 
 # Full CLI options
 uv run python main.py --repo <url> --config stigmergy/config.yaml --max-ticks 50 \
-  --max-tokens 100000 --max-budget-usd 3.5 --model glm-5 --output-dir metrics/output \
+  --max-tokens 100000 --max-budget-usd 3.5 --model qwen/qwen3-235b-a22b-2507 --output-dir metrics/output \
   --verbose --seed 42
 
 # Dry run (no Git writes)
@@ -228,18 +228,18 @@ thresholds:
   scope_lock_ttl: 3                  # ticks before releasing zombie in_progress
 
 llm:
-  provider: "zai"                    # "openrouter" or "zai"
-  model: "glm-5"
-  base_url: "https://api.z.ai/api/coding/paas/v4"  # coding-plan endpoint
+  provider: "openrouter"             # "openrouter" or "zai"
+  model: "qwen/qwen3-235b-a22b-2507"
+  base_url: "https://openrouter.ai/api/v1"
   temperature: 0.2
   max_response_tokens: 0            # deprecated/ignored: client never sends max_tokens
   estimated_completion_tokens: 4096 # budget pre-check estimate when uncapped
   max_tokens_total: 200000
   max_budget_usd: 0.0               # 0 disables cost cap
-  pricing_endpoint: ""              # optional, mainly for provider=openrouter
+  pricing_endpoint: "https://openrouter.ai/api/v1/models/user"
   request_timeout_seconds: 300      # avoid long stuck requests on provider side
-  min_call_interval_seconds: 2.0    # anti-burst pacing between LLM calls
-  min_429_backoff_seconds: 15.0     # floor backoff on HTTP 429
+  min_call_interval_seconds: 0.0    # 0 disables pacing
+  min_429_backoff_seconds: 8.0      # floor backoff on HTTP 429
   retry_jitter_seconds: 0.25        # random jitter added to retry sleeps
 
 loop:
@@ -271,7 +271,7 @@ Two streams: **operational** (Python `logging`, INFO/DEBUG, `logs/stigmergic.log
 ## Tech Stack
 
 - **Python 3.11+**
-- **LLM Provider**: Configurable (`openrouter` or `zai`). Sprint 5 frontier default: `zai` + `glm-5`.
+- **LLM Provider**: Configurable (`openrouter` or `zai`). Current default: `openrouter` + `qwen/qwen3-235b-a22b-2507`.
 - **Pheromone store**: local JSON files with fcntl file locking
 - **Tooling**: uv for environment/bootstrap and command execution
 - **Testing**: pytest + pytest-cov
