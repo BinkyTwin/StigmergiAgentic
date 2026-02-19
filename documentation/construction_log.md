@@ -572,3 +572,45 @@ Chaque entrée suit ce format :
 - `documentation/MOBILE_RESULTS.md`
 - `documentation/construction_log.md`
 - `environment/pheromone_store.py`
+
+
+---
+
+### 2026-02-19 16:45 — Sprint 5 prep: provider `zai` + modèle frontier `glm-5`
+
+**Assistant IA utilisé** : Codex (GPT-5)
+
+**Objectif** : Préparer Sprint 5 avec le modèle frontier `glm-5` via Z.ai, sans casser la compatibilité OpenRouter existante.
+
+**Actions effectuées** :
+- Refactor de `stigmergy/llm_client.py` en client multi-provider :
+  - ajout `llm.provider` (`openrouter` ou `zai`),
+  - mapping env vars provider-aware (`OPENROUTER_API_KEY` / `ZAI_API_KEY`),
+  - mapping base URL provider-aware (incluant endpoint coding-plan Z.ai),
+  - conservation des mécanismes retry, budget tokens, extraction code fences.
+- Maintien de la logique de coût/pricing en mode optionnel :
+  - fetch pricing activé seulement pour providers supportés,
+  - logs explicites si pre-check pricing indisponible.
+- Mise à jour config par défaut Sprint 5 :
+  - `stigmergy/config.yaml` -> `provider: zai`, `model: glm-5`, `base_url: https://api.z.ai/api/coding/paas/v4`.
+- Mise à jour des tests :
+  - nouveaux tests provider `zai` + provider invalide dans `tests/test_llm_client.py`,
+  - wording marker live API généralisé dans `tests/conftest.py`.
+- Mise à jour documentation de référence :
+  - `AGENTS.md` et `CLAUDE.md` alignés sur provider configurable + default frontier Sprint 5.
+
+**Validation** :
+- `uv run pytest tests/test_llm_client.py -q` ✅ (`13 passed, 1 skipped`)
+- `uv run pytest tests/test_main.py tests/test_loop.py -q` ✅ (`12 passed`)
+- `uv run ruff check stigmergy/llm_client.py tests/test_llm_client.py tests/conftest.py` ✅
+- Smoke test réel Z.ai ✅ :
+  - provider=`zai`, model=`glm-5`, réponse reçue (`pong`), tokens comptabilisés.
+
+**Fichiers modifiés** :
+- `stigmergy/llm_client.py`
+- `stigmergy/config.yaml`
+- `tests/test_llm_client.py`
+- `tests/conftest.py`
+- `AGENTS.md`
+- `CLAUDE.md`
+- `documentation/construction_log.md`

@@ -65,3 +65,8 @@
 - Run concurrent benchmark processes from isolated temporary workspace copies to prevent shared-state interference.
 - Share only the final `--output-dir`; keep runtime working artifacts (`target_repo`, `pheromones`, temporary clone paths) local to each worker.
 - Track campaign completeness by counting `summary` files per baseline and only then generate aggregate analytics.
+
+### Multi-Provider LLM Wiring Standard
+- Route provider differences (`env var`, `base_url`, pricing support) through `LLMClient` initialization, not agent code paths.
+- Keep one explicit provider selector in config (`llm.provider`) and allow `llm.base_url` override for endpoint variants (for example coding-plan vs general endpoint).
+- Run a live smoke check immediately after provider/model switch before launching long benchmark or migration jobs.

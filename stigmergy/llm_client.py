@@ -1,4 +1,4 @@
-"""OpenRouter LLM client with retry, budget enforcement, and token tracking."""
+"""Provider-aware LLM client with retry, budget enforcement, and token tracking."""
 
 from __future__ import annotations
 
@@ -28,6 +28,20 @@ CODE_BLOCK_RE = re.compile(
 )
 FENCE_LINE_RE = re.compile(r"^\s*```(?:python|py)?\s*$", re.IGNORECASE)
 LOGGER = logging.getLogger(__name__)
+PROVIDER_DEFAULTS: dict[str, dict[str, Any]] = {
+    "openrouter": {
+        "api_env_var": "OPENROUTER_API_KEY",
+        "base_url": "https://openrouter.ai/api/v1",
+        "pricing_endpoint": "https://openrouter.ai/api/v1/models/user",
+        "supports_pricing_fetch": True,
+    },
+    "zai": {
+        "api_env_var": "ZAI_API_KEY",
+        "base_url": "https://api.z.ai/api/coding/paas/v4",
+        "pricing_endpoint": "",
+        "supports_pricing_fetch": False,
+    },
+}
 
 
 @dataclass
@@ -51,14 +65,25 @@ class ModelPricing:
 
 
 class LLMClient:
-    """OpenRouter-backed LLM client for migration agents."""
+    """Provider-backed LLM client for migration agents."""
 
     def __init__(self, config: dict[str, Any]):
         llm_config = config.get("llm", {})
 
-        self.api_key = os.environ.get("OPENROUTER_API_KEY")
+        self.provider = str(llm_config.get("provider", "openrouter")).strip().lower()
+        provider_defaults = PROVIDER_DEFAULTS.get(self.provider)
+        if provider_defaults is None:
+            supported = ", ".join(sorted(PROVIDER_DEFAULTS))
+            raise ValueError(
+                f"Unsupported llm.provider={self.provider!r}. Supported providers: {supported}"
+            )
+
+        self.api_env_var = str(provider_defaults["api_env_var"])
+        self.api_key = os.environ.get(self.api_env_var)
         if not self.api_key:
-            raise ValueError("OPENROUTER_API_KEY environment variable is required")
+            raise ValueError(
+                f"{self.api_env_var} environment variable is required for provider={self.provider}"
+            )
 
         self.model = str(llm_config.get("model", "qwen/qwen3-235b-a22b-2507"))
         self.temperature = float(llm_config.get("temperature", 0.2))
@@ -85,11 +110,15 @@ class LLMClient:
         self.request_timeout_seconds = float(
             llm_config.get("request_timeout_seconds", 300.0)
         )
+        self.base_url = str(llm_config.get("base_url", provider_defaults["base_url"]))
         self.pricing_endpoint = str(
             llm_config.get(
                 "pricing_endpoint",
-                "https://openrouter.ai/api/v1/models/user",
+                provider_defaults["pricing_endpoint"],
             )
+        )
+        self.supports_pricing_fetch = bool(
+            provider_defaults.get("supports_pricing_fetch", False)
         )
         self.pricing_strict = bool(llm_config.get("pricing_strict", False))
 
@@ -97,20 +126,18 @@ class LLMClient:
         self.total_cost_usd = 0.0
         self.client = OpenAI(
             api_key=self.api_key,
-            base_url="https://openrouter.ai/api/v1",
+            base_url=self.base_url,
             timeout=self.request_timeout_seconds,
         )
-        self.model_pricing = (
-            self._fetch_model_pricing() if self.max_budget_usd > 0.0 else None
-        )
+        self.model_pricing = self._init_model_pricing()
         if (
             self.max_budget_usd > 0.0
             and self.model_pricing is None
             and self.pricing_strict
         ):
             raise RuntimeError(
-                "Cost budget configured but OpenRouter pricing unavailable "
-                f"for model={self.model}"
+                "Cost budget configured but pricing unavailable "
+                f"for provider={self.provider} model={self.model}"
             )
 
     def check_budget(self, estimated_tokens: int) -> bool:
@@ -275,6 +302,25 @@ class LLMClient:
             return None
         return self._safe_float(raw_cost)
 
+    def _init_model_pricing(self) -> ModelPricing | None:
+        if self.max_budget_usd <= 0.0:
+            return None
+        if not self.supports_pricing_fetch:
+            LOGGER.info(
+                "Pricing pre-check disabled for provider=%s model=%s",
+                self.provider,
+                self.model,
+            )
+            return None
+        if not self.pricing_endpoint:
+            LOGGER.warning(
+                "Pricing endpoint not configured for provider=%s model=%s",
+                self.provider,
+                self.model,
+            )
+            return None
+        return self._fetch_model_pricing()
+
     def _fetch_model_pricing(self) -> ModelPricing | None:
         request = Request(
             self.pricing_endpoint,
@@ -289,8 +335,9 @@ class LLMClient:
                 payload = json.loads(response.read().decode("utf-8"))
         except (OSError, URLError, json.JSONDecodeError) as exc:
             LOGGER.warning(
-                "Failed to fetch OpenRouter pricing endpoint=%s model=%s error=%s",
+                "Failed to fetch pricing endpoint=%s provider=%s model=%s error=%s",
                 self.pricing_endpoint,
+                self.provider,
                 self.model,
                 exc,
             )
@@ -299,7 +346,8 @@ class LLMClient:
         model_entry = self._match_model_entry(payload=payload)
         if model_entry is None:
             LOGGER.warning(
-                "No pricing entry found for model=%s from endpoint=%s",
+                "No pricing entry found for provider=%s model=%s from endpoint=%s",
+                self.provider,
                 self.model,
                 self.pricing_endpoint,
             )

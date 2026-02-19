@@ -189,3 +189,23 @@ Completed the full unbounded benchmark set (`5 x 3` runs) by launching missing r
 - `uv run python metrics/pareto.py --input-dir metrics/output/sprint4_20260217_full --plot-mode per-run --require-baselines stigmergic,single_agent,sequential --export-json metrics/output/sprint4_20260217_full/pareto_summary.json`
 - `uv run pytest tests/ -v` (`74 passed, 1 skipped`)
 - `./scripts/sprint_end.sh` (pass: tests, coverage, lint, format, mypy)
+
+## 2026-02-19 — Sprint 5 Prep: Z.ai `glm-5` Integration
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `impact_score`: `8/10`
+- `confidence`: `high`
+- `scope`: `Provider-aware LLM wiring, config defaults update, provider smoke validation`
+
+### Outcome
+Introduced provider-aware LLM routing (`openrouter` and `zai`) with provider-specific API key/base URL resolution, switched Sprint 5 default model to `glm-5` on Z.ai coding endpoint, and validated connectivity with a live smoke call.
+
+### Reusable Patterns (1-3)
+1. Centralize provider routing in one client (`provider -> env var + base_url + pricing capability`) instead of scattering provider checks across agents.
+2. Keep pricing pre-check optional and provider-gated so token/cost guardrails remain stable even when a provider lacks pricing endpoint integration.
+3. Validate provider switches with one deterministic smoke prompt (`Reply with exactly: pong`) before launching full migration loops.
+
+### Evidence
+- `uv run pytest tests/test_llm_client.py -q` (`13 passed, 1 skipped`)
+- `uv run pytest tests/test_main.py tests/test_loop.py -q` (`12 passed`)
+- `uv run python - <<'PY' ... provider='zai', model='glm-5' ...` (`ok=1`, content `pong`)

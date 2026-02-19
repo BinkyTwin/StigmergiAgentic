@@ -17,5 +17,5 @@ def pytest_configure(config) -> None:  # type: ignore[no-untyped-def]
     """Register custom markers used by this project test suite."""
     config.addinivalue_line(
         "markers",
-        "live_api: optional tests hitting real OpenRouter endpoints",
+        "live_api: optional tests hitting real LLM provider endpoints",
     )

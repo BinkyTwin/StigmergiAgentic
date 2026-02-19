@@ -1,4 +1,4 @@
-"""Unit tests for the OpenRouter LLM client wrapper."""
+"""Unit tests for the provider-aware LLM client wrapper."""
 
 from __future__ import annotations
 
@@ -50,7 +50,23 @@ class FakeOpenAIClient:
 def _build_config() -> dict:
     return {
         "llm": {
+            "provider": "openrouter",
             "model": "qwen/qwen3-235b-a22b-2507",
+            "temperature": 0.2,
+            "max_response_tokens": 256,
+            "estimated_completion_tokens": 256,
+            "max_tokens_total": 10000,
+            "retry_attempts": 3,
+            "retry_backoff": [1, 2, 4],
+        }
+    }
+
+
+def _build_zai_config() -> dict:
+    return {
+        "llm": {
+            "provider": "zai",
+            "model": "glm-5",
             "temperature": 0.2,
             "max_response_tokens": 256,
             "estimated_completion_tokens": 256,
@@ -116,6 +132,34 @@ def test_llm_client_sets_openai_timeout(monkeypatch: pytest.MonkeyPatch) -> None
     LLMClient(config)
 
     assert captured_kwargs["timeout"] == 42.0
+
+
+def test_llm_client_uses_zai_provider_defaults(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("ZAI_API_KEY", "zai-test")
+    config = _build_zai_config()
+
+    captured_kwargs: dict[str, object] = {}
+
+    def fake_openai(**kwargs: object) -> FakeOpenAIClient:
+        captured_kwargs.update(kwargs)
+        return FakeOpenAIClient(FakeCompletions([_make_response("ok")]))
+
+    monkeypatch.setattr("stigmergy.llm_client.OpenAI", fake_openai)
+
+    LLMClient(config)
+
+    assert captured_kwargs["api_key"] == "zai-test"
+    assert captured_kwargs["base_url"] == "https://api.z.ai/api/coding/paas/v4"
+
+
+def test_llm_client_raises_on_unsupported_provider() -> None:
+    config = _build_config()
+    config["llm"]["provider"] = "unknown"
+
+    with pytest.raises(ValueError, match="Unsupported llm.provider"):
+        LLMClient(config)
 
 
 def test_llm_client_budget_check_blocks_call(monkeypatch: pytest.MonkeyPatch) -> None:

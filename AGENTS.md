@@ -67,7 +67,7 @@ Enforced by the environment, not by agents:
 ```
 agents/           → 4 specialized agents + base_agent.py
 environment/      → pheromone_store.py, guardrails.py, decay.py
-stigmergy/        → loop.py (main loop), config.yaml, llm_client.py (OpenRouter)
+stigmergy/        → loop.py (main loop), config.yaml, llm_client.py (provider-aware: OpenRouter/Z.ai)
 pheromones/       → tasks.json, status.json, quality.json (runtime trace store)
 metrics/          → collector.py, pareto.py, export.py
 baselines/        → single_agent.py, sequential.py (comparison experiments)
@@ -168,7 +168,7 @@ make docker-shell
 ## Tech Stack
 
 - **Python 3.11+**
-- **LLM Provider**: OpenRouter (qwen/qwen3-235b-a22b-2507 for dev, Claude Sonnet/GPT-4o for results)
+- **LLM Provider**: Configurable (`openrouter` or `zai`). Sprint 5 frontier default: `zai` + `glm-5`.
 - **Pheromone store**: local JSON files
 - **Tooling**: uv for Python/runtime orchestration
 - **Testing**: pytest + pytest-cov
@@ -186,11 +186,13 @@ Critical thresholds that affect agent behavior:
 - `max_retry_count: 3` — anti-loop guardrail
 - `loop.sequential_stage_action_cap` — optional per-stage cap (sequential baseline) to prevent non-terminating stage loops
 - `max_tokens_total: 1000000` — budget ceiling (raised for larger repos after Sprint 3)
+- `llm.provider` — LLM backend selector (`openrouter` or `zai`)
+- `llm.base_url` — provider base URL (defaults by provider; `zai` coding-plan endpoint supported)
 - `llm.max_response_tokens` — deprecated/ignored (client never sends `max_tokens`)
 - `llm.estimated_completion_tokens: 4096` — budget pre-check estimate when uncapped
 - `llm.max_budget_usd: 0.0` — optional cost ceiling (disabled by default)
-- `llm.pricing_endpoint` — OpenRouter pricing endpoint used for pre-call cost estimate
-- `llm.request_timeout_seconds: 300` — per-request OpenRouter timeout to avoid long hangs
+- `llm.pricing_endpoint` — optional pricing endpoint (used for cost pre-check when provider supports it)
+- `llm.request_timeout_seconds: 300` — per-request provider timeout to avoid long hangs
 - `tester.fallback_quality.compile_import_fail: 0.4`
 - `tester.fallback_quality.related_regression: 0.6`
 - `tester.fallback_quality.pass_or_inconclusive: 0.8`

@@ -71,3 +71,11 @@
 - `rationale`: Parallelism reduces wall time, while per-worker workspace isolation avoids race conditions/cross-run contamination on shared runtime artifacts.
 - `alternatives_rejected`: Run all remaining jobs serially, or run them in parallel from one workspace with shared `target_repo`/`pheromones`.
 - `linked_adr`: `documentation/decisions/TBD-sprint4-unbounded-5x3-final-batch.md`
+
+## 2026-02-19 (Sprint 5 Provider Switch: OpenRouter + Z.ai)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: Make `LLMClient` provider-aware and adopt `zai` + `glm-5` as default Sprint 5 frontier configuration while preserving OpenRouter compatibility.
+- `rationale`: Sprint 5 requires a frontier model (`glm-5`) and reliable provider switching without touching agent orchestration logic.
+- `alternatives_rejected`: Fork a dedicated Z.ai client, or hard-replace OpenRouter paths with Z.ai-only logic.
+- `linked_adr`: `documentation/decisions/TBD-sprint5-provider-switch-zai-glm5.md`

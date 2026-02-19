@@ -99,7 +99,7 @@ Enforced by the environment, not by agents. Taxonomy from Grisold et al. (2025):
 ```
 agents/           → 4 specialized agents + base_agent.py
 environment/      → pheromone_store.py, guardrails.py, decay.py
-stigmergy/        → loop.py (main loop), config.yaml, llm_client.py (OpenRouter)
+stigmergy/        → loop.py (main loop), config.yaml, llm_client.py (provider-aware: OpenRouter/Z.ai)
 pheromones/       → tasks.json, status.json, quality.json, audit_log.jsonl
 metrics/          → collector.py, pareto.py, export.py
 baselines/        → single_agent.py, sequential.py (comparison experiments)
@@ -110,7 +110,9 @@ consigne/         → Architecture plan and literature review (specification doc
 
 ## Environment Variables
 
-Required: `OPENROUTER_API_KEY` (set in `.env`, loaded by python-dotenv). See `.env.example`.
+Required: provider-specific key (set in `.env`, loaded by python-dotenv):
+- `OPENROUTER_API_KEY` when `llm.provider=openrouter`
+- `ZAI_API_KEY` when `llm.provider=zai`
 
 ## Commands
 
@@ -128,7 +130,7 @@ uv run python main.py --repo <python2_repo_url> --repo-ref <ref> --config stigme
 
 # Full CLI options
 uv run python main.py --repo <url> --config stigmergy/config.yaml --max-ticks 50 \
-  --max-tokens 100000 --max-budget-usd 3.5 --model qwen/qwen3-235b-a22b-2507 --output-dir metrics/output \
+  --max-tokens 100000 --max-budget-usd 3.5 --model glm-5 --output-dir metrics/output \
   --verbose --seed 42
 
 # Dry run (no Git writes)
@@ -226,13 +228,15 @@ thresholds:
   scope_lock_ttl: 3                  # ticks before releasing zombie in_progress
 
 llm:
-  model: "qwen/qwen3-235b-a22b-2507"
+  provider: "zai"                    # "openrouter" or "zai"
+  model: "glm-5"
+  base_url: "https://api.z.ai/api/coding/paas/v4"  # coding-plan endpoint
   temperature: 0.2
   max_response_tokens: 0            # deprecated/ignored: client never sends max_tokens
   estimated_completion_tokens: 4096 # budget pre-check estimate when uncapped
   max_tokens_total: 200000
   max_budget_usd: 0.0               # 0 disables cost cap
-  pricing_endpoint: "https://openrouter.ai/api/v1/models/user"
+  pricing_endpoint: ""              # optional, mainly for provider=openrouter
   request_timeout_seconds: 300      # avoid long stuck requests on provider side
 
 loop:
@@ -264,7 +268,7 @@ Two streams: **operational** (Python `logging`, INFO/DEBUG, `logs/stigmergic.log
 ## Tech Stack
 
 - **Python 3.11+**
-- **LLM Provider**: OpenRouter (qwen/qwen3-235b-a22b-2507 for dev, Claude Sonnet/GPT-4o for results)
+- **LLM Provider**: Configurable (`openrouter` or `zai`). Sprint 5 frontier default: `zai` + `glm-5`.
 - **Pheromone store**: local JSON files with fcntl file locking
 - **Tooling**: uv for environment/bootstrap and command execution
 - **Testing**: pytest + pytest-cov
