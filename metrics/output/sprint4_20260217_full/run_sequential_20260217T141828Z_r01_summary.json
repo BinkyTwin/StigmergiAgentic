@@ -1,0 +1,19 @@
+{
+  "audit_completeness": 1.0,
+  "baseline": "sequential",
+  "files_failed": 23,
+  "files_needs_review": 0,
+  "files_total": 23,
+  "files_validated": 0,
+  "human_escalation_rate": 0.0,
+  "retry_resolution_rate": 0.0,
+  "rollback_rate": 1.0,
+  "run_id": "sequential_20260217T141828Z_r01",
+  "scheduler": "sequential",
+  "starvation_count": 0,
+  "stop_reason": "idle_cycles",
+  "success_rate": 0.0,
+  "total_cost_usd": 0.008855,
+  "total_ticks": 3,
+  "total_tokens": 34476
+}

@@ -1,0 +1,15 @@
+{
+  "config_hash": "sha256:7137797e636cb455881890907605fe53134dc581bd82cb8fe81bb869a6d98dc5",
+  "dependency_lock_hash": "sha256:121122ff529bbcc8dd053db68395cb64123a777636c25f89f85e69a9c420b67f",
+  "max_budget_usd": 0.0,
+  "max_tokens_total": 1000000,
+  "model_name": "qwen/qwen3-235b-a22b-2507",
+  "model_provider": "openrouter",
+  "prompt_bundle_hash": "sha256:ec688520d764af9c5c120d8bb37b79500f7ef6d4f36f11742b62f84c0bda4e30",
+  "python_version": "3.11.14",
+  "run_id": "20260217T191307Z",
+  "seed": null,
+  "target_repo_commit": "944641a7357376a43151bd4a3ca44f9c07c4d1ae",
+  "target_repo_path": "/private/tmp/stig_parallel_20260217/stig5/target_repo",
+  "timestamp_utc": "2026-02-17T19:13:07Z"
+}

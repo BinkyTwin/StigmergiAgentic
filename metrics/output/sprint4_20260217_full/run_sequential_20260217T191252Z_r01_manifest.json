@@ -1,0 +1,11 @@
+{
+  "baseline": "sequential",
+  "manifest_hash": "a79fd9061e9bdbe97bbbe9544042b372434f68363a8409e89e5b0fc82d27ad0a",
+  "max_budget_usd": 0.0,
+  "max_tokens_total": 1000000,
+  "model": "qwen/qwen3-235b-a22b-2507",
+  "run_id": "sequential_20260217T191252Z_r01",
+  "seed": null,
+  "started_at": "2026-02-17T19:12:53.040677+00:00",
+  "target_repo_path": "/private/tmp/stig_parallel_20260217/seq/target_repo"
+}

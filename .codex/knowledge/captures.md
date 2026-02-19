@@ -246,3 +246,22 @@ Switched project defaults back to OpenRouter (`qwen/qwen3-235b-a22b-2507`) and d
 
 ### Evidence
 - `uv run python - <<'PY' ... provider='openrouter' ...` (`ok=1`, `tokens=24`, `content=pong`)
+
+## 2026-02-19 — GPT-5-nano Trial Batch (5 Stigmergic Runs, No Max Tokens)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `impact_score`: `8/10`
+- `confidence`: `high`
+- `scope`: `Model A/B trial before Sprint 4 comparison lock`
+
+### Outcome
+Executed 5 complete stigmergic runs on `docopt/docopt@0.6.2` using `openai/gpt-5-nano` via OpenRouter with no `--max-tokens`, and generated a curated 5-run Pareto artifact set for clean comparison.
+
+### Reusable Patterns (1-3)
+1. When a long sequential batch is interrupted, isolate and re-run the missing runs in parallel workspaces to finish quickly without corrupting outputs.
+2. Keep a curated output subset when accidental extra runs are produced, so analysis stays exactly on the requested sample size.
+3. Verify model/repo/ref consistency from manifest files for each run before comparing metrics.
+
+### Evidence
+- `metrics/output/pre_sprint4_gpt5nano_20260219_stigmergic_5runs_curated` (5 manifests, 5 summaries, 5 ticks CSV)
+- `uv run python metrics/pareto.py --input-dir metrics/output/pre_sprint4_gpt5nano_20260219_stigmergic_5runs_curated --output .../pareto.png --plot-mode per-run --export-json .../pareto_summary.json` (`points=5`, `baselines=1`)

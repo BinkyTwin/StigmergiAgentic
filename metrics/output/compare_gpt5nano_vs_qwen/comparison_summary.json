@@ -1,0 +1,22 @@
+{
+  "points": [
+    {
+      "label": "qwen/single_agent",
+      "success": 1.0,
+      "tokens": 34224.6,
+      "cost": 0.0099072
+    },
+    {
+      "label": "qwen/stigmergic",
+      "success": 0.956522,
+      "tokens": 79921.6,
+      "cost": 0.027932
+    },
+    {
+      "label": "openai/gpt-5-nano/stigmergic",
+      "success": 0.956522,
+      "tokens": 160028.4,
+      "cost": 0.0456646
+    }
+  ]
+}

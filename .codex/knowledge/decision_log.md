@@ -95,3 +95,11 @@
 - `rationale`: User prioritizes faster campaign throughput; current Z.ai rate-limiting profile introduced repeated delays and unstable batch progress.
 - `alternatives_rejected`: Keep Z.ai default with long enforced pacing intervals.
 - `linked_adr`: `documentation/decisions/TBD-sprint5-openrouter-default-rollback.md`
+
+## 2026-02-19 (GPT-5-nano Pre-Sprint Trial Protocol)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: Run the pre-Sprint model trial with `openai/gpt-5-nano` (OpenRouter) as 5 complete stigmergic runs without `--max-tokens`, and report from a curated exact-5 output set.
+- `rationale`: The trial needed uncapped completions and strict sample size control (`n=5`) despite an interrupted batch during execution.
+- `alternatives_rejected`: Keep the interrupted mixed run set as-is, or rerun everything from scratch serially.
+- `linked_adr`: `documentation/decisions/TBD-pre-sprint-gpt5nano-trial-protocol.md`

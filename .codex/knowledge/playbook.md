@@ -76,3 +76,8 @@
 - Apply a dedicated backoff floor for HTTP 429 and merge with provider-provided `Retry-After` when available.
 - Add retry jitter to avoid synchronized retry spikes in repeated benchmark batches.
 - Tune defaults per provider: keep pacing disabled (`0`) when throughput is priority and provider stability allows it.
+
+### Curated Run-Set Standard
+- If execution control changes mid-batch (interrupt/restart), preserve raw outputs but build a curated directory for the exact requested sample.
+- Include only complete triplets (`manifest`, `summary`, `ticks`) per selected run id in curated sets.
+- Generate benchmark plots/JSON from curated sets to keep reported `n` aligned with user intent.

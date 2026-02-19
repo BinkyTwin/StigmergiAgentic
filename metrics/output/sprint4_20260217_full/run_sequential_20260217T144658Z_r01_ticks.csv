@@ -1,0 +1,4 @@
+tick,any_agent_acted,acted_scout,acted_transformer,acted_tester,acted_validator,files_total,files_migrated,files_validated,files_failed,files_needs_review,total_tokens,total_cost_usd,total_ticks,tokens_per_file,cost_per_file_usd,success_rate,rollback_rate,human_escalation_rate,retry_resolution_rate,starvation_count,audit_completeness
+0,True,True,True,True,True,23,23,0,23,0,34497,0.006182,1,1499.869565,0.000269,0.0,1.0,0.0,0.0,0,1.0
+1,False,False,False,False,False,23,23,0,23,0,34497,0.006182,2,1499.869565,0.000269,0.0,1.0,0.0,0.0,0,1.0
+2,False,False,False,False,False,23,23,0,23,0,34497,0.006182,3,1499.869565,0.000269,0.0,1.0,0.0,0.0,0,1.0

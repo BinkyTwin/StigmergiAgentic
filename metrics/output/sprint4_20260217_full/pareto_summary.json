@@ -1,0 +1,187 @@
+{
+  "aggregates": [
+    {
+      "baseline": "sequential",
+      "runs": 5,
+      "success_ci95": 0.45922620223830435,
+      "success_mean": 0.38260879999999997,
+      "success_std": 0.5239086761499565,
+      "x_ci95": 18261.542490305026,
+      "x_mean": 49138.4,
+      "x_std": 20833.69917465451
+    },
+    {
+      "baseline": "single_agent",
+      "runs": 5,
+      "success_ci95": 0.0,
+      "success_mean": 1.0,
+      "success_std": 0.0,
+      "x_ci95": 1015.57369265652,
+      "x_mean": 34224.6,
+      "x_std": 1158.618271908397
+    },
+    {
+      "baseline": "stigmergic",
+      "runs": 5,
+      "success_ci95": 0.0,
+      "success_mean": 0.956522,
+      "success_std": 0.0,
+      "x_ci95": 1851.6708903517385,
+      "x_mean": 79921.6,
+      "x_std": 2112.4806034612484
+    }
+  ],
+  "pareto_frontier": [
+    {
+      "baseline": "single_agent",
+      "runs": 5,
+      "success_ci95": 0.0,
+      "success_mean": 1.0,
+      "success_std": 0.0,
+      "x_ci95": 1015.57369265652,
+      "x_mean": 34224.6,
+      "x_std": 1158.618271908397
+    }
+  ],
+  "plot_mode": "per-run",
+  "raw_points": [
+    {
+      "baseline": "stigmergic",
+      "run_id": "20260217T191253Z",
+      "success_rate": 0.956522,
+      "total_cost_usd": 0.027306,
+      "total_tokens": 80910
+    },
+    {
+      "baseline": "stigmergic",
+      "run_id": "20260217T191255Z",
+      "success_rate": 0.956522,
+      "total_cost_usd": 0.026019,
+      "total_tokens": 77369
+    },
+    {
+      "baseline": "stigmergic",
+      "run_id": "20260217T191258Z",
+      "success_rate": 0.956522,
+      "total_cost_usd": 0.030003,
+      "total_tokens": 82344
+    },
+    {
+      "baseline": "stigmergic",
+      "run_id": "20260217T191305Z",
+      "success_rate": 0.956522,
+      "total_cost_usd": 0.028809,
+      "total_tokens": 80928
+    },
+    {
+      "baseline": "stigmergic",
+      "run_id": "20260217T191307Z",
+      "success_rate": 0.956522,
+      "total_cost_usd": 0.027523,
+      "total_tokens": 78057
+    },
+    {
+      "baseline": "sequential",
+      "run_id": "sequential_20260217T141828Z_r01",
+      "success_rate": 0.0,
+      "total_cost_usd": 0.008855,
+      "total_tokens": 34476
+    },
+    {
+      "baseline": "sequential",
+      "run_id": "sequential_20260217T142735Z_r01",
+      "success_rate": 0.0,
+      "total_cost_usd": 0.013953,
+      "total_tokens": 34466
+    },
+    {
+      "baseline": "sequential",
+      "run_id": "sequential_20260217T144658Z_r01",
+      "success_rate": 0.0,
+      "total_cost_usd": 0.006182,
+      "total_tokens": 34497
+    },
+    {
+      "baseline": "sequential",
+      "run_id": "sequential_20260217T154444Z_r01",
+      "success_rate": 0.956522,
+      "total_cost_usd": 0.02562,
+      "total_tokens": 79019
+    },
+    {
+      "baseline": "sequential",
+      "run_id": "sequential_20260217T191252Z_r01",
+      "success_rate": 0.956522,
+      "total_cost_usd": 0.026608,
+      "total_tokens": 63234
+    },
+    {
+      "baseline": "single_agent",
+      "run_id": "single_agent_20260217T115928Z_r01",
+      "success_rate": 1.0,
+      "total_cost_usd": 0.011867,
+      "total_tokens": 35048
+    },
+    {
+      "baseline": "single_agent",
+      "run_id": "single_agent_20260217T120654Z_r02",
+      "success_rate": 1.0,
+      "total_cost_usd": 0.008528,
+      "total_tokens": 35089
+    },
+    {
+      "baseline": "single_agent",
+      "run_id": "single_agent_20260217T121242Z_r03",
+      "success_rate": 1.0,
+      "total_cost_usd": 0.01023,
+      "total_tokens": 32955
+    },
+    {
+      "baseline": "single_agent",
+      "run_id": "single_agent_20260217T122155Z_r01",
+      "success_rate": 1.0,
+      "total_cost_usd": 0.011292,
+      "total_tokens": 35075
+    },
+    {
+      "baseline": "single_agent",
+      "run_id": "single_agent_20260217T141053Z_r01",
+      "success_rate": 1.0,
+      "total_cost_usd": 0.007619,
+      "total_tokens": 32956
+    }
+  ],
+  "rows": [
+    {
+      "baseline": "sequential",
+      "runs": 5,
+      "success_ci95": 0.45922620223830435,
+      "success_mean": 0.38260879999999997,
+      "success_std": 0.5239086761499565,
+      "x_ci95": 18261.542490305026,
+      "x_mean": 49138.4,
+      "x_std": 20833.69917465451
+    },
+    {
+      "baseline": "single_agent",
+      "runs": 5,
+      "success_ci95": 0.0,
+      "success_mean": 1.0,
+      "success_std": 0.0,
+      "x_ci95": 1015.57369265652,
+      "x_mean": 34224.6,
+      "x_std": 1158.618271908397
+    },
+    {
+      "baseline": "stigmergic",
+      "runs": 5,
+      "success_ci95": 0.0,
+      "success_mean": 0.956522,
+      "success_std": 0.0,
+      "x_ci95": 1851.6708903517385,
+      "x_mean": 79921.6,
+      "x_std": 2112.4806034612484
+    }
+  ],
+  "x_metric": "total_tokens"
+}

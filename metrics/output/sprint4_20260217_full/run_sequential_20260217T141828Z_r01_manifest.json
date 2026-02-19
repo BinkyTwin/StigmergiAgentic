@@ -1,0 +1,11 @@
+{
+  "baseline": "sequential",
+  "manifest_hash": "b8e059fd48c3c65b6d1aec2841b3ff6023180e90d6788d667f41235314009dda",
+  "max_budget_usd": 0.0,
+  "max_tokens_total": 1000000,
+  "model": "qwen/qwen3-235b-a22b-2507",
+  "run_id": "sequential_20260217T141828Z_r01",
+  "seed": null,
+  "started_at": "2026-02-17T14:18:29.425534+00:00",
+  "target_repo_path": "/Users/lotfi/Documents/EMLV/Memoire/StigmergiAgentic/target_repo"
+}

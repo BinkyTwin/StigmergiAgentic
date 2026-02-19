@@ -1,0 +1,15 @@
+{
+  "config_hash": "sha256:a36e7ad14fac7cada6d053438f16525d9e524c8f5bda10cb1409456bc6670081",
+  "dependency_lock_hash": "sha256:121122ff529bbcc8dd053db68395cb64123a777636c25f89f85e69a9c420b67f",
+  "max_budget_usd": 0.0,
+  "max_tokens_total": 1000000,
+  "model_name": "openai/gpt-5-nano",
+  "model_provider": "openrouter",
+  "prompt_bundle_hash": "sha256:ec688520d764af9c5c120d8bb37b79500f7ef6d4f36f11742b62f84c0bda4e30",
+  "python_version": "3.11.14",
+  "run_id": "20260219T164842Z",
+  "seed": null,
+  "target_repo_commit": "944641a7357376a43151bd4a3ca44f9c07c4d1ae",
+  "target_repo_path": "/private/tmp/stig_gpt5nano_20260219_parallel/run2/target_repo",
+  "timestamp_utc": "2026-02-19T16:48:42Z"
+}
