@@ -8,7 +8,7 @@ import json
 from pathlib import Path
 from typing import Any, Callable, Mapping
 
-import yaml
+import yaml  # type: ignore[import-untyped]
 
 from .decay import decay_inhibition, decay_intensity
 from .guardrails import Guardrails, utc_timestamp

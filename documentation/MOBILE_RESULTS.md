@@ -4,66 +4,59 @@ This document is designed for quick reading from a phone.
 
 ## Scope
 
-- Snapshot date (UTC): **2026-02-14**
-- Test repo used for this snapshot: **1 small Python 2 file**
-- Compared modes:
-  - `stigmergic` (main round-robin loop)
-  - `single_agent` baseline
-  - `sequential` baseline
+- Snapshot date (UTC): **2026-02-17**
+- Benchmark batch: **`metrics/output/sprint4_20260217_full`**
+- Test repo: **`docopt/docopt@0.6.2`**
+- Model: **`qwen/qwen3-235b-a22b-2507`**
+- Compared modes (5 runs each): `stigmergic`, `single_agent`, `sequential`
+- Fairness setup: same repo/ref/model/temperature/config family for all modes
+- Run mode: **unbounded** (no forced `--max-ticks 1`, no forced `--max-tokens 5000`)
 
-> Important: this is a **smoke comparison snapshot**, not the final thesis benchmark.
+> This is the Sprint 4 thesis-grade comparison batch (5x3), not the previous bounded smoke snapshot.
 
 ---
 
-## Quick Scoreboard
+## Quick Scoreboard (Mean over 5 runs)
 
-| Mode | Success rate | Tokens | Cost (USD) | Stop reason |
-|---|---:|---:|---:|---|
-| sequential | 1.00 | 118 | 0.000026 | all_terminal |
-| stigmergic | 1.00 | 119 | 0.000031 | all_terminal |
-| single_agent | 1.00 | 146 | 0.000038 | all_terminal |
+| Mode | Success rate | Tokens | Cost (USD) | Mean ticks | Dominant stop reason |
+|---|---:|---:|---:|---:|---|
+| single_agent | 1.000000 | 34224.6 | 0.009907 | 23.0 | all_terminal (5/5) |
+| stigmergic | 0.956522 | 79921.6 | 0.027932 | 26.0 | all_terminal (5/5) |
+| sequential | 0.382609 | 49138.4 | 0.016244 | 3.4 | idle_cycles (3/5) |
 
 ### Fast takeaway
 
-- On this tiny smoke case, all three modes validate 1/1 file.
-- `sequential` is the cheapest in tokens/cost for this specific run.
-- `stigmergic` is very close to `sequential` here.
-- `single_agent` consumed more tokens on this sample.
+- `single_agent` is best on this batch for both quality and efficiency.
+- `stigmergic` is close in quality (`22/23` files on average) but much more expensive in tokens/cost.
+- `sequential` has high variance (2 successful runs, 3 early stops on `idle_cycles`).
 
 ---
 
 ## Pareto Snapshot (tokens vs success)
 
-Aggregated view (1 run per mode in this snapshot):
+From `pareto_summary.json` (`plot_mode=per-run`, required baselines enforced):
 
-- `sequential`: x_mean=118.0, success_mean=1.0
-- `stigmergic`: x_mean=119.0, success_mean=1.0
-- `single_agent`: x_mean=146.0, success_mean=1.0
-- Pareto frontier winner for this sample: **sequential**
+- `single_agent`: `success_mean=1.000000`, `success_ci95=0.000000`, `x_mean=34224.6`, `x_ci95=1015.5737`
+- `stigmergic`: `success_mean=0.956522`, `success_ci95=0.000000`, `x_mean=79921.6`, `x_ci95=1851.6709`
+- `sequential`: `success_mean=0.382609`, `success_ci95=0.459226`, `x_mean=49138.4`, `x_ci95=18261.5425`
+- Pareto frontier baselines: **`single_agent`**
 
 ---
 
-## Exact run summaries (JSON content)
+## Example run summaries (one run per mode)
 
 ### Stigmergic
 
 ```json
 {
-  "audit_completeness": 1.0,
-  "files_failed": 0,
-  "files_needs_review": 0,
-  "files_total": 1,
-  "files_validated": 1,
-  "human_escalation_rate": 0.0,
-  "retry_resolution_rate": 0.0,
-  "rollback_rate": 0.0,
-  "run_id": "20260214T194651Z",
-  "starvation_count": 0,
+  "run_id": "20260217T191307Z",
   "stop_reason": "all_terminal",
-  "success_rate": 1.0,
-  "total_cost_usd": 3.1e-05,
-  "total_ticks": 1,
-  "total_tokens": 119
+  "success_rate": 0.956522,
+  "files_validated": 22,
+  "files_total": 23,
+  "total_ticks": 26,
+  "total_tokens": 78057,
+  "total_cost_usd": 0.027523
 }
 ```
 
@@ -71,23 +64,16 @@ Aggregated view (1 run per mode in this snapshot):
 
 ```json
 {
-  "audit_completeness": 1.0,
+  "run_id": "sequential_20260217T191252Z_r01",
   "baseline": "sequential",
-  "files_failed": 0,
-  "files_needs_review": 0,
-  "files_total": 1,
-  "files_validated": 1,
-  "human_escalation_rate": 0.0,
-  "retry_resolution_rate": 0.0,
-  "rollback_rate": 0.0,
-  "run_id": "sequential_20260214T194645Z_r01",
   "scheduler": "sequential",
-  "starvation_count": 0,
   "stop_reason": "all_terminal",
-  "success_rate": 1.0,
-  "total_cost_usd": 2.6e-05,
-  "total_ticks": 1,
-  "total_tokens": 118
+  "success_rate": 0.956522,
+  "files_validated": 22,
+  "files_total": 23,
+  "total_ticks": 4,
+  "total_tokens": 63234,
+  "total_cost_usd": 0.026608
 }
 ```
 
@@ -95,42 +81,47 @@ Aggregated view (1 run per mode in this snapshot):
 
 ```json
 {
-  "audit_completeness": 1.0,
+  "run_id": "single_agent_20260217T141053Z_r01",
   "baseline": "single_agent",
-  "files_failed": 0,
-  "files_needs_review": 0,
-  "files_total": 1,
-  "files_validated": 1,
-  "human_escalation_rate": 0.0,
-  "retry_resolution_rate": 0.0,
-  "rollback_rate": 0.0,
-  "run_id": "single_agent_20260214T194641Z_r01",
   "scheduler": "single_agent",
-  "starvation_count": 0,
   "stop_reason": "all_terminal",
   "success_rate": 1.0,
-  "total_cost_usd": 3.8e-05,
-  "total_ticks": 1,
-  "total_tokens": 146
+  "files_validated": 23,
+  "files_total": 23,
+  "total_ticks": 23,
+  "total_tokens": 32956,
+  "total_cost_usd": 0.007619
 }
 ```
 
 ---
 
-## How to regenerate this snapshot later
+## How to regenerate this benchmark
 
 ```bash
-# 1) Run baselines + stigmergic
-uv run python baselines/single_agent.py --repo <repo_or_path> --config stigmergy/config.yaml --output-dir <out_dir>
-uv run python baselines/sequential.py --repo <repo_or_path> --config stigmergy/config.yaml --output-dir <out_dir>
-uv run python main.py --repo <repo_or_path> --config stigmergy/config.yaml --output-dir <out_dir>
+OUT=metrics/output/sprint4_20260217_full
+REPO=https://github.com/docopt/docopt.git
+REF=0.6.2
+MODEL=qwen/qwen3-235b-a22b-2507
 
-# 2) Build Pareto outputs
-uv run python metrics/pareto.py --input-dir <out_dir> --output <out_dir>/pareto.png --export-json <out_dir>/pareto_summary.json
+# 1) Baselines (5 runs each)
+uv run python baselines/single_agent.py --repo "$REPO" --repo-ref "$REF" \
+  --model "$MODEL" --config stigmergy/config.yaml --output-dir "$OUT" --runs 5
+
+uv run python baselines/sequential.py --repo "$REPO" --repo-ref "$REF" \
+  --model "$MODEL" --config stigmergy/config.yaml --output-dir "$OUT" --runs 5
+
+# 2) Stigmergic (5 runs)
+for i in 1 2 3 4 5; do
+  uv run python main.py --repo "$REPO" --repo-ref "$REF" \
+    --model "$MODEL" --config stigmergy/config.yaml --output-dir "$OUT"
+done
+
+# 3) Pareto outputs with baseline coverage check
+uv run python metrics/pareto.py \
+  --input-dir "$OUT" \
+  --output "$OUT/pareto.png" \
+  --plot-mode per-run \
+  --require-baselines stigmergic,single_agent,sequential \
+  --export-json "$OUT/pareto_summary.json"
 ```
-
----
-
-## Next step for thesis-grade comparison
-
-Use at least **5 runs per mode** on the real target repo (same model, same budgets, same config), then compare mean + variance on success/tokens/USD.

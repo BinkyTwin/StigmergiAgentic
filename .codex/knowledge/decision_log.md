@@ -39,3 +39,35 @@
 - `rationale`: Prevents accidental reintroduction of output truncation during migrations, especially in stale Docker-image scenarios.
 - `alternatives_rejected`: Keep optional `max_response_tokens` passthrough, rely on manual config discipline.
 - `linked_adr`: `documentation/decisions/20260212-sprint3-llm-cost-budget-and-uncapped-output.md`
+
+## 2026-02-17
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: Treat Sprint 4 as tooling-complete but benchmark-incomplete until fairness runs and Pareto reporting requirements are satisfied.
+- `rationale`: Code paths and tests pass, but current evidence is smoke-level and does not yet meet protocol constraints (`>=5 runs/config`, confidence-interval reporting, complete baseline input coverage).
+- `alternatives_rejected`: Mark Sprint 4 fully complete based only on single-run snapshot and mean/std-only Pareto output.
+- `linked_adr`: `documentation/decisions/TBD-sprint4-benchmark-readiness.md`
+
+## 2026-02-17 (Closure Implementation)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: Upgrade Pareto tooling to enforce baseline coverage and export raw+aggregate evidence, then close Sprint 4 with a bounded 5x3 benchmark protocol on `docopt/docopt@0.6.2`.
+- `rationale`: Prevents partial-data misinterpretation and provides reproducible closure artifacts when full unconstrained campaigns are too costly for the current iteration.
+- `alternatives_rejected`: Keep aggregate-only Pareto output, accept silent missing-baseline inputs, or defer all benchmark execution until a later sprint.
+- `linked_adr`: `documentation/decisions/TBD-sprint4-closure-bounded-benchmark-and-pareto-v2.md`
+
+## 2026-02-17 (Benchmark Stability Hardening)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: Add explicit LLM request timeout (`llm.request_timeout_seconds`) and sequential stage action cap (`loop.sequential_stage_action_cap`) to reduce benchmark run hangs.
+- `rationale`: Repeated baseline runs showed long-running/non-terminating behavior under provider latency and nested stage loops; bounded runtime controls are needed for campaign completion.
+- `alternatives_rejected`: Keep SDK default timeout behavior and unbounded stage `while run()` loops.
+- `linked_adr`: `documentation/decisions/TBD-benchmark-runtime-stability-timeout-stage-cap.md`
+
+## 2026-02-17 (Unbounded 5x3 Final Batch Execution)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: Execute missing Sprint 4 benchmark runs in parallel using isolated temporary workspace copies, then treat `metrics/output/sprint4_20260217_full` as the canonical unbounded 5x3 batch.
+- `rationale`: Parallelism reduces wall time, while per-worker workspace isolation avoids race conditions/cross-run contamination on shared runtime artifacts.
+- `alternatives_rejected`: Run all remaining jobs serially, or run them in parallel from one workspace with shared `target_repo`/`pheromones`.
+- `linked_adr`: `documentation/decisions/TBD-sprint4-unbounded-5x3-final-batch.md`

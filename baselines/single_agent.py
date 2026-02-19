@@ -2,21 +2,20 @@
 
 from __future__ import annotations
 
-import sys
 import json
 import logging
+import sys
 import traceback
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from typing import Any
-
-from agents.scout import Scout
-from baselines.common import (
+from agents.scout import Scout  # noqa: E402
+from baselines.common import (  # noqa: E402
     build_manifest,
     build_run_id,
     load_runtime_config,
@@ -25,9 +24,9 @@ from baselines.common import (
     prepare_run_environment,
     setup_logging,
 )
-from environment.pheromone_store import PheromoneStore
-from metrics.collector import MetricsCollector
-from stigmergy.llm_client import LLMClient
+from environment.pheromone_store import PheromoneStore  # noqa: E402
+from metrics.collector import MetricsCollector  # noqa: E402
+from stigmergy.llm_client import LLMClient  # noqa: E402
 
 
 TERMINAL_STATUSES = {"validated", "skipped", "needs_review", "failed"}
@@ -59,9 +58,15 @@ class SingleAgentRunner:
         self.collector = MetricsCollector(audit_log_path=self.store.audit_log_path)
         self.logger = logging.getLogger("baseline.single_agent")
 
-        self.validator_high = float(config.get("thresholds", {}).get("validator_confidence_high", 0.8))
-        self.validator_low = float(config.get("thresholds", {}).get("validator_confidence_low", 0.5))
-        self.max_retry_count = int(config.get("thresholds", {}).get("max_retry_count", 3))
+        self.validator_high = float(
+            config.get("thresholds", {}).get("validator_confidence_high", 0.8)
+        )
+        self.validator_low = float(
+            config.get("thresholds", {}).get("validator_confidence_low", 0.5)
+        )
+        self.max_retry_count = int(
+            config.get("thresholds", {}).get("max_retry_count", 3)
+        )
 
     def run(self, run_id: str) -> dict[str, Any]:
         """Execute baseline and return summary/ticks payload."""
@@ -74,14 +79,21 @@ class SingleAgentRunner:
 
         loop_cfg = self.config.get("loop", {})
         max_ticks = int(loop_cfg.get("max_ticks", max(1, len(tasks) * 2)))
-        max_tokens_total = int(self.config.get("llm", {}).get("max_tokens_total", 100000))
+        max_tokens_total = int(
+            self.config.get("llm", {}).get("max_tokens_total", 100000)
+        )
         max_budget_usd = float(self.config.get("llm", {}).get("max_budget_usd", 0.0))
 
         stop_reason = "max_ticks"
 
         for tick in range(max_ticks):
             self.config.setdefault("runtime", {})["tick"] = tick
-            acted = {"scout": False, "transformer": False, "tester": False, "validator": False}
+            acted = {
+                "scout": False,
+                "transformer": False,
+                "tester": False,
+                "validator": False,
+            }
 
             next_task = self._next_pending_task(statuses=statuses, tasks=tasks)
             if next_task is not None:
@@ -104,7 +116,10 @@ class SingleAgentRunner:
             if int(self.llm_client.total_tokens_used) >= max_tokens_total:
                 stop_reason = "budget_exhausted"
                 break
-            if max_budget_usd > 0.0 and float(self.llm_client.total_cost_usd) >= max_budget_usd:
+            if (
+                max_budget_usd > 0.0
+                and float(self.llm_client.total_cost_usd) >= max_budget_usd
+            ):
                 stop_reason = "budget_exhausted"
                 break
 
@@ -148,7 +163,12 @@ class SingleAgentRunner:
         file_path = self.target_repo_path / task.file_key
         source = file_path.read_text(encoding="utf-8", errors="ignore")
 
-        prompt = self._build_prompt(file_key=task.file_key, patterns=task.patterns, source_content=source, retries=retries[task.file_key])
+        prompt = self._build_prompt(
+            file_key=task.file_key,
+            patterns=task.patterns,
+            source_content=source,
+            retries=retries[task.file_key],
+        )
         try:
             response = self.llm_client.call(
                 prompt=prompt,
@@ -163,16 +183,32 @@ class SingleAgentRunner:
             confidence, issues = self._evaluate_file(file_path=file_path)
 
             if confidence >= self.validator_high:
-                statuses[task.file_key] = {"status": "validated", "retry_count": retries[task.file_key], "inhibition": 0.0}
+                statuses[task.file_key] = {
+                    "status": "validated",
+                    "retry_count": retries[task.file_key],
+                    "inhibition": 0.0,
+                }
             elif confidence <= self.validator_low:
                 retries[task.file_key] += 1
                 file_path.write_text(source, encoding="utf-8")
                 if retries[task.file_key] > self.max_retry_count:
-                    statuses[task.file_key] = {"status": "skipped", "retry_count": retries[task.file_key], "inhibition": 1.0}
+                    statuses[task.file_key] = {
+                        "status": "skipped",
+                        "retry_count": retries[task.file_key],
+                        "inhibition": 1.0,
+                    }
                 else:
-                    statuses[task.file_key] = {"status": "retry", "retry_count": retries[task.file_key], "inhibition": 0.5}
+                    statuses[task.file_key] = {
+                        "status": "retry",
+                        "retry_count": retries[task.file_key],
+                        "inhibition": 0.5,
+                    }
             else:
-                statuses[task.file_key] = {"status": "needs_review", "retry_count": retries[task.file_key], "inhibition": 0.0}
+                statuses[task.file_key] = {
+                    "status": "needs_review",
+                    "retry_count": retries[task.file_key],
+                    "inhibition": 0.0,
+                }
 
             self.store.write(
                 "quality",
@@ -187,14 +223,32 @@ class SingleAgentRunner:
                 },
                 agent_id="single_agent",
             )
-            self.store.write("status", file_key=task.file_key, data=statuses[task.file_key], agent_id="single_agent")
+            self.store.write(
+                "status",
+                file_key=task.file_key,
+                data=statuses[task.file_key],
+                agent_id="single_agent",
+            )
         except Exception as exc:  # noqa: BLE001
             retries[task.file_key] += 1
             if retries[task.file_key] > self.max_retry_count:
-                statuses[task.file_key] = {"status": "failed", "retry_count": retries[task.file_key], "inhibition": 1.0}
+                statuses[task.file_key] = {
+                    "status": "failed",
+                    "retry_count": retries[task.file_key],
+                    "inhibition": 1.0,
+                }
             else:
-                statuses[task.file_key] = {"status": "retry", "retry_count": retries[task.file_key], "inhibition": 0.8}
-            self.store.write("status", file_key=task.file_key, data=statuses[task.file_key], agent_id="single_agent")
+                statuses[task.file_key] = {
+                    "status": "retry",
+                    "retry_count": retries[task.file_key],
+                    "inhibition": 0.8,
+                }
+            self.store.write(
+                "status",
+                file_key=task.file_key,
+                data=statuses[task.file_key],
+                agent_id="single_agent",
+            )
             self.store.write(
                 "quality",
                 file_key=task.file_key,
@@ -209,7 +263,9 @@ class SingleAgentRunner:
                 agent_id="single_agent",
             )
 
-    def _build_prompt(self, *, file_key: str, patterns: list[str], source_content: str, retries: int) -> str:
+    def _build_prompt(
+        self, *, file_key: str, patterns: list[str], source_content: str, retries: int
+    ) -> str:
         pattern_section = ", ".join(patterns) if patterns else "none"
         return (
             f"Migrate this Python 2 file to Python 3.\\n"
@@ -249,7 +305,10 @@ class SingleAgentRunner:
     def _all_terminal(self, statuses: dict[str, dict[str, Any]]) -> bool:
         if not statuses:
             return False
-        return all(str(entry.get("status", "pending")) in TERMINAL_STATUSES for entry in statuses.values())
+        return all(
+            str(entry.get("status", "pending")) in TERMINAL_STATUSES
+            for entry in statuses.values()
+        )
 
 
 def main() -> int:
@@ -281,7 +340,9 @@ def main() -> int:
         config["runtime"]["manifest"] = manifest
 
         logger.info("Starting single-agent run_id=%s", run_id)
-        result = SingleAgentRunner(config=config, target_repo_path=target_repo_path).run(run_id=run_id)
+        result = SingleAgentRunner(
+            config=config, target_repo_path=target_repo_path
+        ).run(run_id=run_id)
         persist_run_outputs(
             config=config,
             run_id=run_id,

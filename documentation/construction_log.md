@@ -461,3 +461,114 @@ Chaque entrée suit ce format :
 - `AGENTS.md`
 - `CLAUDE.md`
 - `documentation/construction_log.md`
+
+---
+
+### 2026-02-17 12:30 — Sprint 4 closure: quality gates, Pareto V2, and 5x3 bounded benchmark
+
+**Assistant IA utilisé** : Codex (GPT-5)
+
+**Objectif** : Clôturer Sprint 4 avec qualité statique propre, couverture de tests baseline, exécution comparative 5 runs/mode, et livrables Pareto/doc mis à jour.
+
+**Actions effectuées** :
+- Stabilisation qualité statique :
+  - correction `ruff` (`E402` baselines, `F401` dans `main.py`),
+  - ajout `types-PyYAML` dans `requirements.txt`,
+  - harmonisation typing `guardrails`/`pheromone_store`,
+  - correction Scout (`ast.Num` compatibilité typing).
+- Extension de `metrics/pareto.py` :
+  - nouveau mode `--plot-mode` (`aggregated`, `per-run`),
+  - vérification explicite des baselines attendues (`--require-baselines`),
+  - export JSON enrichi (`raw_points`, `aggregates`, `rows`, `pareto_frontier`),
+  - ajout de CI95 (`x_ci95`, `success_ci95`) par baseline.
+- Ajout des tests Sprint 4 manquants :
+  - `tests/test_baselines_single_agent.py`,
+  - `tests/test_baselines_sequential.py`,
+  - `tests/test_baselines_common.py`,
+  - enrichissement `tests/test_pareto.py`.
+- Rebuild Docker + revalidation tests en parallèle :
+  - local : `72 passed, 1 skipped`,
+  - Docker : `72 passed, 1 skipped`.
+- Benchmark comparatif exécuté sur `docopt/docopt@0.6.2` :
+  - 5 runs `single_agent`,
+  - 5 runs `sequential`,
+  - 5 runs `stigmergic`,
+  - contraintes homogènes pour cette snapshot : `--max-ticks 1`, `--max-tokens 5000`.
+- Génération des artefacts Pareto :
+  - `pareto.png`,
+  - `pareto_summary.json` (3 baselines détectées, 15 points).
+
+**Décisions prises** :
+- Conserver deux modes Pareto : agrégé (rétrocompatibilité) et point-par-run (alignement spec Sprint 4).
+- Ajouter la garde `--require-baselines` pour éviter des analyses incomplètes (ex. une seule baseline présente).
+- Utiliser une snapshot benchmark bornée pour terminer la clôture Sprint 4 de manière reproductible, tout en documentant que ce n’est pas encore la campagne finale mémoire.
+
+**Validation** :
+- `uv run ruff check . --exclude tests/fixtures` ✅
+- `uv run black --check . --exclude '/tests/fixtures/'` ✅
+- `uv run mypy agents/ environment/ stigmergy/ --ignore-missing-imports` ✅
+- `uv run pytest tests/ -v --tb=short` ✅ (`72 passed, 1 skipped`)
+- `make docker-test` après rebuild image ✅ (`72 passed, 1 skipped`)
+- `uv run python metrics/pareto.py ... --plot-mode per-run --require-baselines stigmergic,single_agent,sequential` ✅
+
+**Fichiers créés** :
+- `pyproject.toml`
+- `tests/test_baselines_common.py`
+- `tests/test_baselines_sequential.py`
+- `tests/test_baselines_single_agent.py`
+
+**Fichiers modifiés** :
+- `metrics/pareto.py`
+- `baselines/sequential.py`
+- `baselines/single_agent.py`
+- `baselines/common.py`
+- `environment/guardrails.py`
+- `environment/pheromone_store.py`
+- `agents/scout.py`
+- `main.py`
+- `requirements.txt`
+- `tests/test_pareto.py`
+- `documentation/MOBILE_RESULTS.md`
+- `AGENTS.md`
+- `CLAUDE.md`
+- `documentation/construction_log.md`
+
+
+---
+
+### 2026-02-17 20:35 — Sprint 4 finalization: unbounded 5x3 benchmark + end gate pass
+
+**Assistant IA utilisé** : Codex (GPT-5)
+
+**Objectif** : Terminer la clôture Sprint 4 avec un lot comparatif 5x3 non borné, des artefacts Pareto complets, et une gate de fin de sprint validée.
+
+**Actions effectuées** :
+- Exécution parallèle des runs manquants (workspace isolés `/tmp/stig_parallel_20260217/*`) pour éviter les collisions sur `target_repo`/`pheromones`.
+- Finalisation du lot benchmark dans `metrics/output/sprint4_20260217_full` :
+  - `single_agent`: 5/5,
+  - `sequential`: 5/5,
+  - `stigmergic`: 5/5.
+- Génération des artefacts finaux :
+  - `metrics/output/sprint4_20260217_full/pareto.png`,
+  - `metrics/output/sprint4_20260217_full/pareto_summary.json`.
+- Mise à jour de `documentation/MOBILE_RESULTS.md` pour refléter le lot **non borné** (et non plus la snapshot `max-ticks=1`).
+- Correction typing mineure pour gate mypy :
+  - `environment/pheromone_store.py` : `import yaml  # type: ignore[import-untyped]`.
+
+**Résultats benchmark (moyennes 5 runs)** :
+- `single_agent`: `success_mean=1.000000`, `tokens_mean=34224.6`, `cost_mean=0.009907`.
+- `stigmergic`: `success_mean=0.956522`, `tokens_mean=79921.6`, `cost_mean=0.027932`.
+- `sequential`: `success_mean=0.382609`, `tokens_mean=49138.4`, `cost_mean=0.016244`.
+- Frontière Pareto agrégée (tokens vs success): `single_agent`.
+
+**Validation finale** :
+- `uv run ruff check . --exclude tests/fixtures` ✅
+- `uv run black --check .` ✅
+- `uv run mypy agents/ environment/ stigmergy/ --ignore-missing-imports` ✅
+- `uv run pytest tests/ -v` ✅ (`74 passed, 1 skipped`)
+- `./scripts/sprint_end.sh` ✅ (tests, coverage, lint, format, mypy, checks workflow)
+
+**Fichiers modifiés (session de finalisation)** :
+- `documentation/MOBILE_RESULTS.md`
+- `documentation/construction_log.md`
+- `environment/pheromone_store.py`

@@ -60,7 +60,9 @@ class Transformer(BaseAgent):
             return {"candidates": candidates}
 
         candidates = inhibited_candidates
-        candidates.sort(key=lambda item: (item["inhibition"], -item["intensity"], item["file_key"]))
+        candidates.sort(
+            key=lambda item: (item["inhibition"], -item["intensity"], item["file_key"])
+        )
         return {"candidates": candidates}
 
     def should_act(self, perception: dict[str, Any]) -> bool:
@@ -76,14 +78,10 @@ class Transformer(BaseAgent):
         large_file_config = self._large_file_config()
         large_file_mode = line_count >= int(large_file_config["line_threshold"])
         max_few_shot_examples = (
-            int(large_file_config["max_few_shot_examples"])
-            if large_file_mode
-            else 3
+            int(large_file_config["max_few_shot_examples"]) if large_file_mode else 3
         )
         max_retry_issues = (
-            int(large_file_config["max_retry_issues"])
-            if large_file_mode
-            else None
+            int(large_file_config["max_retry_issues"]) if large_file_mode else None
         )
 
         patterns = list(candidate["task_entry"].get("patterns_found", []))

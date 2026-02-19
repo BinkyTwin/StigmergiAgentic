@@ -82,7 +82,9 @@ def test_tester_runs_pytest_and_deposits_quality(tmp_path: Path) -> None:
     assert status["status"] == "tested"
 
 
-def test_tester_fallback_compile_import_sets_adaptive_confidence(tmp_path: Path) -> None:
+def test_tester_fallback_compile_import_sets_adaptive_confidence(
+    tmp_path: Path,
+) -> None:
     repo_path = tmp_path / "repo"
     repo_path.mkdir(parents=True)
 
@@ -121,7 +123,9 @@ def test_tester_fallback_related_regression_sets_medium_confidence(
     repo_path = tmp_path / "repo"
     repo_path.mkdir(parents=True)
 
-    (repo_path / "module.py").write_text("def value():\n    return 1\n", encoding="utf-8")
+    (repo_path / "module.py").write_text(
+        "def value():\n    return 1\n", encoding="utf-8"
+    )
 
     store = PheromoneStore(_build_config(), base_path=tmp_path)
     store.write(

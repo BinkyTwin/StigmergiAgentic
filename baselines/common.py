@@ -14,8 +14,18 @@ import yaml
 from dotenv import load_dotenv
 
 from environment.pheromone_store import PheromoneStore
-from main import _apply_cli_overrides, _configure_logging, _prepare_target_repo, _reset_pheromone_state
-from metrics.export import ensure_output_dir, write_manifest_json, write_summary_json, write_ticks_csv
+from main import (
+    _apply_cli_overrides,
+    _configure_logging,
+    _prepare_target_repo,
+    _reset_pheromone_state,
+)
+from metrics.export import (
+    ensure_output_dir,
+    write_manifest_json,
+    write_summary_json,
+    write_ticks_csv,
+)
 
 
 DEFAULT_CONFIG_PATH = Path("stigmergy/config.yaml")
@@ -24,18 +34,41 @@ DEFAULT_CONFIG_PATH = Path("stigmergy/config.yaml")
 def parse_baseline_args(description: str) -> argparse.Namespace:
     """Parse CLI arguments shared by baseline scripts."""
     parser = argparse.ArgumentParser(description=description)
-    parser.add_argument("--repo", type=str, required=True, help="Repository URL or local path")
-    parser.add_argument("--repo-ref", type=str, default=None, help="Tag/branch/commit to checkout")
-    parser.add_argument("--config", type=str, default=str(DEFAULT_CONFIG_PATH), help="Config file path")
-    parser.add_argument("--output-dir", type=str, default=None, help="Override metrics output directory")
-    parser.add_argument("--max-ticks", type=int, default=None, help="Override max ticks for baseline scheduler")
-    parser.add_argument("--max-tokens", type=int, default=None, help="Override global token budget")
-    parser.add_argument("--max-budget-usd", type=float, default=None, help="Override global USD budget")
+    parser.add_argument(
+        "--repo", type=str, required=True, help="Repository URL or local path"
+    )
+    parser.add_argument(
+        "--repo-ref", type=str, default=None, help="Tag/branch/commit to checkout"
+    )
+    parser.add_argument(
+        "--config", type=str, default=str(DEFAULT_CONFIG_PATH), help="Config file path"
+    )
+    parser.add_argument(
+        "--output-dir", type=str, default=None, help="Override metrics output directory"
+    )
+    parser.add_argument(
+        "--max-ticks",
+        type=int,
+        default=None,
+        help="Override max ticks for baseline scheduler",
+    )
+    parser.add_argument(
+        "--max-tokens", type=int, default=None, help="Override global token budget"
+    )
+    parser.add_argument(
+        "--max-budget-usd", type=float, default=None, help="Override global USD budget"
+    )
     parser.add_argument("--model", type=str, default=None, help="Override model name")
-    parser.add_argument("--seed", type=int, default=None, help="Seed stored in run manifest")
+    parser.add_argument(
+        "--seed", type=int, default=None, help="Seed stored in run manifest"
+    )
     parser.add_argument("--runs", type=int, default=1, help="Number of repeated runs")
-    parser.add_argument("--dry-run", action="store_true", help="Disable git commit/revert mutations")
-    parser.add_argument("--resume", action="store_true", help="Reuse existing target_repo checkout")
+    parser.add_argument(
+        "--dry-run", action="store_true", help="Disable git commit/revert mutations"
+    )
+    parser.add_argument(
+        "--resume", action="store_true", help="Reuse existing target_repo checkout"
+    )
     parser.add_argument("--verbose", action="store_true", help="Enable debug logs")
     return parser.parse_args()
 
@@ -78,7 +111,9 @@ def prepare_run_environment(
 
 def build_run_id(prefix: str, run_index: int = 1) -> str:
     """Build deterministic UTC run identifier for baseline runs."""
-    timestamp = datetime.now(timezone.utc).replace(microsecond=0).strftime("%Y%m%dT%H%M%SZ")
+    timestamp = (
+        datetime.now(timezone.utc).replace(microsecond=0).strftime("%Y%m%dT%H%M%SZ")
+    )
     return f"{prefix}_{timestamp}_r{run_index:02d}"
 
 

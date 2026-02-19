@@ -44,3 +44,24 @@
 - Never send `max_tokens` in LLM chat completion payloads for migration runs.
 - Treat `llm.max_response_tokens` as deprecated/ignored to prevent accidental regressions from config changes.
 - Rebuild Docker runtime image before gate runs after any LLM client policy change.
+
+### Sprint Closure Audit Standard
+- Mark sprint status explicitly as `tooling complete` only after targeted + full pytest passes.
+- Mark sprint status as `evidence complete` only after protocol checks pass (fairness constraints, repeated runs, reproducible artifacts).
+- Validate quality gates (`ruff`, `black --check`, `mypy`) separately from functional tests so debt is visible and not masked by green pytest results.
+- For Pareto analysis, verify multi-baseline input coverage before interpretation (`>=1 summary per baseline`, and thesis runs should use `>=5` runs per mode).
+
+### Pareto Evidence Integrity Standard
+- Export and persist both raw run points and baseline aggregates in the same summary payload.
+- Fail analysis commands when expected baselines are missing instead of silently plotting partial data.
+- Distinguish bounded benchmark snapshots from unconstrained thesis campaigns in documentation headers and regeneration commands.
+
+### Benchmark Runtime Stability Standard
+- Configure explicit provider request timeouts in `LLMClient` (`llm.request_timeout_seconds`) for long multi-run campaigns.
+- Cap sequential per-stage actions per tick (`loop.sequential_stage_action_cap`) to avoid unbounded `while stage_runner.run()` cycles.
+- Re-run focused baseline/LLM unit tests after stability guardrail changes before restarting benchmark batches.
+
+### Parallel Benchmark Isolation Standard
+- Run concurrent benchmark processes from isolated temporary workspace copies to prevent shared-state interference.
+- Share only the final `--output-dir`; keep runtime working artifacts (`target_repo`, `pheromones`, temporary clone paths) local to each worker.
+- Track campaign completeness by counting `summary` files per baseline and only then generate aggregate analytics.
