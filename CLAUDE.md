@@ -238,6 +238,9 @@ llm:
   max_budget_usd: 0.0               # 0 disables cost cap
   pricing_endpoint: ""              # optional, mainly for provider=openrouter
   request_timeout_seconds: 300      # avoid long stuck requests on provider side
+  min_call_interval_seconds: 2.0    # anti-burst pacing between LLM calls
+  min_429_backoff_seconds: 15.0     # floor backoff on HTTP 429
+  retry_jitter_seconds: 0.25        # random jitter added to retry sleeps
 
 loop:
   max_ticks: 50

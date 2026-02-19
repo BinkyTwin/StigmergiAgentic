@@ -209,3 +209,22 @@ Introduced provider-aware LLM routing (`openrouter` and `zai`) with provider-spe
 - `uv run pytest tests/test_llm_client.py -q` (`13 passed, 1 skipped`)
 - `uv run pytest tests/test_main.py tests/test_loop.py -q` (`12 passed`)
 - `uv run python - <<'PY' ... provider='zai', model='glm-5' ...` (`ok=1`, content `pong`)
+
+## 2026-02-19 — Anti-429 Hardening for Z.ai Campaign Runs
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `impact_score`: `8/10`
+- `confidence`: `high`
+- `scope`: `Runtime retry pacing to mitigate provider rate limiting during repeated runs`
+
+### Outcome
+Added built-in anti-429 controls to the shared LLM client (inter-call pacing, 429-specific minimum backoff, and retry jitter), then enabled those controls in default config for Sprint 5 Z.ai usage.
+
+### Reusable Patterns (1-3)
+1. Combine request pacing (`min_call_interval_seconds`) with retry backoff to reduce bursty provider traffic during agent loops.
+2. Treat HTTP 429 separately from generic retryable errors by applying a stronger floor and honoring `Retry-After` when available.
+3. Keep anti-rate-limit behavior in the shared LLM client so all orchestration modes inherit it without per-agent patches.
+
+### Evidence
+- `uv run pytest tests/test_llm_client.py -q` (`15 passed, 1 skipped`)
+- `uv run ruff check stigmergy/llm_client.py tests/test_llm_client.py tests/conftest.py` (`All checks passed`)

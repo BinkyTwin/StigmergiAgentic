@@ -79,3 +79,11 @@
 - `rationale`: Sprint 5 requires a frontier model (`glm-5`) and reliable provider switching without touching agent orchestration logic.
 - `alternatives_rejected`: Fork a dedicated Z.ai client, or hard-replace OpenRouter paths with Z.ai-only logic.
 - `linked_adr`: `documentation/decisions/TBD-sprint5-provider-switch-zai-glm5.md`
+
+## 2026-02-19 (Anti-429 Controls for Z.ai)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: Introduce built-in anti-rate-limit controls in `LLMClient` (inter-call pacing + 429-specific backoff floor + jitter), and enable them in default config.
+- `rationale`: Repeated Sprint 5 runs encountered frequent Z.ai `429` responses; centralized pacing/backoff is required for stable batch execution.
+- `alternatives_rejected`: Handle delays only in shell loops, or raise retries without pacing control.
+- `linked_adr`: `documentation/decisions/TBD-sprint5-anti429-llm-pacing.md`

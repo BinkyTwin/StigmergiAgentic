@@ -20,6 +20,15 @@ class RetryableStubError(Exception):
     """Custom error used to force retry paths in tests."""
 
 
+class FakeStatusError(Exception):
+    """Status-like error with optional headers for retry tests."""
+
+    def __init__(self, status_code: int, headers: dict[str, str] | None = None) -> None:
+        super().__init__(f"status={status_code}")
+        self.status_code = status_code
+        self.headers = headers or {}
+
+
 class FakeCompletions:
     """Configurable fake OpenAI completions endpoint."""
 
@@ -95,8 +104,10 @@ def _make_response(
 
 def test_llm_client_retry_backoff(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("OPENROUTER_API_KEY", "sk-test")
+    config = _build_config()
+    config["llm"]["retry_jitter_seconds"] = 0
 
-    client = LLMClient(_build_config())
+    client = LLMClient(config)
 
     outcomes = [RetryableStubError("retry me"), _make_response("ok")]
     fake_completions = FakeCompletions(outcomes)
@@ -114,6 +125,65 @@ def test_llm_client_retry_backoff(monkeypatch: pytest.MonkeyPatch) -> None:
     assert result.content == "ok"
     assert fake_completions.calls == 2
     assert sleep_calls == [1.0]
+
+
+def test_llm_client_applies_min_429_backoff(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("OPENROUTER_API_KEY", "sk-test")
+    config = _build_config()
+    config["llm"]["retry_attempts"] = 2
+    config["llm"]["retry_backoff"] = [1]
+    config["llm"]["min_429_backoff_seconds"] = 7
+    config["llm"]["retry_jitter_seconds"] = 0
+
+    client = LLMClient(config)
+    outcomes = [FakeStatusError(429), _make_response("ok")]
+    fake_completions = FakeCompletions(outcomes)
+    client.client = FakeOpenAIClient(fake_completions)
+
+    sleep_calls: list[float] = []
+    monkeypatch.setattr(client, "_is_retryable", lambda error: True)
+    monkeypatch.setattr("time.sleep", lambda seconds: sleep_calls.append(seconds))
+
+    result = client.call(prompt="hello")
+
+    assert result.content == "ok"
+    assert fake_completions.calls == 2
+    assert sleep_calls == [7.0]
+
+
+def test_llm_client_enforces_min_call_interval(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("OPENROUTER_API_KEY", "sk-test")
+    config = _build_config()
+    config["llm"]["min_call_interval_seconds"] = 2
+
+    client = LLMClient(config)
+    fake_completions = FakeCompletions([_make_response("ok"), _make_response("ok")])
+    client.client = FakeOpenAIClient(fake_completions)
+
+    fake_clock = {"t": 0.0}
+    sleep_calls: list[float] = []
+
+    def fake_monotonic() -> float:
+        return fake_clock["t"]
+
+    def fake_sleep(seconds: float) -> None:
+        sleep_calls.append(seconds)
+        fake_clock["t"] += seconds
+
+    monkeypatch.setattr("time.monotonic", fake_monotonic)
+    monkeypatch.setattr("time.sleep", fake_sleep)
+
+    first = client.call(prompt="hello")
+    second = client.call(prompt="hello-again")
+
+    assert first.content == "ok"
+    assert second.content == "ok"
+    assert fake_completions.calls == 2
+    assert sleep_calls == [2.0]
 
 
 def test_llm_client_sets_openai_timeout(monkeypatch: pytest.MonkeyPatch) -> None:

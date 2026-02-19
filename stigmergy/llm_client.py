@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import random
 import re
 import time
 from dataclasses import dataclass
@@ -102,6 +103,13 @@ class LLMClient:
         )
         self.retry_attempts = int(llm_config.get("retry_attempts", 3))
         self.retry_backoff = list(llm_config.get("retry_backoff", [1, 2, 4]))
+        self.min_call_interval_seconds = float(
+            llm_config.get("min_call_interval_seconds", 0.0)
+        )
+        self.min_429_backoff_seconds = float(
+            llm_config.get("min_429_backoff_seconds", 10.0)
+        )
+        self.retry_jitter_seconds = float(llm_config.get("retry_jitter_seconds", 0.25))
         self.budget = int(llm_config.get("max_tokens_total", 100_000))
         self.max_budget_usd = float(llm_config.get("max_budget_usd", 0.0))
         self.pricing_api_timeout_seconds = float(
@@ -124,6 +132,7 @@ class LLMClient:
 
         self.total_tokens_used = 0
         self.total_cost_usd = 0.0
+        self._next_earliest_call_monotonic = 0.0
         self.client = OpenAI(
             api_key=self.api_key,
             base_url=self.base_url,
@@ -179,6 +188,7 @@ class LLMClient:
 
         for attempt in range(self.retry_attempts):
             try:
+                self._enforce_call_interval()
                 start = time.monotonic()
                 request_payload: dict[str, Any] = {
                     "model": self.model,
@@ -223,8 +233,10 @@ class LLMClient:
                 if not has_next_attempt:
                     break
 
-                backoff_seconds = self._backoff_for_attempt(attempt)
+                backoff_seconds = self._backoff_for_error(attempt=attempt, error=exc)
                 time.sleep(backoff_seconds)
+            finally:
+                self._mark_call_slot()
 
         assert last_error is not None
         raise last_error
@@ -419,6 +431,63 @@ class LLMClient:
         if attempt < len(self.retry_backoff):
             return float(self.retry_backoff[attempt])
         return float(self.retry_backoff[-1])
+
+    def _backoff_for_error(self, attempt: int, error: Exception) -> float:
+        backoff_seconds = self._backoff_for_attempt(attempt)
+        status_code = self._status_code_for_error(error)
+        if status_code == 429:
+            retry_after = self._retry_after_seconds(error)
+            backoff_seconds = max(backoff_seconds, self.min_429_backoff_seconds)
+            if retry_after is not None:
+                backoff_seconds = max(backoff_seconds, retry_after)
+        jitter = random.uniform(0.0, self.retry_jitter_seconds)
+        return float(backoff_seconds + jitter)
+
+    def _status_code_for_error(self, error: Exception) -> int | None:
+        if isinstance(error, APIStatusError):
+            return int(error.status_code)
+        raw_status_code = getattr(error, "status_code", None)
+        if raw_status_code is None:
+            return None
+        try:
+            return int(raw_status_code)
+        except (TypeError, ValueError):
+            return None
+
+    def _retry_after_seconds(self, error: Exception) -> float | None:
+        raw_value: Any = None
+        if isinstance(error, APIStatusError):
+            response = getattr(error, "response", None)
+            headers = getattr(response, "headers", None)
+            if headers is not None:
+                raw_value = headers.get("retry-after")
+        else:
+            headers = getattr(error, "headers", None)
+            if isinstance(headers, dict):
+                raw_value = headers.get("retry-after")
+
+        if raw_value is None:
+            return None
+        try:
+            parsed = float(raw_value)
+        except (TypeError, ValueError):
+            return None
+        return max(0.0, parsed)
+
+    def _enforce_call_interval(self) -> None:
+        if self.min_call_interval_seconds <= 0.0:
+            return
+        now = time.monotonic()
+        wait_seconds = self._next_earliest_call_monotonic - now
+        if wait_seconds > 0.0:
+            time.sleep(wait_seconds)
+
+    def _mark_call_slot(self) -> None:
+        if self.min_call_interval_seconds <= 0.0:
+            return
+        self._next_earliest_call_monotonic = (
+            time.monotonic() + self.min_call_interval_seconds
+        )
 
     def _extract_content(self, response: Any) -> str:
         choices = getattr(response, "choices", None)

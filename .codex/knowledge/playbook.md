@@ -70,3 +70,8 @@
 - Route provider differences (`env var`, `base_url`, pricing support) through `LLMClient` initialization, not agent code paths.
 - Keep one explicit provider selector in config (`llm.provider`) and allow `llm.base_url` override for endpoint variants (for example coding-plan vs general endpoint).
 - Run a live smoke check immediately after provider/model switch before launching long benchmark or migration jobs.
+
+### Rate-Limit Resilience Standard
+- Add a minimum inter-call interval in the shared LLM client for burst control during iterative loops.
+- Apply a dedicated backoff floor for HTTP 429 and merge with provider-provided `Retry-After` when available.
+- Add retry jitter to avoid synchronized retry spikes in repeated benchmark batches.

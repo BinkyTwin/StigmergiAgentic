@@ -33,6 +33,9 @@ llm:
   pricing_strict: false
   retry_attempts: 3
   retry_backoff: [1, 2, 4]
+  min_call_interval_seconds: 2.0     # anti-burst pacing between LLM calls
+  min_429_backoff_seconds: 15.0      # floor backoff when provider returns HTTP 429
+  retry_jitter_seconds: 0.25         # random jitter added to retry sleeps
 
 # === Loop ===
 loop:

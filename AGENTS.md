@@ -193,6 +193,9 @@ Critical thresholds that affect agent behavior:
 - `llm.max_budget_usd: 0.0` — optional cost ceiling (disabled by default)
 - `llm.pricing_endpoint` — optional pricing endpoint (used for cost pre-check when provider supports it)
 - `llm.request_timeout_seconds: 300` — per-request provider timeout to avoid long hangs
+- `llm.min_call_interval_seconds` — minimum delay between provider calls (anti-burst / anti-429)
+- `llm.min_429_backoff_seconds` — minimum retry delay when provider returns HTTP 429
+- `llm.retry_jitter_seconds` — random jitter added to retry sleeps to reduce synchronized retries
 - `tester.fallback_quality.compile_import_fail: 0.4`
 - `tester.fallback_quality.related_regression: 0.6`
 - `tester.fallback_quality.pass_or_inconclusive: 0.8`

@@ -614,3 +614,39 @@ Chaque entrée suit ce format :
 - `AGENTS.md`
 - `CLAUDE.md`
 - `documentation/construction_log.md`
+
+
+---
+
+### 2026-02-19 17:20 — Anti-429 hardening for Z.ai (`glm-5`)
+
+**Assistant IA utilisé** : Codex (GPT-5)
+
+**Objectif** : réduire les erreurs `429 Too Many Requests` pendant les campagnes multi-runs.
+
+**Actions effectuées** :
+- Renforcement `stigmergy/llm_client.py` :
+  - pacing inter-appels via `llm.min_call_interval_seconds`,
+  - backoff minimum spécifique `429` via `llm.min_429_backoff_seconds`,
+  - jitter de retry via `llm.retry_jitter_seconds`,
+  - prise en compte de `Retry-After` lorsqu'il est exposé.
+- Ajout de tests unitaires :
+  - `test_llm_client_applies_min_429_backoff`,
+  - `test_llm_client_enforces_min_call_interval`.
+- Activation des paramètres anti-429 dans `stigmergy/config.yaml` :
+  - `min_call_interval_seconds: 2.0`
+  - `min_429_backoff_seconds: 15.0`
+  - `retry_jitter_seconds: 0.25`
+- Mise à jour de `AGENTS.md` et `CLAUDE.md` (nouvelles clés de config).
+
+**Validation** :
+- `uv run pytest tests/test_llm_client.py -q` ✅ (`15 passed, 1 skipped`)
+- `uv run ruff check stigmergy/llm_client.py tests/test_llm_client.py tests/conftest.py` ✅
+
+**Fichiers modifiés** :
+- `stigmergy/llm_client.py`
+- `stigmergy/config.yaml`
+- `tests/test_llm_client.py`
+- `AGENTS.md`
+- `CLAUDE.md`
+- `documentation/construction_log.md`
