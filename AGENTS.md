@@ -42,6 +42,15 @@ Sprint 3 is implemented and gate-validated, and Sprint 4 baseline tooling is now
 - `metrics/pareto.py` now supports aggregate and per-run plotting (`--plot-mode`) with optional baseline-coverage enforcement (`--require-baselines`) and CI95 export fields.
 - Sprint 4 support tests include `tests/test_pareto.py`, `tests/test_baselines_common.py`, `tests/test_baselines_single_agent.py`, and `tests/test_baselines_sequential.py`.
 - Mobile-readable snapshot document: `documentation/MOBILE_RESULTS.md` (5x3 unbounded benchmark scoreboard + Pareto extracts).
+- 2026-02-20 Sprint 6 implemented end-to-end:
+  - Added reusable capability package: `agents/capabilities/{discover,transform,test,validate}.py`.
+  - Refactored `Scout`, `Transformer`, `Tester`, and `Validator` into thin wrappers delegating core logic to capabilities.
+  - Extended discovery/transform/test flow to non-Python text files via `capabilities.non_python` config and strict guardrails.
+  - Added Sprint 6 capability tests: `tests/test_capabilities.py` (Python parity + non-Python strict scenarios).
+  - Full regression suite status: `100 passed, 1 skipped`.
+- 2026-02-20 V0.2 planning update:
+  - Created branch chain for V0.2 planning/implementation: `codex/v2` then `codex/v2-sprint6`.
+  - `consigne/POC_V02_plan.md` now defines Sprint 6 as capabilities extraction plus non-Python text pipeline scope (`LLM` full-file + strict guardrails).
 - 2026-02-20 hardening for Docker reproducibility:
   - `_prepare_target_repo()` now rejects empty `--repo` specs with an explicit error (prevents accidental recursive copy of `/app`).
   - `Scout.decide()` now skips unreadable/missing files with warning logs instead of crashing a run.
@@ -69,7 +78,7 @@ Enforced by the environment, not by agents:
 ## Project Structure
 
 ```
-agents/           → 4 specialized agents + base_agent.py
+agents/           → 4 specialized wrappers + base_agent.py + capabilities/
 environment/      → pheromone_store.py, guardrails.py, decay.py
 stigmergy/        → loop.py (main loop), config.yaml, llm_client.py (provider-aware: OpenRouter/Z.ai)
 pheromones/       → tasks.json, status.json, quality.json (runtime trace store)

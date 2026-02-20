@@ -64,6 +64,36 @@ tester:
     - "pip install"
     - "optional dependency"
 
+# === Capabilities ===
+capabilities:
+  non_python:
+    enabled: true
+    include_extensions:
+      - ".md"
+      - ".txt"
+      - ".rst"
+      - ".sh"
+      - ".json"
+      - ".yaml"
+      - ".yml"
+      - ".toml"
+      - ".ini"
+      - ".cfg"
+    strict_guardrails: true
+    max_text_file_bytes: 200000
+    pass_confidence: 0.85
+    fail_confidence: 0.4
+    legacy_tokens:
+      - "python2"
+      - "xrange"
+      - "iteritems"
+      - "iterkeys"
+      - "itervalues"
+      - "raw_input"
+      - "has_key"
+      - "urllib2"
+      - "print >>"
+
 # === Git ===
 git:
   shallow_clone: true

@@ -60,6 +60,15 @@ Sprint 3 has been implemented and validated, Sprint 4 closure tooling is impleme
 - `stigmergy/config.yaml` has new `prompts` (preamble override) and `scout.llm_analysis` (severity/intensity weights) sections.
 - Task pheromones now include `analysis_source` ("hybrid"/"regex") and optional `llm_complexity_score` fields.
 - Single-agent baseline now uses the real Tester agent for evaluation (py_compile + import + pytest + adaptive fallback), aligning validation rigor across all three baselines. The compile-only `_evaluate_file()` gate has been removed.
+- 2026-02-20 Sprint 6 implemented end-to-end:
+  - Added capability package `agents/capabilities` with reusable discovery, transform, test, and validate modules.
+  - Refactored specialized agents into thin wrappers that delegate execution logic to capabilities.
+  - Enabled non-Python text pipeline support via `capabilities.non_python` (LLM full-file transform + strict tester guardrails).
+  - Added `tests/test_capabilities.py` with Python parity and non-Python strict validation scenarios.
+  - Full suite validation result: `100 passed, 1 skipped`.
+- 2026-02-20 V0.2 planning update:
+  - Created branch chain for V0.2 planning/implementation: `codex/v2` then `codex/v2-sprint6`.
+  - `consigne/POC_V02_plan.md` now defines Sprint 6 as capabilities extraction plus non-Python text pipeline scope (`LLM` full-file + strict guardrails).
 - 2026-02-20 Docker reproducibility hardening:
   - `main._prepare_target_repo()` rejects empty repo specs early to avoid recursive `/app -> /app/target_repo` copy failures.
   - `Scout.decide()` now handles unreadable/missing files by logging and skipping instead of aborting the full run.
@@ -107,7 +116,7 @@ Enforced by the environment, not by agents. Taxonomy from Grisold et al. (2025):
 ## Project Structure
 
 ```
-agents/           → 4 specialized agents + base_agent.py
+agents/           → 4 specialized wrappers + base_agent.py + capabilities/
 environment/      → pheromone_store.py, guardrails.py, decay.py
 stigmergy/        → loop.py (main loop), config.yaml, llm_client.py (provider-aware: OpenRouter/Z.ai)
 pheromones/       → tasks.json, status.json, quality.json, audit_log.jsonl

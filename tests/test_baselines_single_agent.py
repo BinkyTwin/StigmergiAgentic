@@ -155,9 +155,7 @@ def test_single_agent_tester_validates_correct_file(
     valid_py3 = "x = 1\n"
     fake_llm = FakeLLMClientWithCode(config={}, code=valid_py3)
 
-    monkeypatch.setattr(
-        single_agent_module, "LLMClient", lambda config: fake_llm
-    )
+    monkeypatch.setattr(single_agent_module, "LLMClient", lambda config: fake_llm)
 
     repo_path = tmp_path / "repo"
     repo_path.mkdir(parents=True)
@@ -190,9 +188,7 @@ def test_single_agent_tester_retries_on_import_failure(
     original_source = "print 'hello'\n"
     fake_llm = FakeLLMClientWithCode(config={}, code=broken_code)
 
-    monkeypatch.setattr(
-        single_agent_module, "LLMClient", lambda config: fake_llm
-    )
+    monkeypatch.setattr(single_agent_module, "LLMClient", lambda config: fake_llm)
 
     repo_path = tmp_path / "repo"
     repo_path.mkdir(parents=True)
@@ -229,7 +225,9 @@ def test_single_agent_scope_lock_does_not_abort_file_processing(
     original_source = "print 'legacy'\n"
     (repo_path / "locked.py").write_text(original_source, encoding="utf-8")
 
-    runner = SingleAgentRunner(config=_build_config(tmp_path), target_repo_path=repo_path)
+    runner = SingleAgentRunner(
+        config=_build_config(tmp_path), target_repo_path=repo_path
+    )
     runner.llm_client = fake_llm
 
     def always_locked_write(*args: Any, **kwargs: Any) -> None:

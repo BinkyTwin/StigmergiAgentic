@@ -150,16 +150,26 @@ def test_scout_llm_analysis_structured_pheromones(tmp_path: Path) -> None:
         encoding="utf-8",
     )
 
-    llm_response = json.dumps({
-        "patterns": [
-            {"name": "print_statement", "line": 1, "severity": "high",
-             "description": "print statement needs parentheses"},
-            {"name": "implicit_relative_import", "line": 2, "severity": "medium",
-             "description": "Uses implicit relative import"},
-        ],
-        "complexity_score": 3.5,
-        "summary": "Simple file with print and import issues",
-    })
+    llm_response = json.dumps(
+        {
+            "patterns": [
+                {
+                    "name": "print_statement",
+                    "line": 1,
+                    "severity": "high",
+                    "description": "print statement needs parentheses",
+                },
+                {
+                    "name": "implicit_relative_import",
+                    "line": 2,
+                    "severity": "medium",
+                    "description": "Uses implicit relative import",
+                },
+            ],
+            "complexity_score": 3.5,
+            "summary": "Simple file with print and import issues",
+        }
+    )
 
     fake_llm = FakeLLMClient(llm_response)
     config = _build_config()
@@ -269,12 +279,18 @@ def test_scout_llm_analysis_handles_null_line_field(tmp_path: Path) -> None:
         encoding="utf-8",
     )
 
-    llm_response = json.dumps({
-        "patterns": [
-            {"name": "implicit_relative_import", "line": None, "severity": "medium"},
-        ],
-        "complexity_score": 2.0,
-    })
+    llm_response = json.dumps(
+        {
+            "patterns": [
+                {
+                    "name": "implicit_relative_import",
+                    "line": None,
+                    "severity": "medium",
+                },
+            ],
+            "complexity_score": 2.0,
+        }
+    )
 
     fake_llm = FakeLLMClient(llm_response)
     config = _build_config()
@@ -346,27 +362,33 @@ def test_scout_hybrid_scoring_severity(tmp_path: Path) -> None:
         }
     }
 
-    high_response = json.dumps({
-        "patterns": [
-            {"name": "print_statement", "line": 1, "severity": "high"},
-        ],
-        "complexity_score": 8.0,
-        "summary": "Complex",
-    })
-    low_response = json.dumps({
-        "patterns": [
-            {"name": "print_statement", "line": 1, "severity": "low"},
-        ],
-        "complexity_score": 2.0,
-        "summary": "Simple",
-    })
+    high_response = json.dumps(
+        {
+            "patterns": [
+                {"name": "print_statement", "line": 1, "severity": "high"},
+            ],
+            "complexity_score": 8.0,
+            "summary": "Complex",
+        }
+    )
+    low_response = json.dumps(
+        {
+            "patterns": [
+                {"name": "print_statement", "line": 1, "severity": "low"},
+            ],
+            "complexity_score": 2.0,
+            "summary": "Simple",
+        }
+    )
 
     # Test high-severity file
     store_high = PheromoneStore(config, base_path=tmp_path / "high_store")
     fake_llm_high = FakeLLMClient(high_response)
     scout_high = Scout(
-        name="scout", config=config,
-        pheromone_store=store_high, target_repo_path=repo_path,
+        name="scout",
+        config=config,
+        pheromone_store=store_high,
+        target_repo_path=repo_path,
         llm_client=fake_llm_high,
     )
     perception_high = scout_high.perceive()
@@ -379,8 +401,10 @@ def test_scout_hybrid_scoring_severity(tmp_path: Path) -> None:
     store_low = PheromoneStore(config, base_path=tmp_path / "low_store")
     fake_llm_low = FakeLLMClient(low_response)
     scout_low = Scout(
-        name="scout", config=config,
-        pheromone_store=store_low, target_repo_path=repo_path,
+        name="scout",
+        config=config,
+        pheromone_store=store_low,
+        target_repo_path=repo_path,
         llm_client=fake_llm_low,
     )
     perception_low = scout_low.perceive()
@@ -397,22 +421,30 @@ def test_scout_novel_patterns_in_output(tmp_path: Path) -> None:
     repo_path.mkdir(parents=True)
     (repo_path / "target.py").write_text("x = 1\n", encoding="utf-8")
 
-    llm_response = json.dumps({
-        "patterns": [
-            {"name": "implicit_string_concat", "line": 1, "severity": "low",
-             "description": "Implicit string concatenation across lines"},
-        ],
-        "complexity_score": 1.0,
-        "summary": "Minimal",
-    })
+    llm_response = json.dumps(
+        {
+            "patterns": [
+                {
+                    "name": "implicit_string_concat",
+                    "line": 1,
+                    "severity": "low",
+                    "description": "Implicit string concatenation across lines",
+                },
+            ],
+            "complexity_score": 1.0,
+            "summary": "Minimal",
+        }
+    )
 
     fake_llm = FakeLLMClient(llm_response)
     config = _build_config()
     config["scout"] = {"llm_analysis": {"enabled": True}}
     store = PheromoneStore(config, base_path=tmp_path)
     scout = Scout(
-        name="scout", config=config,
-        pheromone_store=store, target_repo_path=repo_path,
+        name="scout",
+        config=config,
+        pheromone_store=store,
+        target_repo_path=repo_path,
         llm_client=fake_llm,
     )
 
@@ -430,19 +462,23 @@ def test_scout_system_prompt_stigmergic(tmp_path: Path) -> None:
     repo_path.mkdir(parents=True)
     (repo_path / "target.py").write_text('print "hello"\n', encoding="utf-8")
 
-    llm_response = json.dumps({
-        "patterns": [],
-        "complexity_score": 1.0,
-        "summary": "Empty",
-    })
+    llm_response = json.dumps(
+        {
+            "patterns": [],
+            "complexity_score": 1.0,
+            "summary": "Empty",
+        }
+    )
 
     fake_llm = FakeLLMClient(llm_response)
     config = _build_config()
     config["scout"] = {"llm_analysis": {"enabled": True}}
     store = PheromoneStore(config, base_path=tmp_path)
     scout = Scout(
-        name="scout", config=config,
-        pheromone_store=store, target_repo_path=repo_path,
+        name="scout",
+        config=config,
+        pheromone_store=store,
+        target_repo_path=repo_path,
         llm_client=fake_llm,
     )
 

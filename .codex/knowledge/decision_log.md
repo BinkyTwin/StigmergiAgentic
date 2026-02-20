@@ -103,3 +103,19 @@
 - `rationale`: The trial needed uncapped completions and strict sample size control (`n=5`) despite an interrupted batch during execution.
 - `alternatives_rejected`: Keep the interrupted mixed run set as-is, or rerun everything from scratch serially.
 - `linked_adr`: `documentation/decisions/TBD-pre-sprint-gpt5nano-trial-protocol.md`
+
+## 2026-02-20 (V0.2 Sprint 6 Scope Expansion)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: Expand Sprint 6 from pure capability refactor to capability refactor plus non-Python text pipeline scope with strict guardrails, and establish a two-level branch lineage (`codex/v2` -> `codex/v2-sprint6`).
+- `rationale`: The migration objective requires updates beyond `.py` files (docs/scripts/config references), and branch lineage must remain explicit before implementation starts.
+- `alternatives_rejected`: Keep Sprint 6 as refactor-only, or apply the scope expansion directly on a single branch without version parent branch.
+- `linked_adr`: `documentation/decisions/TBD-v02-sprint6-non-python-scope-and-branch-lineage.md`
+
+## 2026-02-20 (Sprint 6 Implementation Completed)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: Implement Sprint 6 as capability extraction plus strict non-Python text pipeline, with specialized agents preserved as wrappers over reusable capability modules.
+- `rationale`: This keeps V0.1 Python behavior stable while delivering immediate migration coverage for docs/scripts/config artifacts that still encode Python 2 references.
+- `alternatives_rejected`: Postpone non-Python execution to Sprint 7, or replace agents directly with a new generalist runtime before capability parity was validated.
+- `linked_adr`: `documentation/decisions/20260220-sprint6-capabilities-non-python.md`
