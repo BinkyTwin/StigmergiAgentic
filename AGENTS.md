@@ -42,6 +42,10 @@ Sprint 3 is implemented and gate-validated, and Sprint 4 baseline tooling is now
 - `metrics/pareto.py` now supports aggregate and per-run plotting (`--plot-mode`) with optional baseline-coverage enforcement (`--require-baselines`) and CI95 export fields.
 - Sprint 4 support tests include `tests/test_pareto.py`, `tests/test_baselines_common.py`, `tests/test_baselines_single_agent.py`, and `tests/test_baselines_sequential.py`.
 - Mobile-readable snapshot document: `documentation/MOBILE_RESULTS.md` (5x3 unbounded benchmark scoreboard + Pareto extracts).
+- 2026-02-20 hardening for Docker reproducibility:
+  - `_prepare_target_repo()` now rejects empty `--repo` specs with an explicit error (prevents accidental recursive copy of `/app`).
+  - `Scout.decide()` now skips unreadable/missing files with warning logs instead of crashing a run.
+  - Added regression tests: `test_prepare_target_repo_rejects_empty_repo_spec`, `test_scout_skips_missing_candidate_file`, `test_scout_llm_analysis_handles_null_line_field`.
 - Sprint 3 blocking gates pass:
   - synthetic fixture run: 19/20 validated (95%)
   - real repo `docopt/docopt@0.6.2`: 21/23 validated local (91.3%), 20/23 validated Docker (86.96%).

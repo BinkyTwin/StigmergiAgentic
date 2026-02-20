@@ -3,10 +3,24 @@
 from __future__ import annotations
 
 import ast
+import json
+import logging
 import re
 from typing import Any
 
 from .base_agent import BaseAgent
+
+LOGGER = logging.getLogger(__name__)
+
+SCOUT_ROLE_PROMPT = (
+    "Your role: SCOUT (explorer/forager). "
+    "You analyze Python 2 source files to identify ALL migration patterns. "
+    "Your output becomes task pheromones that guide a downstream Transformer agent. "
+    "Any pattern you miss will not be addressed by the colony. "
+    "Return only valid JSON matching the requested schema."
+)
+
+SEVERITY_WEIGHTS = {"high": 1.5, "medium": 1.0, "low": 0.5}
 
 PATTERN_NAMES = [
     "print_statement",
@@ -83,42 +97,55 @@ class Scout(BaseAgent):
 
         for file_key in perception["candidate_files"]:
             file_path = self.target_repo_path / file_key
-            file_content = file_path.read_text(encoding="utf-8", errors="ignore")
+            try:
+                file_content = file_path.read_text(encoding="utf-8", errors="ignore")
+            except OSError:
+                LOGGER.warning(
+                    "Scout could not read file=%s, skipping task extraction",
+                    file_key,
+                )
+                continue
 
-            pattern_details = self._detect_patterns(file_content)
+            regex_details = self._detect_patterns(file_content)
             dependencies = self._detect_internal_dependencies(
                 file_key=file_key,
                 file_content=file_content,
                 all_file_keys=all_file_keys,
             )
-
-            pattern_count = len(pattern_details)
             dep_count = len(dependencies)
-            raw_score = (pattern_count * 0.6) + (dep_count * 0.4)
 
-            if self.llm_client is not None and self._needs_llm_semantic_check(
-                pattern_details
-            ):
-                llm_detected = self._semantic_division_check(
-                    file_key=file_key, file_content=file_content
+            llm_analysis = None
+            if self.llm_client is not None and self._llm_analysis_enabled():
+                llm_analysis = self._llm_analyze_file(file_key, file_content)
+
+            merged = self._merge_analyses(llm_analysis, regex_details)
+
+            if llm_analysis is not None:
+                raw_score = self._compute_hybrid_score(
+                    merged, dep_count, llm_analysis
                 )
-                if llm_detected:
-                    pattern_details.append(
-                        {"pattern": "old_division", "line": 1, "source": "llm"}
-                    )
-                    raw_score += 0.6
+                analysis_source = "hybrid"
+                llm_complexity_score = float(
+                    llm_analysis.get("complexity_score", 5.0)
+                )
+            else:
+                raw_score = (len(merged) * 0.6) + (dep_count * 0.4)
+                analysis_source = "regex"
+                llm_complexity_score = None
 
             analyses.append(
                 {
                     "file_key": file_key,
                     "patterns_found": sorted(
-                        {entry["pattern"] for entry in pattern_details}
+                        {entry["pattern"] for entry in merged}
                     ),
-                    "pattern_details": pattern_details,
-                    "pattern_count": pattern_count,
+                    "pattern_details": merged,
+                    "pattern_count": len(merged),
                     "dependencies": dependencies,
                     "dep_count": dep_count,
                     "raw_score": raw_score,
+                    "analysis_source": analysis_source,
+                    "llm_complexity_score": llm_complexity_score,
                 }
             )
 
@@ -153,14 +180,18 @@ class Scout(BaseAgent):
         for entry in result.get("entries", []):
             file_key = entry["file_key"]
 
-            task_payload = {
+            task_payload: dict[str, Any] = {
                 "intensity": entry["intensity"],
                 "patterns_found": entry["patterns_found"],
                 "pattern_count": entry["pattern_count"],
                 "pattern_details": entry["pattern_details"],
                 "dependencies": entry["dependencies"],
                 "dep_count": entry["dep_count"],
+                "analysis_source": entry.get("analysis_source", "regex"),
             }
+            if entry.get("llm_complexity_score") is not None:
+                task_payload["llm_complexity_score"] = entry["llm_complexity_score"]
+
             self.store.write(
                 "tasks", file_key=file_key, data=task_payload, agent_id=self.name
             )
@@ -316,27 +347,171 @@ class Scout(BaseAgent):
             re.search(r"^\s*from\s+__future__\s+import\s+", file_content, re.MULTILINE)
         )
 
-    def _needs_llm_semantic_check(self, pattern_details: list[dict[str, Any]]) -> bool:
-        return any(item["pattern"] == "old_division" for item in pattern_details)
+    def _llm_analysis_enabled(self) -> bool:
+        return bool(
+            self.config.get("scout", {}).get("llm_analysis", {}).get("enabled", True)
+        )
 
-    def _semantic_division_check(self, file_key: str, file_content: str) -> bool:
+    def _llm_analyze_file(
+        self, file_key: str, file_content: str
+    ) -> dict[str, Any] | None:
         if self.llm_client is None:
-            return False
+            return None
 
-        prompt = (
-            "Identify if integer divisions in this file likely rely on Python 2 integer semantics. "
-            "Answer only YES or NO.\n"
-            f"File: {file_key}\n---\n{file_content}\n---"
+        known_patterns = (
+            "print_statement, dict_iteritems, dict_iterkeys, dict_itervalues, "
+            "dict_has_key, xrange, unicode_literal, long_literal, raise_syntax, "
+            "except_syntax, old_division, raw_input, apply_builtin, execfile_builtin, "
+            "string_module, urllib_import, metaclass_syntax, future_imports"
+        )
+
+        user_prompt = (
+            "Analyze this Python 2 file for ALL patterns that need conversion to Python 3.\n\n"
+            f"File: {file_key}\n---\n{file_content}\n---\n\n"
+            "Return a JSON object:\n"
+            "{\n"
+            '  "patterns": [\n'
+            '    {"name": "snake_case_id", "line": <int>, "severity": "high|medium|low",\n'
+            '     "description": "Brief explanation"}\n'
+            "  ],\n"
+            '  "complexity_score": <float 1-10>,\n'
+            '  "summary": "One sentence on migration difficulty"\n'
+            "}\n\n"
+            f"Known pattern identifiers (non-exhaustive):\n{known_patterns}\n\n"
+            "You may identify patterns beyond this list. Use descriptive snake_case names."
         )
 
         try:
+            system_prompt = self._build_system_prompt(SCOUT_ROLE_PROMPT)
             response = self.llm_client.call(
-                prompt=prompt, system="You are a Python migration analyst."
+                prompt=user_prompt, system=system_prompt
             )
+            return self._parse_llm_analysis(response.content)
         except Exception:  # noqa: BLE001
-            return False
+            LOGGER.warning("Scout LLM analysis failed for %s, falling back to regex", file_key)
+            return None
 
-        return "YES" in response.content.upper()
+    def _parse_llm_analysis(self, raw_content: str) -> dict[str, Any] | None:
+        text = raw_content.strip()
+        if self.llm_client is not None:
+            text = self.llm_client.extract_code_block(text)
+        # Strip markdown fences if extract_code_block didn't handle them
+        if text.startswith("```"):
+            lines = text.split("\n")
+            lines = lines[1:]  # drop opening fence
+            if lines and lines[-1].strip() == "```":
+                lines = lines[:-1]
+            text = "\n".join(lines)
+
+        try:
+            data = json.loads(text)
+        except (json.JSONDecodeError, ValueError):
+            LOGGER.warning("Scout LLM returned unparseable JSON")
+            return None
+
+        if not isinstance(data, dict) or "patterns" not in data:
+            LOGGER.warning("Scout LLM response missing 'patterns' key")
+            return None
+
+        if not isinstance(data["patterns"], list):
+            return None
+
+        for pattern in data["patterns"]:
+            if not isinstance(pattern, dict) or "name" not in pattern:
+                return None
+
+        return data
+
+    def _merge_analyses(
+        self,
+        llm_analysis: dict[str, Any] | None,
+        regex_details: list[dict[str, Any]],
+    ) -> list[dict[str, Any]]:
+        if llm_analysis is None:
+            return list(regex_details)
+
+        seen: set[tuple[str, int]] = set()
+        merged: list[dict[str, Any]] = []
+
+        regex_by_key: dict[tuple[str, int], dict[str, Any]] = {}
+        for entry in regex_details:
+            key = (entry["pattern"], int(entry["line"]))
+            regex_by_key[key] = entry
+            seen.add(key)
+
+        for llm_pat in llm_analysis.get("patterns", []):
+            name = str(llm_pat.get("name", "")).strip()
+            if not name:
+                continue
+            line = self._coerce_line_number(llm_pat.get("line", 1))
+            key = (name, line)
+
+            if key in regex_by_key:
+                # Both sources agree — mark as llm+regex
+                entry = dict(regex_by_key[key])
+                entry["source"] = "llm+regex"
+                entry["severity"] = llm_pat.get("severity", "medium")
+                if "description" in llm_pat:
+                    entry["description"] = llm_pat["description"]
+                merged.append(entry)
+            else:
+                # LLM-only pattern (novel or different line)
+                merged.append({
+                    "pattern": name,
+                    "line": line,
+                    "source": "llm",
+                    "severity": llm_pat.get("severity", "medium"),
+                    **({"description": llm_pat["description"]} if "description" in llm_pat else {}),
+                })
+                seen.add(key)
+
+        # Add regex-only patterns not covered by LLM
+        for entry in regex_details:
+            key = (entry["pattern"], int(entry["line"]))
+            if key not in {(m["pattern"], int(m["line"])) for m in merged}:
+                merged.append(entry)
+
+        return sorted(
+            merged,
+            key=lambda item: (int(item["line"]), str(item["pattern"])),
+        )
+
+    @staticmethod
+    def _coerce_line_number(raw_line: Any) -> int:
+        try:
+            line_number = int(raw_line) if raw_line is not None else 1
+        except (TypeError, ValueError):
+            return 1
+        return line_number if line_number > 0 else 1
+
+    def _compute_hybrid_score(
+        self,
+        patterns: list[dict[str, Any]],
+        dep_count: int,
+        llm_analysis: dict[str, Any],
+    ) -> float:
+        cfg = self.config.get("scout", {}).get(
+            "llm_analysis", {}
+        ).get("intensity_weights", {
+            "weighted_patterns": 0.5,
+            "dependencies": 0.2,
+            "llm_complexity": 0.3,
+        })
+        severity_cfg = self.config.get("scout", {}).get(
+            "llm_analysis", {}
+        ).get("severity_weights", SEVERITY_WEIGHTS)
+
+        weighted_count = sum(
+            float(severity_cfg.get(p.get("severity", "medium"), 1.0))
+            for p in patterns
+        )
+        complexity = float(llm_analysis.get("complexity_score", 5.0)) / 10.0
+
+        return (
+            weighted_count * float(cfg.get("weighted_patterns", 0.5))
+            + dep_count * float(cfg.get("dependencies", 0.2))
+            + complexity * float(cfg.get("llm_complexity", 0.3))
+        )
 
     def _is_integer_like(self, node: ast.AST) -> bool:
         if isinstance(node, ast.Constant) and isinstance(node.value, int):

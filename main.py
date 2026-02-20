@@ -240,6 +240,9 @@ def _prepare_target_repo(
     config: dict[str, Any],
     resume: bool,
 ) -> tuple[Path, Repo]:
+    if not str(repo_spec).strip():
+        raise ValueError("Repository spec cannot be empty. Pass --repo <url|path>.")
+
     target_repo_path = base_path / "target_repo"
     target_repo_preexisted = target_repo_path.exists()
 

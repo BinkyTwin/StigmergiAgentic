@@ -10,6 +10,17 @@ from typing import Any
 from environment.pheromone_store import PheromoneStore
 from stigmergy.llm_client import LLMClient
 
+STIGMERGIC_PREAMBLE = (
+    "You are an agent in a stigmergic multi-agent system. "
+    "Like ants in a colony, you coordinate with other agents exclusively "
+    "through environmental traces (pheromones) — never through direct communication. "
+    "You do not know which agent deposited the traces you read, "
+    "nor which agent will read the traces you deposit. "
+    "The quality and completeness of your traces determines the colony's "
+    "collective intelligence. Be thorough: no other agent will ask you "
+    "for clarification."
+)
+
 
 class BaseAgent(ABC):
     """Shared lifecycle contract for all agents."""
@@ -48,6 +59,15 @@ class BaseAgent(ABC):
     @abstractmethod
     def deposit(self, result: dict[str, Any]) -> None:
         """Deposit resulting traces into the pheromone environment."""
+
+    def _build_system_prompt(self, role_specific: str) -> str:
+        """Combine the stigmergic preamble with a role-specific prompt."""
+        preamble = self.config.get("prompts", {}).get("stigmergic_preamble")
+        if preamble is None:
+            preamble = STIGMERGIC_PREAMBLE
+        if not preamble:  # "" disables preamble
+            return role_specific
+        return f"{preamble}\n\n{role_specific}"
 
     def run(self) -> bool:
         """Run a full agent cycle; return whether this agent acted."""

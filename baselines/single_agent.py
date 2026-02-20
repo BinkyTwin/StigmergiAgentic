@@ -15,6 +15,7 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 from agents.scout import Scout  # noqa: E402
+from agents.tester import Tester  # noqa: E402
 from baselines.common import (  # noqa: E402
     build_manifest,
     build_run_id,
@@ -24,6 +25,7 @@ from baselines.common import (  # noqa: E402
     prepare_run_environment,
     setup_logging,
 )
+from environment.guardrails import ScopeLockError  # noqa: E402
 from environment.pheromone_store import PheromoneStore  # noqa: E402
 from metrics.collector import MetricsCollector  # noqa: E402
 from stigmergy.llm_client import LLMClient  # noqa: E402
@@ -180,7 +182,13 @@ class SingleAgentRunner:
 
             compile(transformed, str(file_path), "exec")
             file_path.write_text(transformed.rstrip() + "\n", encoding="utf-8")
-            confidence, issues = self._evaluate_file(file_path=file_path)
+            confidence, issues = self._evaluate_with_tester(
+                file_key=task.file_key,
+                retry_count=retries[task.file_key],
+                inhibition=float(
+                    statuses.get(task.file_key, {}).get("inhibition", 0.0)
+                ),
+            )
 
             if confidence >= self.validator_high:
                 statuses[task.file_key] = {
@@ -210,20 +218,16 @@ class SingleAgentRunner:
                     "inhibition": 0.0,
                 }
 
-            self.store.write(
+            quality_data = self.store.read_one("quality", task.file_key) or {}
+            if confidence >= self.validator_high:
+                quality_data["confidence"] = min(1.0, confidence + 0.1)
+            self._safe_store_write(
                 "quality",
                 file_key=task.file_key,
-                data={
-                    "confidence": confidence,
-                    "tests_total": 1,
-                    "tests_passed": 0 if issues else 1,
-                    "tests_failed": 1 if issues else 0,
-                    "coverage": 0.0,
-                    "issues": issues,
-                },
+                data=quality_data,
                 agent_id="single_agent",
             )
-            self.store.write(
+            self._safe_store_write(
                 "status",
                 file_key=task.file_key,
                 data=statuses[task.file_key],
@@ -243,13 +247,13 @@ class SingleAgentRunner:
                     "retry_count": retries[task.file_key],
                     "inhibition": 0.8,
                 }
-            self.store.write(
+            self._safe_store_write(
                 "status",
                 file_key=task.file_key,
                 data=statuses[task.file_key],
                 agent_id="single_agent",
             )
-            self.store.write(
+            self._safe_store_write(
                 "quality",
                 file_key=task.file_key,
                 data={
@@ -280,15 +284,67 @@ class SingleAgentRunner:
             f"```python\\n{source_content}\\n```"
         )
 
-    def _evaluate_file(self, *, file_path: Path) -> tuple[float, list[str]]:
-        issues: list[str] = []
+    def _evaluate_with_tester(
+        self,
+        *,
+        file_key: str,
+        retry_count: int,
+        inhibition: float,
+    ) -> tuple[float, list[str]]:
+        """Run the real Tester agent for evaluation (py_compile + import + pytest + fallback)."""
         try:
-            compile(file_path.read_text(encoding="utf-8"), str(file_path), "exec")
-        except SyntaxError as exc:
-            issues.append(f"syntax_error: {exc}")
-            return 0.2, issues
+            self.store.write(
+                "status",
+                file_key=file_key,
+                data={
+                    "status": "transformed",
+                    "retry_count": retry_count,
+                    "inhibition": inhibition,
+                },
+                agent_id="single_agent",
+            )
+        except ScopeLockError as exc:
+            self.logger.warning(
+                "Scope lock blocked single-agent tester handoff for file=%s: %s",
+                file_key,
+                exc,
+            )
+            return 0.0, [str(exc)]
+        tester = Tester(
+            name="tester",
+            config=self.config,
+            pheromone_store=self.store,
+            target_repo_path=self.target_repo_path,
+        )
+        tester.run()
+        quality = self.store.read_one("quality", file_key) or {}
+        confidence = float(quality.get("confidence", 0.0))
+        issues = list(quality.get("issues", []))
+        return confidence, issues
 
-        return 0.8, issues
+    def _safe_store_write(
+        self,
+        pheromone_type: str,
+        *,
+        file_key: str,
+        data: dict[str, Any],
+        agent_id: str,
+    ) -> None:
+        """Best-effort store write to avoid aborting an entire baseline run on stale locks."""
+        try:
+            self.store.write(
+                pheromone_type,
+                file_key=file_key,
+                data=data,
+                agent_id=agent_id,
+            )
+        except ScopeLockError as exc:
+            self.logger.warning(
+                "Ignoring scope lock during baseline write type=%s file=%s: %s",
+                pheromone_type,
+                file_key,
+                exc,
+            )
 
     def _next_pending_task(
         self,

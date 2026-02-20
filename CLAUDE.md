@@ -20,7 +20,7 @@ Round-robin (no supervisor): Scout → Transformer → Tester → Validator → 
 
 | Agent | Role | Uses LLM? |
 |---|---|---|
-| **Scout** | Analyzes Python 2 codebase (19 patterns), deposits task pheromones with priority | Yes |
+| **Scout** | Analyzes Python 2 codebase via LLM + regex/AST hybrid (19 base patterns + LLM-discovered), deposits task pheromones with severity-weighted priority | Yes |
 | **Transformer** | Reads task pheromones, generates Python 3 code with stigmergic few-shot learning | Yes |
 | **Tester** | Runs pytest on transformed files, deposits quality pheromones | No (deterministic) |
 | **Validator** | Commits/reverts/escalates based on confidence thresholds | No |
@@ -38,9 +38,9 @@ All agents inherit from `agents/base_agent.py` (abstract class with the perceive
 
 Transformer reading quality.json = **cognitive stigmergy** (Ricci et al., 2007): reading environmental traces, not direct communication.
 
-### Implementation Status (2026-02-17)
+### Implementation Status (2026-02-19)
 
-Sprint 3 has been implemented and validated, and Sprint 4 closure tooling is now implemented:
+Sprint 3 has been implemented and validated, Sprint 4 closure tooling is implemented, and the agent architecture refactoring (Sprint 5 precursor) is now in place:
 - `main.py` now provides full CLI controls (`--repo-ref`, `--resume`, `--review`, `--dry-run`) plus run manifest hashing.
 - `stigmergy/loop.py` implements the full round-robin orchestrator and all stop conditions.
 - `metrics/collector.py` + `metrics/export.py` generate per-tick CSV, summary JSON, and manifest JSON.
@@ -54,10 +54,20 @@ Sprint 3 has been implemented and validated, and Sprint 4 closure tooling is now
 - Gate runs pass on both required repositories:
   - synthetic fixture: 19/20 validated (95%)
   - real repo `docopt/docopt@0.6.2`: 21/23 validated local (91.3%), 20/23 validated Docker (86.96%).
+- `agents/base_agent.py` now exports `STIGMERGIC_PREAMBLE` and provides `_build_system_prompt()` for all agents.
+- `agents/scout.py` is now LLM-driven hybrid: regex/AST safety net + LLM analysis (JSON structured output), with merge/dedup and severity-weighted scoring. Falls back to regex-only on LLM failure.
+- `agents/transformer.py` uses `TRANSFORMER_ROLE_PROMPT` with stigmergic preamble via `_build_system_prompt()`.
+- `stigmergy/config.yaml` has new `prompts` (preamble override) and `scout.llm_analysis` (severity/intensity weights) sections.
+- Task pheromones now include `analysis_source` ("hybrid"/"regex") and optional `llm_complexity_score` fields.
+- Single-agent baseline now uses the real Tester agent for evaluation (py_compile + import + pytest + adaptive fallback), aligning validation rigor across all three baselines. The compile-only `_evaluate_file()` gate has been removed.
+- 2026-02-20 Docker reproducibility hardening:
+  - `main._prepare_target_repo()` rejects empty repo specs early to avoid recursive `/app -> /app/target_repo` copy failures.
+  - `Scout.decide()` now handles unreadable/missing files by logging and skipping instead of aborting the full run.
+  - Added explicit regression coverage in `tests/test_main.py` and `tests/test_scout.py` for these failure modes.
 
 ### Pheromone Types (JSON files in `pheromones/`)
 
-- **tasks.json** — Task pheromones (Scout deposits). Intensity = min-max normalization: `S_i = pattern_count * 0.6 + dep_count * 0.4`, `intensity_i = (S_i - S_min) / (S_max - S_min)`, clamped to [0.1, 1.0]. Exponential decay: `intensity *= e^(-0.05)` per tick.
+- **tasks.json** — Task pheromones (Scout deposits). Hybrid scoring: when LLM available, `S_i = weighted_patterns * 0.5 + dep_count * 0.2 + complexity * 0.3` (severity-weighted); regex-only fallback: `S_i = pattern_count * 0.6 + dep_count * 0.4`. Min-max normalization: `intensity_i = (S_i - S_min) / (S_max - S_min)`, clamped to [0.1, 1.0]. Includes `analysis_source` ("hybrid"/"regex") and optional `llm_complexity_score`. Exponential decay: `intensity *= e^(-0.05)` per tick.
 - **status.json** — Status pheromones (all agents). State machine: `pending → in_progress → transformed → tested → validated | failed → retry | skipped`. Includes `inhibition` field (gamma) for anti-oscillation (Rodriguez, 2026): `gamma += 0.5` on retry, Transformer waits until `gamma < 0.1`. TTL scope lock: `in_progress` > 3 ticks without update → back to `pending` (zombie prevention).
 - **quality.json** — Quality pheromones (Tester/Validator). Initial confidence = `tests_passed / tests_total` (0.5 if no tests). Reinforcement: pass → `+0.1`; fail → `-0.2` + retry. Coverage via pytest-cov (informational).
 - **audit_log.jsonl** — Append-only JSONL audit trail. Every pheromone write logged with agent, timestamp, before/after values. Satisfies RQ3 (EU AI Act Art. 14).

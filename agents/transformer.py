@@ -9,6 +9,17 @@ from typing import Any
 
 from .base_agent import BaseAgent
 
+TRANSFORMER_ROLE_PROMPT = (
+    "Your role: TRANSFORMER (builder/worker). "
+    "You convert Python 2 files to Python 3, guided by task pheromones from a Scout agent. "
+    "Traces you read: pattern lists (what to fix), quality traces from prior "
+    "attempts (what went wrong), and validated examples (successful migrations). "
+    "Traces you deposit: the transformed Python 3 file. "
+    "A downstream Tester agent will run tests against your output, "
+    "so ensure syntactic validity and semantic preservation. "
+    "Return only the complete converted Python 3 file, no explanations."
+)
+
 
 class Transformer(BaseAgent):
     """Consume task pheromones and produce transformed Python 3 files."""
@@ -110,10 +121,7 @@ class Transformer(BaseAgent):
             "source_content": source_content,
             "patterns": patterns,
             "prompt": prompt,
-            "system_prompt": (
-                "You are a Python 2 to Python 3 migration expert. "
-                "Convert the full file while preserving semantics."
-            ),
+            "system_prompt": self._build_system_prompt(TRANSFORMER_ROLE_PROMPT),
             "status_entry": candidate["status_entry"],
             "line_count": line_count,
             "large_file_mode": large_file_mode,

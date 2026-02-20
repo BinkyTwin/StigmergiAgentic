@@ -268,6 +268,41 @@ def test_transformer_syntax_gate_retries_after_exhaustion(tmp_path: Path) -> Non
     assert status_entry["metadata"]["transformer_syntax_gate_failed"] is True
 
 
+def test_transformer_system_prompt_stigmergic(tmp_path: Path) -> None:
+    """The system prompt sent to the LLM contains 'stigmergic' preamble."""
+    repo_path = tmp_path / "repo"
+    repo_path.mkdir(parents=True)
+    (repo_path / "target.py").write_text('print "hello"\n', encoding="utf-8")
+
+    store = PheromoneStore(_build_config(), base_path=tmp_path)
+    store.write(
+        "tasks",
+        "target.py",
+        {"intensity": 0.9, "patterns_found": ["print_statement"]},
+        agent_id="scout",
+    )
+    store.write(
+        "status",
+        "target.py",
+        {"status": "pending", "retry_count": 0, "inhibition": 0.0},
+        agent_id="scout",
+    )
+
+    fake_llm = FakeLLMClient("print('hello')\n")
+    transformer = Transformer(
+        name="transformer",
+        config=_build_config(),
+        pheromone_store=store,
+        target_repo_path=repo_path,
+        llm_client=fake_llm,
+    )
+
+    transformer.run()
+
+    assert "stigmergic" in fake_llm.last_system.lower()
+    assert "TRANSFORMER" in fake_llm.last_system
+
+
 def test_transformer_large_file_mode_skips_few_shot_examples(tmp_path: Path) -> None:
     repo_path = tmp_path / "repo"
     repo_path.mkdir(parents=True)

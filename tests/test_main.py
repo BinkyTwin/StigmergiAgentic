@@ -220,3 +220,14 @@ def test_clear_target_repo_path_handles_busy_mount(
 
     assert target_repo.exists()
     assert list(target_repo.iterdir()) == []
+
+
+def test_prepare_target_repo_rejects_empty_repo_spec(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="Repository spec cannot be empty"):
+        main_module._prepare_target_repo(
+            repo_spec="",
+            repo_ref=None,
+            base_path=tmp_path,
+            config={},
+            resume=False,
+        )

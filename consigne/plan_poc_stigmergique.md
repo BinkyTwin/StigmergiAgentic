@@ -990,6 +990,42 @@ Pour chaque configuration : plot `(cout en tokens, taux de succes)` → identifi
 
 **Livrable** : tableau comparatif des 3 configurations, graphique Pareto, analyse des mecanismes stigmergiques observes.
 
+### Sprint 4.5 — Refonte architecture agents (2 jours)
+
+**Objectif** : rendre le Scout LLM-driven (plus de patterns hardcodes) et donner une conscience stigmergique aux agents via des prompts systeme enrichis. Puis relancer les comparaisons Sprint 4.
+
+**Partie A — Prompts stigmergiques** :
+- [ ] `base_agent.py` : ajouter constante `STIGMERGIC_PREAMBLE` (~80 tokens) + helper `_build_system_prompt(role_specific)` desactivable via config (`prompts.stigmergic_preamble: ""`)
+- [ ] `transformer.py` : remplacer le prompt inline ("You are a Python 2 to Python 3 migration expert") par `TRANSFORMER_ROLE_PROMPT` qui decrit le role dans la colonie (builder/worker, traces lues/deposees, agent en aval)
+- [ ] `config.yaml` : ajouter section `prompts` (preamble configurable)
+- [ ] Test : verifier que le prompt systeme envoye au LLM contient "stigmergic"
+
+**Partie B — Scout hybride LLM + Regex** :
+- [ ] `scout.py` : ajouter `SCOUT_ROLE_PROMPT` (explorer/forager, exhaustivite des traces)
+- [ ] `scout.py` : ajouter `_llm_analyze_file(file_key, file_content) -> dict | None` — le LLM analyse librement le fichier et retourne un JSON structure (patterns avec nom/ligne/severity/description + complexity_score). La liste des 19 patterns connus est fournie comme reference **non-exhaustive** : le LLM peut en trouver de nouveaux
+- [ ] `scout.py` : ajouter `_parse_llm_analysis(raw_content) -> dict | None` — extraction JSON robuste (strip markdown fences, validation structure, retourne None si echec)
+- [ ] `scout.py` : ajouter `_merge_analyses(llm_analysis, regex_details) -> list[dict]` — fusion LLM + regex : pour les patterns connus le regex confirme la ligne exacte (source="llm+regex"), pour les patterns nouveaux on garde la ligne LLM (source="llm"), les patterns regex manques par le LLM restent (source="regex")
+- [ ] `scout.py` : ajouter `_compute_hybrid_score(patterns, dep_count, llm_analysis)` — scoring pondere par severity (high=1.5, medium=1.0, low=0.5) + complexity_score du LLM. Poids configurables via `scout.intensity_weights`
+- [ ] `scout.py` : modifier `decide()` — toujours lancer regex/AST d'abord (filet de securite), puis tenter LLM si disponible, fusionner, calculer score hybride. Si LLM echoue → fallback complet au regex pur (zero regression)
+- [ ] `config.yaml` : ajouter section `scout.llm_analysis` (enabled, severity_weights, intensity_weights)
+- [ ] Code existant conserve tel quel : `REGEX_PATTERNS`, `_detect_patterns()`, `_detect_ast_patterns()`, `_detect_internal_dependencies()`, `PATTERN_NAMES`
+- [ ] Format pheromone additif (pas de breaking change) : nouveaux champs optionnels `llm_complexity_score`, `analysis_source`, `severity`/`description` dans pattern_details
+
+**Partie C — Tests** :
+- [ ] 6 nouveaux tests Scout : analyse LLM structuree, fallback parse failure, fallback exception, scoring severity, patterns nouveaux dans output, prompt stigmergique
+- [ ] 1 assertion Transformer : prompt contient "stigmergic"
+- [ ] Tous les tests existants passent sans modification (Scout sans llm_client = chemin regex inchange)
+
+**Partie D — Comparaison** :
+- [ ] Relancer les runs 5x3 (stigmergic, single_agent, sequential) sur docopt avec les nouveaux prompts + Scout LLM
+- [ ] Comparer couverture de detection patterns vs Sprint 4 (le LLM trouve-t-il des patterns que les 19 regex rataient ?)
+- [ ] Regenerer Pareto plot + pareto_summary.json
+- [ ] Mettre a jour CLAUDE.md avec la nouvelle architecture
+
+**Impact budget tokens** : ~1 appel LLM Scout par fichier candidat (~23 pour docopt), ~1500 tokens/fichier → ~35k tokens supplementaires (~17% du budget). Acceptable.
+
+**Livrable** : agents avec conscience stigmergique, Scout LLM-driven avec fallback regex, comparaison avant/apres Sprint 4.5.
+
 ### Sprint 5 — Robustesse + scale (3 jours, optionnel)
 
 **Objectif** : tester la robustesse et preparer le switch vers un modele frontiere.
