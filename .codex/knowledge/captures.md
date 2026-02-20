@@ -265,3 +265,43 @@ Executed 5 complete stigmergic runs on `docopt/docopt@0.6.2` using `openai/gpt-5
 ### Evidence
 - `metrics/output/pre_sprint4_gpt5nano_20260219_stigmergic_5runs_curated` (5 manifests, 5 summaries, 5 ticks CSV)
 - `uv run python metrics/pareto.py --input-dir metrics/output/pre_sprint4_gpt5nano_20260219_stigmergic_5runs_curated --output .../pareto.png --plot-mode per-run --export-json .../pareto_summary.json` (`points=5`, `baselines=1`)
+
+## 2026-02-20 — V0.2 Sprint 6 Scope Expansion and Branch Scaffold
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `impact_score`: `8/10`
+- `confidence`: `high`
+- `scope`: `Branch preparation + V0.2 Sprint 6 plan extension to multi-file text pipeline`
+
+### Outcome
+Created the V0.2 branch chain (`codex/v2` -> `codex/v2-sprint6`) and updated the V0.2 plan to expand Sprint 6 from pure refactoring to capability extraction plus strict non-Python text pipeline scope.
+
+### Reusable Patterns (1-3)
+1. Create a two-level branch scaffold (`v2` baseline + sprint branch) before scope expansion to preserve clean sequencing for future sprint PRs.
+2. When sprint scope changes materially, update objective, API signatures, acceptance tests, and duration/risk estimates in one documentation pass.
+3. Keep non-Python scope explicit with default guardrails (`text-only`, `strict validation`, `LLM full-file`) to avoid ambiguity before implementation starts.
+
+### Evidence
+- `git checkout main && git pull --ff-only origin main && git checkout -b codex/v2 && git checkout -b codex/v2-sprint6`
+- Updated: `consigne/POC_V02_plan.md`, `AGENTS.md`, `CLAUDE.md`
+
+## 2026-02-20 — Sprint 6 Delivery: Capabilities + Non-Python Strict Pipeline
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `impact_score`: `9/10`
+- `confidence`: `high`
+- `scope`: `Full Sprint 6 implementation, wrappers refactor, strict non-Python path, and complete regression validation`
+
+### Outcome
+Implemented Sprint 6 end-to-end by extracting reusable capabilities, refactoring all four specialized agents into wrappers, extending migration flow to non-Python text files with strict guardrails, and validating with a fully green suite.
+
+### Reusable Patterns (1-3)
+1. Preserve backward compatibility during capability extraction by delegating from existing agent methods and keeping test-monkeypatch callback surfaces intact.
+2. Gate non-Python transformations with strict parse/reference checks and explicit confidence mapping, so validator behavior remains consistent with existing thresholds.
+3. Validate refactor-heavy sprints in four layers: new capability tests, legacy unit parity tests, integration handoff tests, then full suite.
+
+### Evidence
+- `uv run pytest tests/test_capabilities.py -v` (`8 passed`)
+- `uv run pytest tests/test_scout.py tests/test_transformer.py tests/test_tester.py tests/test_validator.py -v` (`26 passed`)
+- `uv run pytest tests/test_agents_integration.py -v` (`4 passed`)
+- `uv run pytest tests/ -v` (`100 passed, 1 skipped`)

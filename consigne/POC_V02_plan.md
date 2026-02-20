@@ -116,27 +116,49 @@ Les etats et transitions restent identiques a V0.1. C'est l'environnement qui es
 
 ## Plan de Sprints
 
-### Sprint 6 : Extraction des Capacites (3 jours)
+### Sprint 6 : Extraction des Capacites + Extension Multi-Fichiers Texte (5 jours)
 
-**Objectif** : Extraire la logique des 4 agents V0.1 en 4 modules de capacite reutilisables, sans changer le comportement. Refactoring pur.
+**Objectif** : Extraire la logique des 4 agents V0.1 en 4 modules de capacite reutilisables, puis etendre la pipeline a **tous les fichiers texte** (pas seulement `.py`) pour couvrir les impacts de migration Py2->Py3 dans la documentation, scripts et configs.
 
 **Fichiers a creer** :
 - `agents/capabilities/__init__.py`
-- `agents/capabilities/discover.py` — Extrait de `scout.py` : detection patterns (regex + AST + LLM), scoring, normalisation. Regarde **tout fichier** du repo, pas juste `.py`. Fonction : `discover_files(store, repo_path, llm_client, config) -> list[dict]`
-- `agents/capabilities/transform.py` — Extrait de `transformer.py` : selection fichier, few-shot, appel LLM, syntax gate. Fonction : `transform_file(store, repo_path, llm_client, file_key, config) -> dict`
-- `agents/capabilities/test.py` — Extrait de `tester.py` : pytest, fallback adaptatif, confidence. Fonction : `test_file(store, repo_path, file_key, config) -> dict`
-- `agents/capabilities/validate.py` — Extrait de `validator.py` : commit/revert/escalade. Fonction : `validate_file(store, repo_path, file_key, config, dry_run) -> dict`
-- `tests/test_capabilities.py` — 4 tests (une capacite = une fonction testable en isolation)
+- `agents/capabilities/discover.py` — Extrait de `scout.py`. Pour `.py`: detection regex + AST + LLM (comportement V0.1 conserve). Pour non-`.py` texte: detection de references legacy Py2 (`python2`, `xrange`, `iteritems`, `urllib2`, etc.) et d'impacts de migration.
+- `agents/capabilities/transform.py` — Extrait de `transformer.py`. Pour `.py`: flow existant (few-shot + syntax gate). Pour non-`.py`: transformation **LLM full-file** orientee objectif global.
+- `agents/capabilities/test.py` — Extrait de `tester.py`. Pour `.py`: pytest + fallback adaptatif existant. Pour non-`.py`: guardrails stricts (parse/validation par type + checks de references).
+- `agents/capabilities/validate.py` — Extrait de `validator.py` : commit/revert/escalade, sans changement de seuils.
+- `tests/test_capabilities.py` — 8 tests (4 parite Python V0.1 + 4 non-Python strict).
 
 **Fichiers a modifier** :
 - `agents/scout.py` -> wrapper mince -> `capabilities.discover`
 - `agents/transformer.py` -> wrapper mince -> `capabilities.transform`
 - `agents/tester.py` -> wrapper mince -> `capabilities.test`
 - `agents/validator.py` -> wrapper mince -> `capabilities.validate`
+- `stigmergy/config.yaml` -> nouvelle section `capabilities.non_python` (`enabled`, `include_extensions`, `strict_guardrails`, `max_text_file_bytes`, `legacy_tokens`)
 
-**Contrainte** : tous les tests V0.1 existants passent sans modification. Zero regression.
+**API/interfaces a figer pour implementation Sprint 6** :
+- `discover_files(store, repo_path, llm_client, config, agent_name) -> list[dict]`
+- `transform_file(store, repo_path, llm_client, file_key, config, agent_name) -> dict`
+- `test_file(store, repo_path, file_key, config, agent_name) -> dict`
+- `validate_file(store, repo_path, file_key, config, dry_run, agent_name) -> dict`
 
-**Livrable** : Capacites decoupees, reutilisables par n'importe quel agent.
+**Tests d'acceptance Sprint 6** :
+1. `uv run pytest tests/test_scout.py tests/test_transformer.py tests/test_tester.py tests/test_validator.py -v`
+2. `uv run pytest tests/test_capabilities.py -v`
+3. `uv run pytest tests/test_agents_integration.py -v`
+4. `uv run pytest tests/ -v`
+
+**Contrainte** :
+- Tous les tests V0.1 existants passent sans modification (zero regression sur `.py`).
+- Les fichiers binaires sont exclus (traitement texte uniquement).
+- En non-`.py`, tout echec guardrail strict degrade la confiance et force `retry`/`needs_review` selon seuils Validator existants.
+
+**Hypotheses / defauts explicites** :
+- Nom de branche Sprint 6: `codex/v2-sprint6`.
+- Portee non-Python: tous fichiers texte UTF-8, binaires exclus.
+- Strategie de transformation non-Python: LLM full-file.
+- Guardrails non-Python: stricts par defaut.
+
+**Livrable** : Capacites decouplees + pipeline multi-fichiers texte operationnelle (Python + non-Python) avec validation stricte.
 
 ---
 
@@ -375,7 +397,7 @@ Les etats et transitions restent identiques a V0.1. C'est l'environnement qui es
 | `agents/validator.py` | 6 | Wrapper mince -> capabilities.validate |
 | `agents/base_agent.py` | 7 | Proprietes pressure, chosen_action, active_file |
 | `stigmergy/loop.py` | 7 | Mode stigmergic_v2 + run_tick_parallel |
-| `stigmergy/config.yaml` | 7,8,9 | Sections scheduler, graph, lessons |
+| `stigmergy/config.yaml` | 6,7,8,9 | Sections non_python, scheduler, graph, lessons |
 | `metrics/collector.py` | 7,9 | Champs emergence, pressions, actions paralleles |
 | `metrics/pareto.py` | 9 | Noms V0.2, scheduler_mode, scaling analysis |
 | `baselines/single_agent.py` | 9 | Champ architecture |
@@ -416,12 +438,12 @@ Sprint 9 :
 
 | Sprint | Duree | Risque |
 |---|---|---|
-| Sprint 6 (Capabilities) | 3 jours | Faible : refactoring pur |
+| Sprint 6 (Capabilities + non-Python) | 5 jours | Moyen : extension multi-types + guardrails stricts |
 | Sprint 7 (Agent + Parallelisme) | 5 jours | Haut : concurrence + scope locks |
 | Sprint 8 (Lessons + Graph) | 3 jours | Faible : additif |
 | Sprint 9 (Docker Benchmarks) | 4 jours | Moyen : infra Docker |
 
-**Total** : ~15 jours de dev.
+**Total** : ~17 jours de dev.
 
 ---
 

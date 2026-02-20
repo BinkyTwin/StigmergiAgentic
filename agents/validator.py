@@ -8,6 +8,7 @@ from git import Repo
 from git.exc import GitCommandError, InvalidGitRepositoryError
 
 from .base_agent import BaseAgent
+from .capabilities.validate import validate_file
 
 
 class Validator(BaseAgent):
@@ -33,81 +34,18 @@ class Validator(BaseAgent):
         }
 
     def execute(self, action: dict[str, Any]) -> dict[str, Any]:
-        file_key = action["file_key"]
-        quality_entry = action["quality_entry"]
-        status_entry = action["status_entry"]
-        dry_run = self._is_dry_run()
-
-        confidence = float(quality_entry.get("confidence", 0.0))
-        thresholds = self.config.get("thresholds", {})
-        high = float(thresholds.get("validator_confidence_high", 0.8))
-        low = float(thresholds.get("validator_confidence_low", 0.5))
-        max_retry_count = int(thresholds.get("max_retry_count", 3))
-
-        retry_count = int(status_entry.get("retry_count", 0))
-        inhibition = float(status_entry.get("inhibition", 0.0))
-
-        try:
-            if confidence >= high:
-                updated_confidence = min(1.0, confidence + 0.1)
-                if not dry_run:
-                    self._commit_file(file_key=file_key, confidence=updated_confidence)
-                return {
-                    "success": True,
-                    "file_key": file_key,
-                    "status": "validated",
-                    "updated_confidence": updated_confidence,
-                    "retry_count": retry_count,
-                    "inhibition": inhibition,
-                    "decision_metadata": {
-                        "decision": "auto_validate",
-                        "dry_run": dry_run,
-                    },
-                }
-
-            if confidence >= low:
-                return {
-                    "success": True,
-                    "file_key": file_key,
-                    "status": "needs_review",
-                    "updated_confidence": confidence,
-                    "retry_count": retry_count,
-                    "inhibition": inhibition,
-                    "decision_metadata": {
-                        "decision": "human_escalation",
-                        "dry_run": dry_run,
-                    },
-                }
-
-            updated_confidence = max(0.0, confidence - 0.2)
-            if not dry_run:
-                self._rollback_file(file_key=file_key)
-
-            next_retry_count = retry_count + 1
-            next_status = "retry" if next_retry_count <= max_retry_count else "skipped"
-            next_inhibition = inhibition + 0.5 if next_status == "retry" else inhibition
-
-            return {
-                "success": True,
-                "file_key": file_key,
-                "status": next_status,
-                "updated_confidence": updated_confidence,
-                "retry_count": next_retry_count,
-                "inhibition": next_inhibition,
-                "decision_metadata": {
-                    "decision": "rollback",
-                    "max_retry_count": max_retry_count,
-                    "dry_run": dry_run,
-                },
-            }
-        except Exception as exc:  # noqa: BLE001
-            return {
-                "success": False,
-                "file_key": file_key,
-                "error": str(exc),
-                "retry_count": retry_count,
-                "inhibition": inhibition,
-            }
+        return validate_file(
+            store=self.store,
+            repo_path=self.target_repo_path,
+            file_key=action["file_key"],
+            config=self.config,
+            dry_run=self._is_dry_run(),
+            agent_name=self.name,
+            quality_entry=action["quality_entry"],
+            status_entry=action["status_entry"],
+            commit_file=self._commit_file,
+            rollback_file=self._rollback_file,
+        )
 
     def deposit(self, result: dict[str, Any]) -> None:
         file_key = result["file_key"]

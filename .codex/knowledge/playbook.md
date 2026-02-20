@@ -81,3 +81,13 @@
 - If execution control changes mid-batch (interrupt/restart), preserve raw outputs but build a curated directory for the exact requested sample.
 - Include only complete triplets (`manifest`, `summary`, `ticks`) per selected run id in curated sets.
 - Generate benchmark plots/JSON from curated sets to keep reported `n` aligned with user intent.
+
+### Sprint Scope Change Control
+- When a sprint is expanded after initial planning, update a single source plan file with objective, APIs, acceptance tests, and timeline/risk deltas in one atomic edit.
+- Reflect planning-scope changes in both `AGENTS.md` and `CLAUDE.md` so assistant guidance stays aligned with the active delivery track.
+- Create a parent branch for the version stream (for example `codex/v2`) before creating a sprint branch (for example `codex/v2-sprint6`) to keep sprint lineage explicit.
+
+### Capability-Wrapper Migration Standard
+- During capability extraction, keep specialized agents as stable wrappers and inject callbacks for legacy helper methods to avoid breaking existing unit-test monkeypatch points.
+- For non-Python support, require strict text guardrails (format parse + legacy token scan + `.py` reference existence) before confidence is raised above validator rollback threshold.
+- Close refactor sprints with layered evidence: capability tests, legacy parity tests, integration handoffs, and full-suite confirmation.

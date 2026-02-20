@@ -681,3 +681,53 @@ Chaque entrée suit ce format :
 - `AGENTS.md`
 - `CLAUDE.md`
 - `documentation/construction_log.md`
+
+
+---
+
+### 2026-02-20 14:35 — Sprint 6 implémenté (capabilities + non-Python strict)
+
+**Assistant IA utilisé** : Codex (GPT-5)
+
+**Objectif** : Implémenter Sprint 6 de bout en bout sur `codex/v2-sprint6` avec extraction des capacités et extension du pipeline aux fichiers texte non-`.py`.
+
+**Actions effectuées** :
+- Création du package `agents/capabilities/` :
+  - `discover.py` : détection Python (regex + AST + LLM) + découverte non-Python texte.
+  - `transform.py` : exécution de transformation unifiée (`python` + `text_full_file`).
+  - `test.py` : tests Python via callbacks existants + guardrails stricts non-Python.
+  - `validate.py` : décision validator réutilisable (validate/needs_review/retry/skipped).
+- Refactor des agents spécialisés en wrappers fins :
+  - `agents/scout.py` délègue à `capabilities.discover`.
+  - `agents/transformer.py` délègue à `capabilities.transform`.
+  - `agents/tester.py` délègue à `capabilities.test`.
+  - `agents/validator.py` délègue à `capabilities.validate`.
+- Extension config runtime :
+  - ajout `capabilities.non_python` dans `stigmergy/config.yaml` (`enabled`, `include_extensions`, `strict_guardrails`, `legacy_tokens`, etc.).
+- Ajout des tests Sprint 6 :
+  - `tests/test_capabilities.py` (8 tests : 4 parité Python + 4 non-Python strict).
+- Synchronisation documentation de pilotage :
+  - `AGENTS.md`, `CLAUDE.md`, `consigne/POC_V02_plan.md`.
+
+**Validation** :
+- `uv run pytest tests/test_capabilities.py -v` ✅ (`8 passed`)
+- `uv run pytest tests/test_scout.py tests/test_transformer.py tests/test_tester.py tests/test_validator.py -v` ✅ (`26 passed`)
+- `uv run pytest tests/test_agents_integration.py -v` ✅ (`4 passed`)
+- `uv run pytest tests/ -v` ✅ (`100 passed, 1 skipped`)
+
+**Fichiers modifiés** :
+- `agents/capabilities/__init__.py`
+- `agents/capabilities/discover.py`
+- `agents/capabilities/transform.py`
+- `agents/capabilities/test.py`
+- `agents/capabilities/validate.py`
+- `agents/scout.py`
+- `agents/transformer.py`
+- `agents/tester.py`
+- `agents/validator.py`
+- `stigmergy/config.yaml`
+- `tests/test_capabilities.py`
+- `AGENTS.md`
+- `CLAUDE.md`
+- `consigne/POC_V02_plan.md`
+- `documentation/construction_log.md`
