@@ -305,3 +305,22 @@ Implemented Sprint 6 end-to-end by extracting reusable capabilities, refactoring
 - `uv run pytest tests/test_scout.py tests/test_transformer.py tests/test_tester.py tests/test_validator.py -v` (`26 passed`)
 - `uv run pytest tests/test_agents_integration.py -v` (`4 passed`)
 - `uv run pytest tests/ -v` (`100 passed, 1 skipped`)
+
+## 2026-02-23 — Sprint 6 Hardening: Reference Safety + Non-Python Prompt Alignment
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `impact_score`: `8/10`
+- `confidence`: `high`
+- `scope`: `Non-Python guardrail correctness hardening before Sprint 7`
+
+### Outcome
+Hardened non-Python strict checks to reject absolute/traversal `.py` references, made `.sh` syntax guardrail resilient when `bash` is unavailable, and aligned transformer system prompts with text-file migration mode.
+
+### Reusable Patterns (1-3)
+1. Treat extracted path references from text files as untrusted input and enforce repository-bound resolution before existence checks.
+2. When a strict guardrail depends on an external binary, degrade to explicit non-blocking metadata if the binary is unavailable, instead of hard-failing unrelated content.
+3. Keep system and user prompts consistent per file mode (`python` vs `text`) to reduce task-drift in LLM outputs.
+
+### Evidence
+- `uv run pytest tests/test_capabilities.py tests/test_transformer.py -v` (`16 passed`)
+- `uv run pytest tests/ -v` (`103 passed, 1 skipped`)

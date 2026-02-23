@@ -91,3 +91,8 @@
 - During capability extraction, keep specialized agents as stable wrappers and inject callbacks for legacy helper methods to avoid breaking existing unit-test monkeypatch points.
 - For non-Python support, require strict text guardrails (format parse + legacy token scan + `.py` reference existence) before confidence is raised above validator rollback threshold.
 - Close refactor sprints with layered evidence: capability tests, legacy parity tests, integration handoffs, and full-suite confirmation.
+
+### Repository-Scoped Reference Guardrail Standard
+- Normalize text-extracted file references before validation and reject absolute/drive-prefixed/traversal patterns (`/`, `C:\`, `..`) as out-of-scope inputs.
+- Resolve references only against repository-indexed Python files (relative paths + basenames), never against host filesystem global paths.
+- For shell syntax checks in strict text guardrails, treat missing validation tooling as explicit non-blocking metadata and continue evaluating other guardrails.

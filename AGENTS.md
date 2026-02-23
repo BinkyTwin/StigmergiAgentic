@@ -48,6 +48,10 @@ Sprint 3 is implemented and gate-validated, and Sprint 4 baseline tooling is now
   - Extended discovery/transform/test flow to non-Python text files via `capabilities.non_python` config and strict guardrails.
   - Added Sprint 6 capability tests: `tests/test_capabilities.py` (Python parity + non-Python strict scenarios).
   - Full regression suite status: `100 passed, 1 skipped`.
+- 2026-02-23 Sprint 6 hardening pass:
+  - Non-Python tester guardrails now reject absolute/traversal `.py` references and only resolve references inside repository scope.
+  - Non-Python shell guardrail now handles missing `bash` as non-blocking metadata (`guardrail_tool_unavailable:bash`) instead of hard failing.
+  - Transformer now uses a dedicated non-Python system role prompt for text-file migration mode.
 - 2026-02-20 V0.2 planning update:
   - Created branch chain for V0.2 planning/implementation: `codex/v2` then `codex/v2-sprint6`.
   - `consigne/POC_V02_plan.md` now defines Sprint 6 as capabilities extraction plus non-Python text pipeline scope (`LLM` full-file + strict guardrails).

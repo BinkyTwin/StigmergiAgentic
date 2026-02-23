@@ -6,6 +6,7 @@ from typing import Any
 
 from .base_agent import BaseAgent
 from .capabilities.transform import (
+    TEXT_TRANSFORMER_ROLE_PROMPT,
     TRANSFORMER_ROLE_PROMPT,
     build_retry_context,
     collect_few_shot_examples,
@@ -78,7 +79,11 @@ class Transformer(BaseAgent):
             "source_content": source_content,
             "patterns": patterns,
             "prompt": prompt,
-            "system_prompt": self._build_system_prompt(TRANSFORMER_ROLE_PROMPT),
+            "system_prompt": self._build_system_prompt(
+                TRANSFORMER_ROLE_PROMPT
+                if file_kind == "python"
+                else TEXT_TRANSFORMER_ROLE_PROMPT
+            ),
             "status_entry": candidate["status_entry"],
             "task_entry": task_entry,
             "line_count": line_count,

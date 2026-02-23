@@ -330,6 +330,82 @@ def test_test_capability_non_python_strict_fail(tmp_path: Path) -> None:
     )
 
 
+def test_test_capability_non_python_rejects_absolute_and_traversal_refs(
+    tmp_path: Path,
+) -> None:
+    repo_path = tmp_path / "repo"
+    repo_path.mkdir(parents=True)
+    outside_file = tmp_path / "outside.py"
+    outside_file.write_text("print('outside')\n", encoding="utf-8")
+    (repo_path / "README.md").write_text(
+        (f"Absolute ref: {outside_file.as_posix()}\n" "Traversal ref: ../secret.py\n"),
+        encoding="utf-8",
+    )
+    config = _build_config(non_python_enabled=True)
+    store = PheromoneStore(config, base_path=tmp_path)
+    store.write(
+        "tasks",
+        "README.md",
+        {"intensity": 0.7, "patterns_found": [], "file_kind": "text"},
+        agent_id="scout",
+    )
+    store.write(
+        "status",
+        "README.md",
+        {"status": "transformed", "retry_count": 0, "inhibition": 0.0},
+        agent_id="transformer",
+    )
+
+    result = capability_test_file(
+        store=store,
+        repo_path=repo_path,
+        file_key="README.md",
+        config=config,
+        agent_name="tester",
+    )
+
+    assert result["tests_failed"] == 1
+    assert f"missing_python_reference:{outside_file.as_posix()}" in result["issues"]
+    assert "missing_python_reference:../secret.py" in result["issues"]
+
+
+def test_test_capability_non_python_shell_guardrail_skips_when_bash_unavailable(
+    tmp_path: Path,
+    monkeypatch: Any,
+) -> None:
+    repo_path = tmp_path / "repo"
+    repo_path.mkdir(parents=True)
+    (repo_path / "script.sh").write_text("echo hello\n", encoding="utf-8")
+    config = _build_config(non_python_enabled=True)
+    store = PheromoneStore(config, base_path=tmp_path)
+    store.write(
+        "tasks",
+        "script.sh",
+        {"intensity": 0.7, "patterns_found": [], "file_kind": "text"},
+        agent_id="scout",
+    )
+    store.write(
+        "status",
+        "script.sh",
+        {"status": "transformed", "retry_count": 0, "inhibition": 0.0},
+        agent_id="transformer",
+    )
+    monkeypatch.setattr("agents.capabilities.test.shutil.which", lambda _: None)
+
+    result = capability_test_file(
+        store=store,
+        repo_path=repo_path,
+        file_key="script.sh",
+        config=config,
+        agent_name="tester",
+    )
+
+    assert result["tests_failed"] == 0
+    assert result["metadata"]["non_blocking_issues"] == [
+        "guardrail_tool_unavailable:bash"
+    ]
+
+
 def test_validate_capability_dry_run_high_confidence() -> None:
     config = _build_config(non_python_enabled=True)
     result = validate_file(

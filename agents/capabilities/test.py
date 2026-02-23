@@ -6,11 +6,12 @@ import json
 import os
 import py_compile
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
 import tomllib
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Any
 
 import yaml  # type: ignore[import-untyped]
@@ -18,6 +19,7 @@ import yaml  # type: ignore[import-untyped]
 from ._config import non_python_config as _non_python_config
 
 _PY_REF_RE = re.compile(r"(?P<ref>[A-Za-z0-9_./-]+\.py)\b")
+_WINDOWS_ABSOLUTE_PATH_RE = re.compile(r"^[A-Za-z]:[/\\]")
 
 
 def test_file(
@@ -99,6 +101,7 @@ def test_file(
         "retry_count": int(status_entry.get("retry_count", 0)),
         "inhibition": float(status_entry.get("inhibition", 0.0)),
         "file_kind": file_kind,
+        "metadata": dict(stats.get("metadata", {})),
     }
 
 
@@ -129,14 +132,19 @@ def evaluate_non_python_strict(
     """Run strict validation guardrails for non-Python text files."""
 
     issues: list[str] = []
+    non_blocking_issues: list[str] = []
     content = file_path.read_text(encoding="utf-8", errors="ignore")
     suffix = file_path.suffix.lower()
     non_python = _non_python_config(config)
     strict_guardrails = bool(non_python["strict_guardrails"])
+    python_index = _build_python_reference_index(repo_root)
 
     if strict_guardrails:
         parse_issue = _validate_structured_text(
-            content=content, suffix=suffix, file_path=file_path
+            content=content,
+            suffix=suffix,
+            file_path=file_path,
+            warnings=non_blocking_issues,
         )
         if parse_issue:
             issues.append(parse_issue)
@@ -155,7 +163,10 @@ def evaluate_non_python_strict(
         if not raw_ref:
             continue
         if not _python_reference_exists(
-            raw_ref=raw_ref, file_path=file_path, repo_root=repo_root
+            raw_ref=raw_ref,
+            file_path=file_path,
+            repo_root=repo_root,
+            python_index=python_index,
         ):
             issues.append(f"missing_python_reference:{raw_ref}")
 
@@ -168,7 +179,7 @@ def evaluate_non_python_strict(
         else float(non_python["pass_confidence"])
     )
 
-    return {
+    result: dict[str, Any] = {
         "tests_total": 1,
         "tests_passed": passed,
         "tests_failed": failed,
@@ -177,10 +188,17 @@ def evaluate_non_python_strict(
         "confidence": confidence,
         "test_mode": "non_python_strict",
     }
+    if non_blocking_issues:
+        result["metadata"] = {"non_blocking_issues": sorted(set(non_blocking_issues))}
+    return result
 
 
 def _validate_structured_text(
-    *, content: str, suffix: str, file_path: Path
+    *,
+    content: str,
+    suffix: str,
+    file_path: Path,
+    warnings: list[str] | None = None,
 ) -> str | None:
     try:
         if suffix == ".json":
@@ -190,8 +208,13 @@ def _validate_structured_text(
         elif suffix == ".toml":
             tomllib.loads(content)
         elif suffix == ".sh":
+            bash_path = shutil.which("bash")
+            if bash_path is None:
+                if warnings is not None:
+                    warnings.append("guardrail_tool_unavailable:bash")
+                return None
             completed = subprocess.run(
-                ["bash", "-n", str(file_path)],
+                [bash_path, "-n", str(file_path)],
                 check=False,
                 capture_output=True,
                 text=True,
@@ -208,22 +231,71 @@ def _validate_structured_text(
     return None
 
 
-def _python_reference_exists(*, raw_ref: str, file_path: Path, repo_root: Path) -> bool:
+def _python_reference_exists(
+    *,
+    raw_ref: str,
+    file_path: Path,
+    repo_root: Path,
+    python_index: dict[str, set[str]] | None = None,
+) -> bool:
+    normalized = _normalize_python_reference(raw_ref)
+    if normalized == "":
+        return True
+    if normalized is None:
+        return False
+
+    index = python_index or _build_python_reference_index(repo_root)
+    known_relative_paths = index["relative_paths"]
+
+    if normalized in known_relative_paths:
+        return True
+
+    try:
+        parent_relative = file_path.parent.relative_to(repo_root).as_posix()
+    except ValueError:
+        parent_relative = ""
+
+    if parent_relative and parent_relative != ".":
+        from_file_relative = PurePosixPath(parent_relative, normalized).as_posix()
+        if from_file_relative in known_relative_paths:
+            return True
+
+    basename = PurePosixPath(normalized).name
+    return basename in index["basenames"]
+
+
+def _build_python_reference_index(repo_root: Path) -> dict[str, set[str]]:
+    relative_paths: set[str] = set()
+    basenames: set[str] = set()
+    for candidate in repo_root.rglob("*.py"):
+        if not candidate.is_file():
+            continue
+        try:
+            relative_path = candidate.relative_to(repo_root).as_posix()
+        except ValueError:
+            continue
+        relative_paths.add(relative_path)
+        basenames.add(candidate.name)
+    return {"relative_paths": relative_paths, "basenames": basenames}
+
+
+def _normalize_python_reference(raw_ref: str) -> str | None:
     normalized = raw_ref.strip().replace("\\", "/")
     if not normalized:
-        return True
+        return ""
+    if normalized.startswith("/") or normalized.startswith("~"):
+        return None
+    if _WINDOWS_ABSOLUTE_PATH_RE.match(normalized):
+        return None
 
-    direct_repo = (repo_root / normalized).resolve()
-    if direct_repo.exists():
-        return True
-
-    relative_to_file = (file_path.parent / normalized).resolve()
-    if relative_to_file.exists():
-        return True
-
-    basename = Path(normalized).name
-    candidates = list(repo_root.rglob(basename))
-    return any(candidate.suffix == ".py" for candidate in candidates)
+    segments = [
+        segment for segment in normalized.split("/") if segment and segment != "."
+    ]
+    if not segments:
+        return ""
+    if any(segment == ".." for segment in segments):
+        return None
+    return PurePosixPath(*segments).as_posix()
 
 
 def _infer_file_kind(file_key: str) -> str:

@@ -18,6 +18,15 @@ TRANSFORMER_ROLE_PROMPT = (
     "Return only the complete converted Python 3 file, no explanations."
 )
 
+TEXT_TRANSFORMER_ROLE_PROMPT = (
+    "Your role: TRANSFORMER for migration side artifacts (documentation/scripts/config). "
+    "You update non-Python text files so they stay aligned with a Python 3 migration. "
+    "Traces you read: migration patterns from tasks and quality feedback from prior attempts. "
+    "Traces you deposit: the complete updated text file. "
+    "Keep intent and meaning stable, but remove Python 2 references and outdated instructions. "
+    "Return only the full updated file content, no explanations."
+)
+
 
 def select_transform_candidates(
     store: Any,
@@ -115,10 +124,13 @@ def transform_file(
             file_kind=file_kind,
         )
     )
+    default_role_prompt = (
+        TRANSFORMER_ROLE_PROMPT
+        if file_kind == "python"
+        else TEXT_TRANSFORMER_ROLE_PROMPT
+    )
     system_prompt = str(
-        kwargs.get("system_prompt")
-        or kwargs.get("role_prompt")
-        or TRANSFORMER_ROLE_PROMPT
+        kwargs.get("system_prompt") or kwargs.get("role_prompt") or default_role_prompt
     )
 
     store.update(

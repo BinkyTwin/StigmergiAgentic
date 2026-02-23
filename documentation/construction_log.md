@@ -731,3 +731,42 @@ Chaque entrée suit ce format :
 - `CLAUDE.md`
 - `consigne/POC_V02_plan.md`
 - `documentation/construction_log.md`
+
+
+---
+
+### 2026-02-23 11:10 — Sprint 6 hardening (guardrails path safety + prompt alignment)
+
+**Assistant IA utilisé** : Codex (GPT-5)
+
+**Objectif** : corriger les risques relevés en review sur la pipeline non-Python avant lancement Sprint 7.
+
+**Actions effectuées** :
+- Renforcement `agents/capabilities/test.py` :
+  - rejet explicite des references `.py` absolues et des traversals (`..`) dans les checks non-Python,
+  - resolution des references limitee au scope du repo,
+  - indexation des fichiers Python une seule fois par evaluation de fichier non-Python (evite les scans repetes),
+  - guardrail `.sh` portable : absence de `bash` traitee en metadata non-bloquante (`guardrail_tool_unavailable:bash`).
+- Alignement `agents/capabilities/transform.py` + `agents/transformer.py` :
+  - ajout d'un system prompt dedie non-Python (`TEXT_TRANSFORMER_ROLE_PROMPT`) pour eviter l'incoherence "Python-only" en mode texte.
+- Planification future :
+  - ajout d'un backlog Sprint 7.1 dans `consigne/POC_V02_plan.md` pour la mise en cache globale tick-level de l'index de references Python.
+- Mise a jour guidance projet :
+  - `AGENTS.md`, `CLAUDE.md`.
+
+**Validation** :
+- `uv run pytest tests/test_capabilities.py tests/test_transformer.py -v` ✅ (`16 passed`)
+- `uv run pytest tests/ -v` ✅ (`103 passed, 1 skipped`)
+- `uv run ruff check agents/capabilities/test.py agents/capabilities/transform.py agents/transformer.py tests/test_capabilities.py tests/test_transformer.py` ✅
+- `uv run mypy agents/capabilities/test.py agents/capabilities/transform.py agents/transformer.py --ignore-missing-imports` ✅
+
+**Fichiers modifiés** :
+- `agents/capabilities/test.py`
+- `agents/capabilities/transform.py`
+- `agents/transformer.py`
+- `tests/test_capabilities.py`
+- `tests/test_transformer.py`
+- `consigne/POC_V02_plan.md`
+- `AGENTS.md`
+- `CLAUDE.md`
+- `documentation/construction_log.md`

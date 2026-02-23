@@ -258,6 +258,11 @@ Les etats et transitions restent identiques a V0.1. C'est l'environnement qui es
 - `test_proportional_num_agents` : 23 fichiers / 6 = 4 agents
 - `test_parallel_execution_faster_than_sequential` : 4 agents en parallele terminent en moins de ticks
 
+**Backlog post-Sprint 7 (Sprint 7.1 hardening)** :
+- Mettre en cache l'index des references Python (paths + basenames) au niveau tick/scheduler pour eviter sa reconstruction a chaque fichier non-Python.
+- Ajouter invalidation du cache sur changement de working tree (hash rapide + tick_id) pour conserver des checks exacts.
+- Ajouter benchmark dedie (`refs_per_sec`, `cpu_per_tick`) sur repos volumineux pour quantifier le gain.
+
 **Livrable** : N agents generalistes travaillant en parallele, coordonnes par l'environnement.
 
 ---

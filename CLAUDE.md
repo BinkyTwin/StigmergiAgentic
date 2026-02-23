@@ -66,6 +66,10 @@ Sprint 3 has been implemented and validated, Sprint 4 closure tooling is impleme
   - Enabled non-Python text pipeline support via `capabilities.non_python` (LLM full-file transform + strict tester guardrails).
   - Added `tests/test_capabilities.py` with Python parity and non-Python strict validation scenarios.
   - Full suite validation result: `100 passed, 1 skipped`.
+- 2026-02-23 Sprint 6 hardening pass:
+  - Non-Python strict checks now reject absolute/traversal `.py` references and only accept repository-scoped paths.
+  - Missing `bash` during `.sh` syntax guardrail is now reported as non-blocking metadata instead of a hard parse failure.
+  - Transformer system prompt now switches to a dedicated non-Python role prompt in text migration mode.
 - 2026-02-20 V0.2 planning update:
   - Created branch chain for V0.2 planning/implementation: `codex/v2` then `codex/v2-sprint6`.
   - `consigne/POC_V02_plan.md` now defines Sprint 6 as capabilities extraction plus non-Python text pipeline scope (`LLM` full-file + strict guardrails).

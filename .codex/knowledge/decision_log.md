@@ -119,3 +119,11 @@
 - `rationale`: This keeps V0.1 Python behavior stable while delivering immediate migration coverage for docs/scripts/config artifacts that still encode Python 2 references.
 - `alternatives_rejected`: Postpone non-Python execution to Sprint 7, or replace agents directly with a new generalist runtime before capability parity was validated.
 - `linked_adr`: `documentation/decisions/20260220-sprint6-capabilities-non-python.md`
+
+## 2026-02-23 (Sprint 6 Guardrail Hardening)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: Enforce repository-scoped non-Python `.py` reference validation (reject absolute/traversal paths), and use a dedicated non-Python transformer system prompt.
+- `rationale`: Host-path leakage in reference checks can produce false positives in strict guardrails, and Python-only system prompts reduce output quality for text-file migration tasks.
+- `alternatives_rejected`: Keep basename-only host filesystem lookup behavior, or rely on user prompt only without role-prompt specialization for non-Python mode.
+- `linked_adr`: `documentation/decisions/20260223-sprint6-guardrail-hardening.md`
