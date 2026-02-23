@@ -12,6 +12,10 @@ from pathlib import Path
 from typing import Any
 
 from .base_agent import BaseAgent
+from .capabilities.test import (
+    evaluate_non_python_strict,
+    test_file as capability_test_file,
+)
 
 
 PY2_STDLIB_MODULES = {
@@ -55,42 +59,18 @@ class Tester(BaseAgent):
         }
 
     def execute(self, action: dict[str, Any]) -> dict[str, Any]:
-        file_key = action["file_key"]
-        file_path: Path = action["file_path"]
-        test_file: Path | None = action["test_file"]
-
-        if test_file is not None:
-            stats = self._run_pytest_for_file(file_path=file_path, test_file=test_file)
-            stats["test_mode"] = "pytest"
-            tests_total = int(stats.get("tests_total", 0))
-            tests_passed = int(stats.get("tests_passed", 0))
-            confidence = 0.5 if tests_total == 0 else tests_passed / tests_total
-        else:
-            stats = self._run_adaptive_fallback(
-                file_key=file_key,
-                file_path=file_path,
-            )
-            confidence = float(stats["confidence"])
-
-        tests_total = int(stats.get("tests_total", 0))
-        tests_passed = int(stats.get("tests_passed", 0))
-        tests_failed = int(stats.get("tests_failed", 0))
-
-        return {
-            "file_key": file_key,
-            "tests_total": tests_total,
-            "tests_passed": tests_passed,
-            "tests_failed": tests_failed,
-            "coverage": float(stats.get("coverage", 0.0)),
-            "issues": list(stats.get("issues", [])),
-            "confidence": confidence,
-            "test_mode": stats["test_mode"],
-            "test_file": (
-                str(test_file.relative_to(self.target_repo_path)) if test_file else None
-            ),
-            "retry_count": int(action["status_entry"].get("retry_count", 0)),
-            "inhibition": float(action["status_entry"].get("inhibition", 0.0)),
-        }
+        return capability_test_file(
+            store=self.store,
+            repo_path=self.target_repo_path,
+            file_key=action["file_key"],
+            config=self.config,
+            agent_name=self.name,
+            status_entry=action["status_entry"],
+            test_file_path=action.get("test_file"),
+            run_pytest_for_file=self._run_pytest_for_file,
+            run_adaptive_fallback=self._run_adaptive_fallback,
+            evaluate_non_python=self._evaluate_non_python_strict,
+        )
 
     def deposit(self, result: dict[str, Any]) -> None:
         file_key = result["file_key"]
@@ -105,6 +85,7 @@ class Tester(BaseAgent):
             "metadata": {
                 "test_mode": result["test_mode"],
                 "test_file": result["test_file"],
+                "file_kind": result.get("file_kind", "python"),
             },
         }
         self.store.write(
@@ -124,7 +105,23 @@ class Tester(BaseAgent):
                 "tests_failed": int(result["tests_failed"]),
                 "coverage": float(result["coverage"]),
                 "test_mode": result["test_mode"],
+                "file_kind": result.get("file_kind", "python"),
             },
+        )
+
+    def _evaluate_non_python_strict(
+        self,
+        *,
+        file_key: str,
+        file_path: Path,
+        repo_root: Path,
+        config: dict[str, Any],
+    ) -> dict[str, Any]:
+        return evaluate_non_python_strict(
+            file_key=file_key,
+            file_path=file_path,
+            repo_root=repo_root,
+            config=config,
         )
 
     def _discover_test_file(self, file_path: Path) -> Path | None:

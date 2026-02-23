@@ -303,6 +303,46 @@ def test_transformer_system_prompt_stigmergic(tmp_path: Path) -> None:
     assert "TRANSFORMER" in fake_llm.last_system
 
 
+def test_transformer_non_python_uses_text_system_prompt(tmp_path: Path) -> None:
+    repo_path = tmp_path / "repo"
+    repo_path.mkdir(parents=True)
+    (repo_path / "README.md").write_text(
+        "Use python2 with module.py\n", encoding="utf-8"
+    )
+
+    config = _build_config()
+    store = PheromoneStore(config, base_path=tmp_path)
+    store.write(
+        "tasks",
+        "README.md",
+        {
+            "intensity": 0.9,
+            "patterns_found": ["legacy_token_python2"],
+            "file_kind": "text",
+        },
+        agent_id="scout",
+    )
+    store.write(
+        "status",
+        "README.md",
+        {"status": "pending", "retry_count": 0, "inhibition": 0.0},
+        agent_id="scout",
+    )
+
+    fake_llm = FakeLLMClient("Use python3 with module.py\n")
+    transformer = Transformer(
+        name="transformer",
+        config=config,
+        pheromone_store=store,
+        target_repo_path=repo_path,
+        llm_client=fake_llm,
+    )
+
+    transformer.run()
+
+    assert "non-python text files" in fake_llm.last_system.lower()
+
+
 def test_transformer_large_file_mode_skips_few_shot_examples(tmp_path: Path) -> None:
     repo_path = tmp_path / "repo"
     repo_path.mkdir(parents=True)
