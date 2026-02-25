@@ -341,7 +341,10 @@ class Scout(BaseAgent):
     def _is_integer_like(self, node: ast.AST) -> bool:
         if isinstance(node, ast.Constant) and isinstance(node.value, int):
             return True
-        return isinstance(node, ast.Num) and isinstance(getattr(node, "n", None), int)
+        ast_num = getattr(ast, "Num", None)
+        if ast_num is None:
+            return False
+        return isinstance(node, ast_num) and isinstance(getattr(node, "n", None), int)
 
     def _line_from_offset(self, content: str, offset: int) -> int:
         return content.count("\n", 0, offset) + 1

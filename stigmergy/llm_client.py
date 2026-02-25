@@ -82,6 +82,9 @@ class LLMClient:
         self.pricing_api_timeout_seconds = float(
             llm_config.get("pricing_api_timeout_seconds", 8.0)
         )
+        self.request_timeout_seconds = float(
+            llm_config.get("request_timeout_seconds", 300.0)
+        )
         self.pricing_endpoint = str(
             llm_config.get(
                 "pricing_endpoint",
@@ -95,6 +98,7 @@ class LLMClient:
         self.client = OpenAI(
             api_key=self.api_key,
             base_url="https://openrouter.ai/api/v1",
+            timeout=self.request_timeout_seconds,
         )
         self.model_pricing = (
             self._fetch_model_pricing() if self.max_budget_usd > 0.0 else None
@@ -254,7 +258,8 @@ class LLMClient:
             return None
         estimated = (
             float(prompt_tokens) * self.model_pricing.prompt_cost_per_token_usd
-            + float(completion_tokens) * self.model_pricing.completion_cost_per_token_usd
+            + float(completion_tokens)
+            * self.model_pricing.completion_cost_per_token_usd
             + self.model_pricing.request_cost_usd
         )
         return max(0.0, float(estimated))

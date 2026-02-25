@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import Any, Mapping, MutableMapping
+from typing import Any, Mapping
 
 
 class GuardrailError(RuntimeError):
@@ -60,10 +60,10 @@ class Guardrails:
 
     def acquire_scope_lock(
         self,
-        status_entry: MutableMapping[str, Any],
+        status_entry: dict[str, Any],
         agent_id: str,
         current_tick: int = 0,
-    ) -> MutableMapping[str, Any]:
+    ) -> dict[str, Any]:
         """Attach lock ownership metadata to a status entry."""
         status_entry["lock_owner"] = agent_id
         status_entry["lock_acquired_tick"] = int(current_tick)
@@ -71,9 +71,9 @@ class Guardrails:
 
     def release_scope_lock(
         self,
-        status_entry: MutableMapping[str, Any],
+        status_entry: dict[str, Any],
         agent_id: str,
-    ) -> MutableMapping[str, Any]:
+    ) -> dict[str, Any]:
         """Release lock metadata when the current owner completes or fails."""
         lock_owner = status_entry.get("lock_owner")
         if lock_owner is None or lock_owner == agent_id:
@@ -83,7 +83,7 @@ class Guardrails:
 
     def enforce_scope_lock_ttl(
         self,
-        status_data: MutableMapping[str, MutableMapping[str, Any]],
+        status_data: dict[str, dict[str, Any]],
         current_tick: int,
     ) -> list[str]:
         """Release zombie in-progress locks past TTL and requeue files."""
@@ -112,10 +112,10 @@ class Guardrails:
 
     def stamp_trace(
         self,
-        payload: MutableMapping[str, Any],
+        payload: dict[str, Any],
         agent_id: str,
         action: str,
-    ) -> MutableMapping[str, Any]:
+    ) -> dict[str, Any]:
         """Attach traceability metadata to write/update payloads."""
         if action not in {"write", "update"}:
             raise ValueError(f"Unsupported trace action: {action}")

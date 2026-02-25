@@ -27,9 +27,9 @@ Stop conditions are OR-combined: all files terminal, token/USD budget exhausted,
 
 All agents inherit from `agents/base_agent.py` (abstract class with the perceive→deposit cycle).
 
-### Implementation Status (2026-02-12)
+### Implementation Status (2026-02-17)
 
-Sprint 3 is implemented and gate-validated:
+Sprint 3 is implemented and gate-validated, and Sprint 4 baseline tooling is now implemented:
 - `main.py` provides CLI orchestration with `--repo-ref`, `--resume`, `--review`, `--dry-run`, and run manifest hashing.
 - `stigmergy/loop.py` implements full round-robin execution and 4 stop conditions (`all_terminal`, `budget_exhausted`, `max_ticks`, `idle_cycles`).
 - `metrics/collector.py` and `metrics/export.py` export `run_{id}_ticks.csv`, `run_{id}_summary.json`, `run_{id}_manifest.json`.
@@ -37,6 +37,11 @@ Sprint 3 is implemented and gate-validated:
 - `agents/tester.py` includes adaptive fallback confidence with inconclusive/related handling and robust compile checks.
 - `agents/validator.py` supports runtime `dry_run` (no git mutations).
 - Full Sprint 3 test suite is available (`test_loop.py`, `test_metrics.py`, `test_main.py` + extensions).
+- `baselines/single_agent.py` implements a realistic single-agent baseline with shared budgets and validator-style confidence thresholds.
+- `baselines/sequential.py` implements a fixed-stage baseline (Scout→Transformer→Tester→Validator by batches) for fairness comparison.
+- `metrics/pareto.py` now supports aggregate and per-run plotting (`--plot-mode`) with optional baseline-coverage enforcement (`--require-baselines`) and CI95 export fields.
+- Sprint 4 support tests include `tests/test_pareto.py`, `tests/test_baselines_common.py`, `tests/test_baselines_single_agent.py`, and `tests/test_baselines_sequential.py`.
+- Mobile-readable snapshot document: `documentation/MOBILE_RESULTS.md` (5x3 unbounded benchmark scoreboard + Pareto extracts).
 - Sprint 3 blocking gates pass:
   - synthetic fixture run: 19/20 validated (95%)
   - real repo `docopt/docopt@0.6.2`: 21/23 validated local (91.3%), 20/23 validated Docker (86.96%).
@@ -114,11 +119,28 @@ uv run pytest tests/test_loop.py tests/test_metrics.py tests/test_main.py -v
 uv run python baselines/single_agent.py --repo <url>
 uv run python baselines/sequential.py --repo <url>
 
+# Run thesis-grade unbounded benchmark (5 runs/mode)
+uv run python baselines/single_agent.py --repo <url> --repo-ref <ref> --model <model> --runs 5
+uv run python baselines/sequential.py --repo <url> --repo-ref <ref> --model <model> --runs 5
+for i in 1 2 3 4 5; do
+  uv run python main.py --repo <url> --repo-ref <ref> --model <model>
+done
+
+# Optional bounded smoke benchmark (fast sanity check)
+uv run python baselines/single_agent.py --repo <url> --repo-ref <ref> --max-ticks 1 --max-tokens 5000 --runs 5
+uv run python baselines/sequential.py --repo <url> --repo-ref <ref> --max-ticks 1 --max-tokens 5000 --runs 5
+for i in 1 2 3 4 5; do
+  uv run python main.py --repo <url> --repo-ref <ref> --max-ticks 1 --max-tokens 5000
+done
+
 # Export metrics to CSV
 uv run python metrics/export.py --output results.csv
 
 # Generate Pareto cost-precision analysis
 uv run python metrics/pareto.py --output pareto.png
+uv run python metrics/pareto.py --input-dir <out_dir> --output <out_dir>/pareto.png \
+  --plot-mode per-run --require-baselines stigmergic,single_agent,sequential \
+  --export-json <out_dir>/pareto_summary.json
 ```
 
 ### Docker (Sprint 2.5)
@@ -162,11 +184,13 @@ Critical thresholds that affect agent behavior:
 - `thresholds.validator_confidence_low: 0.5` — auto-rollback below
 - `pheromones.decay_rate: 0.05` — exponential evaporation rate per tick
 - `max_retry_count: 3` — anti-loop guardrail
-- `max_tokens_total: 200000` — budget ceiling (Sprint 3 gate tuning)
+- `loop.sequential_stage_action_cap` — optional per-stage cap (sequential baseline) to prevent non-terminating stage loops
+- `max_tokens_total: 1000000` — budget ceiling (raised for larger repos after Sprint 3)
 - `llm.max_response_tokens` — deprecated/ignored (client never sends `max_tokens`)
 - `llm.estimated_completion_tokens: 4096` — budget pre-check estimate when uncapped
 - `llm.max_budget_usd: 0.0` — optional cost ceiling (disabled by default)
 - `llm.pricing_endpoint` — OpenRouter pricing endpoint used for pre-call cost estimate
+- `llm.request_timeout_seconds: 300` — per-request OpenRouter timeout to avoid long hangs
 - `tester.fallback_quality.compile_import_fail: 0.4`
 - `tester.fallback_quality.related_regression: 0.6`
 - `tester.fallback_quality.pass_or_inconclusive: 0.8`

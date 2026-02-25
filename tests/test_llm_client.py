@@ -6,7 +6,12 @@ import os
 from types import SimpleNamespace
 
 import pytest
-from openai import APIConnectionError, APIStatusError, APITimeoutError, AuthenticationError
+from openai import (
+    APIConnectionError,
+    APIStatusError,
+    APITimeoutError,
+    AuthenticationError,
+)
 
 from stigmergy.llm_client import LLMClient, ModelPricing
 
@@ -95,6 +100,24 @@ def test_llm_client_retry_backoff(monkeypatch: pytest.MonkeyPatch) -> None:
     assert sleep_calls == [1.0]
 
 
+def test_llm_client_sets_openai_timeout(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("OPENROUTER_API_KEY", "sk-test")
+    config = _build_config()
+    config["llm"]["request_timeout_seconds"] = 42
+
+    captured_kwargs: dict[str, object] = {}
+
+    def fake_openai(**kwargs: object) -> FakeOpenAIClient:
+        captured_kwargs.update(kwargs)
+        return FakeOpenAIClient(FakeCompletions([_make_response("ok")]))
+
+    monkeypatch.setattr("stigmergy.llm_client.OpenAI", fake_openai)
+
+    LLMClient(config)
+
+    assert captured_kwargs["timeout"] == 42.0
+
+
 def test_llm_client_budget_check_blocks_call(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("OPENROUTER_API_KEY", "sk-test")
     config = _build_config()
@@ -139,7 +162,9 @@ def test_llm_client_ignores_max_tokens_even_when_configured(
     assert "max_tokens" not in fake_completions.last_kwargs
 
 
-def test_llm_client_cost_budget_check_blocks_call(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_llm_client_cost_budget_check_blocks_call(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     monkeypatch.setenv("OPENROUTER_API_KEY", "sk-test")
     monkeypatch.setattr(
         LLMClient,

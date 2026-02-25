@@ -10,7 +10,6 @@ import logging
 import logging.handlers
 import os
 import shutil
-import subprocess
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -62,7 +61,9 @@ def main(argv: list[str] | None = None) -> int:
             )
         else:
             target_repo_path = base_path / "target_repo"
-        return _run_review_mode(config=config, base_path=base_path, target_repo_path=target_repo_path)
+        return _run_review_mode(
+            config=config, base_path=base_path, target_repo_path=target_repo_path
+        )
 
     if not args.repo:
         raise ValueError("--repo is required for run/resume modes")
@@ -116,8 +117,12 @@ def main(argv: list[str] | None = None) -> int:
 
 
 def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Run stigmergic Python2->Python3 migration")
-    parser.add_argument("--repo", type=str, default=None, help="Repository URL or local path")
+    parser = argparse.ArgumentParser(
+        description="Run stigmergic Python2->Python3 migration"
+    )
+    parser.add_argument(
+        "--repo", type=str, default=None, help="Repository URL or local path"
+    )
     parser.add_argument(
         "--repo-ref",
         type=str,
@@ -130,7 +135,9 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         default=str(DEFAULT_CONFIG_PATH),
         help="Config file path",
     )
-    parser.add_argument("--max-ticks", type=int, default=None, help="Override loop.max_ticks")
+    parser.add_argument(
+        "--max-ticks", type=int, default=None, help="Override loop.max_ticks"
+    )
     parser.add_argument(
         "--max-tokens",
         type=int,
@@ -151,7 +158,9 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help="Override metrics output directory",
     )
     parser.add_argument("--verbose", action="store_true", help="Enable debug logging")
-    parser.add_argument("--dry-run", action="store_true", help="Disable git commit/revert")
+    parser.add_argument(
+        "--dry-run", action="store_true", help="Disable git commit/revert"
+    )
     parser.add_argument(
         "--review",
         action="store_true",
@@ -162,7 +171,9 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         action="store_true",
         help="Resume from existing pheromone state",
     )
-    parser.add_argument("--seed", type=int, default=None, help="Seed for reproducibility")
+    parser.add_argument(
+        "--seed", type=int, default=None, help="Seed for reproducibility"
+    )
     return parser.parse_args(argv)
 
 
@@ -312,7 +323,9 @@ def _clear_target_repo_path(target_repo_path: Path) -> None:
 
 
 def _ensure_work_branch(repo: Repo, config: dict[str, Any]) -> None:
-    branch_prefix = str(config.get("git", {}).get("branch_prefix", "stigmergic-migration"))
+    branch_prefix = str(
+        config.get("git", {}).get("branch_prefix", "stigmergic-migration")
+    )
     branch_name = f"{branch_prefix}-{_build_run_id()}"
     try:
         repo.git.checkout("-b", branch_name)
@@ -357,7 +370,10 @@ def _build_run_manifest(
 
     return {
         "run_id": run_id,
-        "timestamp_utc": datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z"),
+        "timestamp_utc": datetime.now(timezone.utc)
+        .replace(microsecond=0)
+        .isoformat()
+        .replace("+00:00", "Z"),
         "target_repo_commit": repo.head.commit.hexsha,
         "target_repo_path": str(target_repo_path),
         "config_hash": f"sha256:{config_hash}",
@@ -413,7 +429,9 @@ def _build_run_id() -> str:
     return now.strftime("%Y%m%dT%H%M%SZ")
 
 
-def _run_review_mode(config: dict[str, Any], base_path: Path, target_repo_path: Path) -> int:
+def _run_review_mode(
+    config: dict[str, Any], base_path: Path, target_repo_path: Path
+) -> int:
     store = PheromoneStore(config=config, base_path=base_path)
     review_entries = store.query("status", status="needs_review")
 
@@ -421,7 +439,9 @@ def _run_review_mode(config: dict[str, Any], base_path: Path, target_repo_path: 
         print("No needs_review files found.")
         return 0
 
-    high_threshold = float(config.get("thresholds", {}).get("validator_confidence_high", 0.8))
+    high_threshold = float(
+        config.get("thresholds", {}).get("validator_confidence_high", 0.8)
+    )
 
     for file_key in sorted(review_entries.keys()):
         quality_entry = store.read_one("quality", file_key) or {}
@@ -477,7 +497,11 @@ def _run_review_mode(config: dict[str, Any], base_path: Path, target_repo_path: 
 def _prompt_review_action(file_key: str) -> str:
     valid_actions = {"validate", "retry", "skip"}
     while True:
-        raw = input(f"Choose action for {file_key} [validate/retry/skip]: ").strip().lower()
+        raw = (
+            input(f"Choose action for {file_key} [validate/retry/skip]: ")
+            .strip()
+            .lower()
+        )
         if raw in valid_actions:
             return raw
         print("Invalid action. Please choose one of: validate, retry, skip.")
