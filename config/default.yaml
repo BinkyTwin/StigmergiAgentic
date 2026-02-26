@@ -39,3 +39,16 @@ llm:
 
 pressures:
   default_weights: {}
+
+tools:
+  sandbox_root: "."
+  allowed_commands:
+    - "python"
+    - "pytest"
+    - "git"
+    - "pip"
+    - "uv"
+  bash_timeout_seconds: 120
+  max_file_size_bytes: 1048576
+  web_search_provider: "none"
+  web_search_max_results: 5

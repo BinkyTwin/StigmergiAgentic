@@ -127,3 +127,11 @@
 - `rationale`: This preserves stigmergic decentralization, keeps mutation/guardrail control centralized, and enables deterministic unit validation without external dependencies.
 - `alternatives_rejected`: Fully synchronous orchestrator, direct tool-to-store writes, and deferred LLM client port.
 - `linked_adr`: `documentation/decisions/20260226-sprint2-v2-agent-orchestrator-runtime.md`
+
+## 2026-02-26 (Sprint 3 V2 Assistant Runtime)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: Implement Sprint 3 as a shared infrastructure-tool layer plus an `assistant` adapter and CLI entrypoint, while keeping adapter scope `assistant`-only for this sprint.
+- `rationale`: This enables end-to-end framework usage without coupling to benchmark adapters and preserves a clean path to register the same tools in future domain adapters.
+- `alternatives_rejected`: Adding partial TravelPlanner/CodeMigration stubs in Sprint 3, or introducing assistant-specific tool contracts outside `ToolRegistry`.
+- `linked_adr`: `documentation/decisions/20260226-sprint3-v2-infrastructure-tools-and-assistant-mode.md`

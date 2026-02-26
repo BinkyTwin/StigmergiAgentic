@@ -6,9 +6,9 @@ This file provides guidance to Claude Code when working in this repository.
 
 Stigmergic orchestration framework V2 for thesis research (EMLV).
 
-The codebase is currently at **Sprint 2 V2** (generic core + generic agent runtime).
+The codebase is currently at **Sprint 3 V2** (generic core + infrastructure tools + assistant adapter).
 
-## Sprint 2 V2 Status (2026-02-26)
+## Sprint 3 V2 Status (2026-02-26)
 
 Implemented modules:
 - `core/marker.py`
@@ -23,13 +23,26 @@ Implemented modules:
 - `core/agent.py`
 - `core/orchestrator.py`
 - `adapters/base.py`
+- `adapters/assistant/__init__.py`
+- `adapters/assistant/adapter.py`
+- `adapters/assistant/workspace.py`
+- `tools/__init__.py`
+- `tools/file_read.py`
+- `tools/file_write.py`
+- `tools/bash_exec.py`
+- `tools/web_search.py`
+- `tools/think.py`
+- `tools/decompose.py`
 - `llm/client.py`
 - `llm/prompts.py`
 - `config/default.yaml`
-- `tests/unit/*` (61 tests)
+- `config/assistant.yaml`
+- `main.py`
+- `tests/unit/*` + `tests/integration/test_assistant_run.py` (85 tests)
 
 Validated gate:
-- `uv run pytest tests/unit -v` -> 61 passed
+- `uv run pytest tests/unit -v` -> 81 passed
+- `uv run pytest tests/integration/test_assistant_run.py -v` -> 4 passed
 
 ## Design Principles
 
@@ -115,6 +128,19 @@ The state machine remains configurable and validated through `StateMachine`.
 - `LLMResponse`
 - `ModelPricing`
 
+### `tools`
+- `register_infrastructure_tools`
+- `FileReadTool`
+- `FileWriteTool`
+- `BashExecTool`
+- `WebSearchTool`
+- `ThinkTool`
+- `DecomposeTool`
+
+### `adapters.assistant`
+- `AssistantAdapter`
+- `LocalWorkspace`
+
 ## Commands
 
 ### Setup
@@ -125,12 +151,12 @@ uv venv --python 3.11 .venv
 uv pip install -r requirements.txt
 ```
 
-### Test (Sprint 2)
+### Test (Sprint 3)
 
 ```bash
 uv run pytest tests/unit -v
-uv run pytest tests/unit/test_agent.py tests/unit/test_orchestrator.py -v
-uv run pytest tests/unit/test_pressure.py tests/unit/test_llm_client.py -v
+uv run pytest tests/integration/test_assistant_run.py -v
+uv run python main.py --adapter assistant --objective "Create a short plan"
 ```
 
 ## Coding Rules

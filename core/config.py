@@ -17,6 +17,7 @@ REQUIRED_TOP_LEVEL_SECTIONS = {
     "orchestrator",
     "llm",
     "pressures",
+    "tools",
 }
 
 
@@ -96,6 +97,27 @@ def validate_config(config: Mapping[str, Any]) -> None:
     llm = config["llm"]
     _validate_int(llm, "max_tokens_total", minimum=1)
     _validate_float(llm, "max_budget_usd", minimum=0.0)
+
+    tools = config["tools"]
+    sandbox_root = str(tools.get("sandbox_root", "")).strip()
+    if not sandbox_root:
+        raise ConfigError("tools.sandbox_root cannot be empty")
+
+    allowed_commands = tools.get("allowed_commands")
+    if not isinstance(allowed_commands, list) or not allowed_commands:
+        raise ConfigError("tools.allowed_commands must be a non-empty list")
+    if not all(isinstance(command, str) and command.strip() for command in allowed_commands):
+        raise ConfigError("tools.allowed_commands entries must be non-empty strings")
+
+    _validate_int(tools, "bash_timeout_seconds", minimum=1)
+    _validate_int(tools, "max_file_size_bytes", minimum=1)
+    _validate_int(tools, "web_search_max_results", minimum=1)
+
+    provider = str(tools.get("web_search_provider", "none")).strip().lower()
+    if provider not in {"none", "tavily", "serper"}:
+        raise ConfigError(
+            "tools.web_search_provider must be one of: none, tavily, serper"
+        )
 
 
 def _read_yaml(path: Path) -> dict[str, Any]:

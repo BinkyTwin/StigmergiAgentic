@@ -14,7 +14,7 @@ FIXTURES_ROOT = REPO_ROOT / "tests" / "fixtures"
 if str(FIXTURES_ROOT) not in sys.path:
     sys.path.insert(0, str(FIXTURES_ROOT))
 
-from core.marker_store import MarkerStore
+from core.marker_store import MarkerStore  # noqa: E402
 
 
 @pytest.fixture
@@ -58,6 +58,14 @@ def config_dict() -> dict:
             "min_429_backoff_seconds": 8.0,
         },
         "pressures": {"default_weights": {}},
+        "tools": {
+            "sandbox_root": ".",
+            "allowed_commands": ["python", "pytest", "git", "pip", "uv"],
+            "bash_timeout_seconds": 120,
+            "max_file_size_bytes": 1048576,
+            "web_search_provider": "none",
+            "web_search_max_results": 5,
+        },
     }
 
 

@@ -1,0 +1,22 @@
+framework:
+  mode: "assistant"
+
+agents:
+  num_agents: 2
+  selection_temperature: 0.0
+
+orchestrator:
+  max_ticks: 30
+  idle_cycles_to_stop: 3
+
+tools:
+  sandbox_root: "."
+  allowed_commands:
+    - "python"
+    - "pytest"
+    - "git"
+    - "uv"
+  bash_timeout_seconds: 60
+  max_file_size_bytes: 1048576
+  web_search_provider: "none"
+  web_search_max_results: 5

@@ -40,6 +40,9 @@ wheels/
 target_repo/
 pheromones/*.json
 pheromones/audit_log.jsonl
+pheromones/*.db
+pheromones/*.db-shm
+pheromones/*.db-wal
 logs/
 
 # Metrics output

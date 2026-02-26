@@ -324,3 +324,24 @@ Delivered a generic, testable multi-agent runtime on top of the Sprint 1 marker 
 ### Evidence
 - `uv run pytest tests/unit/test_pressure.py tests/unit/test_agent.py tests/unit/test_orchestrator.py tests/unit/test_llm_client.py -q` (`30 passed`)
 - `uv run pytest tests/unit -v` (`61 passed`)
+
+## 2026-02-26 — Sprint 3 V2 Infrastructure Tools + Assistant Mode
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `impact_score`: `9/10`
+- `confidence`: `high`
+- `scope`: `Sprint 3 V2 tools layer, assistant adapter, CLI runtime, unit+integration validation`
+
+### Outcome
+Implemented Sprint 3 end-to-end by adding reusable infrastructure tools, a sandboxed assistant adapter, and a CLI execution path that runs the stigmergic orchestrator without domain-specific adapters.
+
+### Reusable Patterns (1-3)
+1. Keep infrastructure tools under the same `Tool` contract as domain tools so pressure-driven action selection remains uniform across adapters.
+2. Enforce workspace safety at the workspace layer (path resolution + size constraints + allowlists), then let tools focus on action semantics.
+3. Combine deterministic integration runs (`num_agents=1`, `temperature=0`) with mock LLM outputs to validate full tick-loop behavior without external API coupling.
+
+### Evidence
+- `uv run pytest tests/unit -q` (`81 passed`)
+- `uv run pytest tests/integration/test_assistant_run.py -q` (`4 passed`)
+- `uv run pytest tests/unit tests/integration -q` (`85 passed`)
+- `uv run python main.py --adapter assistant --objective "Create a short checklist" --max-ticks 12 --agents 1 --seed 7` (`stop_reason=all_terminal`)

@@ -96,3 +96,8 @@
 - Model orchestration as `snapshot -> decision -> lock -> execute -> deposit -> maintain` to keep coordination medium explicit and testable.
 - Keep tool APIs narrow (`is_eligible`, async `execute`) and treat environment as the single mutation gate for store writes and guardrails.
 - For concurrency tests, use one minimal mock adapter with staged marker transitions to validate lock arbitration and stop reasons without domain noise.
+
+### Assistant Tool-Layer Standard
+- Register infrastructure actions through one helper (`register_infrastructure_tools`) to keep adapter wiring explicit and consistent.
+- Keep tool payload contracts structured (for example `write.mode/path/content`) and validate early to make failures traceable in marker metadata.
+- Treat optional external providers (`web_search`) as explicit no-op defaults in local/dev mode to preserve deterministic baseline behavior.

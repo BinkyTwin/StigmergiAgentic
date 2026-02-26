@@ -6,9 +6,9 @@ This file provides guidance to GitHub Copilot / Codex when working in this repos
 
 Stigmergic orchestration framework V2 (redesign from scratch) for a Master's thesis (EMLV).
 
-Current repository state is **Sprint 2 V2**: generic environment core + generic agents/orchestrator runtime.
+Current repository state is **Sprint 3 V2**: generic core runtime + infrastructure tools + assistant adapter + CLI.
 
-## Current Scope (Sprint 2 V2)
+## Current Scope (Sprint 3 V2)
 
 Implemented:
 - `core/marker.py` — generic marker model + configurable state machine
@@ -23,8 +23,12 @@ Implemented:
 - `core/agent.py` — homogeneous stigmergic agent (perceive/decide/execute)
 - `core/orchestrator.py` — parallel tick loop + lock conflict resolution + stop conditions
 - `adapters/base.py` — domain adapter/objective/workspace contracts
+- `adapters/assistant/*` — generic assistant adapter + local sandboxed workspace
+- `tools/*` — infrastructure tools (`file_read`, `file_write`, `bash_exec`, `web_search`, `think`, `decompose`)
 - `llm/client.py` + `llm/prompts.py` — provider-aware LLM client and prompt helpers
-- `tests/unit/*` — 61 Sprint 1+2 unit tests
+- `main.py` — assistant CLI entrypoint
+- `config/assistant.yaml` — assistant mode overrides
+- `tests/unit/*` + `tests/integration/test_assistant_run.py` — 85 tests passed (81 unit + 4 integration)
 
 Not implemented yet:
 - TravelPlanner adapter
@@ -103,6 +107,19 @@ core/
 adapters/
   __init__.py
   base.py
+  assistant/
+    __init__.py
+    adapter.py
+    workspace.py
+
+tools/
+  __init__.py
+  file_read.py
+  file_write.py
+  bash_exec.py
+  web_search.py
+  think.py
+  decompose.py
 
 llm/
   __init__.py
@@ -111,6 +128,7 @@ llm/
 
 config/
   default.yaml
+  assistant.yaml
 
 tests/
   conftest.py
@@ -126,6 +144,11 @@ tests/
     test_agent.py
     test_orchestrator.py
     test_llm_client.py
+    test_file_tools.py
+    test_bash_tool.py
+    test_assistant_adapter.py
+  integration/
+    test_assistant_run.py
 ```
 
 ## Commands
@@ -138,12 +161,12 @@ uv venv --python 3.11 .venv
 uv pip install -r requirements.txt
 ```
 
-### Sprint 2 validation
+### Sprint 3 validation
 
 ```bash
 uv run pytest tests/unit -v
-uv run pytest tests/unit/test_agent.py tests/unit/test_orchestrator.py -v
-uv run pytest tests/unit/test_pressure.py tests/unit/test_llm_client.py -v
+uv run pytest tests/integration/test_assistant_run.py -v
+uv run python main.py --adapter assistant --objective "Summarize workspace status"
 ```
 
 ## Code Style Guidelines

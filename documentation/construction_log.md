@@ -808,3 +808,49 @@ Chaque entrée suit ce format :
 - `.codex/knowledge/captures.md` / `.codex/knowledge/playbook.md` / `.codex/knowledge/decision_log.md` — boucle knowledge locale.
 
 ---
+
+### 2026-02-26 17:40 — Sprint 3 V2 Infrastructure Tools + Assistant Adapter + CLI
+
+**Assistant IA utilisé** : Codex (GPT-5)
+
+**Objectif** : Implémenter Sprint 3 V2 de bout en bout (outils d'infrastructure, mode assistant général, CLI, tests, documentation, knowledge loop).
+
+**Actions effectuées** :
+- Ajout de la section `tools` dans `config/default.yaml` + création de `config/assistant.yaml`.
+- Extension de la validation stricte dans `core/config.py` (provider web search, allowlist commandes, limites taille/timeout).
+- Implémentation de la couche `tools/` : `file_read`, `file_write`, `bash_exec`, `web_search`, `think`, `decompose`, et helper `register_infrastructure_tools()`.
+- Implémentation de `adapters/assistant/` avec `AssistantAdapter` et `LocalWorkspace` sandboxé.
+- Création de `main.py` pour exécuter le runtime assistant (`--adapter assistant --objective ...`).
+- Ajout des tests Sprint 3 :
+  - `tests/unit/test_file_tools.py`
+  - `tests/unit/test_bash_tool.py`
+  - `tests/unit/test_assistant_adapter.py`
+  - `tests/integration/test_assistant_run.py`
+- Mise à jour des guides et artefacts sprint : `AGENTS.md`, `CLAUDE.md`, `documentation/redisgn_v2/sprint_03_artifact.md`.
+- Création d'un ADR Sprint 3 et mise à jour de l'index ADR.
+
+**Décisions prises** :
+- Conserver la CLI Sprint 3 en mode `assistant` uniquement (pas de stubs multi-adapters).
+- Implémenter `FileWriteTool` en mode patch structuré (`overwrite`, `append`, `replace_text`).
+- Définir `web_search_provider: none` comme no-op explicite traçable (pas d'échec par défaut).
+
+**Problèmes rencontrés** :
+- Aucun blocage majeur; validations passées au premier cycle après implémentation.
+
+**Résultat** : Sprint 3 V2 implémenté et validé.
+
+**Validation** :
+- `uv run pytest tests/unit -q` -> `81 passed`
+- `uv run pytest tests/integration/test_assistant_run.py -q` -> `4 passed`
+- `uv run pytest tests/unit tests/integration -q` -> `85 passed`
+- `uv run python main.py --adapter assistant --objective "Create a short checklist" --max-ticks 12 --agents 1 --seed 7` -> run réussi, `stop_reason=all_terminal`
+
+**Fichiers modifiés/créés** :
+- `config/default.yaml`, `config/assistant.yaml`, `core/config.py`, `main.py`
+- `tools/__init__.py`, `tools/file_read.py`, `tools/file_write.py`, `tools/bash_exec.py`, `tools/web_search.py`, `tools/think.py`, `tools/decompose.py`
+- `adapters/__init__.py`, `adapters/assistant/__init__.py`, `adapters/assistant/adapter.py`, `adapters/assistant/workspace.py`
+- `tests/conftest.py`, `tests/unit/test_file_tools.py`, `tests/unit/test_bash_tool.py`, `tests/unit/test_assistant_adapter.py`, `tests/integration/test_assistant_run.py`
+- `AGENTS.md`, `CLAUDE.md`, `documentation/redisgn_v2/sprint_03_artifact.md`
+- `documentation/decisions/20260226-sprint3-v2-infrastructure-tools-and-assistant-mode.md`, `documentation/decisions/INDEX.md`
+
+---
