@@ -753,3 +753,58 @@ Chaque entrée suit ce format :
 - `AGENTS.md`
 - `CLAUDE.md`
 - `documentation/construction_log.md`
+
+### 2026-02-26 15:40 — Sprint 2 V2 Core Runtime (Agents, Pressure, Orchestrator, Tooling)
+
+**Assistant IA utilisé** : Codex (GPT-5)
+
+**Objectif** : Implémenter Sprint 2 V2 de bout en bout sur la base Sprint 1 (runtime générique agentique, tests unitaires, documentation de clôture, knowledge loop).
+
+**Actions effectuées** :
+- Création des modules Sprint 2 core: `core/tool_registry.py`, `core/pressure.py`, `core/environment.py`, `core/agent.py`, `core/orchestrator.py`.
+- Création des contrats d’adaptateur: `adapters/base.py` + exports `adapters/__init__.py`.
+- Port du client LLM provider-aware dans `llm/client.py` + ajout `llm/prompts.py` et `llm/__init__.py`.
+- Extension des exports publics dans `core/__init__.py`.
+- Création de la fixture mock d’intégration unitaire: `tests/fixtures/mock_adapter.py`.
+- Ajout des suites unitaires Sprint 2: `test_pressure.py`, `test_agent.py`, `test_orchestrator.py`, `test_llm_client.py`.
+- Mise à jour de `tests/conftest.py` pour exposer `tests/fixtures`.
+- Validation ciblée des nouvelles suites puis validation gate complète `tests/unit`.
+- Mise à jour documentaire Sprint 2: `AGENTS.md`, `CLAUDE.md`, artefact Sprint 02, ADR Sprint 2, index ADR.
+- Exécution de la boucle knowledge locale (`captures`, `playbook`, `decision_log`).
+
+**Décisions prises** :
+- Conserver un cœur d’orchestration asynchrone avec wrapper synchrone (`run_sync`) pour simplifier les tests unitaires sans dépendance plugin async.
+- Garder la sortie orchestrateur Sprint 2 en mémoire (`OrchestratorResult` + `TickRow`) et reporter les exports fichiers alignés V2 aux sprints dédiés métriques.
+- Maintenir un port LLM mock-first sans test live bloquant pour garantir la reproductibilité des validations locales.
+
+**Problèmes rencontrés** :
+- Une incohérence de sélection d’action agent (priorité payload `eligible_actions` non appliquée) causait un échec test unitaire → correction par intersection explicite des actions éligibles outil/payload dans `StigmergicAgent._candidate_markers`.
+
+**Résultat** : Sprint 2 V2 implémenté et validé localement.
+
+**Validation** :
+- `uv run pytest tests/unit/test_pressure.py tests/unit/test_agent.py tests/unit/test_orchestrator.py tests/unit/test_llm_client.py -q` → `30 passed`
+- `uv run pytest tests/unit -v` → `61 passed`
+
+**Fichiers modifiés** :
+- `core/tool_registry.py` — contrats `Tool`, `Decision`, `ActionResult`, registre d’actions.
+- `core/pressure.py` — calcul de pression normalisé + softmax/greedy.
+- `core/environment.py` — composition runtime + dépôt + maintenance + budget.
+- `core/agent.py` — agent homogène perceive/decide/execute.
+- `core/orchestrator.py` — tick loop parallèle, arbitrage lock, stop conditions.
+- `core/__init__.py` — exports Sprint 2.
+- `adapters/base.py` / `adapters/__init__.py` — contrats adaptateurs.
+- `llm/client.py` / `llm/prompts.py` / `llm/__init__.py` — client LLM et prompts.
+- `tests/conftest.py` — ajout path fixtures.
+- `tests/fixtures/mock_adapter.py` — adaptateur mock + outils increment/check/finalize.
+- `tests/unit/test_pressure.py` — 6 tests pression/sélection.
+- `tests/unit/test_agent.py` — 10 tests agent.
+- `tests/unit/test_orchestrator.py` — 8 tests orchestrateur.
+- `tests/unit/test_llm_client.py` — tests LLM mock-first.
+- `AGENTS.md` / `CLAUDE.md` — scope Sprint 2 synchronisé.
+- `documentation/redisgn_v2/sprint_02_artifact.md` — artefact Sprint 2.
+- `documentation/decisions/20260226-sprint2-v2-agent-orchestrator-runtime.md` — ADR Sprint 2.
+- `documentation/decisions/INDEX.md` — index ADR mis à jour.
+- `.codex/knowledge/captures.md` / `.codex/knowledge/playbook.md` / `.codex/knowledge/decision_log.md` — boucle knowledge locale.
+
+---

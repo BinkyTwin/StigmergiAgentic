@@ -6,9 +6,9 @@ This file provides guidance to GitHub Copilot / Codex when working in this repos
 
 Stigmergic orchestration framework V2 (redesign from scratch) for a Master's thesis (EMLV).
 
-Current repository state is **Sprint 1 V2**: only the generic environment core is implemented.
+Current repository state is **Sprint 2 V2**: generic environment core + generic agents/orchestrator runtime.
 
-## Current Scope (Sprint 1 V2)
+## Current Scope (Sprint 2 V2)
 
 Implemented:
 - `core/marker.py` — generic marker model + configurable state machine
@@ -17,13 +17,21 @@ Implemented:
 - `core/guardrails.py` — deep norms (budget, retry limit, lock TTL, traceability)
 - `core/audit.py` — append-only JSONL audit trail
 - `core/config.py` + `config/default.yaml` — loading, merge, strict validation
-- `tests/unit/*` — 31 Sprint 1 unit tests
+- `core/tool_registry.py` — tool contracts + action registry
+- `core/pressure.py` — pressure computation + softmax action selection
+- `core/environment.py` — runtime environment wrapper (store + guardrails + state machine)
+- `core/agent.py` — homogeneous stigmergic agent (perceive/decide/execute)
+- `core/orchestrator.py` — parallel tick loop + lock conflict resolution + stop conditions
+- `adapters/base.py` — domain adapter/objective/workspace contracts
+- `llm/client.py` + `llm/prompts.py` — provider-aware LLM client and prompt helpers
+- `tests/unit/*` — 61 Sprint 1+2 unit tests
 
 Not implemented yet:
-- generic agents
-- orchestrator tick loop
-- domain adapters (TravelPlanner, CodeMigration, SWE-bench)
-- baselines and emergence metrics
+- TravelPlanner adapter
+- CodeMigration adapter (V2)
+- SWE-bench adapter
+- baseline runners aligned with V2 runtime
+- emergence and Pareto instrumentation aligned with V2 runtime
 
 ## Architecture Baseline
 
@@ -39,7 +47,7 @@ Required fields include:
 
 ### Marker Store
 
-`core.marker_store.MarkerStore` is the only persistence API in Sprint 1:
+`core.marker_store.MarkerStore` is the persistence API:
 - SQLite file: `pheromones/markers.db`
 - `PRAGMA journal_mode=WAL`
 - atomic mutations (`BEGIN IMMEDIATE`)
@@ -55,6 +63,17 @@ Public methods:
 - `apply_decay`
 - `maintain_locks`
 - `snapshot`
+
+### Agent Runtime
+
+`core.orchestrator.Orchestrator` executes the tick loop:
+1. environment maintenance (TTL + decay)
+2. snapshot
+3. parallel `perceive_and_decide`
+4. lock arbitration
+5. parallel `execute`
+6. sequential deposit via `Environment.apply_action_result`
+7. stop-condition checks (`all_terminal`, `idle_cycles`, `budget_exhausted`, `max_ticks`)
 
 ### Guardrails
 
@@ -75,18 +94,38 @@ core/
   guardrails.py
   audit.py
   config.py
+  tool_registry.py
+  pressure.py
+  environment.py
+  agent.py
+  orchestrator.py
+
+adapters/
+  __init__.py
+  base.py
+
+llm/
+  __init__.py
+  client.py
+  prompts.py
 
 config/
   default.yaml
 
 tests/
   conftest.py
+  fixtures/
+    mock_adapter.py
   unit/
     test_marker.py
     test_decay.py
     test_guardrails.py
     test_audit.py
     test_marker_store.py
+    test_pressure.py
+    test_agent.py
+    test_orchestrator.py
+    test_llm_client.py
 ```
 
 ## Commands
@@ -99,12 +138,12 @@ uv venv --python 3.11 .venv
 uv pip install -r requirements.txt
 ```
 
-### Sprint 1 validation
+### Sprint 2 validation
 
 ```bash
 uv run pytest tests/unit -v
-uv run pytest tests/unit/test_marker_store.py -v
-uv run pytest tests/unit/test_guardrails.py -v
+uv run pytest tests/unit/test_agent.py tests/unit/test_orchestrator.py -v
+uv run pytest tests/unit/test_pressure.py tests/unit/test_llm_client.py -v
 ```
 
 ## Code Style Guidelines

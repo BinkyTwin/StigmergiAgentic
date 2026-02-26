@@ -305,3 +305,22 @@ Established a mandatory sprint-close documentation protocol in `documentation/re
 - `documentation/redisgn_v2/README.md`
 - `documentation/redisgn_v2/sprint_01_artifact.md`
 - Rule references added in `AGENTS.md` and `CLAUDE.md`
+
+## 2026-02-26 — Sprint 2 V2 Generic Runtime Closure
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `impact_score`: `9/10`
+- `confidence`: `high`
+- `scope`: `Sprint 2 V2 runtime (agent, pressure, orchestrator, tool contracts, llm client port, unit validation)`
+
+### Outcome
+Delivered a generic, testable multi-agent runtime on top of the Sprint 1 marker environment, including asynchronous orchestration with deterministic sync entrypoints, lock-safe conflict resolution, and provider-aware LLM client integration.
+
+### Reusable Patterns (1-3)
+1. Keep async orchestration core with a synchronous wrapper for deterministic unit tests and low-friction local validation.
+2. Enforce marker-state transitions and budget checks in the environment layer so tools stay domain-focused and side effects remain auditable.
+3. Test orchestration deterministically with a mock adapter exposing simple staged tools (`increment/check/finalize`) to validate conflicts, stop conditions, and parallel tick behavior.
+
+### Evidence
+- `uv run pytest tests/unit/test_pressure.py tests/unit/test_agent.py tests/unit/test_orchestrator.py tests/unit/test_llm_client.py -q` (`30 passed`)
+- `uv run pytest tests/unit -v` (`61 passed`)

@@ -17,6 +17,7 @@ Les ADRs suivent le format : `YYYYMMDD-titre-court.md`
 | 005 | 2026-02-12 | [Sprint 3 Full Orchestration Loop with Blocking Gate on docopt/docopt@0.6.2](20260212-sprint3-loop-gating-docopt.md) | Accepté | Loop/CLI/metrics Sprint 3 + fallback adaptatif + gate bloquant local/Docker validé |
 | 006 | 2026-02-12 | [Sprint 3 LLM Cost Budgeting with Uncapped Output Tokens](20260212-sprint3-llm-cost-budget-and-uncapped-output.md) | Accepté | Suppression du cap output dur + budget USD optionnel basé sur pricing OpenRouter et usage réel |
 | 007 | 2026-02-26 | [Sprint 1 V2 Core Reset and SQLite Marker Store](20260226-sprint1-v2-core-reset-and-sqlite-marker-store.md) | Accepté | Hard reset runtime V0.1 + core générique V2 (Marker, MarkerStore WAL, Guardrails, Audit, Config, 31 tests) |
+| 008 | 2026-02-26 | [Sprint 2 V2 Generic Agent Runtime (Pressure + Orchestrator)](20260226-sprint2-v2-agent-orchestrator-runtime.md) | Accepté | Runtime générique Sprint 2 (tool registry, pressure model, environment, agent, orchestrator async/sync, port LLM client, 61 tests unitaires) |
 
 ---
 

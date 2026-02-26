@@ -119,3 +119,11 @@
 - `rationale`: This creates a stable, sprint-granular trace of runtime behavior and reduces onboarding ambiguity for future agents.
 - `alternatives_rejected`: Keeping artifact-state notes only in `construction_log.md`, or relying on ad-hoc sprint summaries.
 - `linked_adr`: `N/A (process rule)`
+
+## 2026-02-26 (Sprint 2 V2 Runtime)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: Implement Sprint 2 with an async core runtime (`Environment`, `StigmergicAgent`, `Orchestrator`) plus sync test wrapper, pressure-driven selection, and environment-mediated deposits.
+- `rationale`: This preserves stigmergic decentralization, keeps mutation/guardrail control centralized, and enables deterministic unit validation without external dependencies.
+- `alternatives_rejected`: Fully synchronous orchestrator, direct tool-to-store writes, and deferred LLM client port.
+- `linked_adr`: `documentation/decisions/20260226-sprint2-v2-agent-orchestrator-runtime.md`

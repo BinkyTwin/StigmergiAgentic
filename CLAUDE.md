@@ -6,9 +6,9 @@ This file provides guidance to Claude Code when working in this repository.
 
 Stigmergic orchestration framework V2 for thesis research (EMLV).
 
-The codebase is currently at **Sprint 1 V2** (core environment only). Legacy V0.1 runtime was removed on this branch to start a clean redesign baseline.
+The codebase is currently at **Sprint 2 V2** (generic core + generic agent runtime).
 
-## Sprint 1 V2 Status (2026-02-26)
+## Sprint 2 V2 Status (2026-02-26)
 
 Implemented modules:
 - `core/marker.py`
@@ -17,18 +17,40 @@ Implemented modules:
 - `core/guardrails.py`
 - `core/audit.py`
 - `core/config.py`
+- `core/tool_registry.py`
+- `core/pressure.py`
+- `core/environment.py`
+- `core/agent.py`
+- `core/orchestrator.py`
+- `adapters/base.py`
+- `llm/client.py`
+- `llm/prompts.py`
 - `config/default.yaml`
-- `tests/unit/*` (31 tests)
+- `tests/unit/*` (61 tests)
 
 Validated gate:
-- `uv run pytest tests/unit -v` -> 31 passed
+- `uv run pytest tests/unit -v` -> 61 passed
 
 ## Design Principles
 
 - Coordination medium first: markers are the single shared trace primitive.
-- Separation of concerns: domain logic is out of scope for Sprint 1.
+- Separation of concerns: adapters provide domain logic through tool contracts.
 - Strong governance: traceability, budget checks, retry limits, lock TTL.
 - Auditability by default: append-only JSONL events with before/after payloads.
+- Role-free agents: same agent logic, specialization through pressures and marker availability.
+
+## Runtime Model
+
+```text
+snapshot -> decide (parallel) -> lock arbitration -> execute (parallel)
+-> deposit (transactional) -> maintain (TTL + decay)
+```
+
+Stop conditions:
+- `all_terminal`
+- `idle_cycles`
+- `budget_exhausted`
+- `max_ticks`
 
 ## Marker State Machine Defaults
 
@@ -39,7 +61,7 @@ any -> skipped
 any -> escalated
 ```
 
-The state machine is configurable and validated through `StateMachine`.
+The state machine remains configurable and validated through `StateMachine`.
 
 ## Persistence Model
 
@@ -66,14 +88,32 @@ The state machine is configurable and validated through `StateMachine`.
 - `TraceabilityError`
 - `ScopeLockError`
 
-### `core.audit`
-- `AuditEvent`
-- `AuditLog`
+### `core.tool_registry`
+- `Decision`
+- `ActionResult`
+- `Tool`
+- `ToolRegistry`
 
-### `core.config`
-- `load_config`
-- `merge_config`
-- `validate_config`
+### `core.pressure`
+- `compute_pressures`
+- `select_action`
+
+### `core.environment`
+- `Environment`
+- `EnvironmentSnapshot`
+
+### `core.agent`
+- `StigmergicAgent`
+
+### `core.orchestrator`
+- `Orchestrator`
+- `TickRow`
+- `OrchestratorResult`
+
+### `llm.client`
+- `LLMClient`
+- `LLMResponse`
+- `ModelPricing`
 
 ## Commands
 
@@ -85,12 +125,12 @@ uv venv --python 3.11 .venv
 uv pip install -r requirements.txt
 ```
 
-### Test (Sprint 1)
+### Test (Sprint 2)
 
 ```bash
 uv run pytest tests/unit -v
-uv run pytest tests/unit/test_marker_store.py -v
-uv run pytest tests/unit/test_guardrails.py -v
+uv run pytest tests/unit/test_agent.py tests/unit/test_orchestrator.py -v
+uv run pytest tests/unit/test_pressure.py tests/unit/test_llm_client.py -v
 ```
 
 ## Coding Rules

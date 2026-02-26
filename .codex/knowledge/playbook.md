@@ -91,3 +91,8 @@
 - At every sprint closure, write/update `documentation/redisgn_v2/sprint_XX_artifact.md`.
 - Keep sections fixed: scope, behavior, interfaces, guardrails, limits, validation evidence.
 - Mirror the rule in both agent instruction files to keep future contributors aligned.
+
+### Sprint 2 Runtime Contract Standard
+- Model orchestration as `snapshot -> decision -> lock -> execute -> deposit -> maintain` to keep coordination medium explicit and testable.
+- Keep tool APIs narrow (`is_eligible`, async `execute`) and treat environment as the single mutation gate for store writes and guardrails.
+- For concurrency tests, use one minimal mock adapter with staged marker transitions to validate lock arbitration and stop reasons without domain noise.
