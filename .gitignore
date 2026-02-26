@@ -55,3 +55,6 @@ metrics/output/
 .AppleDouble
 .LSOverride
 Thumbs.db
+
+#pdfs
+*.pdf
