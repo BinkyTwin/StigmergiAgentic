@@ -265,3 +265,23 @@ Executed 5 complete stigmergic runs on `docopt/docopt@0.6.2` using `openai/gpt-5
 ### Evidence
 - `metrics/output/pre_sprint4_gpt5nano_20260219_stigmergic_5runs_curated` (5 manifests, 5 summaries, 5 ticks CSV)
 - `uv run python metrics/pareto.py --input-dir metrics/output/pre_sprint4_gpt5nano_20260219_stigmergic_5runs_curated --output .../pareto.png --plot-mode per-run --export-json .../pareto_summary.json` (`points=5`, `baselines=1`)
+
+## 2026-02-26 — V2 Sprint 1 Core Environment Reset (SQLite WAL)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `impact_score`: `9/10`
+- `confidence`: `high`
+- `scope`: `Hard reset V0.1 runtime and implement V2 Sprint 1 generic environment core`
+
+### Outcome
+Delivered a clean V2 baseline with a generic `Marker` contract, transactional SQLite/WAL `MarkerStore`, append-only JSONL audit, guardrails, strict config validation, and a complete 31-test Sprint 1 unit gate.
+
+### Reusable Patterns (1-3)
+1. For architecture resets, remove legacy runtime paths early in a dedicated branch to prevent hybrid coupling and simplify acceptance gates.
+2. Use SQLite `WAL` + `BEGIN IMMEDIATE` for coordination state to keep write integrity while preserving concurrent read scalability.
+3. Treat audit logging as a first-class write-path invariant (`before/after` per mutation) rather than a post-processing export.
+
+### Evidence
+- `uv run pytest tests/unit -v` (`31 passed`)
+- `uv run pytest tests/unit/test_marker_store.py -v` (`12 passed`)
+- `uv run pytest tests/unit/test_guardrails.py -v` (`6 passed`)

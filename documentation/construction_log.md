@@ -681,3 +681,48 @@ Chaque entrée suit ce format :
 - `AGENTS.md`
 - `CLAUDE.md`
 - `documentation/construction_log.md`
+
+---
+
+### 2026-02-26 13:15 — V2 Sprint 1 Reset and Core Environment (SQLite Marker Store)
+
+**Assistant IA utilisé** : Codex (GPT-5)
+
+**Objectif** : Réinitialiser le runtime V0.1 et implémenter Sprint 1 V2 de bout en bout avec un noyau environnement générique (markers, store SQLite WAL, guardrails, audit, config, tests unitaires).
+
+**Actions effectuées** :
+- Création de la branche `codex/v2-redesign-sprint1` depuis `main`
+- Suppression du runtime V0.1 (`agents/`, `environment/`, `stigmergy/`, `main.py`) et des anciens tests `tests/test_*.py`
+- Implémentation des modules `core/` : `marker.py`, `marker_store.py`, `decay.py`, `guardrails.py`, `audit.py`, `config.py`, `__init__.py`
+- Création de `config/default.yaml` avec sections Sprint 1 validées
+- Création de la nouvelle suite `tests/unit/` (31 tests) + mise à jour `tests/conftest.py`
+- Exécution des validations Sprint 1 strictes
+- Mise à jour de la documentation de pilotage (`AGENTS.md`, `CLAUDE.md`)
+
+**Décisions prises** :
+- Adopter SQLite en mode WAL comme store principal de coordination dès Sprint 1 V2
+- Rendre l’audit JSONL append-only obligatoire pour chaque mutation du store
+- Appliquer un hard reset du runtime V0.1 dans la branche V2 pour éviter la cohabitation de deux architectures
+
+**Problèmes rencontrés** :
+- Import `core` indisponible lors de la collecte pytest (`tests/conftest.py`) → correction de l’ordre d’initialisation du `sys.path` avant import des fixtures
+
+**Résultat** : Sprint 1 V2 implémenté et validé (`31 passed` sur `tests/unit`)
+
+**Fichiers modifiés** :
+- `core/marker.py` — Dataclass `Marker`, validations strictes, `StateMachine`
+- `core/marker_store.py` — CRUD transactionnel SQLite WAL, lock/unlock, decay, TTL maintenance, snapshot, audit
+- `core/decay.py` — Décroissance intensité et inhibition
+- `core/guardrails.py` — Budget/retry/TTL/traceability guards
+- `core/audit.py` — `AuditEvent` + `AuditLog` append-only
+- `core/config.py` — chargement, fusion, validation stricte de config
+- `core/__init__.py` — exports publics Sprint 1
+- `config/default.yaml` — configuration par défaut V2
+- `tests/conftest.py` — fixtures Sprint 1
+- `tests/unit/test_marker.py` — 5 tests
+- `tests/unit/test_decay.py` — 4 tests
+- `tests/unit/test_guardrails.py` — 6 tests
+- `tests/unit/test_audit.py` — 4 tests
+- `tests/unit/test_marker_store.py` — 12 tests
+- `AGENTS.md` — documentation alignée V2 Sprint 1
+- `CLAUDE.md` — documentation alignée V2 Sprint 1

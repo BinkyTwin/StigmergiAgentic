@@ -16,6 +16,7 @@ Les ADRs suivent le format : `YYYYMMDD-titre-court.md`
 | 004 | 2026-02-12 | [Sprint 2.5 Docker Infrastructure for Tests & Migrations](20260212-sprint2.5-docker-infrastructure.md) | Accepté | Docker multi-stage + docker-compose + Makefile pour exécution reproductible |
 | 005 | 2026-02-12 | [Sprint 3 Full Orchestration Loop with Blocking Gate on docopt/docopt@0.6.2](20260212-sprint3-loop-gating-docopt.md) | Accepté | Loop/CLI/metrics Sprint 3 + fallback adaptatif + gate bloquant local/Docker validé |
 | 006 | 2026-02-12 | [Sprint 3 LLM Cost Budgeting with Uncapped Output Tokens](20260212-sprint3-llm-cost-budget-and-uncapped-output.md) | Accepté | Suppression du cap output dur + budget USD optionnel basé sur pricing OpenRouter et usage réel |
+| 007 | 2026-02-26 | [Sprint 1 V2 Core Reset and SQLite Marker Store](20260226-sprint1-v2-core-reset-and-sqlite-marker-store.md) | Accepté | Hard reset runtime V0.1 + core générique V2 (Marker, MarkerStore WAL, Guardrails, Audit, Config, 31 tests) |
 
 ---
 
@@ -35,4 +36,4 @@ Quand NE PAS créer un ADR :
 
 ---
 
-**Dernière mise à jour** : 2026-02-12
+**Dernière mise à jour** : 2026-02-26

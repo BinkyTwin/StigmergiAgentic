@@ -1,376 +1,144 @@
 # AGENTS.md
 
-This file provides guidance to GitHub Copilot / Codex when working with code in this repository.
+This file provides guidance to GitHub Copilot / Codex when working in this repository.
 
 ## Project Overview
 
-Stigmergic orchestration of multi-agent LLM systems — a POC for a Master's thesis (EMLV). The system uses **4 specialized LLM agents** to automate Python 2 → Python 3 code migration, coordinated **only** through a shared environment (digital pheromones). No agent communicates directly with another; the environment (JSON pheromone files + Git repo) is the sole coordination medium.
+Stigmergic orchestration framework V2 (redesign from scratch) for a Master's thesis (EMLV).
 
-This implements Grassé's stigmergy (1959) via the Agents & Artifacts paradigm (Ricci et al., 2007).
+Current repository state is **Sprint 1 V2**: only the generic environment core is implemented.
 
-## Architecture
+## Current Scope (Sprint 1 V2)
 
-### Core Loop
+Implemented:
+- `core/marker.py` — generic marker model + configurable state machine
+- `core/marker_store.py` — SQLite (WAL) transactional marker store + locks + decay + snapshots
+- `core/decay.py` — intensity and inhibition decay
+- `core/guardrails.py` — deep norms (budget, retry limit, lock TTL, traceability)
+- `core/audit.py` — append-only JSONL audit trail
+- `core/config.py` + `config/default.yaml` — loading, merge, strict validation
+- `tests/unit/*` — 31 Sprint 1 unit tests
 
-Round-robin (no supervisor): Scout → Transformer → Tester → Validator → repeat. Each agent: `perceive → should_act → decide → execute → deposit`. The deposited trace stimulates the next agent.
+Not implemented yet:
+- generic agents
+- orchestrator tick loop
+- domain adapters (TravelPlanner, CodeMigration, SWE-bench)
+- baselines and emergence metrics
 
-Stop conditions are OR-combined: all files terminal, token/USD budget exhausted, max ticks reached, or idle cycle threshold reached.
+## Architecture Baseline
 
-### Agents
+### Marker Model
 
-| Agent | Role | Uses LLM? |
-|---|---|---|
-| **Scout** | Analyzes Python 2 codebase, deposits task pheromones with priority | Yes |
-| **Transformer** | Reads task pheromones, generates Python 3 code | Yes |
-| **Tester** | Runs pytest on transformed files, deposits quality pheromones | No (deterministic) |
-| **Validator** | Commits/reverts/escalates based on confidence thresholds | No |
+All inter-agent coordination traces are represented as `Marker` objects.
 
-All agents inherit from `agents/base_agent.py` (abstract class with the perceive→deposit cycle).
+Required fields include:
+- identity: `id`, `marker_type`, `target`
+- signal: `intensity`, `state`, `payload`
+- traceability: `created_by`, `created_at`, `updated_by`, `updated_at`
+- coordination: `lock_owner`, `lock_tick`, `inhibition`, `retry_count`, `history`
 
-### Implementation Status (2026-02-17)
+### Marker Store
 
-Sprint 3 is implemented and gate-validated, and Sprint 4 baseline tooling is now implemented:
-- `main.py` provides CLI orchestration with `--repo-ref`, `--resume`, `--review`, `--dry-run`, and run manifest hashing.
-- `stigmergy/loop.py` implements full round-robin execution and 4 stop conditions (`all_terminal`, `budget_exhausted`, `max_ticks`, `idle_cycles`).
-- `metrics/collector.py` and `metrics/export.py` export `run_{id}_ticks.csv`, `run_{id}_summary.json`, `run_{id}_manifest.json`.
-- `environment/pheromone_store.py` includes tick maintenance for `retry -> pending` and TTL lock release.
-- `agents/tester.py` includes adaptive fallback confidence with inconclusive/related handling and robust compile checks.
-- `agents/validator.py` supports runtime `dry_run` (no git mutations).
-- Full Sprint 3 test suite is available (`test_loop.py`, `test_metrics.py`, `test_main.py` + extensions).
-- `baselines/single_agent.py` implements a realistic single-agent baseline with shared budgets and validator-style confidence thresholds.
-- `baselines/sequential.py` implements a fixed-stage baseline (Scout→Transformer→Tester→Validator by batches) for fairness comparison.
-- `metrics/pareto.py` now supports aggregate and per-run plotting (`--plot-mode`) with optional baseline-coverage enforcement (`--require-baselines`) and CI95 export fields.
-- Sprint 4 support tests include `tests/test_pareto.py`, `tests/test_baselines_common.py`, `tests/test_baselines_single_agent.py`, and `tests/test_baselines_sequential.py`.
-- Mobile-readable snapshot document: `documentation/MOBILE_RESULTS.md` (5x3 unbounded benchmark scoreboard + Pareto extracts).
-- 2026-02-20 hardening for Docker reproducibility:
-  - `_prepare_target_repo()` now rejects empty `--repo` specs with an explicit error (prevents accidental recursive copy of `/app`).
-  - `Scout.decide()` now skips unreadable/missing files with warning logs instead of crashing a run.
-  - Added regression tests: `test_prepare_target_repo_rejects_empty_repo_spec`, `test_scout_skips_missing_candidate_file`, `test_scout_llm_analysis_handles_null_line_field`.
-- Sprint 3 blocking gates pass:
-  - synthetic fixture run: 19/20 validated (95%)
-  - real repo `docopt/docopt@0.6.2`: 21/23 validated local (91.3%), 20/23 validated Docker (86.96%).
+`core.marker_store.MarkerStore` is the only persistence API in Sprint 1:
+- SQLite file: `pheromones/markers.db`
+- `PRAGMA journal_mode=WAL`
+- atomic mutations (`BEGIN IMMEDIATE`)
+- append-only audit in `pheromones/audit_log.jsonl`
 
-### Three Pheromone Types (JSON files in `pheromones/`)
+Public methods:
+- `upsert_marker`
+- `get_marker`
+- `get_by_type_target`
+- `query_markers`
+- `acquire_lock`
+- `release_lock`
+- `apply_decay`
+- `maintain_locks`
+- `snapshot`
 
-- **tasks.json** — Task pheromones (Scout deposits). Intensity = `normalize(pattern_count × 0.6 + dep_count × 0.4)`. Evaporation: -0.05/tick.
-- **status.json** — Status pheromones (all agents). State machine: `pending → in_progress → transformed → tested → validated | needs_review | failed → retry | skipped`.
-- **quality.json** — Quality pheromones (Tester/Validator). Reinforcement: pass → `confidence += 0.1`; fail → `confidence -= 0.2` + retry.
+### Guardrails
 
-### Guardrails (`environment/guardrails.py`)
+Deep norms are environment-enforced, not agent-enforced:
+- token/cost budget ceilings
+- retry overflow (`retry_count > max_retry_count`)
+- lock TTL expiration
+- traceability metadata checks
 
-Enforced by the environment, not by agents:
-- **Traceability**: timestamped, agent-signed writes (EU AI Act Art. 14)
-- **Token and cost budget**: hard ceilings from config
-- **Auto-rollback**: `tests_failed > threshold` → git revert
-- **Human escalation**: `0.5 < confidence < 0.8` → needs_review
-- **Anti-loop**: `retry_count > 3` → skip + log
-- **Scope lock**: one agent per file (mutex)
+## Project Structure (Current)
 
-## Project Structure
+```text
+core/
+  __init__.py
+  marker.py
+  marker_store.py
+  decay.py
+  guardrails.py
+  audit.py
+  config.py
 
-```
-agents/           → 4 specialized agents + base_agent.py
-environment/      → pheromone_store.py, guardrails.py, decay.py
-stigmergy/        → loop.py (main loop), config.yaml, llm_client.py (provider-aware: OpenRouter/Z.ai)
-pheromones/       → tasks.json, status.json, quality.json (runtime trace store)
-metrics/          → collector.py, pareto.py, export.py
-baselines/        → single_agent.py, sequential.py (comparison experiments)
-target_repo/      → Python 2 code under migration (cloned dynamically)
-tests/            → pytest test suite
-consigne/         → Architecture plan and literature review (specification docs)
-documentation/    → Construction logs, decisions, and technical notes for thesis
+config/
+  default.yaml
+
+tests/
+  conftest.py
+  unit/
+    test_marker.py
+    test_decay.py
+    test_guardrails.py
+    test_audit.py
+    test_marker_store.py
 ```
 
 ## Commands
 
-### Local (uv)
+### Environment
 
 ```bash
-# Bootstrap environment with uv (recommended)
 uv python install 3.11
 uv venv --python 3.11 .venv
 uv pip install -r requirements.txt
-
-# Run the stigmergic POC
-uv run python main.py --repo <python2_repo_url> --config stigmergy/config.yaml
-
-# Run with pinned repo ref (tag/branch/commit)
-uv run python main.py --repo <python2_repo_url> --repo-ref <ref> --config stigmergy/config.yaml
-
-# Run with explicit USD budget cap
-uv run python main.py --repo <python2_repo_url> --max-budget-usd 3.5 --config stigmergy/config.yaml
-
-# Review needs_review files interactively
-uv run python main.py --review --repo <python2_repo_url> --repo-ref <ref>
-
-# Run tests
-uv run pytest tests/ -v
-
-# Run a single test file
-uv run pytest tests/test_pheromone_store.py -v
-
-# Run Sprint 2 agent tests
-uv run pytest tests/test_llm_client.py tests/test_base_agent.py tests/test_scout.py \
-  tests/test_transformer.py tests/test_tester.py tests/test_validator.py -v
-
-# Run Sprint 2 handoff integration tests
-uv run pytest tests/test_agents_integration.py -v
-
-# Run Sprint 3 loop/metrics/cli tests
-uv run pytest tests/test_loop.py tests/test_metrics.py tests/test_main.py -v
-
-# Run baselines for comparison
-uv run python baselines/single_agent.py --repo <url>
-uv run python baselines/sequential.py --repo <url>
-
-# Run thesis-grade unbounded benchmark (5 runs/mode)
-uv run python baselines/single_agent.py --repo <url> --repo-ref <ref> --model <model> --runs 5
-uv run python baselines/sequential.py --repo <url> --repo-ref <ref> --model <model> --runs 5
-for i in 1 2 3 4 5; do
-  uv run python main.py --repo <url> --repo-ref <ref> --model <model>
-done
-
-# Optional bounded smoke benchmark (fast sanity check)
-uv run python baselines/single_agent.py --repo <url> --repo-ref <ref> --max-ticks 1 --max-tokens 5000 --runs 5
-uv run python baselines/sequential.py --repo <url> --repo-ref <ref> --max-ticks 1 --max-tokens 5000 --runs 5
-for i in 1 2 3 4 5; do
-  uv run python main.py --repo <url> --repo-ref <ref> --max-ticks 1 --max-tokens 5000
-done
-
-# Export metrics to CSV
-uv run python metrics/export.py --output results.csv
-
-# Generate Pareto cost-precision analysis
-uv run python metrics/pareto.py --output pareto.png
-uv run python metrics/pareto.py --input-dir <out_dir> --output <out_dir>/pareto.png \
-  --plot-mode per-run --require-baselines stigmergic,single_agent,sequential \
-  --export-json <out_dir>/pareto_summary.json
 ```
 
-### Docker (Sprint 2.5)
+### Sprint 1 validation
 
 ```bash
-# Build the Docker image
-make docker-build
-
-# Run full test suite in Docker
-make docker-test
-# or: docker compose run --rm test
-
-# Run tests with coverage in Docker
-make docker-test-cov
-
-# Run migration in Docker
-make docker-migrate REPO=<python2_repo_url>
-# Run migration in Docker with pinned ref
-make docker-migrate REPO=<python2_repo_url> REPO_REF=<ref>
-
-# Interactive shell in Docker container
-make docker-shell
+uv run pytest tests/unit -v
+uv run pytest tests/unit/test_marker_store.py -v
+uv run pytest tests/unit/test_guardrails.py -v
 ```
-
-## Tech Stack
-
-- **Python 3.11+**
-- **LLM Provider**: Configurable (`openrouter` or `zai`). Current default: `openrouter` + `qwen/qwen3-235b-a22b-2507`.
-- **Pheromone store**: local JSON files
-- **Tooling**: uv for Python/runtime orchestration
-- **Testing**: pytest + pytest-cov
-- **Versioning**: Git (local) — the stigmergic medium itself
-- **Config**: YAML (`stigmergy/config.yaml` — thresholds, decay rates, token budget)
-- **Metrics**: CSV + matplotlib (Pareto frontier analysis)
-
-## Key Configuration (`stigmergy/config.yaml`)
-
-Critical thresholds that affect agent behavior:
-- `thresholds.transformer_intensity_min: 0.2` — minimum task pheromone intensity to trigger transformation
-- `thresholds.validator_confidence_high: 0.8` — auto-validate above
-- `thresholds.validator_confidence_low: 0.5` — auto-rollback below
-- `pheromones.decay_rate: 0.05` — exponential evaporation rate per tick
-- `max_retry_count: 3` — anti-loop guardrail
-- `loop.sequential_stage_action_cap` — optional per-stage cap (sequential baseline) to prevent non-terminating stage loops
-- `max_tokens_total: 1000000` — budget ceiling (raised for larger repos after Sprint 3)
-- `llm.provider` — LLM backend selector (`openrouter` or `zai`)
-- `llm.base_url` — provider base URL (defaults by provider; `zai` coding-plan endpoint supported)
-- `llm.max_response_tokens` — deprecated/ignored (client never sends `max_tokens`)
-- `llm.estimated_completion_tokens: 4096` — budget pre-check estimate when uncapped
-- `llm.max_budget_usd: 0.0` — optional cost ceiling (disabled by default)
-- `llm.pricing_endpoint` — optional pricing endpoint (used for cost pre-check when provider supports it)
-- `llm.request_timeout_seconds: 300` — per-request provider timeout to avoid long hangs
-- `llm.min_call_interval_seconds` — minimum delay between provider calls (anti-burst / anti-429)
-- `llm.min_429_backoff_seconds` — minimum retry delay when provider returns HTTP 429
-- `llm.retry_jitter_seconds` — random jitter added to retry sleeps to reduce synchronized retries
-- `tester.fallback_quality.compile_import_fail: 0.4`
-- `tester.fallback_quality.related_regression: 0.6`
-- `tester.fallback_quality.pass_or_inconclusive: 0.8`
-
-## Research Context
-
-The POC validates three research questions:
-- **RQ1**: Can digital pheromones coordinate LLM agents without central supervision?
-- **RQ2**: Does stigmergic coordination match/exceed Agentless baseline (Xia et al., 2024)?
-- **RQ3**: Do environmental traces enable complete auditability (EU AI Act compliance)?
-
-Evaluation uses Pareto frontier analysis comparing stigmergic (4 agents) vs single-agent vs sequential pipeline vs hierarchical baselines. Minimum 5 runs per configuration for stochastic variability.
 
 ## Code Style Guidelines
 
-When generating code for this project:
+- Python 3.11+
+- type hints on public functions/methods
+- PEP 8
+- focused functions and explicit errors
+- all comments and docs in English
 
-### General Principles
-- Use **type hints** for all function parameters and return types
-- Follow **PEP 8** style guide
-- Use **descriptive variable names** that reflect the stigmergic domain (e.g., `pheromone_intensity`, `task_trace`)
-- Add **docstrings** to all classes and public methods
-- Keep functions **focused** and **single-purpose**
+## Error Handling Policy
 
-### Naming Conventions
-- Classes: `PascalCase` (e.g., `BaseAgent`, `PheromoneStore`)
-- Functions/methods: `snake_case` (e.g., `perceive_environment`, `deposit_pheromone`)
-- Constants: `UPPER_SNAKE_CASE` (e.g., `MAX_RETRY_COUNT`, `DEFAULT_THRESHOLD`)
-- Private methods: prefix with `_` (e.g., `_validate_intensity`)
+- Validation errors: raise explicit `ValueError` subclasses
+- Store runtime errors: raise `MarkerStoreError`
+- Guardrail breaches: raise dedicated guardrail exceptions
+- Preserve append-only audit semantics for all marker mutations
 
-### Agent-Specific Guidelines
-- All agents must inherit from `BaseAgent`
-- Implement the four core methods: `perceive()`, `should_act()`, `decide()`, `execute()`
-- Use the pheromone store for all inter-agent communication
-- Never import or reference other agent classes directly
-- Log all significant actions with timestamps and agent signature
+## Documentation Requirements
 
-### Pheromone Management
-- Always validate pheromone intensity before acting
-- Use atomic operations when reading/writing pheromones
-- Include metadata: timestamp, agent_id, confidence
-- Respect the evaporation schedule (managed by environment)
+When Sprint scope changes, update all of:
+- `AGENTS.md`
+- `CLAUDE.md`
+- `documentation/construction_log.md`
+- relevant ADR in `documentation/decisions/`
 
-### Error Handling
+## Knowledge Loop (Mandatory)
 
-Two categories with distinct strategies:
+At end of task:
+1. Add exactly one capture entry in `.codex/knowledge/captures.md`
+2. Update reusable patterns in `.codex/knowledge/playbook.md`
+3. Append one decision in `.codex/knowledge/decision_log.md`
 
-**File Errors (Non-Fatal)** — File fails, loop continues:
-- Illisible file (`IOError`) → Scout skips, logs WARNING
-- AST parse error (`SyntaxError`) → Scout uses regex-only analysis
-- Invalid LLM output → Transformer sets status to `failed`
-- LLM timeout → Retry with exponential backoff (3 attempts)
-- pytest crash (`subprocess.CalledProcessError`) → Tester sets confidence=0.0, logs issues
-- Git conflict (`GitCommandError`) → Validator reverts, status to `failed`
-- Insufficient budget for file → Skip file, log WARNING
+## Git Workflow
 
-**System Errors (Fatal)** — Save state and terminate:
-- Invalid API key (`401 Unauthorized`) → Immediate stop with clear error message
-- Global budget exhausted → Clean stop, export metrics
-- Corrupted JSON (`JSONDecodeError`) → Attempt recovery, or stop
-- Disk full (`OSError`) → Clean stop, log error
-
-In all cases: pheromone state is saved before termination (JSON files remain consistent via file locking)
-
-### Testing
-
-Implement a comprehensive test suite with three levels:
-
-**Unit Tests (9 tests, mocked LLM)**:
-- Pheromone CRUD operations
-- File locking mechanisms
-- Decay and inhibition logic
-- Intensity normalization
-- Pattern detection (AST + regex)
-- Prompt building
-- Guardrail enforcement
-- State machine transitions
-
-**Integration Tests (4 tests, real pheromone store)**:
-- Scout → Transformer handoff
-- Transformer → Tester handoff
-- Tester → Validator handoff
-- Full single-file migration cycle
-
-**End-to-End Test (1 test, real API calls)**:
-- Complete migration of synthetic repo (~15 files, covering all 19 Python 2 patterns)
-
-## Logging
-
-Two distinct log streams:
-
-**1. Operational Log** (Python `logging` standard):
-- Level: `INFO` by default, `DEBUG` with `--verbose` flag
-- Format: `{timestamp} {level} [{agent}] {message}`
-- Output: stdout + rotating file `logs/stigmergic.log`
-- Content: agent activity, decisions, metrics
-
-**2. Audit Log** (JSONL append-only):
-- File: `pheromones/audit_log.jsonl`
-- Format: one JSON object per line
-- Content: every pheromone modification with agent, timestamp, before/after values
-- Purpose: satisfies RQ3 (EU AI Act Art. 14 traceability requirement)
-
-## Language
-
-The specification documents in `consigne/` are written in French. Code, comments, and documentation should be in English.
-
-## Documentation
-
-All development work should be documented in `documentation/` for thesis annex purposes:
-- Log construction decisions in `construction_log.md`
-- Document significant technical choices in `decisions/`
-- Keep running notes in `technical_notes.md`
-
-### Development Workflow
-
-This POC follows a two-phase workflow:
-- **Planning Phase (Claude)**: Architecture design, specification, and implementation planning
-  - See `consigne/plan_poc_stigmergique.md` for detailed architecture (1200+ lines)
-  - See `CLAUDE.md` for high-level guidance to Claude Code
-- **Implementation Phase (Codex)**: Code generation, testing, and verification based on the established plan
-  - Follow the specifications in `consigne/plan_poc_stigmergique.md`
-  - Use the tech stack and patterns defined by Claude
-  - Implement the test suite as specified below
-
-## End-of-Sprint Workflow
-
-When completing a sprint, agents MUST follow the structured workflow to ensure code quality and proper documentation:
-
-### Quick Start
-```bash
-# 1. Run automated validation
-./scripts/sprint_end.sh
-
-# 2. Review checklist
-# See .agent/workflows/end-of-sprint.md for complete checklist
-
-# 3. Make atomic commits
-git add <files>
-git commit -m "type(scope): description"
-
-# 4. Sync and push
-git fetch origin
-git rebase origin/develop
-git push origin <branch>
-
-# 5. Create PR on GitHub
-```
-
-### Commit Convention
-Format: `type(scope): description`
-
-**Types**: `feat`, `fix`, `docs`, `test`, `refactor`, `chore`  
-**Scopes**: `scout`, `transformer`, `tester`, `validator`, `pheromone`, `guardrails`, `metrics`, `loop`, `thesis`
-
-**Examples**:
-- `feat(scout): implement AST pattern detection for print statements`
-- `fix(transformer): correct syntax in f-string conversion`
-- `test(pheromone): add unit tests for intensity decay logic`
-- `docs(thesis): update construction log for sprint 2026-02-10`
-
-### Documentation Updates
-Every sprint MUST update:
-- `documentation/construction_log.md` — Sprint summary, challenges, decisions
-- `AGENTS.md` — If architecture changes
-- `CLAUDE.md` — If workflow changes
-
-### Workflow Files
-- **Checklist**: `.agent/workflows/end-of-sprint.md` — Complete validation checklist
-- **Script**: `scripts/sprint_end.sh` — Automated validation (tests, linting, formatting)
-
-## Update
-
-Always update AGENTS.md and CLAUDE.md when you make changes to the project. To stay updated with the latest changes, use the command `git log -1` to see the last commit message.
+- Branch prefix: `codex/`
+- Commit convention: `type(scope): description`
+- Keep atomic commits by concern (`chore`, `feat`, `test`, `docs`)

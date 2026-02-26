@@ -81,3 +81,8 @@
 - If execution control changes mid-batch (interrupt/restart), preserve raw outputs but build a curated directory for the exact requested sample.
 - Include only complete triplets (`manifest`, `summary`, `ticks`) per selected run id in curated sets.
 - Generate benchmark plots/JSON from curated sets to keep reported `n` aligned with user intent.
+
+### V2 Core Reset Baseline Standard
+- During redesign pivots, enforce a branch-level hard reset of obsolete runtime modules before implementing new core primitives.
+- Use a transaction-first store contract (`SQLite WAL` + explicit immediate transactions) for stigmergic markers to avoid partial updates under contention.
+- Require append-only audit with `before/after` mutation payloads as part of every state write path.

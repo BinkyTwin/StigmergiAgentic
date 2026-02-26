@@ -103,3 +103,11 @@
 - `rationale`: The trial needed uncapped completions and strict sample size control (`n=5`) despite an interrupted batch during execution.
 - `alternatives_rejected`: Keep the interrupted mixed run set as-is, or rerun everything from scratch serially.
 - `linked_adr`: `documentation/decisions/TBD-pre-sprint-gpt5nano-trial-protocol.md`
+
+## 2026-02-26
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: Execute V2 Sprint 1 as a hard reset branch and replace JSON pheromone storage with a generic SQLite/WAL marker store plus mandatory append-only audit.
+- `rationale`: A clean cut removes legacy role-coupled constraints and provides a stable, domain-agnostic coordination substrate with stronger concurrency and governance guarantees.
+- `alternatives_rejected`: Coexistence with V0.1 runtime, or delaying SQLite migration while keeping JSON+file-lock storage.
+- `linked_adr`: `documentation/decisions/20260226-sprint1-v2-core-reset-and-sqlite-marker-store.md`
