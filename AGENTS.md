@@ -130,6 +130,11 @@ When Sprint scope changes, update all of:
 - `documentation/construction_log.md`
 - relevant ADR in `documentation/decisions/`
 
+For every sprint closure (mandatory):
+- update or create `documentation/redisgn_v2/sprint_XX_artifact.md`
+- describe the current artifact behavior, interfaces, guardrails, limits, and validation evidence
+- keep file naming as `sprint_XX_artifact.md`
+
 ## Knowledge Loop (Mandatory)
 
 At end of task:

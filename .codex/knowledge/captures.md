@@ -285,3 +285,23 @@ Delivered a clean V2 baseline with a generic `Marker` contract, transactional SQ
 - `uv run pytest tests/unit -v` (`31 passed`)
 - `uv run pytest tests/unit/test_marker_store.py -v` (`12 passed`)
 - `uv run pytest tests/unit/test_guardrails.py -v` (`6 passed`)
+
+## 2026-02-26 — V2 Sprint Documentation Rule (`documentation/redisgn_v2`)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `impact_score`: `8/10`
+- `confidence`: `high`
+- `scope`: `Process governance for per-sprint artifact-state documentation`
+
+### Outcome
+Established a mandatory sprint-close documentation protocol in `documentation/redisgn_v2`, with a reusable template and a first concrete artifact status document for Sprint 1.
+
+### Reusable Patterns (1-3)
+1. Introduce a dedicated sprint-state folder to separate architecture evolution notes from generic construction logs.
+2. Enforce one fixed file naming convention (`sprint_XX_artifact.md`) to make cross-sprint retrieval deterministic.
+3. Make the protocol executable by embedding it directly in agent instruction files (`AGENTS.md`, `CLAUDE.md`).
+
+### Evidence
+- `documentation/redisgn_v2/README.md`
+- `documentation/redisgn_v2/sprint_01_artifact.md`
+- Rule references added in `AGENTS.md` and `CLAUDE.md`

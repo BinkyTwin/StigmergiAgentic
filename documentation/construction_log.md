@@ -726,3 +726,30 @@ Chaque entrée suit ce format :
 - `tests/unit/test_marker_store.py` — 12 tests
 - `AGENTS.md` — documentation alignée V2 Sprint 1
 - `CLAUDE.md` — documentation alignée V2 Sprint 1
+
+---
+
+### 2026-02-26 13:40 — Rule Added: Per-Sprint Artifact Functioning Notes (V2)
+
+**Assistant IA utilisé** : Codex (GPT-5)
+
+**Objectif** : Ajouter une règle documentaire obligatoire pour les futurs agents: documenter le fonctionnement actuel de l’artefact à chaque sprint dans `documentation/redisgn_v2`.
+
+**Actions effectuées** :
+- Création du dossier `documentation/redisgn_v2/`
+- Création de `documentation/redisgn_v2/README.md` (règle + format attendu)
+- Création de `documentation/redisgn_v2/sprint_01_artifact.md` (état actuel Sprint 1)
+- Mise à jour de `AGENTS.md` et `CLAUDE.md` pour rendre cette règle obligatoire
+
+**Décisions prises** :
+- Standardiser le nommage des fichiers de suivi sprint: `sprint_XX_artifact.md`
+- Inclure systématiquement: scope, comportement actuel, interfaces, guardrails, limites, preuves de validation
+
+**Résultat** : Règle de documentation V2 en place pour les prochains sprints et futurs agents.
+
+**Fichiers modifiés** :
+- `documentation/redisgn_v2/README.md`
+- `documentation/redisgn_v2/sprint_01_artifact.md`
+- `AGENTS.md`
+- `CLAUDE.md`
+- `documentation/construction_log.md`

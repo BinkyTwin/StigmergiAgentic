@@ -108,6 +108,10 @@ For each significant delivery:
 - add/update ADR in `documentation/decisions/`
 - keep `AGENTS.md` and `CLAUDE.md` synchronized
 
+For each sprint closure (mandatory):
+- update or create `documentation/redisgn_v2/sprint_XX_artifact.md`
+- include: sprint scope, current artifact behavior, public interfaces, guardrails, known limits, and validation evidence
+
 ## Knowledge Governance
 
 Use project-local knowledge only:

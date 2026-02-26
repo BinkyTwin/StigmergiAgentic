@@ -86,3 +86,8 @@
 - During redesign pivots, enforce a branch-level hard reset of obsolete runtime modules before implementing new core primitives.
 - Use a transaction-first store contract (`SQLite WAL` + explicit immediate transactions) for stigmergic markers to avoid partial updates under contention.
 - Require append-only audit with `before/after` mutation payloads as part of every state write path.
+
+### Per-Sprint Artifact-State Documentation Standard
+- At every sprint closure, write/update `documentation/redisgn_v2/sprint_XX_artifact.md`.
+- Keep sections fixed: scope, behavior, interfaces, guardrails, limits, validation evidence.
+- Mirror the rule in both agent instruction files to keep future contributors aligned.

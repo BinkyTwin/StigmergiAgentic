@@ -111,3 +111,11 @@
 - `rationale`: A clean cut removes legacy role-coupled constraints and provides a stable, domain-agnostic coordination substrate with stronger concurrency and governance guarantees.
 - `alternatives_rejected`: Coexistence with V0.1 runtime, or delaying SQLite migration while keeping JSON+file-lock storage.
 - `linked_adr`: `documentation/decisions/20260226-sprint1-v2-core-reset-and-sqlite-marker-store.md`
+
+## 2026-02-26 (Documentation Protocol)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: Require a per-sprint artifact functioning note in `documentation/redisgn_v2/sprint_XX_artifact.md` for all future sprint closures.
+- `rationale`: This creates a stable, sprint-granular trace of runtime behavior and reduces onboarding ambiguity for future agents.
+- `alternatives_rejected`: Keeping artifact-state notes only in `construction_log.md`, or relying on ad-hoc sprint summaries.
+- `linked_adr`: `N/A (process rule)`
