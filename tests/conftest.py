@@ -10,6 +10,9 @@ import pytest
 REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
+FIXTURES_ROOT = REPO_ROOT / "tests" / "fixtures"
+if str(FIXTURES_ROOT) not in sys.path:
+    sys.path.insert(0, str(FIXTURES_ROOT))
 
 from core.marker_store import MarkerStore
 
