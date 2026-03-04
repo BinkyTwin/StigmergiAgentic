@@ -78,6 +78,15 @@ def main(argv: list[str] | None = None) -> int:
     result = orchestrator.run_sync()
 
     evaluation = adapter.evaluate_run({"markers": result.final_snapshot.markers})
+    assistant_response = _build_assistant_response(
+        objective_id=objective.objective_id,
+        markers=result.final_snapshot.markers,
+    )
+
+    print("Assistant response:")
+    print(assistant_response)
+    print()
+
     summary = {
         "adapter": args.adapter,
         "objective_id": objective.objective_id,
@@ -88,6 +97,7 @@ def main(argv: list[str] | None = None) -> int:
         "tokens_used": int(environment.tokens_used),
         "cost_used": float(environment.cost_used),
         "evaluation": evaluation,
+        "assistant_response": assistant_response,
     }
     print(json.dumps(summary, indent=2, sort_keys=True))
     return 0
@@ -161,6 +171,105 @@ def _build_agents(
             )
         )
     return agents
+
+
+def _build_assistant_response(objective_id: str, markers: list[Any]) -> str:
+    """Build one human-readable assistant response from terminal marker payloads."""
+    prefix = f"{objective_id}::subtask::"
+    subtasks = [marker for marker in markers if str(getattr(marker, "id", "")).startswith(prefix)]
+    subtasks = sorted(subtasks, key=_subtask_sort_key)
+
+    if not subtasks:
+        root = next(
+            (marker for marker in markers if str(getattr(marker, "id", "")) == objective_id),
+            None,
+        )
+        if root is None:
+            return "No assistant response generated."
+        analysis = _normalize_analysis(root.payload.get("last_thought"))
+        return analysis or "No assistant response generated."
+
+    lines: list[str] = []
+    for index, marker in enumerate(subtasks, start=1):
+        payload = dict(getattr(marker, "payload", {}))
+        task = str(payload.get("task", "")).strip()
+        analysis = _normalize_analysis(payload.get("last_thought"))
+
+        if task and analysis:
+            lines.append(f"{index}. {task} -> {analysis}")
+            continue
+        if task:
+            lines.append(f"{index}. {task}")
+            continue
+        if analysis:
+            lines.append(f"{index}. {analysis}")
+
+    if not lines:
+        return "No assistant response generated."
+    return "\n".join(lines)
+
+
+def _subtask_sort_key(marker: Any) -> tuple[int, str]:
+    marker_id = str(getattr(marker, "id", ""))
+    suffix = marker_id.rsplit("::subtask::", maxsplit=1)[-1]
+    try:
+        return int(suffix), marker_id
+    except ValueError:
+        return 10_000, marker_id
+
+
+def _normalize_analysis(last_thought: Any) -> str:
+    if not isinstance(last_thought, dict):
+        return ""
+    raw = str(last_thought.get("analysis", "")).strip()
+    if not raw:
+        return ""
+
+    parsed = _try_parse_json(raw)
+    if isinstance(parsed, dict):
+        steps = parsed.get("steps")
+        if isinstance(steps, list):
+            normalized_steps = [str(step).strip() for step in steps if str(step).strip()]
+            if normalized_steps:
+                return "; ".join(normalized_steps)
+
+        next_actions = parsed.get("next_actions")
+        if isinstance(next_actions, list):
+            normalized_actions: list[str] = []
+            for action in next_actions:
+                if isinstance(action, dict):
+                    description = str(action.get("description", "")).strip()
+                    label = str(action.get("action", "")).strip()
+                    if description and label:
+                        normalized_actions.append(f"{label}: {description}")
+                    elif description:
+                        normalized_actions.append(description)
+                    elif label:
+                        normalized_actions.append(label)
+                else:
+                    text = str(action).strip()
+                    if text:
+                        normalized_actions.append(text)
+            if normalized_actions:
+                return "; ".join(normalized_actions)
+
+        task = str(parsed.get("task", "")).strip()
+        if task:
+            return task
+
+    if isinstance(parsed, list):
+        normalized_items = [str(item).strip() for item in parsed if str(item).strip()]
+        if normalized_items:
+            return "; ".join(normalized_items)
+
+    return raw
+
+
+def _try_parse_json(value: str) -> Any:
+    try:
+        return json.loads(value)
+    except json.JSONDecodeError:
+        return None
 
 
 if __name__ == "__main__":
