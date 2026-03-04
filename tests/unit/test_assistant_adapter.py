@@ -40,7 +40,21 @@ def test_create_objective_maps_user_input(tmp_path: Path, config_dict: dict) -> 
     assert objective.objective_id
 
 
-def test_register_tools_exposes_infrastructure_actions(tmp_path: Path, config_dict: dict) -> None:
+def test_create_objective_does_not_force_subtask_count(
+    tmp_path: Path, config_dict: dict
+) -> None:
+    config = _build_config(config_dict, tmp_path / "workspace")
+    adapter = AssistantAdapter(config=config)
+
+    objective = adapter.create_objective(
+        {"objective": "Write a migration plan"}, config
+    )
+    assert "subtask_count" not in objective.payload
+
+
+def test_register_tools_exposes_infrastructure_actions(
+    tmp_path: Path, config_dict: dict
+) -> None:
     config = _build_config(config_dict, tmp_path / "workspace")
     adapter = AssistantAdapter(config=config)
     registry = ToolRegistry()
@@ -56,7 +70,9 @@ def test_register_tools_exposes_infrastructure_actions(tmp_path: Path, config_di
     }
 
 
-def test_initial_markers_default_to_decompose_seed(tmp_path: Path, config_dict: dict) -> None:
+def test_initial_markers_default_to_decompose_seed(
+    tmp_path: Path, config_dict: dict
+) -> None:
     config = _build_config(config_dict, tmp_path / "workspace")
     adapter = AssistantAdapter(config=config)
     objective = adapter.create_objective({"objective": "Plan tasks"}, config)
@@ -64,10 +80,12 @@ def test_initial_markers_default_to_decompose_seed(tmp_path: Path, config_dict: 
     markers = adapter.initial_markers(objective=objective, agent_id="seed")
     assert len(markers) == 1
     assert markers[0].state == "pending"
-    assert markers[0].payload["eligible_actions"] == ["decompose"]
+    assert "eligible_actions" not in markers[0].payload
 
 
-def test_initial_markers_with_subtasks_create_children(tmp_path: Path, config_dict: dict) -> None:
+def test_initial_markers_with_subtasks_create_children(
+    tmp_path: Path, config_dict: dict
+) -> None:
     config = _build_config(config_dict, tmp_path / "workspace")
     adapter = AssistantAdapter(config=config)
     objective = adapter.create_objective(
@@ -82,11 +100,17 @@ def test_initial_markers_with_subtasks_create_children(tmp_path: Path, config_di
     assert len(markers) == 4
     root = markers[0]
     assert root.payload["decomposed"] is True
-    assert root.payload["eligible_actions"] == ["think"]
-    assert all(marker.payload.get("parent_id") == objective.objective_id for marker in markers[1:])
+    assert "eligible_actions" not in root.payload
+    assert all(
+        marker.payload.get("parent_id") == objective.objective_id
+        for marker in markers[1:]
+    )
+    assert all("eligible_actions" not in marker.payload for marker in markers[1:])
 
 
-def test_evaluate_run_returns_completion_metrics(tmp_path: Path, config_dict: dict) -> None:
+def test_evaluate_run_returns_completion_metrics(
+    tmp_path: Path, config_dict: dict
+) -> None:
     config = _build_config(config_dict, tmp_path / "workspace")
     adapter = AssistantAdapter(config=config)
 

@@ -55,8 +55,12 @@ class StigmergicAgent:
             inhibition_threshold=inhibition_threshold,
         )
 
-        temperature = float(self.config.get("agents", {}).get("selection_temperature", 0.1))
-        action_type = select_action(pressures=pressures, temperature=temperature, rng=self.rng)
+        temperature = float(
+            self.config.get("agents", {}).get("selection_temperature", 0.1)
+        )
+        action_type = select_action(
+            pressures=pressures, temperature=temperature, rng=self.rng
+        )
         if action_type is None:
             return None
 
@@ -136,7 +140,10 @@ class StigmergicAgent:
 
             eligible_actions = self.tool_registry.eligible_actions_for(marker)
             raw_allowed_actions = marker.payload.get("eligible_actions")
-            if isinstance(raw_allowed_actions, (list, tuple, set)):
+            if (
+                isinstance(raw_allowed_actions, (list, tuple, set))
+                and len(raw_allowed_actions) > 0
+            ):
                 allowed_set = {str(action) for action in raw_allowed_actions}
                 eligible_actions = [
                     action for action in eligible_actions if action in allowed_set

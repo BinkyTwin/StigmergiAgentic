@@ -135,3 +135,27 @@
 - `rationale`: This enables end-to-end framework usage without coupling to benchmark adapters and preserves a clean path to register the same tools in future domain adapters.
 - `alternatives_rejected`: Adding partial TravelPlanner/CodeMigration stubs in Sprint 3, or introducing assistant-specific tool contracts outside `ToolRegistry`.
 - `linked_adr`: `documentation/decisions/20260226-sprint3-v2-infrastructure-tools-and-assistant-mode.md`
+
+## 2026-03-04 (Assistant Eligibility Defaults + Execution-Oriented Output)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: Remove hardcoded assistant marker allowlists (`decompose`/`think`) and move to context-derived tool eligibility defaults, while preserving explicit `eligible_actions` as an override and enriching final CLI responses with concrete tool outputs.
+- `rationale`: Hardcoded allowlists prevented execution-capable tools from participating in normal assistant runs and produced plan-only outputs; context-derived eligibility restores practical execution without losing adapter-level control.
+- `alternatives_rejected`: Keep strict allowlists everywhere, or make all tools universally eligible regardless of required payload inputs.
+- `linked_adr`: `N/A (runtime behavior refinement in Sprint 3 scope)`
+
+## 2026-03-04 (Think-Then-Act Gate for Active Subtasks)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: Enforce a think-then-act lifecycle where active subtasks are progressed by concrete execution tools, while `think` is blocked on generic active markers and only allowed on a decomposed root-marker exception path.
+- `rationale`: This prevents plan-only marker completion and aligns terminal progress with artifact-generating actions (read/write/bash/search) rather than repeated reasoning-only loops.
+- `alternatives_rejected`: Keep `think` fully eligible on active markers, or force all markers through static hardcoded tool allowlists.
+- `linked_adr`: `N/A (runtime execution policy update)`
+
+## 2026-03-04 (Emergent Structure over Fixed Decomposition Defaults)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: Remove fixed decomposition defaults and heuristic tool-hint inference by making `subtask_count` optional, using LLM-only structured hints in `think`, and driving intensity decrements from config.
+- `rationale`: Fixed `subtask_count=3` and local hint inference introduced non-emergent behavior and planner bias; optional shaping + strict structured outputs better preserve execution-first stigmergic dynamics.
+- `alternatives_rejected`: Keep forced default subtask counts, keep `_infer_tool_hints` fallback, or keep hardcoded intensity decrements in tool code.
+- `linked_adr`: `N/A (Sprint 3 V2 runtime behavior refinement)`

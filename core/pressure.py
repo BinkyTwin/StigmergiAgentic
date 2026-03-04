@@ -32,7 +32,9 @@ def compute_pressures(
         if float(marker.inhibition) >= float(inhibition_threshold):
             continue
 
-        eligible_actions = _eligible_actions(marker=marker, action_types=ordered_actions)
+        eligible_actions = _eligible_actions(
+            marker=marker, action_types=ordered_actions
+        )
         if not eligible_actions:
             continue
 
@@ -90,7 +92,13 @@ def select_action(
 
 def _eligible_actions(marker: Marker, action_types: Sequence[str]) -> list[str]:
     raw = marker.payload.get("eligible_actions")
+    if raw is None:
+        return list(action_types)
     if isinstance(raw, (list, tuple, set)):
+        if len(raw) == 0:
+            return list(action_types)
         selected = [str(action) for action in raw if str(action) in action_types]
-        return selected
+        if selected:
+            return selected
+        return list(action_types)
     return list(action_types)

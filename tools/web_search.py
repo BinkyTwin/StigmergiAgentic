@@ -27,14 +27,21 @@ class WebSearchTool(Tool):
 
     def __init__(self, *, config: dict[str, Any]) -> None:
         tools_cfg = dict(config.get("tools", {}))
-        self.provider = str(tools_cfg.get("web_search_provider", "none")).strip().lower()
+        markers_cfg = dict(config.get("markers", {}))
+        self.provider = (
+            str(tools_cfg.get("web_search_provider", "none")).strip().lower()
+        )
         self.default_max_results = int(tools_cfg.get("web_search_max_results", 5))
+        self.intensity_step = float(markers_cfg.get("intensity_step_tool", 0.05))
+        self.intensity_floor = float(markers_cfg.get("intensity_floor", 0.1))
 
     def is_eligible(self, marker: Marker) -> bool:
-        raw = marker.payload.get("eligible_actions", [])
-        if not isinstance(raw, (list, tuple, set)):
-            return False
-        return self.action_type in {str(item) for item in raw}
+        raw = marker.payload.get("eligible_actions")
+        if isinstance(raw, (list, tuple, set)) and len(raw) > 0:
+            return self.action_type in {str(item) for item in raw}
+
+        query = marker.payload.get("query")
+        return isinstance(query, str) and bool(query.strip())
 
     async def execute(
         self,
@@ -66,7 +73,10 @@ class WebSearchTool(Tool):
             else:
                 return ActionResult(
                     action_type=self.action_type,
-                    metadata={"failed": True, "reason": f"unsupported_provider:{self.provider}"},
+                    metadata={
+                        "failed": True,
+                        "reason": f"unsupported_provider:{self.provider}",
+                    },
                 )
         except Exception as exc:  # noqa: BLE001
             return ActionResult(
@@ -84,7 +94,10 @@ class WebSearchTool(Tool):
         }
         updated.payload = payload
         updated.state = STATE_PROGRESS.get(updated.state, updated.state)
-        updated.intensity = max(0.1, float(updated.intensity) - 0.05)
+        updated.intensity = max(
+            self.intensity_floor,
+            float(updated.intensity) - self.intensity_step,
+        )
 
         return ActionResult(action_type=self.action_type, marker_updates=[updated])
 
@@ -147,7 +160,9 @@ class WebSearchTool(Tool):
             )
         return normalized
 
-    def _post_json(self, *, url: str, payload: dict[str, Any], headers: dict[str, str]) -> str:
+    def _post_json(
+        self, *, url: str, payload: dict[str, Any], headers: dict[str, str]
+    ) -> str:
         body = json.dumps(payload).encode("utf-8")
         request = Request(url=url, data=body, headers=headers, method="POST")
         try:

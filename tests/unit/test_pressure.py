@@ -73,6 +73,16 @@ def test_compute_pressures_normalizes_distribution() -> None:
     assert sum(pressures.values()) == pytest.approx(1.0)
 
 
+def test_compute_pressures_treats_empty_eligible_actions_as_all() -> None:
+    marker = _make_marker("m1", intensity=1.0, payload={"eligible_actions": []})
+    pressures = compute_pressures(
+        markers=[marker],
+        action_types=["increment", "check"],
+    )
+    assert pressures["increment"] == pytest.approx(0.5)
+    assert pressures["check"] == pytest.approx(0.5)
+
+
 def test_select_action_returns_none_for_zero_distribution() -> None:
     assert select_action({"increment": 0.0, "check": 0.0}, temperature=0.1) is None
 

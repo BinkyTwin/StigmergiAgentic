@@ -15,6 +15,11 @@ markers:
   inhibition_increment: 0.5
   inhibition_threshold: 0.1
   intensity_clamp: [0.1, 1.0]
+  intensity_step_think: 0.1
+  intensity_step_tool: 0.05
+  intensity_step_decompose: 0.1
+  child_intensity_offset: 0.2
+  intensity_floor: 0.1
 
 guardrails:
   max_retry_count: 3

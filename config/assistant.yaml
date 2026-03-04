@@ -3,7 +3,7 @@ framework:
 
 agents:
   num_agents: 2
-  selection_temperature: 0.0
+  selection_temperature: 0.15
 
 orchestrator:
   max_ticks: 30
@@ -18,5 +18,5 @@ tools:
     - "uv"
   bash_timeout_seconds: 60
   max_file_size_bytes: 1048576
-  web_search_provider: "none"
+  web_search_provider: "tavily"
   web_search_max_results: 5

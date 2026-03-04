@@ -41,8 +41,11 @@ class AssistantAdapter(DomainAdapter):
         payload: dict[str, Any] = {}
         subtasks = user_input.get("subtasks")
         if isinstance(subtasks, list):
-            payload["subtasks"] = [str(item).strip() for item in subtasks if str(item).strip()]
-        payload["subtask_count"] = int(user_input.get("subtask_count", 3))
+            payload["subtasks"] = [
+                str(item).strip() for item in subtasks if str(item).strip()
+            ]
+        if "subtask_count" in user_input:
+            payload["subtask_count"] = int(user_input["subtask_count"])
 
         return Objective(
             objective_id=str(uuid4()),
@@ -58,10 +61,9 @@ class AssistantAdapter(DomainAdapter):
 
     def initial_markers(self, objective: Objective, agent_id: str) -> list[Marker]:
         now = utc_now_iso()
-        base_payload = {
-            "objective": objective.description,
-            "subtask_count": int(objective.payload.get("subtask_count", 3)),
-        }
+        base_payload: dict[str, Any] = {"objective": objective.description}
+        if "subtask_count" in objective.payload:
+            base_payload["subtask_count"] = int(objective.payload["subtask_count"])
 
         subtasks = objective.payload.get("subtasks", [])
         if isinstance(subtasks, list) and subtasks:
@@ -74,7 +76,6 @@ class AssistantAdapter(DomainAdapter):
                 payload={
                     **base_payload,
                     "decomposed": True,
-                    "eligible_actions": ["think"],
                     "subtask_count": len(subtasks),
                 },
                 created_by=agent_id,
@@ -96,7 +97,6 @@ class AssistantAdapter(DomainAdapter):
                             "task": str(subtask),
                             "objective": objective.description,
                             "parent_id": objective.objective_id,
-                            "eligible_actions": ["think"],
                         },
                         created_by=agent_id,
                         created_at=now,
@@ -114,7 +114,7 @@ class AssistantAdapter(DomainAdapter):
                 target=objective.objective_id,
                 intensity=1.0,
                 state="pending",
-                payload={**base_payload, "eligible_actions": ["decompose"]},
+                payload={**base_payload},
                 created_by=agent_id,
                 created_at=now,
                 updated_by=agent_id,
@@ -128,7 +128,9 @@ class AssistantAdapter(DomainAdapter):
         total = len(markers)
         terminal_count = sum(1 for marker in markers if marker.state in TERMINAL_STATES)
         completed_count = sum(
-            1 for marker in markers if marker.state in {"completed", "verified", *TERMINAL_STATES}
+            1
+            for marker in markers
+            if marker.state in {"completed", "verified", *TERMINAL_STATES}
         )
         return {
             "markers_total": total,

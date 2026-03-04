@@ -14,11 +14,12 @@ from .web_search import WebSearchTool
 
 def register_infrastructure_tools(registry: ToolRegistry, config: dict) -> None:
     """Register generic infrastructure tools in one place."""
+    hintable_tools = ["file_read", "file_write", "bash_exec", "web_search"]
     registry.register(FileReadTool(config=config))
     registry.register(FileWriteTool(config=config))
     registry.register(BashExecTool(config=config))
     registry.register(WebSearchTool(config=config))
-    registry.register(ThinkTool(config=config))
+    registry.register(ThinkTool(config=config, available_hint_tools=hintable_tools))
     registry.register(DecomposeTool(config=config))
 
 

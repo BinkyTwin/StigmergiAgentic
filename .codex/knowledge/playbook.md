@@ -101,3 +101,19 @@
 - Register infrastructure actions through one helper (`register_infrastructure_tools`) to keep adapter wiring explicit and consistent.
 - Keep tool payload contracts structured (for example `write.mode/path/content`) and validate early to make failures traceable in marker metadata.
 - Treat optional external providers (`web_search`) as explicit no-op defaults in local/dev mode to preserve deterministic baseline behavior.
+
+### Assistant Eligibility and Response Standard
+- Keep `eligible_actions` as an optional allowlist; if absent, infer eligibility from marker payload prerequisites to preserve flexibility without blind tool execution.
+- Restrict `decompose` by marker context (`not decomposed` and `no parent_id`) so decomposition happens once at root unless explicitly overridden.
+- Synthesize CLI assistant output from concrete execution payloads (`last_read`, `last_bash`, `last_write`, `last_search`) and include `last_thought` as complementary context.
+
+### Think-Then-Act Progression Standard
+- Treat `active` subtasks as execution-only by default: planner tools should not advance active work items without concrete artifact/tool outputs.
+- Keep a narrow root-marker exception path after decomposition so orchestration metadata markers can still converge to terminal states.
+- Ensure CLI entrypoints load `.env` proactively so provider keys are consistent between notebook and terminal runs.
+
+### Emergent Decomposition and Hinting Standard
+- Do not inject default `subtask_count` during objective or seed-marker creation; only propagate it when explicitly provided by input.
+- Build planner JSON schemas from available tool capabilities and include optional fields only for registered/declared execution tools.
+- Avoid local heuristic fallback hints in `think`; if the model does not emit structured hints, keep marker active and let subsequent ticks/agents resolve execution.
+- Read all intensity decrements/floors from `markers.*` config keys (`intensity_step_think`, `intensity_step_tool`, `intensity_step_decompose`, `child_intensity_offset`, `intensity_floor`).

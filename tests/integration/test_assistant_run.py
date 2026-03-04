@@ -18,10 +18,21 @@ class FakeLLMClient:
     """Deterministic fake client for integration runs."""
 
     def call(self, prompt: str, system: str | None = None) -> SimpleNamespace:
-        if "Decompose the objective" in prompt:
+        if "Decompose the following objective" in prompt:
             content = '{"subtasks":[{"title":"Create draft"},{"title":"Check output"}]}'
+        elif "Create draft" in prompt:
+            content = (
+                '{"analysis":"Create an initial artifact.",'
+                '"write":{"mode":"overwrite","path":"draft.txt","content":"hello"}}'
+            )
+        elif "Check output" in prompt:
+            content = (
+                '{"analysis":"Validate generated artifact.",'
+                '"command":"python -c \\"from pathlib import Path; '
+                'print(Path(\\"draft.txt\\").read_text())\\""}'
+            )
         else:
-            content = "Reasoning step completed."
+            content = '{"analysis":"Reasoning step completed."}'
         return SimpleNamespace(
             content=content,
             tokens_used=5,
@@ -34,7 +45,9 @@ class FakeLLMClient:
         return text
 
 
-def _build_runtime(tmp_path, config_dict: dict) -> tuple[dict, AssistantAdapter, Environment, ToolRegistry]:
+def _build_runtime(
+    tmp_path, config_dict: dict
+) -> tuple[dict, AssistantAdapter, Environment, ToolRegistry]:
     config = copy.deepcopy(config_dict)
     config["agents"]["num_agents"] = 1
     config["agents"]["selection_temperature"] = 0.0
@@ -61,7 +74,10 @@ def _build_runtime(tmp_path, config_dict: dict) -> tuple[dict, AssistantAdapter,
 
 def test_assistant_run_end_to_end_with_mock_llm(tmp_path, config_dict: dict) -> None:
     config, adapter, env, registry = _build_runtime(tmp_path, config_dict)
-    objective = adapter.create_objective({"objective": "Prepare a concise delivery plan."}, config)
+    objective = adapter.create_objective(
+        {"objective": "Prepare a concise delivery plan."}, config
+    )
+    assert "subtask_count" not in objective.payload
     for marker in adapter.initial_markers(objective=objective, agent_id="seed"):
         env.store.upsert_marker(marker=marker, agent_id="seed")
 
@@ -82,7 +98,9 @@ def test_assistant_run_end_to_end_with_mock_llm(tmp_path, config_dict: dict) -> 
 def test_decompose_creates_submarkers_in_store(tmp_path, config_dict: dict) -> None:
     config, adapter, env, registry = _build_runtime(tmp_path, config_dict)
     config["orchestrator"]["max_ticks"] = 1
-    objective = adapter.create_objective({"objective": "Break this task into steps."}, config)
+    objective = adapter.create_objective(
+        {"objective": "Break this task into steps."}, config
+    )
     for marker in adapter.initial_markers(objective=objective, agent_id="seed"):
         env.store.upsert_marker(marker=marker, agent_id="seed")
 
@@ -138,9 +156,13 @@ def test_infrastructure_tool_executes_in_full_loop(tmp_path, config_dict: dict) 
     assert updated.state == "active"
 
 
-def test_assistant_evaluation_summary_matches_snapshot(tmp_path, config_dict: dict) -> None:
+def test_assistant_evaluation_summary_matches_snapshot(
+    tmp_path, config_dict: dict
+) -> None:
     config, adapter, env, registry = _build_runtime(tmp_path, config_dict)
-    objective = adapter.create_objective({"objective": "Summarize repo status."}, config)
+    objective = adapter.create_objective(
+        {"objective": "Summarize repo status."}, config
+    )
     for marker in adapter.initial_markers(objective=objective, agent_id="seed"):
         env.store.upsert_marker(marker=marker, agent_id="seed")
 

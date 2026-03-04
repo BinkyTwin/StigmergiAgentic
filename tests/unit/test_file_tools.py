@@ -41,7 +41,9 @@ def _build_environment(
     config["tools"]["sandbox_root"] = str(workspace_root)
     config["tools"]["max_file_size_bytes"] = max_file_size_bytes
 
-    workspace = LocalWorkspace(root=workspace_root, max_file_size_bytes=max_file_size_bytes)
+    workspace = LocalWorkspace(
+        root=workspace_root, max_file_size_bytes=max_file_size_bytes
+    )
     store = MarkerStore(db_path=tmp_path / "pheromones" / "markers.db")
     env = Environment(store=store, config=config, workspace=workspace)
     return env, workspace, config
@@ -57,7 +59,9 @@ def test_file_read_success(tmp_path: Path, config_dict: dict) -> None:
     )
     tool = FileReadTool(config=config)
     result = asyncio.run(
-        tool.execute(agent_id="agent-1", marker=marker, environment=env, llm_client=None)
+        tool.execute(
+            agent_id="agent-1", marker=marker, environment=env, llm_client=None
+        )
     )
 
     assert result.metadata == {}
@@ -65,6 +69,26 @@ def test_file_read_success(tmp_path: Path, config_dict: dict) -> None:
     update = result.marker_updates[0]
     assert update.payload["last_read"]["content"] == "hello world"
     assert update.state == "active"
+
+
+def test_file_read_eligible_by_default_without_action_filter(
+    tmp_path: Path,
+    config_dict: dict,
+) -> None:
+    env, workspace, config = _build_environment(tmp_path, config_dict)
+    (workspace.root / "notes.txt").write_text("hello world", encoding="utf-8")
+
+    marker = _make_marker("read-default", {"path": "notes.txt"})
+    tool = FileReadTool(config=config)
+    assert tool.is_eligible(marker) is True
+
+    result = asyncio.run(
+        tool.execute(
+            agent_id="agent-1", marker=marker, environment=env, llm_client=None
+        )
+    )
+    assert result.metadata == {}
+    assert result.marker_updates[0].payload["last_read"]["content"] == "hello world"
 
 
 def test_file_read_rejects_path_escape(tmp_path: Path, config_dict: dict) -> None:
@@ -75,14 +99,18 @@ def test_file_read_rejects_path_escape(tmp_path: Path, config_dict: dict) -> Non
     )
     tool = FileReadTool(config=config)
     result = asyncio.run(
-        tool.execute(agent_id="agent-1", marker=marker, environment=env, llm_client=None)
+        tool.execute(
+            agent_id="agent-1", marker=marker, environment=env, llm_client=None
+        )
     )
     assert result.metadata.get("failed") is True
     assert "path_outside_workspace" in str(result.metadata.get("reason"))
 
 
 def test_file_read_rejects_oversized_file(tmp_path: Path, config_dict: dict) -> None:
-    env, workspace, config = _build_environment(tmp_path, config_dict, max_file_size_bytes=4)
+    env, workspace, config = _build_environment(
+        tmp_path, config_dict, max_file_size_bytes=4
+    )
     (workspace.root / "big.txt").write_text("12345", encoding="utf-8")
 
     marker = _make_marker(
@@ -91,7 +119,9 @@ def test_file_read_rejects_oversized_file(tmp_path: Path, config_dict: dict) -> 
     )
     tool = FileReadTool(config=config)
     result = asyncio.run(
-        tool.execute(agent_id="agent-1", marker=marker, environment=env, llm_client=None)
+        tool.execute(
+            agent_id="agent-1", marker=marker, environment=env, llm_client=None
+        )
     )
     assert result.metadata.get("failed") is True
     assert "file_too_large" in str(result.metadata.get("reason"))
@@ -108,7 +138,9 @@ def test_file_write_overwrite_success(tmp_path: Path, config_dict: dict) -> None
     )
     tool = FileWriteTool(config=config)
     result = asyncio.run(
-        tool.execute(agent_id="agent-1", marker=marker, environment=env, llm_client=None)
+        tool.execute(
+            agent_id="agent-1", marker=marker, environment=env, llm_client=None
+        )
     )
 
     assert result.metadata == {}
@@ -129,7 +161,9 @@ def test_file_write_append_success(tmp_path: Path, config_dict: dict) -> None:
     )
     tool = FileWriteTool(config=config)
     result = asyncio.run(
-        tool.execute(agent_id="agent-1", marker=marker, environment=env, llm_client=None)
+        tool.execute(
+            agent_id="agent-1", marker=marker, environment=env, llm_client=None
+        )
     )
 
     assert result.metadata == {}
@@ -156,7 +190,9 @@ def test_file_write_replace_text_success(tmp_path: Path, config_dict: dict) -> N
     )
     tool = FileWriteTool(config=config)
     result = asyncio.run(
-        tool.execute(agent_id="agent-1", marker=marker, environment=env, llm_client=None)
+        tool.execute(
+            agent_id="agent-1", marker=marker, environment=env, llm_client=None
+        )
     )
 
     assert result.metadata == {}
@@ -164,7 +200,9 @@ def test_file_write_replace_text_success(tmp_path: Path, config_dict: dict) -> N
     assert result.marker_updates[0].payload["last_write"]["replacements"] == 1
 
 
-def test_file_write_rejects_outside_workspace(tmp_path: Path, config_dict: dict) -> None:
+def test_file_write_rejects_outside_workspace(
+    tmp_path: Path, config_dict: dict
+) -> None:
     env, _, config = _build_environment(tmp_path, config_dict)
     marker = _make_marker(
         "write-4",
@@ -175,7 +213,9 @@ def test_file_write_rejects_outside_workspace(tmp_path: Path, config_dict: dict)
     )
     tool = FileWriteTool(config=config)
     result = asyncio.run(
-        tool.execute(agent_id="agent-1", marker=marker, environment=env, llm_client=None)
+        tool.execute(
+            agent_id="agent-1", marker=marker, environment=env, llm_client=None
+        )
     )
     assert result.metadata.get("failed") is True
     assert "path_outside_workspace" in str(result.metadata.get("reason"))
@@ -192,7 +232,9 @@ def test_file_write_rejects_size_limit(tmp_path: Path, config_dict: dict) -> Non
     )
     tool = FileWriteTool(config=config)
     result = asyncio.run(
-        tool.execute(agent_id="agent-1", marker=marker, environment=env, llm_client=None)
+        tool.execute(
+            agent_id="agent-1", marker=marker, environment=env, llm_client=None
+        )
     )
     assert result.metadata.get("failed") is True
     assert "file_too_large" in str(result.metadata.get("reason"))

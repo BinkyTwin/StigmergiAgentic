@@ -345,3 +345,61 @@ Implemented Sprint 3 end-to-end by adding reusable infrastructure tools, a sandb
 - `uv run pytest tests/integration/test_assistant_run.py -q` (`4 passed`)
 - `uv run pytest tests/unit tests/integration -q` (`85 passed`)
 - `uv run python main.py --adapter assistant --objective "Create a short checklist" --max-ticks 12 --agents 1 --seed 7` (`stop_reason=all_terminal`)
+
+## 2026-03-04 — Assistant Action Eligibility Rework (Execution-First)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `impact_score`: `9/10`
+- `confidence`: `high`
+- `scope`: `assistant adapter marker seeding, tool eligibility policy, response synthesis, Sprint 3 tests`
+
+### Outcome
+Reworked assistant marker/tool eligibility so explicit `eligible_actions` remains optional, while default behavior now enables action selection from marker context (instead of hard-locking to `decompose/think`), and expanded CLI response synthesis to include concrete tool outputs (`last_read`, `last_bash`, `last_write`, `last_search`) alongside reasoning.
+
+### Reusable Patterns (1-3)
+1. Treat marker action filters as optional override contracts; when omitted, infer tool eligibility from marker payload prerequisites (`path`, `command`, `query`, `write`) instead of forcing one hardcoded action.
+2. Keep `decompose` root-only by default using marker-local context (`decomposed` + `parent_id`) to avoid recursive decomposition loops without adding central orchestration branches.
+3. Build assistant final responses from execution artifacts first (file/bash/write/search outputs), then include reasoning text as supporting context.
+
+### Evidence
+- `uv run pytest tests/unit -q` (`83 passed`)
+- `uv run pytest tests/integration/test_assistant_run.py -q` (`4 passed`)
+- `uv run pytest tests/unit/test_assistant_adapter.py tests/unit/test_file_tools.py tests/unit/test_pressure.py tests/integration/test_assistant_run.py -q` (`26 passed`)
+
+## 2026-03-04 — Think-Then-Act Gate + `.env`-Aware CLI
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `impact_score`: `9/10`
+- `confidence`: `high`
+- `scope`: `think/decompose runtime gating, assistant config provider defaults, integration/runtime reliability`
+
+### Outcome
+Implemented a think-then-act execution gate: `think` no longer advances generic active subtasks, active subtasks must be progressed by concrete tools, decomposed root markers retain a controlled completion path, and CLI now auto-loads `.env` so API keys used in notebooks are also available in direct `main.py` runs.
+
+### Reusable Patterns (1-3)
+1. Prevent plan-only loops by blocking planner actions on active subtasks and requiring concrete tool outputs for `active -> completed` progression.
+2. Handle coordinator/root markers as a distinct lifecycle class (decomposed-root exception) to avoid deadlocking orchestration after decomposition.
+3. Call `load_dotenv()` at CLI entrypoints to align notebook and shell execution environments for provider credentials.
+
+### Evidence
+- `uv run pytest tests/unit/test_think_tool.py tests/integration/test_assistant_run.py -q` (`7 passed`)
+- `uv run pytest tests/unit tests/integration/test_assistant_run.py -q` (`92 passed`)
+- `uv run pytest tests/unit/test_main_response.py tests/integration/test_assistant_run.py -q` (`6 passed`)
+
+## 2026-03-04 — Emergent Decomposition + LLM-Only Tool Hinting
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `impact_score`: `9/10`
+- `confidence`: `high`
+- `scope`: `assistant decomposition policy, think prompt contract, configurable intensity dynamics, test/integration stabilization`
+
+### Outcome
+Removed structural hardcoding that forced planning shape and fallback hints: decomposition no longer enforces a fixed default subtask count, think no longer auto-infers tool hints from heuristics, prompts now expose optional fields dynamically based on declared available tools, and all intensity decrements/floors are configurable from marker settings.
+
+### Reusable Patterns (1-3)
+1. Keep `subtask_count` as an optional operator hint, not a required runtime invariant, so decomposition shape can emerge from objective complexity.
+2. Prefer strict LLM JSON contracts over local heuristic hint injection when execution eligibility should reflect model intent rather than adapter guesswork.
+3. Move marker intensity constants to config keys to tune planning/execution pressure without code edits.
+
+### Evidence
+- `uv run pytest tests/unit tests/integration/test_assistant_run.py -v` (`94 passed`)

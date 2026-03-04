@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any
 
 import yaml
+from dotenv import load_dotenv
 
 from adapters.assistant import AssistantAdapter
 from core.agent import StigmergicAgent
@@ -40,6 +41,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 
 def main(argv: list[str] | None = None) -> int:
     """Run one assistant session and print run summary as JSON."""
+    load_dotenv()
     args = parse_args(argv)
 
     config = _build_config(args)
@@ -176,37 +178,164 @@ def _build_agents(
 def _build_assistant_response(objective_id: str, markers: list[Any]) -> str:
     """Build one human-readable assistant response from terminal marker payloads."""
     prefix = f"{objective_id}::subtask::"
-    subtasks = [marker for marker in markers if str(getattr(marker, "id", "")).startswith(prefix)]
+    subtasks = [
+        marker
+        for marker in markers
+        if str(getattr(marker, "id", "")).startswith(prefix)
+    ]
     subtasks = sorted(subtasks, key=_subtask_sort_key)
 
     if not subtasks:
         root = next(
-            (marker for marker in markers if str(getattr(marker, "id", "")) == objective_id),
+            (
+                marker
+                for marker in markers
+                if str(getattr(marker, "id", "")) == objective_id
+            ),
             None,
         )
         if root is None:
             return "No assistant response generated."
-        analysis = _normalize_analysis(root.payload.get("last_thought"))
-        return analysis or "No assistant response generated."
+        payload = dict(getattr(root, "payload", {}))
+        return (
+            _render_marker_output(task="", payload=payload)
+            or "No assistant response generated."
+        )
 
     lines: list[str] = []
     for index, marker in enumerate(subtasks, start=1):
         payload = dict(getattr(marker, "payload", {}))
         task = str(payload.get("task", "")).strip()
-        analysis = _normalize_analysis(payload.get("last_thought"))
-
-        if task and analysis:
-            lines.append(f"{index}. {task} -> {analysis}")
-            continue
-        if task:
-            lines.append(f"{index}. {task}")
-            continue
-        if analysis:
-            lines.append(f"{index}. {analysis}")
+        rendered = _render_marker_output(task=task, payload=payload)
+        if rendered:
+            lines.append(f"{index}. {rendered}")
 
     if not lines:
         return "No assistant response generated."
     return "\n".join(lines)
+
+
+def _render_marker_output(*, task: str, payload: dict[str, Any]) -> str:
+    segments: list[str] = []
+    if task:
+        segments.append(task)
+
+    thought = _normalize_analysis(payload.get("last_thought"))
+    if thought:
+        segments.append(thought)
+
+    read_summary = _summarize_read(payload.get("last_read"))
+    if read_summary:
+        segments.append(read_summary)
+
+    bash_summary = _summarize_bash(payload.get("last_bash"))
+    if bash_summary:
+        segments.append(bash_summary)
+
+    write_summary = _summarize_write(payload.get("last_write"))
+    if write_summary:
+        segments.append(write_summary)
+
+    search_summary = _summarize_search(payload.get("last_search"))
+    if search_summary:
+        segments.append(search_summary)
+
+    if not segments:
+        return ""
+    if len(segments) == 1:
+        return segments[0]
+    return f"{segments[0]} -> {' | '.join(segments[1:])}"
+
+
+def _summarize_read(last_read: Any) -> str:
+    if not isinstance(last_read, dict):
+        return ""
+    path = str(last_read.get("path", "")).strip()
+    content = str(last_read.get("content", "")).strip()
+    if not path and not content:
+        return ""
+
+    excerpt = " ".join(content.split())
+    if len(excerpt) > 120:
+        excerpt = f"{excerpt[:117]}..."
+    if path and excerpt:
+        return f"read `{path}`: {excerpt}"
+    if path:
+        return f"read `{path}`"
+    return f"read result: {excerpt}"
+
+
+def _summarize_bash(last_bash: Any) -> str:
+    if not isinstance(last_bash, dict):
+        return ""
+    command = last_bash.get("command", [])
+    if isinstance(command, list):
+        command_text = " ".join(str(part) for part in command if str(part).strip())
+    else:
+        command_text = str(command).strip()
+    returncode = last_bash.get("returncode")
+    stdout = str(last_bash.get("stdout", "")).strip()
+    stderr = str(last_bash.get("stderr", "")).strip()
+    output = stdout or stderr
+    output = " ".join(output.split())
+    if len(output) > 120:
+        output = f"{output[:117]}..."
+
+    parts: list[str] = []
+    if command_text:
+        parts.append(f"bash `{command_text}`")
+    if returncode is not None:
+        parts.append(f"exit={returncode}")
+    if output:
+        parts.append(output)
+    return ": ".join([parts[0], " | ".join(parts[1:])]) if parts else ""
+
+
+def _summarize_write(last_write: Any) -> str:
+    if not isinstance(last_write, dict):
+        return ""
+    mode = str(last_write.get("mode", "")).strip()
+    path = str(last_write.get("path", "")).strip()
+    bytes_written = last_write.get("bytes_written")
+    replacements = last_write.get("replacements")
+
+    details: list[str] = []
+    if bytes_written is not None:
+        details.append(f"bytes={bytes_written}")
+    if replacements is not None and int(replacements) > 0:
+        details.append(f"replacements={replacements}")
+
+    base = "write"
+    if mode:
+        base = f"write ({mode})"
+    if path:
+        base = f"{base} `{path}`"
+    if details:
+        return f"{base}: {' | '.join(details)}"
+    return base if path or mode else ""
+
+
+def _summarize_search(last_search: Any) -> str:
+    if not isinstance(last_search, dict):
+        return ""
+    query = str(last_search.get("query", "")).strip()
+    results = last_search.get("results", [])
+    if not isinstance(results, list):
+        results = []
+    count = len(results)
+    if not query and count == 0:
+        return ""
+
+    top_title = ""
+    if results:
+        first = results[0]
+        if isinstance(first, dict):
+            top_title = str(first.get("title", "")).strip()
+    if query and top_title:
+        return f"search '{query}': {count} results (top: {top_title})"
+    if query:
+        return f"search '{query}': {count} results"
+    return f"search: {count} results"
 
 
 def _subtask_sort_key(marker: Any) -> tuple[int, str]:
@@ -229,7 +358,9 @@ def _normalize_analysis(last_thought: Any) -> str:
     if isinstance(parsed, dict):
         steps = parsed.get("steps")
         if isinstance(steps, list):
-            normalized_steps = [str(step).strip() for step in steps if str(step).strip()]
+            normalized_steps = [
+                str(step).strip() for step in steps if str(step).strip()
+            ]
             if normalized_steps:
                 return "; ".join(normalized_steps)
 

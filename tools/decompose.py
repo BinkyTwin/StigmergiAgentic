@@ -25,12 +25,22 @@ class DecomposeTool(Tool):
 
     def __init__(self, *, config: dict[str, Any]) -> None:
         self.config = config
+        markers_cfg = dict(config.get("markers", {}))
+        self.intensity_step = float(markers_cfg.get("intensity_step_decompose", 0.1))
+        self.child_intensity_offset = float(
+            markers_cfg.get("child_intensity_offset", 0.2)
+        )
+        self.intensity_floor = float(markers_cfg.get("intensity_floor", 0.1))
 
     def is_eligible(self, marker: Marker) -> bool:
-        raw = marker.payload.get("eligible_actions", [])
-        if not isinstance(raw, (list, tuple, set)):
+        raw = marker.payload.get("eligible_actions")
+        if isinstance(raw, (list, tuple, set)) and len(raw) > 0:
+            return self.action_type in {str(item) for item in raw}
+
+        if bool(marker.payload.get("decomposed")):
             return False
-        return self.action_type in {str(item) for item in raw}
+        parent_id = marker.payload.get("parent_id")
+        return not isinstance(parent_id, str)
 
     async def execute(
         self,
@@ -43,7 +53,11 @@ class DecomposeTool(Tool):
         objective = str(
             marker.payload.get("objective", marker.payload.get("task", marker.target))
         ).strip()
-        desired_count = int(marker.payload.get("subtask_count", 3))
+        desired_count: int | None = (
+            int(marker.payload["subtask_count"])
+            if "subtask_count" in marker.payload
+            else None
+        )
 
         subtasks: list[str] = []
         consumed_tokens = 0
@@ -51,12 +65,15 @@ class DecomposeTool(Tool):
 
         if llm_client is not None and hasattr(llm_client, "call"):
             prompt = (
-                "Decompose the objective into concise executable subtasks.\n"
-                "Return strict JSON with shape: "
+                "Decompose the following objective into concrete executable subtasks.\n"
+                "Use as many or as few subtasks as the objective requires -- "
+                "do not force a fixed number.\n"
+                "Return strict JSON: "
                 '{"subtasks":[{"title":"..."}]}\n'
-                f"Objective: {objective}\n"
-                f"Target subtask count: {desired_count}"
+                f"Objective: {objective}"
             )
+            if desired_count is not None:
+                prompt += f"\nSuggested target: around {desired_count} subtasks"
             try:
                 response = llm_client.call(
                     prompt=prompt,
@@ -65,21 +82,29 @@ class DecomposeTool(Tool):
                 consumed_tokens = int(getattr(response, "tokens_used", 0))
                 cost_usd = float(getattr(response, "cost_usd", 0.0))
                 raw_content = str(getattr(response, "content", ""))
-                subtasks = self._parse_subtasks(raw_content=raw_content, llm_client=llm_client)
+                subtasks = self._parse_subtasks(
+                    raw_content=raw_content, llm_client=llm_client
+                )
             except Exception:  # noqa: BLE001
                 subtasks = []
 
         if not subtasks:
-            subtasks = self._fallback_subtasks(objective=objective, desired_count=desired_count)
+            subtasks = self._fallback_subtasks(
+                objective=objective, desired_count=desired_count
+            )
 
         updated_parent = Marker.from_dict(marker.to_dict())
         parent_payload = dict(updated_parent.payload)
         parent_payload["decomposed"] = True
         parent_payload["subtask_count"] = len(subtasks)
-        parent_payload["eligible_actions"] = ["think"]
         updated_parent.payload = parent_payload
-        updated_parent.state = STATE_PROGRESS.get(updated_parent.state, updated_parent.state)
-        updated_parent.intensity = max(0.1, float(updated_parent.intensity) - 0.1)
+        updated_parent.state = STATE_PROGRESS.get(
+            updated_parent.state, updated_parent.state
+        )
+        updated_parent.intensity = max(
+            self.intensity_floor,
+            float(updated_parent.intensity) - self.intensity_step,
+        )
 
         now = utc_now_iso()
         child_markers: list[Marker] = []
@@ -89,13 +114,15 @@ class DecomposeTool(Tool):
                     id=f"{marker.id}::subtask::{index}",
                     marker_type="task",
                     target=f"{marker.target}::{index}",
-                    intensity=max(0.2, float(marker.intensity) - 0.2),
+                    intensity=max(
+                        self.intensity_floor,
+                        float(marker.intensity) - self.child_intensity_offset,
+                    ),
                     state="pending",
                     payload={
                         "task": subtask,
                         "objective": objective,
                         "parent_id": marker.id,
-                        "eligible_actions": ["think"],
                     },
                     created_by=agent_id,
                     created_at=now,
@@ -144,7 +171,9 @@ class DecomposeTool(Tool):
                 return subtasks
         return []
 
-    def _fallback_subtasks(self, *, objective: str, desired_count: int) -> list[str]:
+    def _fallback_subtasks(
+        self, *, objective: str, desired_count: int | None
+    ) -> list[str]:
         parts = [
             segment.strip(" -\n\t")
             for segment in objective.replace(";", ".").split(".")
@@ -157,4 +186,6 @@ class DecomposeTool(Tool):
         for part in parts:
             if part not in unique:
                 unique.append(part)
-        return unique[: max(1, desired_count)]
+        if desired_count is not None:
+            return unique[: max(1, desired_count)]
+        return unique if unique else [objective or "Handle objective"]

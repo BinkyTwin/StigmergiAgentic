@@ -25,15 +25,26 @@ class BashExecTool(Tool):
 
     def __init__(self, *, config: dict[str, Any]) -> None:
         tools_cfg = dict(config.get("tools", {}))
+        markers_cfg = dict(config.get("markers", {}))
         allowed = tools_cfg.get("allowed_commands", [])
-        self.allowed_commands = {str(command).strip() for command in allowed if str(command).strip()}
+        self.allowed_commands = {
+            str(command).strip() for command in allowed if str(command).strip()
+        }
         self.default_timeout_seconds = float(tools_cfg.get("bash_timeout_seconds", 120))
+        self.intensity_step = float(markers_cfg.get("intensity_step_tool", 0.05))
+        self.intensity_floor = float(markers_cfg.get("intensity_floor", 0.1))
 
     def is_eligible(self, marker: Marker) -> bool:
-        raw = marker.payload.get("eligible_actions", [])
-        if not isinstance(raw, (list, tuple, set)):
-            return False
-        return self.action_type in {str(item) for item in raw}
+        raw = marker.payload.get("eligible_actions")
+        if isinstance(raw, (list, tuple, set)) and len(raw) > 0:
+            return self.action_type in {str(item) for item in raw}
+
+        command = marker.payload.get("command")
+        if isinstance(command, str):
+            return bool(command.strip())
+        if isinstance(command, (list, tuple)):
+            return len(command) > 0
+        return False
 
     async def execute(
         self,
@@ -62,7 +73,10 @@ class BashExecTool(Tool):
         if executable not in self.allowed_commands:
             return ActionResult(
                 action_type=self.action_type,
-                metadata={"failed": True, "reason": f"command_not_allowed:{executable}"},
+                metadata={
+                    "failed": True,
+                    "reason": f"command_not_allowed:{executable}",
+                },
             )
 
         timeout_seconds = float(
@@ -104,7 +118,10 @@ class BashExecTool(Tool):
         }
         updated.payload = payload
         updated.state = STATE_PROGRESS.get(updated.state, updated.state)
-        updated.intensity = max(0.1, float(updated.intensity) - 0.05)
+        updated.intensity = max(
+            self.intensity_floor,
+            float(updated.intensity) - self.intensity_step,
+        )
 
         return ActionResult(action_type=self.action_type, marker_updates=[updated])
 

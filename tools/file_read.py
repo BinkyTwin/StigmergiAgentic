@@ -23,13 +23,18 @@ class FileReadTool(Tool):
 
     def __init__(self, *, config: dict[str, Any]) -> None:
         tools_cfg = dict(config.get("tools", {}))
+        markers_cfg = dict(config.get("markers", {}))
         self.max_file_size_bytes = int(tools_cfg.get("max_file_size_bytes", 1_048_576))
+        self.intensity_step = float(markers_cfg.get("intensity_step_tool", 0.05))
+        self.intensity_floor = float(markers_cfg.get("intensity_floor", 0.1))
 
     def is_eligible(self, marker: Marker) -> bool:
-        raw = marker.payload.get("eligible_actions", [])
-        if not isinstance(raw, (list, tuple, set)):
-            return False
-        return self.action_type in {str(item) for item in raw}
+        raw = marker.payload.get("eligible_actions")
+        if isinstance(raw, (list, tuple, set)) and len(raw) > 0:
+            return self.action_type in {str(item) for item in raw}
+
+        path = marker.payload.get("path")
+        return isinstance(path, str) and bool(path.strip())
 
     async def execute(
         self,
@@ -73,6 +78,9 @@ class FileReadTool(Tool):
         }
         updated.payload = payload
         updated.state = STATE_PROGRESS.get(updated.state, updated.state)
-        updated.intensity = max(0.1, float(updated.intensity) - 0.05)
+        updated.intensity = max(
+            self.intensity_floor,
+            float(updated.intensity) - self.intensity_step,
+        )
 
         return ActionResult(action_type=self.action_type, marker_updates=[updated])

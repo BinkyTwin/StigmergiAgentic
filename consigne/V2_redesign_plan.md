@@ -15,7 +15,7 @@ La nouvelle revue de litterature DSR definit 5 objectifs de conception (OC1-OC5)
 | Decision | Choix | Raison |
 |---|---|---|
 | **Iteration 1** | TravelPlanner | Force la generalite — evite de re-coupler au code |
-| **Repo** | Branche `v2/main` dans le repo actuel | Garde historique Git, PDFs, revue de litt |
+| **Repo** | Branche `codex/v2-redesign-sprint1` dans le repo actuel | Garde historique Git, PDFs, revue de litt |
 | **Timeline** | Pas de contrainte — beaucoup de temps et d'agents IA | Ambition maximale sur les 3 iterations DSR |
 | **Marker Store** | SQLite (WAL mode) | ACID, requetes, lectures concurrentes, robuste en parallele |
 
@@ -28,6 +28,23 @@ La nouvelle revue de litterature DSR definit 5 objectifs de conception (OC1-OC5)
 | OC3 | Surpasser les frameworks centralises sur TravelPlanner | >= 32.2% score final (baseline SwarmAgentic) |
 | OC4 | Competitivite sur transformation de code | PolyMigration + SWE-bench |
 | OC5 | Gouvernance et auditabilite (EU AI Act Art. 14) | Panel d'experts + audit completeness |
+
+---
+
+## Non-goals
+
+Les elements suivants sont explicitement exclus du perimetre du framework V2 :
+
+1. **Le framework n'est pas un lanceur de benchmarks** : Les benchmarks sont un mecanisme de validation pour la these, pas l'objectif principal. Le framework fonctionne comme un systeme d'orchestration stigmergique generaliste.
+2. **Les adaptateurs de domaine ne sont pas requis pour le fonctionnement de base** : Le framework doit etre utilisable sans adaptateur de domaine au-dela du mode assistant general.
+3. **Pas de fine-tuning LLM** : Le framework utilise des API LLM standard via le `LLMClient` existant.
+4. **Pas de streaming temps reel** : Toutes les interactions LLM sont en mode requete-reponse.
+5. **Pas de multi-tenancy ni d'infrastructure de deploiement** : Le framework s'execute comme un processus local ou un conteneur Docker.
+6. **Pas de GUI ni d'interface web** : L'interaction se fait via CLI (`main.py`) et API programmatique.
+7. **Pas de communication directe agent-a-agent** : Les agents se coordonnent UNIQUEMENT via l'environnement de markers (stigmergie).
+8. **Les resultats de benchmark ne sont pas des outils d'infrastructure** : Le harness d'evaluation, l'analyse Pareto, et les metriques d'emergence vivent dans `benchmarks/`, separes de la couche d'outils runtime.
+9. **Pas de persistance cross-session** : Chaque execution de l'orchestrateur demarre de zero.
+10. **Pas de marketplace de plugins ni de chargement dynamique d'outils** : Les outils sont enregistres programmatiquement via `ToolRegistry`.
 
 ---
 
@@ -50,31 +67,35 @@ La nouvelle revue de litterature DSR definit 5 objectifs de conception (OC1-OC5)
 | Frontiere de Pareto cout-precision | Kapoor et al. (2024) |
 | Audit complet pour supervision humaine | EU AI Act Art. 14, Fink (2025) |
 
-### Vue d'ensemble (5 couches)
+### Vue d'ensemble (4 couches)
 
 ```
 +-------------------------------------------------------------------+
-|  COUCHE ADAPTATEUR (domain-specific)                               |
-|  TravelPlanner | CodeMigration | SWE-bench | custom               |
-|  [Carriero & Gelernter 1992: orthogonalite calcul/coordination]    |
+|  COUCHE 4 : HARNESS DE BENCHMARK / EVALUATION                     |
+|  benchmarks/harness.py  |  benchmarks/runners/  |                 |
+|  benchmarks/analysis/                                              |
+|  [Kapoor et al. 2024: reproductibilite; DSR: protocole evaluation] |
 +-------------------------------------------------------------------+
-|  COUCHE ORCHESTRATEUR (tick loop parallele)                        |
-|  Snapshot -> Decide -> Lock -> Execute -> Deposit -> Decay         |
-|  [Serugendo et al. 2005: auto-organisation par regles locales]     |
+|  COUCHE 3 : ADAPTATEURS DE DOMAINE (pluggable, optionnel)         |
+|  adapters/travelplanner/ | adapters/codemigration/ |              |
+|  adapters/swebench/      | adapters/assistant/                    |
+|  [Carriero & Gelernter 1992: orthogonalite calcul/coordination]   |
 +-------------------------------------------------------------------+
-|  COUCHE AGENTS (N agents homogenes)                                |
-|  perceive -> compute_pressures -> select_action -> execute ->      |
-|  deposit                                                           |
-|  [Rodriguez 2026: agents role-free; Heylighen 2016: any ant]       |
+|  COUCHE 2 : OUTILS D'INFRASTRUCTURE (generiques, toujours dispo)  |
+|  tools/file_read.py  |  tools/file_write.py  |  tools/bash_exec.py|
+|  tools/web_search.py |  tools/think.py       |  tools/decompose.py|
+|  [Ricci et al. 2007: primitives generiques de manipulation        |
+|   d'artefacts]                                                     |
 +-------------------------------------------------------------------+
-|  COUCHE ENVIRONNEMENT (MarkerStore + Workspace + Guardrails)       |
-|  Markers dynamiques, audit JSONL, scope locks, decay               |
-|  [Ricci et al. 2007: Agents & Artifacts; Gelernter 1985: tuples]   |
-+-------------------------------------------------------------------+
-|  COUCHE INFRASTRUCTURE                                             |
-|  LLM client, tool registry, file I/O, Git, Web                    |
+|  COUCHE 1 : CORE FRAMEWORK (FAIT — Sprints 1+2)                   |
+|  core/marker.py  |  core/marker_store.py  |  core/orchestrator.py |
+|  core/agent.py   |  core/pressure.py      |  core/environment.py  |
+|  core/guardrails.py  |  core/audit.py  |  core/tool_registry.py   |
+|  [Rodriguez 2026; Heylighen 2016; Bonabeau et al. 1999]           |
 +-------------------------------------------------------------------+
 ```
+
+**Separation cle** : La Couche 2 (Outils d'Infrastructure) se place entre le core et les adaptateurs de domaine. Les adaptateurs de domaine enregistrent leurs propres outils specifiques ET peuvent aussi enregistrer les outils d'infrastructure. Le mode assistant general est simplement un adaptateur minimal qui n'enregistre que les outils d'infrastructure.
 
 ### Modele de Markers (Pheromones Generiques)
 
@@ -203,9 +224,44 @@ class DomainAdapter(ABC):
     def evaluate_run(self, env) -> EvaluationResult: ...
 ```
 
-**TravelPlanner** : 6 tools (search_flights, search_hotels, search_attractions, plan_day, validate, refine)
-**CodeMigration** : 4 tools (discover, transform, test, validate) — LLM-driven, zero regex
-**SWE-bench** : 5 tools (localize, patch, test, validate, refine)
+Chaque adaptateur enregistre ses outils de domaine ET peut appeler `register_infrastructure_tools(registry)` pour ajouter les outils generiques d'infrastructure.
+
+### Pattern Outils d'Infrastructure (Couche 2)
+
+Les outils d'infrastructure implementent le meme `Tool` ABC que les outils de domaine :
+
+```python
+# tools/__init__.py
+def register_infrastructure_tools(registry: ToolRegistry, config: dict) -> None:
+    """Enregistre tous les outils generiques d'infrastructure.
+
+    [Ricci et al. 2007: primitives generiques de manipulation d'artefacts]
+    """
+    registry.register(FileReadTool(config=config))
+    registry.register(FileWriteTool(config=config))
+    registry.register(BashExecTool(config=config))
+    registry.register(WebSearchTool(config=config))
+    registry.register(ThinkTool(config=config))
+    registry.register(DecomposeTool(config=config))
+```
+
+**Eligibilite** : Les outils d'infrastructure utilisent `marker.payload` pour determiner l'eligibilite. Par exemple, `FileReadTool.is_eligible(marker)` retourne `True` quand `marker.payload.get("eligible_actions")` inclut `"file_read"`.
+
+**Execution** : Les outils d'infrastructure accedent a `environment.workspace` pour leurs operations.
+
+**Decision architecturale** : Chaque adaptateur decide quels outils d'infrastructure inclure via `register_tools()`. C'est l'adaptateur qui constitue la frontiere de securite.
+
+### Mode Assistant General
+
+Le mode assistant general est un adaptateur minimal (`adapters/assistant/`) qui :
+- `create_workspace` : retourne un `LocalWorkspace` pointe sur le repertoire de travail de l'utilisateur
+- `create_objective` : convertit un prompt utilisateur en `Objective`
+- `register_tools` : enregistre UNIQUEMENT les outils d'infrastructure
+- `define_state_machine` : utilise le `StateMachine()` par defaut
+- `initial_markers` : utilise le LLM pour decomposer l'objectif en sous-taches (markers)
+- `evaluate_run` : retourne des metriques basiques de completion (pas de scoring benchmark)
+
+Cela prouve que le framework fonctionne comme un systeme d'orchestration generaliste, independamment de tout benchmark.
 
 ### Baselines de Comparaison (Kapoor et al., 2024)
 
@@ -216,6 +272,8 @@ Pour chaque domaine, 4 configurations :
 4. **Stigmergic V2** : N agents homogenes, paralleles, pression-driven
 
 Meme modele LLM, temperature, outils, prompts, workspace, >= 5 runs, CI95.
+
+Les baselines vivent dans `benchmarks/runners/` et sont alignees sur les contrats V2.
 
 ---
 
@@ -245,7 +303,7 @@ Meme modele LLM, temperature, outils, prompts, workspace, >= 5 runs, CI95.
 | LLM client (retry, budget, providers) | `stigmergy/llm_client.py` | Port vers `llm/client.py` |
 | Fonctions de decay | `environment/decay.py` | Port vers `core/decay.py` |
 | Pattern guardrails (scope lock, TTL, budget) | `environment/guardrails.py` | Generalise dans `core/guardrails.py` |
-| Pareto analysis | `metrics/pareto.py` | Port et generalise dans `metrics/pareto.py` |
+| Pareto analysis | `metrics/pareto.py` | Port et generalise dans `benchmarks/analysis/pareto.py` |
 | Docker infrastructure | `Dockerfile`, `docker-compose.yml` | Adapte pour V2 |
 
 ### Ce qu'on jette
@@ -255,6 +313,8 @@ Meme modele LLM, temperature, outils, prompts, workspace, >= 5 runs, CI95.
 - `environment/pheromone_store.py` — JSON + fcntl, 3 types hardcodes
 - `stigmergy/loop.py` — round-robin sequentiel
 - Tous les prompts Py2->3
+- `baselines/` (V0.1) — non aligne avec les contrats V2
+- `metrics/` (V0.1) — non cable sur V2
 
 ---
 
@@ -262,7 +322,7 @@ Meme modele LLM, temperature, outils, prompts, workspace, >= 5 runs, CI95.
 
 ```
 stigmergy-v2/
-    core/                           # Framework generique (domain-agnostic)
+    core/                           # L1: Framework generique (domain-agnostic)
         __init__.py
         agent.py                    # StigmergicAgent (homogene, role-free)
         environment.py              # Environment (MarkerStore + Workspace + Guardrails)
@@ -276,9 +336,22 @@ stigmergy-v2/
         tool_registry.py            # Registre d'outils + Tool ABC
         config.py                   # Chargement et validation config YAML
 
-    adapters/                       # Adaptateurs de domaine
+    tools/                          # L2: Outils d'infrastructure generiques
+        __init__.py                 # register_infrastructure_tools() helper
+        file_read.py                # FileReadTool : lecture de fichier
+        file_write.py               # FileWriteTool : ecriture/patch de fichier
+        bash_exec.py                # BashExecTool : execution commande, stdout/stderr, timeout
+        web_search.py               # WebSearchTool : recherche web via API
+        think.py                    # ThinkTool : raisonnement/planification LLM
+        decompose.py                # DecomposeTool : decomposition tache en sous-markers
+
+    adapters/                       # L3: Adaptateurs de domaine
         __init__.py
-        base.py                     # DomainAdapter ABC, Workspace ABC
+        base.py                     # DomainAdapter ABC, Workspace ABC, Objective dataclass
+        assistant/                  # Mode assistant general (outils infra uniquement)
+            __init__.py
+            adapter.py              # AssistantAdapter
+            workspace.py            # LocalWorkspace (filesystem-rooted)
         travelplanner/
             __init__.py
             adapter.py              # TravelPlannerAdapter
@@ -303,18 +376,20 @@ stigmergy-v2/
         client.py                   # LLMClient (port de V0.1, provider-agnostic)
         prompts.py                  # Templates de prompts pour raisonnement agent
 
-    metrics/                        # Mesure et evaluation
+    benchmarks/                     # L4: Harness de benchmark / evaluation
         __init__.py
-        collector.py                # Collection par tick
-        emergence.py                # Metriques d'emergence (entropie, specialisation)
-        pareto.py                   # Analyse Pareto (port de V0.1)
-        export.py                   # Export CSV/JSON/PNG
-
-    baselines/                      # Baselines de comparaison
-        __init__.py
-        single_agent.py             # 1 agent, tous les outils
-        sequential.py               # Pipeline fixe
-        centralized.py              # Superviseur-workers
+        harness.py                  # BenchmarkHarness : run N configs x M runs
+        runners/
+            __init__.py
+            single_agent.py         # 1 agent, tous outils, pas de parallelisme
+            sequential.py           # Pipeline fixe
+            centralized.py          # Superviseur-workers
+            stigmergic.py           # Runner stigmergique V2
+        analysis/
+            __init__.py
+            emergence.py            # Metriques d'emergence (entropie, specialisation)
+            pareto.py               # Analyse Pareto (port + generalisation)
+            export.py               # CSV/JSON/PNG export
 
     tests/                          # Suite de tests
         unit/
@@ -326,8 +401,13 @@ stigmergy-v2/
             test_guardrails.py
             test_audit.py
             test_orchestrator.py
+            test_llm_client.py
+            test_file_tools.py
+            test_bash_tool.py
+            test_assistant_adapter.py
             test_emergence.py
         integration/
+            test_assistant_run.py
             test_travelplanner.py
             test_codemigration.py
             test_swebench.py
@@ -338,12 +418,15 @@ stigmergy-v2/
 
     config/
         default.yaml                # Config framework par defaut
+        assistant.yaml              # Overrides mode assistant
         travelplanner.yaml          # Overrides TravelPlanner
         codemigration.yaml          # Overrides code migration
         swebench.yaml               # Overrides SWE-bench
 
     documentation/                  # Documentation DSR par iteration
         construction_log.md
+        decisions/                  # ADRs
+        redesign_v2/                # Artifacts par sprint
         iteration_1/                # TravelPlanner
         iteration_2/                # PolyMigration
         iteration_3/                # SWE-bench
@@ -419,77 +502,47 @@ pressures:
   # transform: 1.2
   # test: 1.0
   # validate: 1.0
+
+# Outils d'infrastructure (Couche 2)
+tools:
+  sandbox_root: "."                 # Racine du workspace (securite)
+  allowed_commands:                 # Commandes bash autorisees (whitelist)
+    - "python"
+    - "pytest"
+    - "git"
+    - "pip"
+    - "uv"
+  bash_timeout_seconds: 120         # Timeout execution bash
+  max_file_size_bytes: 1048576      # 1 MB max par fichier lu/ecrit
+  web_search_provider: "none"       # "none" | "tavily" | "serper" (configurable)
+  web_search_max_results: 5         # Resultats max par recherche
 ```
 
 ---
 
 ## Sprints Detailles
 
-### Sprint 1 : Core — Markers, Store, Decay, Guardrails, Audit (5 jours)
+### Sprint 1 : Core — Markers, Store, Decay, Guardrails, Audit — DONE
 
-**Objectif** : Construire la couche environnement generique. Aucun agent, aucun adaptateur — juste le moteur de pheromones.
+**Statut** : FAIT. Voir `documentation/redesign_v2/sprint_01_artifact.md`.
 
-**Fichiers a creer** :
+**Resume** : Couche environnement generique construite. MarkerStore SQLite WAL, machine a etats configurable, decay exponentiel/lineaire, guardrails (budget, retry, scope lock TTL, tracabilite), audit JSONL append-only.
 
-| Fichier | Contenu | Lignes estimees |
-|---|---|---|
-| `core/__init__.py` | Exports | 5 |
-| `core/marker.py` | `Marker` dataclass, `StateMachine` class, `MarkerType` enum | 120 |
-| `core/marker_store.py` | `MarkerStore` : SQLite WAL, CRUD, locking, query, decay, snapshot | 350 |
-| `core/decay.py` | `decay_intensity()`, `decay_inhibition()` (port V0.1) | 40 |
-| `core/guardrails.py` | `GuardrailEngine` : budget, retry, scope lock TTL, traceability | 200 |
-| `core/audit.py` | `AuditLog` : JSONL append, `AuditEvent` dataclass | 80 |
-| `core/config.py` | `load_config()`, validation, merge defaults | 100 |
-| `config/default.yaml` | Config par defaut (voir ci-dessus) | 50 |
-| `tests/conftest.py` | Fixtures partagees (tmp_path, mock config) | 60 |
-| `tests/unit/test_marker_store.py` | 12 tests : CRUD, lock, concurrent read, decay, query, snapshot | 300 |
-| `tests/unit/test_marker.py` | 5 tests : creation, FSM transitions, validation | 100 |
-| `tests/unit/test_guardrails.py` | 6 tests : budget, retry, scope lock, TTL, traceability check | 150 |
-| `tests/unit/test_decay.py` | 4 tests : exponential, linear, inhibition, clamping | 80 |
-| `tests/unit/test_audit.py` | 4 tests : append, read, completeness, before/after | 80 |
+**Modules** : `core/marker.py`, `core/marker_store.py`, `core/decay.py`, `core/guardrails.py`, `core/audit.py`, `core/config.py`, `config/default.yaml`
 
-**Tests d'acceptance** : `pytest tests/unit/ -v` — 31 tests passent.
-
-**Theorie tracee** :
-- `MarkerStore` -> Gelernter (1985) tuple space + Ricci et al. (2007) artifacts
-- `decay.py` -> Parunak et al. (2005) evaporation
-- `guardrails.py` -> Grisold et al. (2025) deep norms
-- `audit.py` -> EU AI Act Art. 14, Santoni de Sio & van den Hoven (2018)
+**Tests** : 31 tests unitaires passes.
 
 ---
 
-### Sprint 2 : Core — Agent, Pression, Orchestrateur, Outils (5 jours)
+### Sprint 2 : Core — Agent, Pression, Orchestrateur, Outils — DONE
 
-**Objectif** : Construire l'agent generaliste, le calcul de pression, l'execution parallele, et le registre d'outils. Un mock adapter doit pouvoir tourner 10 ticks avec 4 agents.
+**Statut** : FAIT. Voir `documentation/redesign_v2/sprint_02_artifact.md`.
 
-**Fichiers a creer** :
+**Resume** : Agent generaliste, calcul de pression, execution parallele, registre d'outils, LLM client. Mock adapter tourne 10 ticks avec 4 agents.
 
-| Fichier | Contenu | Lignes estimees |
-|---|---|---|
-| `core/agent.py` | `StigmergicAgent` : perceive, decide, execute, deposit | 200 |
-| `core/pressure.py` | `compute_pressures()`, `select_action()` (softmax) | 80 |
-| `core/tool_registry.py` | `Tool` ABC, `ToolRegistry`, `ActionResult`, `Decision` dataclasses | 120 |
-| `core/environment.py` | `Environment` : combine MarkerStore + Workspace + Guardrails + Audit | 150 |
-| `core/orchestrator.py` | `Orchestrator` : tick loop, parallel execution, conflict resolution, stop conditions | 250 |
-| `adapters/__init__.py` | Exports | 5 |
-| `adapters/base.py` | `DomainAdapter` ABC, `Workspace` ABC, `Objective` dataclass | 100 |
-| `llm/__init__.py` | Exports | 5 |
-| `llm/client.py` | Port de V0.1 `stigmergy/llm_client.py` | ~400 (port) |
-| `llm/prompts.py` | Templates pour raisonnement agent, prompt systeme stigmergique | 80 |
-| `tests/unit/test_agent.py` | 10 tests : perceive, decide, execute, deposit, idle, history | 250 |
-| `tests/unit/test_pressure.py` | 6 tests : computation, normalisation, zero, stochastic, weights | 150 |
-| `tests/unit/test_orchestrator.py` | 8 tests : parallel exec, conflict resolution, decay, stop conditions | 200 |
+**Modules** : `core/tool_registry.py`, `core/pressure.py`, `core/environment.py`, `core/agent.py`, `core/orchestrator.py`, `adapters/base.py`, `llm/client.py`, `llm/prompts.py`
 
-**Fichiers a creer (mock adapter pour tests)** :
-
-| Fichier | Contenu |
-|---|---|
-| `tests/fixtures/mock_adapter.py` | Adaptateur mock avec 3 outils simples (increment/check/finalize) |
-
-**Tests d'acceptance** :
-1. `pytest tests/unit/ -v` — 55+ tests passent
-2. Mock adapter tourne 10 ticks, 4 agents paralleles, 0 conflits non resolus
-3. Metriques par tick collectees (agents actifs, pressions, actions)
+**Tests** : 61 tests unitaires passes (cumul).
 
 **Theorie tracee** :
 - `agent.py` -> Rodriguez (2026) role-free agents, Heylighen (2016) universal stimulus
@@ -499,9 +552,49 @@ pressures:
 
 ---
 
-### Sprint 3 : Adaptateur TravelPlanner — Iteration DSR 1 (5 jours)
+### Sprint 3 : Outils d'Infrastructure + Mode Assistant General (5 jours)
 
-**Objectif** : Implementer l'adaptateur TravelPlanner. Valider OC1 (generaliste) et OC3 (battre SwarmAgentic 32.2%).
+**Objectif** : Construire la couche d'outils generiques et un adaptateur assistant minimal. Apres ce sprint, le framework peut fonctionner comme un assistant multi-agents generaliste avec lecture/ecriture de fichiers, execution bash, et recherche web.
+
+**Fichiers a creer** :
+
+| Fichier | Contenu |
+|---|---|
+| `tools/__init__.py` | `register_infrastructure_tools()` helper |
+| `tools/file_read.py` | `FileReadTool` : lecture de contenu fichier, retour dans marker payload |
+| `tools/file_write.py` | `FileWriteTool` : ecriture/patch fichier, retour marker mis a jour |
+| `tools/bash_exec.py` | `BashExecTool` : execution commande, capture stdout/stderr, timeout |
+| `tools/web_search.py` | `WebSearchTool` : recherche web via API, retour resultats dans payload |
+| `tools/think.py` | `ThinkTool` : raisonnement/planification LLM, retourne une analyse |
+| `tools/decompose.py` | `DecomposeTool` : decompose une tache en sous-markers via LLM |
+| `adapters/assistant/__init__.py` | Exports |
+| `adapters/assistant/adapter.py` | `AssistantAdapter` : adaptateur minimal utilisant uniquement les outils d'infrastructure |
+| `adapters/assistant/workspace.py` | `LocalWorkspace` : workspace enracine dans le filesystem |
+| `config/assistant.yaml` | Overrides de config pour le mode assistant |
+| `main.py` | CLI entrypoint : `--adapter assistant --objective "..."` |
+| `tests/unit/test_file_tools.py` | 8 tests : lecture, ecriture, patch, permissions, limites |
+| `tests/unit/test_bash_tool.py` | 6 tests : execution, timeout, whitelist, stderr |
+| `tests/unit/test_assistant_adapter.py` | 6 tests : workspace, objective, markers initiaux |
+| `tests/integration/test_assistant_run.py` | 4 tests : run end-to-end avec mock LLM |
+
+**Tests d'acceptance** :
+1. `pytest tests/unit/ -v` — 81+ tests passent
+2. L'adaptateur assistant cree des markers a partir d'un objectif utilisateur
+3. Les outils d'infrastructure s'executent dans la boucle de ticks complete
+4. Run end-to-end de l'assistant avec mock LLM
+
+**Theorie tracee** :
+- Outils d'infrastructure -> Ricci et al. (2007) : primitives generiques de manipulation d'artefacts
+- Adaptateur assistant -> Carriero & Gelernter (1992) : orthogonalite entre calcul generique et coordination stigmergique
+- Decomposition de taches -> Heylighen (2016) : decomposition stigmergique de taches complexes
+
+---
+
+### Sprint 4 : Adaptateur TravelPlanner — Iteration DSR 1 (5 jours)
+
+**Objectif** : Implementer l'adaptateur TravelPlanner en utilisant les outils d'infrastructure comme fondation. Valider OC1 (generaliste) et OC3 (battre SwarmAgentic 32.2%).
+
+> **Note** : TravelPlanner est un benchmark de validation DSR, pas une dependance runtime. Le framework fonctionne deja sans lui grace au mode assistant general (Sprint 3).
 
 **Prerequis** : Telecharger les donnees TravelPlanner (bases de donnees vols/hotels/attractions + queries de validation).
 
@@ -510,12 +603,11 @@ pressures:
 | Fichier | Contenu |
 |---|---|
 | `adapters/travelplanner/__init__.py` | Exports |
-| `adapters/travelplanner/adapter.py` | `TravelPlannerAdapter` : workspace, objective, tools, FSM, evaluation |
+| `adapters/travelplanner/adapter.py` | `TravelPlannerAdapter` : workspace, objective, tools, FSM, evaluation. Appelle `register_infrastructure_tools()` en plus de ses outils de domaine. |
 | `adapters/travelplanner/workspace.py` | `TravelPlannerWorkspace` : lecture des bases de donnees, items = queries |
 | `adapters/travelplanner/tools.py` | 6 outils : `SearchFlightsTool`, `SearchHotelsTool`, `SearchAttractionsTool`, `PlanDayTool`, `ValidateConstraintsTool`, `RefinePlanTool` |
 | `adapters/travelplanner/evaluator.py` | Metriques : final_score, hard_constraint_macro, soft_constraint, commonsense |
 | `config/travelplanner.yaml` | Config specifique (poids de pression, noms d'actions) |
-| `main.py` | CLI : `--adapter travelplanner --input <query_file>` |
 | `tests/integration/test_travelplanner.py` | 10 tests (mock LLM + fixture queries) |
 
 **Machine a etats TravelPlanner** :
@@ -527,7 +619,7 @@ pending -> searching -> planning -> validating -> terminal
 ```
 
 **Tests d'acceptance** :
-1. `pytest tests/ -v` — 65+ tests
+1. `pytest tests/ -v` — 91+ tests
 2. Dry run sur 5 queries TravelPlanner (mock LLM) — valide le pipeline
 3. Run reel sur validation set — mesurer final_score, comparer a SwarmAgentic
 
@@ -538,24 +630,27 @@ pending -> searching -> planning -> validating -> terminal
 
 ---
 
-### Sprint 4 : Metriques d'Emergence + Baselines (4 jours)
+### Sprint 5 : Metriques d'Emergence + Baselines + Harness de Benchmark (4 jours)
 
-**Objectif** : Instrumenter les metriques d'emergence, construire les 3 baselines, generer les premieres analyses Pareto.
+**Objectif** : Construire l'infrastructure d'evaluation : metriques d'emergence, baselines alignees V2, analyse Pareto, et le harness de benchmark. Tout vit dans `benchmarks/`, separe du runtime.
 
 **Fichiers a creer** :
 
 | Fichier | Contenu |
 |---|---|
-| `metrics/__init__.py` | Exports |
-| `metrics/collector.py` | `TickCollector` : collecte par tick (actions, pressions, locks, items) |
-| `metrics/emergence.py` | 8 metriques (voir tableau ci-dessous) |
-| `metrics/pareto.py` | Port V0.1 + generalisation (N configurations, N domaines) |
-| `metrics/export.py` | CSV par tick, JSON summary, PNG dashboard |
-| `baselines/single_agent.py` | 1 agent, tous outils, pas de parallelisme |
-| `baselines/sequential.py` | Pipeline fixe (action 1 -> action 2 -> ... -> action N) |
-| `baselines/centralized.py` | LLM superviseur dispatche les taches aux workers |
+| `benchmarks/__init__.py` | Exports |
+| `benchmarks/harness.py` | `BenchmarkHarness` : orchestration N configs x M runs, collecte resultats |
+| `benchmarks/runners/__init__.py` | Exports |
+| `benchmarks/runners/single_agent.py` | 1 agent, tous outils, pas de parallelisme (aligne V2) |
+| `benchmarks/runners/sequential.py` | Pipeline fixe (aligne V2) |
+| `benchmarks/runners/centralized.py` | LLM superviseur dispatche les taches aux workers (aligne V2) |
+| `benchmarks/runners/stigmergic.py` | Runner stigmergique V2 standard |
+| `benchmarks/analysis/__init__.py` | Exports |
+| `benchmarks/analysis/emergence.py` | 8 metriques (voir tableau ci-dessous) |
+| `benchmarks/analysis/pareto.py` | Port V0.1 + generalisation (N configurations, N domaines) |
+| `benchmarks/analysis/export.py` | CSV par tick, JSON summary, PNG dashboard |
 | `tests/unit/test_emergence.py` | 8 tests (une par metrique) |
-| `tests/integration/test_baselines.py` | 6 tests (2 par baseline) |
+| `tests/integration/test_baselines.py` | 6 tests (2 par baseline runner) |
 
 **Metriques d'emergence** :
 
@@ -571,13 +666,13 @@ pending -> searching -> planning -> validating -> terminal
 | `pressure_entropy` | Entropie Shannon de la distribution de pression | Serugendo et al. (2005) |
 
 **Tests d'acceptance** :
-1. `pytest tests/ -v` — 79+ tests
+1. `pytest tests/ -v` — 105+ tests
 2. Pareto plot genere pour TravelPlanner : 4 configs x 5 runs
 3. Dashboard emergence PNG genere
 
 ---
 
-### Sprint 5 : Adaptateur Code Migration — Iteration DSR 2 (5 jours)
+### Sprint 6 : Adaptateur Code Migration — Iteration DSR 2 (5 jours)
 
 **Objectif** : Implementer l'adaptateur migration de code. Valider OC4 sur PolyMigration (ou docopt comme repo de reference).
 
@@ -586,7 +681,7 @@ pending -> searching -> planning -> validating -> terminal
 | Fichier | Contenu |
 |---|---|
 | `adapters/codemigration/__init__.py` | Exports |
-| `adapters/codemigration/adapter.py` | `CodeMigrationAdapter` : GitWorkspace, objective, tools, FSM |
+| `adapters/codemigration/adapter.py` | `CodeMigrationAdapter` : GitWorkspace, objective, tools, FSM. Appelle `register_infrastructure_tools()`. |
 | `adapters/codemigration/workspace.py` | `GitWorkspace` : clone, branch, list_files, read, write, commit, rollback |
 | `adapters/codemigration/tools.py` | 4 outils **LLM-driven, zero regex** : `DiscoverTool` (LLM analyse le fichier et identifie les problemes), `TransformTool` (LLM transforme le code), `TestTool` (execute pytest/py_compile), `ValidateTool` (commit/revert base sur confiance) |
 | `adapters/codemigration/evaluator.py` | Metriques : success_rate, rollback_rate, cost_per_file, escalation_rate |
@@ -604,7 +699,7 @@ tested -> escalated (needs human review)
 ```
 
 **Tests d'acceptance** :
-1. `pytest tests/ -v` — 89+ tests
+1. `pytest tests/ -v` — 115+ tests
 2. Run sur `docopt/docopt@0.6.2` — success rate >= 85%
 3. Comparaison V2 generaliste vs V0.1 specialise sur meme repo
 
@@ -615,47 +710,26 @@ tested -> escalated (needs human review)
 
 ---
 
-### Sprint 6 : Adaptateur SWE-bench — Iteration DSR 3 (5 jours)
+### Sprint 7 : SWE-bench + Docker + Gouvernance — Iteration DSR 3 (5 jours)
 
-**Objectif** : Implementer l'adaptateur SWE-bench. Valider OC4 etendu.
-
-**Fichiers a creer** :
-
-| Fichier | Contenu |
-|---|---|
-| `adapters/swebench/__init__.py` | Exports |
-| `adapters/swebench/adapter.py` | `SWEBenchAdapter` |
-| `adapters/swebench/workspace.py` | `SWEBenchWorkspace` : clone repo, appliquer issue context |
-| `adapters/swebench/tools.py` | 5 outils : `LocalizeBugTool`, `GeneratePatchTool`, `RunTestSuiteTool`, `ValidatePatchTool`, `RefineLocalizationTool` |
-| `adapters/swebench/evaluator.py` | Resolution rate, cost per issue |
-| `config/swebench.yaml` | Config specifique |
-| `tests/integration/test_swebench.py` | 8 tests |
-
-**Tests d'acceptance** :
-1. `pytest tests/ -v` — 97+ tests
-2. Run sur SWE-bench Lite subset (10-20 issues)
-3. Pareto cross-domaine : TravelPlanner + CodeMigration + SWE-bench
-
-**Livrable DSR Iteration 3** :
-- Resultats SWE-bench
-- Analyse cross-domaine
-- Extraction des principes de conception (format Gregor et al., 2020)
-
----
-
-### Sprint 7 : Docker, Benchmarks Reproductibles, Gouvernance (4 jours)
-
-**Objectif** : Benchmarks 100% Docker, analyse Pareto finale, validation OC5 (gouvernance).
+**Objectif** : Implementer l'adaptateur SWE-bench, benchmarks 100% Docker, analyse Pareto finale, validation OC5 (gouvernance).
 
 **Fichiers a creer/modifier** :
 
 | Fichier | Contenu |
 |---|---|
+| `adapters/swebench/__init__.py` | Exports |
+| `adapters/swebench/adapter.py` | `SWEBenchAdapter`. Appelle `register_infrastructure_tools()`. |
+| `adapters/swebench/workspace.py` | `SWEBenchWorkspace` : clone repo, appliquer issue context |
+| `adapters/swebench/tools.py` | 5 outils : `LocalizeBugTool`, `GeneratePatchTool`, `RunTestSuiteTool`, `ValidatePatchTool`, `RefineLocalizationTool` |
+| `adapters/swebench/evaluator.py` | Resolution rate, cost per issue |
+| `config/swebench.yaml` | Config specifique |
 | `Dockerfile` | Image de benchmark |
 | `docker-compose.yml` | Environnement de dev |
 | `docker-compose.benchmark.yml` | 4 configs x N runs en parallele |
 | `scripts/benchmark_all.sh` | Lancement automatise |
 | `Makefile` | Cibles : test, benchmark, export |
+| `tests/integration/test_swebench.py` | 8 tests |
 | `documentation/construction_log.md` | Log de construction complet |
 
 **Metriques de gouvernance (OC5)** :
@@ -667,28 +741,37 @@ tested -> escalated (needs human review)
 | Budget compliance | 0 depassements | Deep norm |
 | Human escalation | Tous items ambigus escalades | Grisold et al. (2025) |
 
-**Livrable final** :
+**Tests d'acceptance** :
+1. `pytest tests/ -v` — 123+ tests
+2. Run sur SWE-bench Lite subset (10-20 issues)
+3. Pareto cross-domaine : TravelPlanner + CodeMigration + SWE-bench
+4. Audit completeness >= 99.5%
+5. `docker compose -f docker-compose.benchmark.yml up` — reproductible
+
+**Livrables DSR Iteration 3 + Final** :
+- Resultats SWE-bench
+- Analyse cross-domaine
+- Extraction des principes de conception (format Gregor et al., 2020)
 - Benchmarks reproductibles Docker
 - Pareto plots pour these (3 domaines x 4 configs x 5 runs)
 - Dashboard emergence
 - Construction log complet
-- Principes de conception DSR
 
 ---
 
 ## Resume des Sprints
 
-| Sprint | Duree | Objectif | Tests cumules | DSR |
-|---|---|---|---|---|
-| Sprint 1 : Core Environment | 5 jours | Markers, Store, Decay, Guardrails, Audit | 31 | Foundation |
-| Sprint 2 : Core Agents | 5 jours | Agent, Pression, Orchestrateur, Outils | 55 | Foundation |
-| Sprint 3 : TravelPlanner | 5 jours | Adaptateur + validation generaliste | 65 | Iteration 1 (OC1, OC3) |
-| Sprint 4 : Emergence + Baselines | 4 jours | Metriques, Pareto, 3 baselines | 79 | Evaluation |
-| Sprint 5 : Code Migration | 5 jours | Adaptateur + validation PolyMigration | 89 | Iteration 2 (OC4) |
-| Sprint 6 : SWE-bench | 5 jours | Adaptateur + validation SE | 97 | Iteration 3 (OC4) |
-| Sprint 7 : Docker + Gouvernance | 4 jours | Benchmarks, audit, documentation | 97+ | OC5, Finalisation |
+| Sprint | Duree | Objectif | Tests cumules | Couche | DSR |
+|---|---|---|---|---|---|
+| Sprint 1 : Core Environment | FAIT | Markers, Store, Decay, Guardrails, Audit | 31 | L1 | Foundation |
+| Sprint 2 : Core Agents | FAIT | Agent, Pression, Orchestrateur, Outils, LLM | 61 | L1 | Foundation |
+| Sprint 3 : Infrastructure Tools | 5 jours | Outils generiques + Mode Assistant General | 81+ | L2 + L3 | Enablement |
+| Sprint 4 : TravelPlanner | 5 jours | Premier adaptateur de domaine + validation | 91+ | L3 | Iteration 1 (OC1, OC3) |
+| Sprint 5 : Metrics + Baselines | 4 jours | Emergence, Pareto, harness de benchmark | 105+ | L4 | Evaluation |
+| Sprint 6 : Code Migration | 5 jours | Deuxieme adaptateur de domaine + PolyMigration | 115+ | L3 | Iteration 2 (OC4) |
+| Sprint 7 : SWE-bench + Docker + Gouvernance | 5 jours | Troisieme adaptateur, reproductibilite, OC5 | 123+ | L3 + L4 | Iteration 3 (OC4, OC5) |
 
-**Total : ~33 jours de dev** (7 sprints)
+**Total restant : ~24 jours de dev** (5 sprints)
 
 ---
 
@@ -696,7 +779,7 @@ tested -> escalated (needs human review)
 
 Pour chaque sprint :
 1. `uv run pytest tests/ -v` — zero regression
-2. Type checking : `mypy core/ adapters/` (optionnel mais recommande)
+2. Type checking : `mypy core/ adapters/ tools/` (optionnel mais recommande)
 
 Pour chaque iteration DSR :
 3. Run benchmark complet (5+ runs par configuration)
@@ -711,19 +794,6 @@ Sprint 7 (final) :
 
 ---
 
-## Premiere Etape d'Implementation
-
-```bash
-# Creer la branche V2 dans le repo actuel
-git checkout -b v2/main
-
-# Nettoyer : garder uniquement consigne/, documentation/, et les fichiers de config racine
-# Le code V0.1 reste accessible via l'historique Git (branches codex/*)
-
-# Commencer Sprint 1 : Core Environment
-# -> core/marker.py, core/marker_store.py, core/decay.py, core/guardrails.py, core/audit.py
-```
-
 ## Notes pour les Agents IA
 
 Ce plan est concu pour etre execute par des agents IA (Claude Code). Chaque sprint :
@@ -734,3 +804,24 @@ Ce plan est concu pour etre execute par des agents IA (Claude Code). Chaque spri
 5. Executer `uv run pytest tests/ -v` et corriger jusqu'a 100% pass
 6. Mettre a jour `documentation/construction_log.md` avec les decisions et resultats
 7. Commit avec convention : `feat(core): implement MarkerStore with SQLite WAL`
+
+### Decisions architecturales cles (pour implementation)
+
+**ADR-001 : Outils d'infrastructure comme implementations du Tool ABC**
+- Decision : Les outils generiques (file I/O, bash, web search) implementent le meme `Tool` ABC que les outils de domaine
+- Raison : Selection uniforme par pression ; pas de traitement special dans l'orchestrateur
+- Compromis : Les outils d'infrastructure doivent encoder l'eligibilite via `marker.payload`
+
+**ADR-002 : Mode assistant general comme DomainAdapter minimal**
+- Decision : Le mode assistant est une sous-classe de `DomainAdapter`, pas un chemin de code separe
+- Raison : Respecte le contrat ABC existant ; l'orchestrateur n'a pas besoin de savoir s'il execute un benchmark ou une session assistant
+- Compromis : Necessite une decomposition de taches par LLM dans `initial_markers()`
+
+**ADR-003 : Harness de benchmark separe des adaptateurs**
+- Decision : `benchmarks/` possede le protocole d'experimentation ; `adapters/` possede uniquement la logique de domaine
+- Raison : Le `evaluate_run()` de l'adaptateur fournit le scoring de domaine ; le harness possede l'orchestration N-config x M-run
+
+**ADR-004 : Outils d'infrastructure enregistres par les adaptateurs, pas globalement**
+- Decision : Le `register_tools()` de chaque adaptateur decide quels outils d'infrastructure inclure
+- Raison : Certains adaptateurs peuvent restreindre l'acces aux outils pour la securite ; l'adaptateur est la frontiere de securite
+- Compromis : Leger boilerplate attenue par le helper `register_infrastructure_tools()`
