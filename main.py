@@ -8,6 +8,7 @@ import random
 import sys
 from pathlib import Path
 from typing import Any
+from uuid import uuid4
 
 import yaml
 from dotenv import load_dotenv
@@ -15,7 +16,9 @@ from dotenv import load_dotenv
 from adapters.assistant import AssistantAdapter
 from core.agent import StigmergicAgent
 from core.config import load_config, merge_config, validate_config
+from core.dependency import validate_dag
 from core.environment import Environment
+from core.marker import Marker
 from core.marker_store import MarkerStore
 from core.orchestrator import Orchestrator
 from core.tool_registry import ToolRegistry
@@ -43,17 +46,24 @@ def main(argv: list[str] | None = None) -> int:
     """Run one assistant session and print run summary as JSON."""
     load_dotenv()
     args = parse_args(argv)
+    session_id = str(uuid4())
 
     config = _build_config(args)
     adapter = AssistantAdapter(config=config)
     workspace = adapter.create_workspace(config)
+    workspace_context = _workspace_context(workspace)
 
     objective = adapter.create_objective({"objective": args.objective}, config)
+    markers_cfg = dict(config.get("markers", {}))
+    session_isolation = bool(markers_cfg.get("session_isolation", False))
+    db_path = DEFAULT_DB_PATH
 
     store = MarkerStore(
-        db_path=DEFAULT_DB_PATH,
+        db_path=db_path,
         max_retry_count=int(config.get("guardrails", {}).get("max_retry_count", 3)),
         traceability=bool(config.get("guardrails", {}).get("traceability", True)),
+        session_id=session_id,
+        session_isolation=session_isolation,
     )
     environment = Environment(
         store=store,
@@ -66,7 +76,12 @@ def main(argv: list[str] | None = None) -> int:
     adapter.register_tools(registry)
 
     for marker in adapter.initial_markers(objective=objective, agent_id="system_seed"):
-        store.upsert_marker(marker=marker, agent_id="system_seed")
+        seeded = Marker.from_dict(marker.to_dict())
+        payload = dict(seeded.payload)
+        if workspace_context:
+            payload.setdefault("workspace_context", workspace_context)
+        seeded.payload = payload
+        store.upsert_marker(marker=seeded, agent_id="system_seed")
 
     llm_client = _maybe_create_llm_client(config=config)
     agents = _build_agents(config=config, registry=registry, seed=args.seed)
@@ -76,15 +91,18 @@ def main(argv: list[str] | None = None) -> int:
         agents=agents,
         config=config,
         llm_client=llm_client,
+        session_id=session_id,
     )
     result = orchestrator.run_sync()
 
     evaluation = adapter.evaluate_run({"markers": result.final_snapshot.markers})
+    dag_info = _dag_info(result.final_snapshot.markers)
     assistant_response = _build_assistant_response(
         objective_id=objective.objective_id,
         markers=result.final_snapshot.markers,
     )
 
+    print(f"Session ID: {session_id}")
     print("Assistant response:")
     print(assistant_response)
     print()
@@ -92,12 +110,22 @@ def main(argv: list[str] | None = None) -> int:
     summary = {
         "adapter": args.adapter,
         "objective_id": objective.objective_id,
+        "session_id": session_id,
+        "session_db_path": str(store.db_path),
         "stop_reason": result.stop_reason,
         "total_ticks": result.total_ticks,
         "agents": len(agents),
         "markers": len(result.final_snapshot.markers),
         "tokens_used": int(environment.tokens_used),
         "cost_used": float(environment.cost_used),
+        "reinforcement": {
+            "events": int(environment.reinforcement_events),
+            "propagation_events": int(environment.propagation_events),
+        },
+        "maintenance": {
+            "pruned_markers": int(environment.pruned_markers),
+        },
+        "dag": dag_info,
         "evaluation": evaluation,
         "assistant_response": assistant_response,
     }
@@ -401,6 +429,29 @@ def _try_parse_json(value: str) -> Any:
         return json.loads(value)
     except json.JSONDecodeError:
         return None
+
+
+def _workspace_context(workspace: Any) -> str:
+    if workspace is None or not hasattr(workspace, "get_context_summary"):
+        return ""
+    try:
+        return str(workspace.get_context_summary()).strip()
+    except Exception:  # noqa: BLE001
+        return ""
+
+
+def _dag_info(markers: list[Any]) -> dict[str, Any]:
+    cast_markers = [marker for marker in markers if isinstance(marker, Marker)]
+    dependency_edges = 0
+    for marker in cast_markers:
+        depends_on = marker.payload.get("depends_on")
+        if isinstance(depends_on, list):
+            dependency_edges += len(depends_on)
+    return {
+        "is_valid": validate_dag(cast_markers),
+        "nodes": len(cast_markers),
+        "edges": dependency_edges,
+    }
 
 
 if __name__ == "__main__":

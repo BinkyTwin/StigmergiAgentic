@@ -83,6 +83,20 @@ def test_compute_pressures_treats_empty_eligible_actions_as_all() -> None:
     assert pressures["check"] == pytest.approx(0.5)
 
 
+def test_compute_pressures_supports_aco_formula() -> None:
+    marker = _make_marker("m1", payload={"eligible_actions": ["increment", "check"]})
+    pressures = compute_pressures(
+        markers=[marker],
+        action_types=["increment", "check"],
+        weights={"increment": 4.0, "check": 1.0},
+        formula="aco",
+        alpha=1.0,
+        beta=1.0,
+    )
+    assert pressures["increment"] == pytest.approx(4.0 / 5.0)
+    assert pressures["check"] == pytest.approx(1.0 / 5.0)
+
+
 def test_select_action_returns_none_for_zero_distribution() -> None:
     assert select_action({"increment": 0.0, "check": 0.0}, temperature=0.1) is None
 

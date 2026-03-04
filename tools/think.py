@@ -6,8 +6,13 @@ import json
 from typing import Any
 
 from core.marker import Marker
+from core.schemas import ThinkOutput
 from core.tool_registry import ActionResult, Tool
-from llm.prompts import SYSTEM_STIGMERGIC_AGENT_PROMPT, build_action_prompt
+from llm.prompts import (
+    SYSTEM_STIGMERGIC_AGENT_PROMPT,
+    build_action_prompt,
+    build_system_prompt,
+)
 
 
 STATE_PROGRESS = {
@@ -60,6 +65,7 @@ class ThinkTool(Tool):
             marker.payload.get("objective", marker.payload.get("task", marker.target))
         )
         prompt = str(marker.payload.get("prompt", "")).strip()
+        workspace_context = self._workspace_context(environment)
         if not prompt:
             prompt = build_action_prompt(
                 action_type=self.action_type,
@@ -67,6 +73,7 @@ class ThinkTool(Tool):
                 objective=objective,
                 marker_payload=marker.payload,
                 available_tools=self.available_hint_tools,
+                workspace_context=workspace_context,
             )
 
         analysis = ""
@@ -74,17 +81,43 @@ class ThinkTool(Tool):
         consumed_tokens = 0
         cost_usd = 0.0
         model = "fallback"
+        system_prompt = SYSTEM_STIGMERGIC_AGENT_PROMPT
+        if workspace_context:
+            system_prompt = build_system_prompt(
+                workspace_context=workspace_context,
+                available_tools=self.available_hint_tools,
+            )
 
-        if llm_client is not None and hasattr(llm_client, "call"):
+        if llm_client is not None and (
+            hasattr(llm_client, "acall") or hasattr(llm_client, "call")
+        ):
             try:
-                response = llm_client.call(
-                    prompt=prompt, system=SYSTEM_STIGMERGIC_AGENT_PROMPT
-                )
+                response = None
+                if hasattr(llm_client, "acall"):
+                    response = await llm_client.acall(
+                        prompt=prompt,
+                        system=system_prompt,
+                        response_schema=ThinkOutput,
+                    )
+                elif hasattr(llm_client, "call"):
+                    response = llm_client.call(
+                        prompt=prompt,
+                        system=system_prompt,
+                    )
+
+                if response is None:
+                    raise RuntimeError("llm_response_missing")
+
                 raw_content = str(getattr(response, "content", "")).strip()
-                analysis, tool_hints = self._extract_analysis_and_hints(
-                    raw_content=raw_content,
-                    llm_client=llm_client,
-                )
+                parsed = getattr(response, "parsed", None)
+                if isinstance(parsed, ThinkOutput):
+                    analysis = parsed.analysis.strip() or raw_content
+                    tool_hints = self._collect_tool_hints(parsed.model_dump())
+                else:
+                    analysis, tool_hints = self._extract_analysis_and_hints(
+                        raw_content=raw_content,
+                        llm_client=llm_client,
+                    )
                 consumed_tokens = int(getattr(response, "tokens_used", 0))
                 cost_usd = float(getattr(response, "cost_usd", 0.0))
                 model = str(getattr(response, "model", "unknown"))
@@ -120,6 +153,17 @@ class ThinkTool(Tool):
             consumed_tokens=consumed_tokens,
             cost_usd=cost_usd,
         )
+
+    def _workspace_context(self, environment: Any) -> str:
+        workspace = getattr(environment, "workspace", None)
+        if workspace is None:
+            return ""
+        if not hasattr(workspace, "get_context_summary"):
+            return ""
+        try:
+            return str(workspace.get_context_summary()).strip()
+        except Exception:  # noqa: BLE001
+            return ""
 
     def _extract_analysis_and_hints(
         self,

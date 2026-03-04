@@ -1,6 +1,6 @@
 framework:
-  name: "stigmergy-v2"
-  version: "2.0.0"
+  name: "stigmergy-v3"
+  version: "3.0.0"
 
 agents:
   num_agents: 4
@@ -11,15 +11,31 @@ agents:
 markers:
   decay_type: "exponential"
   decay_rate: 0.05
+  default_decay_rate: 0.05
+  decay_rates_by_type:
+    task: 0.05
+    progress: 0.03
+    quality: 0.02
+    dependency: 0.01
+    anticipatory: 0.15
+    lesson: 0.01
   inhibition_decay_rate: 0.08
   inhibition_increment: 0.5
   inhibition_threshold: 0.1
+  prune_threshold: 0.05
+  session_isolation: true
   intensity_clamp: [0.1, 1.0]
   intensity_step_think: 0.1
   intensity_step_tool: 0.05
   intensity_step_decompose: 0.1
   child_intensity_offset: 0.2
   intensity_floor: 0.1
+
+reinforcement:
+  enabled: true
+  rate: 0.1
+  propagation_factor: 0.5
+  max_intensity: 1.0
 
 guardrails:
   max_retry_count: 3
@@ -29,7 +45,7 @@ guardrails:
 
 orchestrator:
   max_ticks: 50
-  idle_cycles_to_stop: 2
+  idle_cycles_to_stop: 3
   parallel: true
 
 llm:
@@ -43,7 +59,19 @@ llm:
   min_429_backoff_seconds: 8.0
 
 pressures:
+  formula: "aco"
+  alpha: 1.0
+  beta: 1.0
   default_weights: {}
+
+decompose:
+  max_depth: 2
+  max_subtasks: 8
+  allow_redecompose: false
+
+async:
+  max_concurrent_llm_calls: 4
+  subprocess_timeout: 120
 
 tools:
   sandbox_root: "."

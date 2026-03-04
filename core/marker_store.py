@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Any, Mapping
 
 from .audit import AuditEvent, AuditLog, utc_timestamp
-from .decay import decay_inhibition, decay_intensity
+from .decay import decay_inhibition, decay_intensity_by_type
 from .guardrails import GuardrailEngine, ScopeLockError
 from .marker import Marker
 
@@ -28,8 +28,19 @@ class MarkerStore:
         guardrails: GuardrailEngine | None = None,
         max_retry_count: int = 3,
         traceability: bool = True,
+        session_id: str | None = None,
+        session_isolation: bool = False,
     ) -> None:
-        self.db_path = Path(db_path)
+        raw_db_path = Path(db_path)
+        if session_isolation:
+            if not session_id:
+                raise MarkerStoreError(
+                    "session_id is required when session isolation is enabled"
+                )
+            self.db_path = raw_db_path.parent / session_id / raw_db_path.name
+        else:
+            self.db_path = raw_db_path
+        self.session_id = session_id
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
 
         if audit_path is None:
@@ -39,6 +50,7 @@ class MarkerStore:
         self.guardrails = guardrails or GuardrailEngine()
         self.max_retry_count = int(max_retry_count)
         self.traceability = bool(traceability)
+        self.last_decay_pruned_count = 0
 
         self._initialize_database()
 
@@ -118,15 +130,23 @@ class MarkerStore:
             return self._row_to_marker(row)
 
     def query_markers(self, **filters: Any) -> list[Marker]:
-        """Query markers with Python-side filtering operators.
+        """Query markers with SQL-backed filtering operators.
 
         Supported operators: eq (implicit), gt, gte, lt, lte, in.
         """
+        where_sql, params, residual = self._build_sql_filters(filters)
+        query = "SELECT * FROM markers"
+        if where_sql:
+            query = f"{query} WHERE {where_sql}"
+        query = f"{query} ORDER BY updated_at"
+
         with self._connect() as conn:
-            rows = conn.execute("SELECT * FROM markers").fetchall()
+            rows = conn.execute(query, params).fetchall()
 
         markers = [self._row_to_marker(row) for row in rows]
-        return [marker for marker in markers if self._matches_filters(marker, filters)]
+        if not residual:
+            return markers
+        return [marker for marker in markers if self._matches_filters(marker, residual)]
 
     def acquire_lock(self, marker_id: str, agent_id: str, tick: int) -> bool:
         """Acquire marker lock if unlocked or already owned by the caller."""
@@ -203,7 +223,14 @@ class MarkerStore:
         markers_cfg = dict(config.get("markers", {}))
         decay_type = str(markers_cfg.get("decay_type", "exponential"))
         decay_rate = float(markers_cfg.get("decay_rate", 0.05))
+        default_decay_rate = float(markers_cfg.get("default_decay_rate", decay_rate))
+        decay_rates_by_type = dict(markers_cfg.get("decay_rates_by_type", {}))
         inhibition_decay_rate = float(markers_cfg.get("inhibition_decay_rate", 0.08))
+        prune_threshold_raw = markers_cfg.get("prune_threshold")
+        prune_threshold = (
+            None if prune_threshold_raw is None else float(prune_threshold_raw)
+        )
+        self.last_decay_pruned_count = 0
 
         clamp_raw = markers_cfg.get("intensity_clamp", [0.1, 1.0])
         clamp = (float(clamp_raw[0]), float(clamp_raw[1]))
@@ -222,10 +249,12 @@ class MarkerStore:
                     continue
 
                 after = self._copy_marker(before)
-                after.intensity = decay_intensity(
+                after.intensity = decay_intensity_by_type(
                     value=before.intensity,
+                    marker_type=before.marker_type,
+                    decay_rates=decay_rates_by_type,
+                    default_rate=default_decay_rate,
                     decay_type=decay_type,
-                    decay_rate=decay_rate,
                     clamp=clamp,
                 )
                 after.inhibition = decay_inhibition(
@@ -258,6 +287,11 @@ class MarkerStore:
                 after=after,
                 tick=int(current_tick),
             )
+
+        pruned = 0
+        if prune_threshold is not None:
+            pruned = self.prune_markers(prune_threshold)
+        self.last_decay_pruned_count = int(pruned)
 
         return changed
 
@@ -327,6 +361,21 @@ class MarkerStore:
             marker = self._row_to_marker(row)
             grouped[marker.marker_type].append(marker)
         return dict(grouped)
+
+    def prune_markers(self, threshold: float) -> int:
+        """Delete markers whose intensity is strictly below threshold."""
+        cutoff = float(threshold)
+        if cutoff <= 0.0:
+            return 0
+        with self._connect() as conn:
+            conn.execute("BEGIN IMMEDIATE")
+            cursor = conn.execute(
+                "DELETE FROM markers WHERE intensity < ?",
+                (cutoff,),
+            )
+            deleted = int(cursor.rowcount or 0)
+            conn.execute("COMMIT")
+        return deleted
 
     def _initialize_database(self) -> None:
         with self._connect() as conn:
@@ -466,6 +515,68 @@ class MarkerStore:
     def _copy_marker(self, marker: Marker) -> Marker:
         return Marker.from_dict(marker.to_dict())
 
+    def _build_sql_filters(
+        self,
+        filters: Mapping[str, Any],
+    ) -> tuple[str, list[Any], dict[str, Any]]:
+        supported_columns = {
+            "id",
+            "marker_type",
+            "target",
+            "intensity",
+            "state",
+            "created_by",
+            "created_at",
+            "updated_by",
+            "updated_at",
+            "lock_owner",
+            "lock_tick",
+            "inhibition",
+            "retry_count",
+        }
+        where_clauses: list[str] = []
+        params: list[Any] = []
+        residual: dict[str, Any] = {}
+
+        for filter_key, expected in filters.items():
+            field_name, operator = self._parse_filter(filter_key)
+            if field_name not in supported_columns:
+                residual[filter_key] = expected
+                continue
+
+            column = field_name
+            if operator == "eq":
+                if expected is None:
+                    where_clauses.append(f"{column} IS NULL")
+                else:
+                    where_clauses.append(f"{column} = ?")
+                    params.append(expected)
+            elif operator == "gt":
+                where_clauses.append(f"{column} > ?")
+                params.append(expected)
+            elif operator == "gte":
+                where_clauses.append(f"{column} >= ?")
+                params.append(expected)
+            elif operator == "lt":
+                where_clauses.append(f"{column} < ?")
+                params.append(expected)
+            elif operator == "lte":
+                where_clauses.append(f"{column} <= ?")
+                params.append(expected)
+            elif operator == "in":
+                if not isinstance(expected, (list, tuple, set)):
+                    raise MarkerStoreError("Operator 'in' expects a list/tuple/set")
+                values = list(expected)
+                if not values:
+                    return "1 = 0", [], {}
+                placeholders = ",".join("?" for _ in values)
+                where_clauses.append(f"{column} IN ({placeholders})")
+                params.extend(values)
+            else:
+                residual[filter_key] = expected
+
+        return " AND ".join(where_clauses), params, residual
+
     def _matches_filters(self, marker: Marker, filters: Mapping[str, Any]) -> bool:
         marker_data = marker.to_dict()
         for filter_key, expected in filters.items():
@@ -487,6 +598,9 @@ class MarkerStore:
                     raise MarkerStoreError("Operator 'in' expects a list/tuple/set")
                 if value not in expected:
                     return False
+                continue
+            if operator not in {"eq", "gt", "gte", "lt", "lte", "in"}:
+                raise MarkerStoreError(f"Unsupported filter operator: {operator}")
 
         return True
 

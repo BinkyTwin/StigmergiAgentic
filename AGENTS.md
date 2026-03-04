@@ -4,31 +4,34 @@ This file provides guidance to GitHub Copilot / Codex when working in this repos
 
 ## Project Overview
 
-Stigmergic orchestration framework V2 (redesign from scratch) for a Master's thesis (EMLV).
+Stigmergic orchestration framework V3 (runtime overhaul on top of V2 foundations) for a Master's thesis (EMLV).
 
-Current repository state is **Sprint 3 V2**: generic core runtime + infrastructure tools + assistant adapter + CLI.
+Current repository state is **Sprint 4 V3**: async/typed runtime + dependency-aware coordination + reinforcement + session-isolated runs.
 
-## Current Scope (Sprint 3 V2)
+## Current Scope (Sprint 4 V3)
 
 Implemented:
 - `core/marker.py` — generic marker model + configurable state machine
-- `core/marker_store.py` — SQLite (WAL) transactional marker store + locks + decay + snapshots
-- `core/decay.py` — intensity and inhibition decay
+- `core/marker_store.py` — SQLite (WAL) transactional marker store + locks + differential decay + pruning + SQL queries + optional session isolation
+- `core/decay.py` — intensity/inhibition decay + per-marker-type decay
+- `core/schemas.py` — Pydantic schemas for structured LLM/tool outputs
+- `core/dependency.py` — DAG validation, topological ordering, unblocked filtering
+- `core/reinforcement.py` — success reinforcement + backward propagation
 - `core/guardrails.py` — deep norms (budget, retry limit, lock TTL, traceability)
 - `core/audit.py` — append-only JSONL audit trail
-- `core/config.py` + `config/default.yaml` — loading, merge, strict validation
+- `core/config.py` + `config/default.yaml` — V3 config sections (`reinforcement`, `decompose`, `async`, marker decay map/pruning/session)
 - `core/tool_registry.py` — tool contracts + action registry
 - `core/pressure.py` — pressure computation + softmax action selection
-- `core/environment.py` — runtime environment wrapper (store + guardrails + state machine)
-- `core/agent.py` — homogeneous stigmergic agent (perceive/decide/execute)
-- `core/orchestrator.py` — parallel tick loop + lock conflict resolution + stop conditions
+- `core/environment.py` — runtime wrapper with reinforcement + propagation + maintenance metrics
+- `core/agent.py` — dependency-aware candidate selection (`unblocked_markers`)
+- `core/orchestrator.py` — parallel tick loop + async execution + optional session_id in result
 - `adapters/base.py` — domain adapter/objective/workspace contracts
-- `adapters/assistant/*` — generic assistant adapter + local sandboxed workspace
-- `tools/*` — infrastructure tools (`file_read`, `file_write`, `bash_exec`, `web_search`, `think`, `decompose`)
-- `llm/client.py` + `llm/prompts.py` — provider-aware LLM client and prompt helpers
-- `main.py` — assistant CLI entrypoint
+- `adapters/assistant/*` — generic assistant adapter + local workspace context summarization
+- `tools/*` — infrastructure tools (`file_read`, `file_write`, async `bash_exec`, `web_search`, typed `think`, bounded DAG-aware `decompose`)
+- `llm/client.py` + `llm/prompts.py` — provider-aware sync+async client with structured response validation and V3 workspace-grounded prompts
+- `main.py` — assistant CLI entrypoint with per-run session_id, session DB path, DAG/reinforcement metadata
 - `config/assistant.yaml` — assistant mode overrides
-- `tests/unit/*` + `tests/integration/test_assistant_run.py` — 85 tests passed (81 unit + 4 integration)
+- `tests/unit/*` + `tests/integration/test_assistant_run.py` — 131 tests passed (127 unit + 4 integration)
 
 Not implemented yet:
 - TravelPlanner adapter
@@ -95,6 +98,9 @@ core/
   marker.py
   marker_store.py
   decay.py
+  schemas.py
+  dependency.py
+  reinforcement.py
   guardrails.py
   audit.py
   config.py
@@ -161,7 +167,7 @@ uv venv --python 3.11 .venv
 uv pip install -r requirements.txt
 ```
 
-### Sprint 3 validation
+### Sprint 4 validation
 
 ```bash
 uv run pytest tests/unit -v

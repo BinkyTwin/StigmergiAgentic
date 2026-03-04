@@ -9,6 +9,20 @@ orchestrator:
   max_ticks: 30
   idle_cycles_to_stop: 3
 
+decompose:
+  max_depth: 2
+  max_subtasks: 10
+  allow_redecompose: false
+
+reinforcement:
+  enabled: true
+  rate: 0.12
+  propagation_factor: 0.6
+
+async:
+  max_concurrent_llm_calls: 4
+  subprocess_timeout: 60
+
 tools:
   sandbox_root: "."
   allowed_commands:

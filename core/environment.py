@@ -5,9 +5,11 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
+from .dependency import validate_dag
 from .guardrails import GuardrailEngine
 from .marker import Marker, StateMachine, utc_now_iso
 from .marker_store import MarkerStore
+from .reinforcement import propagate_backward, reinforce_on_success
 from .tool_registry import ActionResult
 
 
@@ -40,6 +42,9 @@ class Environment:
 
         self.tokens_used = 0
         self.cost_used = 0.0
+        self.reinforcement_events = 0
+        self.propagation_events = 0
+        self.pruned_markers = 0
 
     def snapshot(self, tick: int) -> EnvironmentSnapshot:
         """Build one immutable-like snapshot from current store state."""
@@ -67,6 +72,11 @@ class Environment:
     def apply_action_result(self, agent_id: str, result: ActionResult) -> list[Marker]:
         """Apply tool result to marker store and enforce guardrails."""
         persisted: list[Marker] = []
+        reinforcement_cfg = dict(self.config.get("reinforcement", {}))
+        reinforcement_enabled = bool(reinforcement_cfg.get("enabled", False))
+        propagation_factor = float(reinforcement_cfg.get("propagation_factor", 0.0))
+        quality_score = self._extract_quality_score(result)
+
         for marker_update in result.marker_updates:
             marker_to_save = Marker.from_dict(marker_update.to_dict())
             existing = self.store.get_marker(marker_to_save.id)
@@ -91,6 +101,32 @@ class Environment:
             saved = self.store.upsert_marker(marker=marker_to_save, agent_id=agent_id)
             persisted.append(saved)
 
+            if (
+                reinforcement_enabled
+                and saved.state in {"completed", "verified"}
+                and (existing is None or existing.state != saved.state)
+            ):
+                reinforced = self.apply_reinforcement(
+                    marker_id=saved.id,
+                    quality_score=quality_score,
+                    actor_id=agent_id,
+                )
+                if reinforced is not None:
+                    persisted[-1] = reinforced
+
+            if (
+                reinforcement_enabled
+                and propagation_factor > 0.0
+                and saved.state in {"terminal", "verified", "completed"}
+                and isinstance(saved.payload.get("depends_on"), list)
+            ):
+                updates = self._propagate_reinforcement(
+                    completed_marker_id=saved.id,
+                    propagation_factor=propagation_factor,
+                    actor_id=agent_id,
+                )
+                self.propagation_events += len(updates)
+
         self.tokens_used += int(result.consumed_tokens)
         self.cost_used += float(result.cost_usd)
         self.enforce_budget()
@@ -101,10 +137,39 @@ class Environment:
         ttl = int(self.config.get("guardrails", {}).get("scope_lock_ttl", 3))
         released_locks = self.store.maintain_locks(current_tick=current_tick, ttl=ttl)
         decayed_markers = self.store.apply_decay(current_tick=current_tick, config=self.config)
+        pruned = int(getattr(self.store, "last_decay_pruned_count", 0))
+        self.pruned_markers += pruned
         return {
             "released_locks": released_locks,
             "decayed_markers": decayed_markers,
+            "pruned_markers": pruned,
         }
+
+    def apply_reinforcement(
+        self,
+        marker_id: str,
+        quality_score: float,
+        actor_id: str = "system_reinforcement",
+    ) -> Marker | None:
+        """Apply positive reinforcement to one marker intensity."""
+        marker = self.store.get_marker(marker_id)
+        if marker is None:
+            return None
+
+        reinforcement_cfg = dict(self.config.get("reinforcement", {}))
+        rate = float(reinforcement_cfg.get("rate", 0.1))
+        max_intensity = float(reinforcement_cfg.get("max_intensity", 1.0))
+
+        updated = Marker.from_dict(marker.to_dict())
+        updated.intensity = reinforce_on_success(
+            marker=marker,
+            reinforcement_rate=rate,
+            quality_score=quality_score,
+            max_intensity=max_intensity,
+        )
+        saved = self.store.upsert_marker(marker=updated, agent_id=actor_id)
+        self.reinforcement_events += 1
+        return saved
 
     def enforce_budget(
         self,
@@ -125,3 +190,48 @@ class Environment:
             cost_used=actual_cost,
             max_budget_usd=max_budget_usd,
         )
+
+    def _extract_quality_score(self, result: ActionResult) -> float:
+        raw = result.metadata.get("quality_score", 1.0)
+        if isinstance(raw, dict):
+            first = next(iter(raw.values()), 1.0)
+            try:
+                return float(first)
+            except (TypeError, ValueError):
+                return 1.0
+        try:
+            return float(raw)
+        except (TypeError, ValueError):
+            return 1.0
+
+    def _propagate_reinforcement(
+        self,
+        *,
+        completed_marker_id: str,
+        propagation_factor: float,
+        actor_id: str,
+    ) -> list[Marker]:
+        all_markers = self.store.query_markers()
+        if not validate_dag(all_markers):
+            return []
+
+        reinforcement_cfg = dict(self.config.get("reinforcement", {}))
+        rate = float(reinforcement_cfg.get("rate", 0.1))
+        max_intensity = float(reinforcement_cfg.get("max_intensity", 1.0))
+
+        updates: list[Marker] = []
+        for marker_id, delta in propagate_backward(
+            completed_marker_id=completed_marker_id,
+            all_markers=all_markers,
+            propagation_factor=propagation_factor,
+        ):
+            marker = self.store.get_marker(marker_id)
+            if marker is None:
+                continue
+            updated = Marker.from_dict(marker.to_dict())
+            updated.intensity = min(
+                max_intensity,
+                max(0.0, float(marker.intensity) + float(delta) * rate),
+            )
+            updates.append(self.store.upsert_marker(marker=updated, agent_id=actor_id))
+        return updates

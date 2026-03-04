@@ -17,6 +17,9 @@ def compute_pressures(
     action_types: Sequence[str],
     weights: Mapping[str, float] | None = None,
     inhibition_threshold: float = 1.0,
+    formula: str = "simple",
+    alpha: float = 1.0,
+    beta: float = 1.0,
 ) -> dict[str, float]:
     """Compute normalized pressure per action from eligible markers."""
     ordered_actions = list(dict.fromkeys(action_types))
@@ -25,6 +28,11 @@ def compute_pressures(
 
     raw_scores = {action_type: 0.0 for action_type in ordered_actions}
     weights_map = dict(weights or {})
+    formula_name = str(formula).strip().lower()
+    if formula_name not in {"simple", "aco"}:
+        formula_name = "simple"
+    alpha_value = max(0.0, float(alpha))
+    beta_value = max(0.0, float(beta))
 
     for marker in markers:
         if marker.state in TERMINAL_STATES:
@@ -40,7 +48,14 @@ def compute_pressures(
 
         for action_type in eligible_actions:
             weight = max(float(weights_map.get(action_type, 1.0)), 0.0)
-            raw_scores[action_type] += float(marker.intensity) * weight
+            intensity = max(0.0, float(marker.intensity))
+            if formula_name == "aco":
+                # ACO-inspired pressure: pheromone^alpha * heuristic^beta.
+                pheromone = intensity**alpha_value
+                heuristic = weight**beta_value
+                raw_scores[action_type] += pheromone * heuristic
+            else:
+                raw_scores[action_type] += intensity * weight
 
     total = sum(raw_scores.values())
     if total <= 0.0:

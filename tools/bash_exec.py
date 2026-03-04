@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
+import asyncio
 import shlex
-import subprocess
 from typing import Any
 
 from core.marker import Marker
@@ -18,6 +18,15 @@ STATE_PROGRESS = {
 }
 
 
+class BashTimeoutError(TimeoutError):
+    """Raised when async subprocess execution exceeds timeout."""
+
+    def __init__(self, stdout: str, stderr: str) -> None:
+        super().__init__("timeout")
+        self.stdout = stdout
+        self.stderr = stderr
+
+
 class BashExecTool(Tool):
     """Execute one command with timeout and allowlist checks."""
 
@@ -25,12 +34,18 @@ class BashExecTool(Tool):
 
     def __init__(self, *, config: dict[str, Any]) -> None:
         tools_cfg = dict(config.get("tools", {}))
+        async_cfg = dict(config.get("async", {}))
         markers_cfg = dict(config.get("markers", {}))
         allowed = tools_cfg.get("allowed_commands", [])
         self.allowed_commands = {
             str(command).strip() for command in allowed if str(command).strip()
         }
-        self.default_timeout_seconds = float(tools_cfg.get("bash_timeout_seconds", 120))
+        self.default_timeout_seconds = float(
+            async_cfg.get(
+                "subprocess_timeout",
+                tools_cfg.get("bash_timeout_seconds", 120),
+            )
+        )
         self.intensity_step = float(markers_cfg.get("intensity_step_tool", 0.05))
         self.intensity_floor = float(markers_cfg.get("intensity_floor", 0.1))
 
@@ -83,15 +98,12 @@ class BashExecTool(Tool):
             marker.payload.get("timeout_seconds", self.default_timeout_seconds)
         )
         try:
-            process = subprocess.run(
-                command_parts,
+            process = await self._run_subprocess(
+                command_parts=command_parts,
                 cwd=str(root),
-                capture_output=True,
-                text=True,
                 timeout=timeout_seconds,
-                check=False,
             )
-        except subprocess.TimeoutExpired as exc:
+        except BashTimeoutError as exc:
             return ActionResult(
                 action_type=self.action_type,
                 metadata={
@@ -131,3 +143,39 @@ class BashExecTool(Tool):
         if isinstance(raw_command, (list, tuple)):
             return [str(part) for part in raw_command if str(part)]
         return []
+
+    async def _run_subprocess(
+        self,
+        *,
+        command_parts: list[str],
+        cwd: str,
+        timeout: float,
+    ) -> Any:
+        process = await asyncio.create_subprocess_exec(
+            *command_parts,
+            cwd=cwd,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        try:
+            stdout, stderr = await asyncio.wait_for(
+                process.communicate(),
+                timeout=timeout,
+            )
+        except asyncio.TimeoutError as exc:
+            process.kill()
+            stdout, stderr = await process.communicate()
+            raise BashTimeoutError(
+                stdout=(stdout or b"").decode("utf-8", errors="replace"),
+                stderr=(stderr or b"").decode("utf-8", errors="replace"),
+            ) from exc
+
+        return type(
+            "AsyncProcessResult",
+            (),
+            {
+                "returncode": int(process.returncode or 0),
+                "stdout": (stdout or b"").decode("utf-8", errors="replace"),
+                "stderr": (stderr or b"").decode("utf-8", errors="replace"),
+            },
+        )()

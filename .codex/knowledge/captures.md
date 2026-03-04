@@ -403,3 +403,24 @@ Removed structural hardcoding that forced planning shape and fallback hints: dec
 
 ### Evidence
 - `uv run pytest tests/unit tests/integration/test_assistant_run.py -v` (`94 passed`)
+
+## 2026-03-04 — Sprint 4 V3 Runtime Overhaul (Structured Async + DAG)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `impact_score`: `9/10`
+- `confidence`: `high`
+- `scope`: `V3 runtime hardening (typed LLM outputs, async execution, dependency gating, reinforcement, session isolation)`
+
+### Outcome
+Implemented Sprint 4 V3 end-to-end with schema-validated async LLM calls, dependency-aware scheduling, reinforcement propagation, session-isolated storage, and expanded test coverage validated at 128 passing tests.
+
+### Reusable Patterns (1-3)
+1. Keep sync and async LLM paths side-by-side (`call` + `acall`) to preserve backward compatibility while enabling typed structured-output enforcement in new runtime flows.
+2. Treat marker dependencies as first-class runtime constraints (`depends_on` + unblocked filtering) instead of soft conventions in prompts.
+3. Pair per-run `session_id` with isolated persistence path (`pheromones/<session_id>/markers.db`) to avoid cross-run contamination during concurrent experiments.
+
+### Evidence
+- `uv run pytest tests/unit -q` (`127 passed`)
+- `uv run pytest tests/integration/test_assistant_run.py -q` (`4 passed`)
+- `uv run pytest tests/unit tests/integration -q` (`131 passed`)
+- `uv run pytest tests/unit/test_llm_client.py tests/unit/test_dependency.py tests/unit/test_reinforcement.py -q` (structured async + DAG + reinforcement focus)

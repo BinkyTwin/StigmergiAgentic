@@ -854,3 +854,46 @@ Chaque entrée suit ce format :
 - `documentation/decisions/20260226-sprint3-v2-infrastructure-tools-and-assistant-mode.md`, `documentation/decisions/INDEX.md`
 
 ---
+
+### 2026-03-04 13:35 — Sprint 4 V3 Runtime Overhaul
+
+**Assistant IA utilisé** : Codex (GPT-5)
+
+**Objectif** : Implémenter le plan Sprint 4 V3 « Runtime Overhaul » avec sorties structurées, exécution async, dépendances DAG, renforcement, isolation de session et extension de la couverture de tests.
+
+**Actions effectuées** :
+- Ajout des schémas Pydantic (`core/schemas.py`) pour `ThinkOutput`, `DecomposeOutput`, `ToolResult`, `LLMParsedResponse`.
+- Ajout de la couche dépendances DAG (`core/dependency.py`) et du module de renforcement (`core/reinforcement.py`).
+- Extension `llm/client.py` avec `AsyncOpenAI`, `acall()`, sémaphore de concurrence, verrou budget, parsing structuré optionnel.
+- Refactor `core/marker_store.py` : isolation de session optionnelle, filtres SQL dans `query_markers`, pruning (`prune_markers`), decay différentiel par type.
+- Intégration environnement/agent/orchestrateur/main : renforcement + propagation, filtrage `unblocked_markers`, `session_id` runtime, résumé enrichi (DAG/reinforcement/session).
+- Extension `adapters/assistant/workspace.py` avec `get_context_summary()` et injection de contexte workspace dans prompts/outils.
+- Mise à jour des outils `think`, `decompose`, `bash_exec` (sorties typées, bornes de décomposition, subprocess réellement async).
+- Mise à jour config V3 (`config/default.yaml`, `config/assistant.yaml`, `core/config.py`) et dépendances (`requirements.txt` avec `pydantic`).
+- Ajout/mise à jour des tests unitaires et intégration (nouveaux tests `schemas`, `dependency`, `reinforcement`, extensions `llm_client`, `marker_store`, `decay`, `bash_tool`, `assistant_adapter`, `conftest`).
+
+**Décisions prises** :
+- Conserver une compatibilité rétroactive sur les chemins synchrones (`LLMClient.call`) tout en ajoutant un chemin async natif (`acall`) pour le runtime V3.
+- Faire du marquage de dépendances (`depends_on`) une contrainte d’éligibilité agent, au lieu d’une convention applicative non vérifiée.
+- Activer l’isolation de session via configuration (`markers.session_isolation`) avec `session_id` généré au démarrage CLI.
+
+**Problèmes rencontrés** :
+- Un test timeout bash supposait une sortie partielle non déterministe selon OS/scheduling → assertion rendue robuste sur la présence des champs timeout.
+
+**Résultat** : Sprint 4 V3 implémenté et validé localement.
+
+**Validation** :
+- `uv run pytest tests/unit -q` → `127 passed`
+- `uv run pytest tests/integration/test_assistant_run.py -q` → `4 passed`
+
+**Fichiers modifiés** :
+- `core/schemas.py`, `core/dependency.py`, `core/reinforcement.py`
+- `llm/client.py`, `llm/prompts.py`
+- `core/marker_store.py`, `core/decay.py`, `core/environment.py`, `core/agent.py`, `core/orchestrator.py`, `core/config.py`
+- `tools/think.py`, `tools/decompose.py`, `tools/bash_exec.py`
+- `adapters/assistant/workspace.py`, `main.py`
+- `config/default.yaml`, `config/assistant.yaml`, `requirements.txt`
+- `tests/unit/test_schemas.py`, `tests/unit/test_dependency.py`, `tests/unit/test_reinforcement.py`
+- `tests/unit/test_llm_client.py`, `tests/unit/test_marker_store.py`, `tests/unit/test_decay.py`, `tests/unit/test_bash_tool.py`, `tests/unit/test_assistant_adapter.py`, `tests/conftest.py`
+
+---

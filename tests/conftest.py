@@ -21,7 +21,7 @@ from core.marker_store import MarkerStore  # noqa: E402
 def config_dict() -> dict:
     """Minimal config fixture for unit tests."""
     return {
-        "framework": {"name": "stigmergy-v2", "version": "2.0.0"},
+        "framework": {"name": "stigmergy-v3", "version": "3.0.0"},
         "agents": {
             "num_agents": 4,
             "num_agents_mode": "fixed",
@@ -31,10 +31,25 @@ def config_dict() -> dict:
         "markers": {
             "decay_type": "exponential",
             "decay_rate": 0.05,
+            "default_decay_rate": 0.05,
+            "decay_rates_by_type": {
+                "task": 0.05,
+                "dependency": 0.01,
+                "anticipatory": 0.15,
+                "lesson": 0.01,
+            },
             "inhibition_decay_rate": 0.08,
             "inhibition_increment": 0.5,
             "inhibition_threshold": 0.1,
+            "prune_threshold": 0.05,
+            "session_isolation": False,
             "intensity_clamp": [0.1, 1.0],
+        },
+        "reinforcement": {
+            "enabled": True,
+            "rate": 0.1,
+            "propagation_factor": 0.5,
+            "max_intensity": 1.0,
         },
         "guardrails": {
             "max_retry_count": 3,
@@ -44,7 +59,7 @@ def config_dict() -> dict:
         },
         "orchestrator": {
             "max_ticks": 50,
-            "idle_cycles_to_stop": 2,
+            "idle_cycles_to_stop": 3,
             "parallel": True,
         },
         "llm": {
@@ -57,7 +72,21 @@ def config_dict() -> dict:
             "retry_attempts": 3,
             "min_429_backoff_seconds": 8.0,
         },
-        "pressures": {"default_weights": {}},
+        "pressures": {
+            "formula": "aco",
+            "alpha": 1.0,
+            "beta": 1.0,
+            "default_weights": {},
+        },
+        "decompose": {
+            "max_depth": 2,
+            "max_subtasks": 8,
+            "allow_redecompose": False,
+        },
+        "async": {
+            "max_concurrent_llm_calls": 4,
+            "subprocess_timeout": 120,
+        },
         "tools": {
             "sandbox_root": ".",
             "allowed_commands": ["python", "pytest", "git", "pip", "uv"],

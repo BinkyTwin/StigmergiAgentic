@@ -145,3 +145,62 @@ def test_bash_exec_runs_in_workspace_cwd(tmp_path: Path, config_dict: dict) -> N
     )
     assert result.metadata == {}
     assert result.marker_updates[0].payload["last_bash"]["stdout"].strip() == "True"
+
+
+def test_bash_exec_reads_default_timeout_from_async_config(
+    tmp_path: Path, config_dict: dict
+) -> None:
+    env, _, config = _build_environment(tmp_path, config_dict)
+    config["async"]["subprocess_timeout"] = 0.02
+    marker = _make_marker(
+        "bash-7",
+        {
+            "command": "python -c \"import time; time.sleep(0.2)\"",
+            "eligible_actions": ["bash_exec"],
+        },
+    )
+    tool = BashExecTool(config=config)
+    result = asyncio.run(
+        tool.execute(agent_id="agent-1", marker=marker, environment=env, llm_client=None)
+    )
+    assert result.metadata.get("failed") is True
+    assert result.metadata.get("reason") == "timeout"
+
+
+def test_bash_exec_accepts_list_command_form(tmp_path: Path, config_dict: dict) -> None:
+    env, _, config = _build_environment(tmp_path, config_dict)
+    marker = _make_marker(
+        "bash-8",
+        {
+            "command": ["python", "-c", "print('list-ok')"],
+            "eligible_actions": ["bash_exec"],
+        },
+    )
+    tool = BashExecTool(config=config)
+    result = asyncio.run(
+        tool.execute(agent_id="agent-1", marker=marker, environment=env, llm_client=None)
+    )
+    assert result.metadata == {}
+    assert result.marker_updates[0].payload["last_bash"]["stdout"].strip() == "list-ok"
+
+
+def test_bash_exec_timeout_keeps_partial_output(tmp_path: Path, config_dict: dict) -> None:
+    env, _, config = _build_environment(tmp_path, config_dict)
+    marker = _make_marker(
+        "bash-9",
+        {
+            "command": (
+                "python -c \"import sys,time; "
+                "sys.stdout.write('start\\\\n'); sys.stdout.flush(); "
+                "time.sleep(0.2)\""
+            ),
+            "timeout_seconds": 0.05,
+            "eligible_actions": ["bash_exec"],
+        },
+    )
+    tool = BashExecTool(config=config)
+    result = asyncio.run(
+        tool.execute(agent_id="agent-1", marker=marker, environment=env, llm_client=None)
+    )
+    assert result.metadata.get("failed") is True
+    assert "stdout" in result.metadata

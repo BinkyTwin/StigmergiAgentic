@@ -6,6 +6,7 @@ import json
 from typing import Any
 
 from core.marker import Marker, utc_now_iso
+from core.schemas import DecomposeOutput, SubtaskSpec
 from core.tool_registry import ActionResult, Tool
 from llm.prompts import SYSTEM_STIGMERGIC_AGENT_PROMPT
 
@@ -26,18 +27,22 @@ class DecomposeTool(Tool):
     def __init__(self, *, config: dict[str, Any]) -> None:
         self.config = config
         markers_cfg = dict(config.get("markers", {}))
+        decompose_cfg = dict(config.get("decompose", {}))
         self.intensity_step = float(markers_cfg.get("intensity_step_decompose", 0.1))
         self.child_intensity_offset = float(
             markers_cfg.get("child_intensity_offset", 0.2)
         )
         self.intensity_floor = float(markers_cfg.get("intensity_floor", 0.1))
+        self.max_depth = int(decompose_cfg.get("max_depth", 3))
+        self.max_subtasks = int(decompose_cfg.get("max_subtasks", 8))
+        self.allow_redecompose = bool(decompose_cfg.get("allow_redecompose", False))
 
     def is_eligible(self, marker: Marker) -> bool:
         raw = marker.payload.get("eligible_actions")
         if isinstance(raw, (list, tuple, set)) and len(raw) > 0:
             return self.action_type in {str(item) for item in raw}
 
-        if bool(marker.payload.get("decomposed")):
+        if bool(marker.payload.get("decomposed")) and not self.allow_redecompose:
             return False
         parent_id = marker.payload.get("parent_id")
         return not isinstance(parent_id, str)
@@ -58,33 +63,58 @@ class DecomposeTool(Tool):
             if "subtask_count" in marker.payload
             else None
         )
+        depth = self._decomposition_depth(marker=marker, environment=environment)
+        if depth >= self.max_depth:
+            return ActionResult(
+                action_type=self.action_type,
+                metadata={
+                    "failed": True,
+                    "reason": "max_depth_reached",
+                    "depth": depth,
+                },
+            )
 
-        subtasks: list[str] = []
+        subtasks: list[SubtaskSpec] = []
         consumed_tokens = 0
         cost_usd = 0.0
 
-        if llm_client is not None and hasattr(llm_client, "call"):
+        if llm_client is not None and (
+            hasattr(llm_client, "acall") or hasattr(llm_client, "call")
+        ):
             prompt = (
                 "Decompose the following objective into concrete executable subtasks.\n"
                 "Use as many or as few subtasks as the objective requires -- "
                 "do not force a fixed number.\n"
                 "Return strict JSON: "
-                '{"subtasks":[{"title":"..."}]}\n'
+                '{"subtasks":[{"title":"...","description":"",'
+                '"depends_on_indices":[],"eligible_actions":[]}]}'
+                "\n"
                 f"Objective: {objective}"
             )
             if desired_count is not None:
                 prompt += f"\nSuggested target: around {desired_count} subtasks"
             try:
-                response = llm_client.call(
-                    prompt=prompt,
-                    system=SYSTEM_STIGMERGIC_AGENT_PROMPT,
-                )
+                if hasattr(llm_client, "acall"):
+                    response = await llm_client.acall(
+                        prompt=prompt,
+                        system=SYSTEM_STIGMERGIC_AGENT_PROMPT,
+                        response_schema=DecomposeOutput,
+                    )
+                else:
+                    response = llm_client.call(
+                        prompt=prompt,
+                        system=SYSTEM_STIGMERGIC_AGENT_PROMPT,
+                    )
                 consumed_tokens = int(getattr(response, "tokens_used", 0))
                 cost_usd = float(getattr(response, "cost_usd", 0.0))
-                raw_content = str(getattr(response, "content", ""))
-                subtasks = self._parse_subtasks(
-                    raw_content=raw_content, llm_client=llm_client
-                )
+                parsed = getattr(response, "parsed", None)
+                if isinstance(parsed, DecomposeOutput):
+                    subtasks = list(parsed.subtasks)
+                else:
+                    raw_content = str(getattr(response, "content", ""))
+                    subtasks = self._parse_subtasks(
+                        raw_content=raw_content, llm_client=llm_client
+                    )
             except Exception:  # noqa: BLE001
                 subtasks = []
 
@@ -92,6 +122,7 @@ class DecomposeTool(Tool):
             subtasks = self._fallback_subtasks(
                 objective=objective, desired_count=desired_count
             )
+        subtasks = subtasks[: max(1, self.max_subtasks)]
 
         updated_parent = Marker.from_dict(marker.to_dict())
         parent_payload = dict(updated_parent.payload)
@@ -108,10 +139,30 @@ class DecomposeTool(Tool):
 
         now = utc_now_iso()
         child_markers: list[Marker] = []
+        child_ids = {
+            idx: f"{marker.id}::subtask::{idx + 1}"
+            for idx in range(len(subtasks))
+        }
         for index, subtask in enumerate(subtasks, start=1):
+            child_id = f"{marker.id}::subtask::{index}"
+            dependencies = self._resolve_dependency_ids(
+                depends_on_indices=subtask.depends_on_indices,
+                child_ids=child_ids,
+            )
+            dependencies = [dep for dep in dependencies if dep != child_id]
+            payload: dict[str, Any] = {
+                "task": subtask.title,
+                "description": subtask.description,
+                "objective": objective,
+                "parent_id": marker.id,
+            }
+            if dependencies:
+                payload["depends_on"] = dependencies
+            if subtask.eligible_actions:
+                payload["eligible_actions"] = list(subtask.eligible_actions)
             child_markers.append(
                 Marker(
-                    id=f"{marker.id}::subtask::{index}",
+                    id=child_id,
                     marker_type="task",
                     target=f"{marker.target}::{index}",
                     intensity=max(
@@ -119,11 +170,7 @@ class DecomposeTool(Tool):
                         float(marker.intensity) - self.child_intensity_offset,
                     ),
                     state="pending",
-                    payload={
-                        "task": subtask,
-                        "objective": objective,
-                        "parent_id": marker.id,
-                    },
+                    payload=payload,
                     created_by=agent_id,
                     created_at=now,
                     updated_by=agent_id,
@@ -137,10 +184,15 @@ class DecomposeTool(Tool):
             marker_updates=[updated_parent, *child_markers],
             consumed_tokens=consumed_tokens,
             cost_usd=cost_usd,
-            metadata={"subtask_count": len(subtasks)},
+            metadata={"subtask_count": len(subtasks), "depth": depth},
         )
 
-    def _parse_subtasks(self, *, raw_content: str, llm_client: Any | None) -> list[str]:
+    def _parse_subtasks(
+        self,
+        *,
+        raw_content: str,
+        llm_client: Any | None,
+    ) -> list[SubtaskSpec]:
         candidates = [raw_content]
         if llm_client is not None and hasattr(llm_client, "extract_code_block"):
             try:
@@ -156,36 +208,68 @@ class DecomposeTool(Tool):
                 parsed = json.loads(text)
             except json.JSONDecodeError:
                 continue
-            rows = parsed.get("subtasks", []) if isinstance(parsed, dict) else []
-            if not isinstance(rows, list):
+            if not isinstance(parsed, dict):
                 continue
-            subtasks: list[str] = []
-            for row in rows:
-                if isinstance(row, dict):
-                    title = str(row.get("title", "")).strip()
-                else:
-                    title = str(row).strip()
-                if title:
-                    subtasks.append(title)
-            if subtasks:
-                return subtasks
+            try:
+                validated = DecomposeOutput.model_validate(parsed)
+            except Exception:  # noqa: BLE001
+                continue
+            if validated.subtasks:
+                return list(validated.subtasks)
         return []
 
     def _fallback_subtasks(
         self, *, objective: str, desired_count: int | None
-    ) -> list[str]:
+    ) -> list[SubtaskSpec]:
         parts = [
             segment.strip(" -\n\t")
             for segment in objective.replace(";", ".").split(".")
             if segment.strip(" -\n\t")
         ]
         if not parts:
-            return [objective or "Handle objective"]
+            return [SubtaskSpec(title=objective or "Handle objective")]
 
         unique: list[str] = []
         for part in parts:
             if part not in unique:
                 unique.append(part)
+
+        rows = [SubtaskSpec(title=part) for part in unique]
         if desired_count is not None:
-            return unique[: max(1, desired_count)]
-        return unique if unique else [objective or "Handle objective"]
+            return rows[: max(1, desired_count)]
+        return rows if rows else [SubtaskSpec(title=objective or "Handle objective")]
+
+    def _decomposition_depth(self, *, marker: Marker, environment: Any) -> int:
+        depth = 0
+        parent_id = marker.payload.get("parent_id")
+        visited: set[str] = set()
+        while isinstance(parent_id, str) and parent_id:
+            if parent_id in visited:
+                break
+            visited.add(parent_id)
+            depth += 1
+            parent = environment.store.get_marker(parent_id)
+            if parent is None:
+                break
+            parent_id = parent.payload.get("parent_id")
+        return depth
+
+    def _resolve_dependency_ids(
+        self,
+        *,
+        depends_on_indices: list[int],
+        child_ids: dict[int, str],
+    ) -> list[str]:
+        resolved: list[str] = []
+        for raw_index in depends_on_indices:
+            try:
+                idx = int(raw_index)
+            except (TypeError, ValueError):
+                continue
+            if idx in child_ids:
+                resolved.append(child_ids[idx])
+                continue
+            one_based = idx - 1
+            if one_based in child_ids:
+                resolved.append(child_ids[one_based])
+        return sorted(set(resolved))

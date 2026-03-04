@@ -13,10 +13,13 @@ REQUIRED_TOP_LEVEL_SECTIONS = {
     "framework",
     "agents",
     "markers",
+    "reinforcement",
     "guardrails",
     "orchestrator",
     "llm",
     "pressures",
+    "decompose",
+    "async",
     "tools",
 }
 
@@ -74,9 +77,32 @@ def validate_config(config: Mapping[str, Any]) -> None:
         raise ConfigError("markers.decay_type must be 'exponential' or 'linear'")
 
     _validate_float(markers, "decay_rate", minimum=0.0)
+    _validate_float(markers, "default_decay_rate", minimum=0.0)
     _validate_float(markers, "inhibition_decay_rate", minimum=0.0)
     _validate_float(markers, "inhibition_increment", minimum=0.0)
     _validate_float(markers, "inhibition_threshold", minimum=0.0, maximum=1.0)
+    prune_threshold = markers.get("prune_threshold")
+    if prune_threshold is not None:
+        _validate_float(markers, "prune_threshold", minimum=0.0, maximum=1.0)
+
+    decay_rates_by_type = markers.get("decay_rates_by_type", {})
+    if not isinstance(decay_rates_by_type, Mapping):
+        raise ConfigError("markers.decay_rates_by_type must be a mapping")
+    for marker_type, rate in decay_rates_by_type.items():
+        try:
+            parsed = float(rate)
+        except (TypeError, ValueError) as exc:
+            raise ConfigError(
+                f"markers.decay_rates_by_type.{marker_type} must be numeric"
+            ) from exc
+        if parsed < 0.0:
+            raise ConfigError(
+                f"markers.decay_rates_by_type.{marker_type} must be >= 0.0"
+            )
+
+    session_isolation = markers.get("session_isolation")
+    if not isinstance(session_isolation, bool):
+        raise ConfigError("markers.session_isolation must be a boolean")
 
     clamp = markers.get("intensity_clamp")
     if not isinstance(clamp, list) or len(clamp) != 2:
@@ -97,6 +123,32 @@ def validate_config(config: Mapping[str, Any]) -> None:
     llm = config["llm"]
     _validate_int(llm, "max_tokens_total", minimum=1)
     _validate_float(llm, "max_budget_usd", minimum=0.0)
+
+    reinforcement = config["reinforcement"]
+    enabled = reinforcement.get("enabled")
+    if not isinstance(enabled, bool):
+        raise ConfigError("reinforcement.enabled must be a boolean")
+    _validate_float(reinforcement, "rate", minimum=0.0)
+    _validate_float(reinforcement, "propagation_factor", minimum=0.0)
+    _validate_float(reinforcement, "max_intensity", minimum=0.0, maximum=1.0)
+
+    decompose = config["decompose"]
+    _validate_int(decompose, "max_depth", minimum=1)
+    _validate_int(decompose, "max_subtasks", minimum=1)
+    allow_redecompose = decompose.get("allow_redecompose")
+    if not isinstance(allow_redecompose, bool):
+        raise ConfigError("decompose.allow_redecompose must be a boolean")
+
+    async_cfg = config["async"]
+    _validate_int(async_cfg, "max_concurrent_llm_calls", minimum=1)
+    _validate_float(async_cfg, "subprocess_timeout", minimum=1.0)
+
+    pressures = config["pressures"]
+    formula = str(pressures.get("formula", "simple")).strip().lower()
+    if formula not in {"aco", "simple"}:
+        raise ConfigError("pressures.formula must be 'aco' or 'simple'")
+    _validate_float(pressures, "alpha", minimum=0.0)
+    _validate_float(pressures, "beta", minimum=0.0)
 
     tools = config["tools"]
     sandbox_root = str(tools.get("sandbox_root", "")).strip()

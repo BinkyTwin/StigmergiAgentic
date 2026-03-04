@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import os
@@ -17,10 +18,14 @@ from openai import (
     APIConnectionError,
     APIStatusError,
     APITimeoutError,
+    AsyncOpenAI,
     InternalServerError,
     OpenAI,
     RateLimitError,
 )
+from pydantic import BaseModel, ValidationError
+
+from core.schemas import LLMParsedResponse
 
 
 RETRYABLE_STATUS_CODES = {429, 500, 502, 503}
@@ -54,6 +59,8 @@ class LLMResponse:
     model: str
     latency_ms: int
     cost_usd: float = 0.0
+    parsed: BaseModel | None = None
+    parsed_response: LLMParsedResponse | None = None
 
 
 @dataclass
@@ -88,6 +95,12 @@ class LLMClient:
 
         self.model = str(llm_config.get("model", "qwen/qwen3-235b-a22b-2507"))
         self.temperature = float(llm_config.get("temperature", 0.2))
+        async_cfg = dict(config.get("async", {}))
+        self.max_concurrent_llm_calls = int(
+            async_cfg.get("max_concurrent_llm_calls", 4)
+        )
+        if self.max_concurrent_llm_calls <= 0:
+            self.max_concurrent_llm_calls = 1
         raw_max_response_tokens = llm_config.get("max_response_tokens", 0)
         max_response_tokens = int(raw_max_response_tokens)
         # Hard-disable explicit max_tokens: thinking-heavy migrations should never
@@ -133,7 +146,15 @@ class LLMClient:
         self.total_tokens_used = 0
         self.total_cost_usd = 0.0
         self._next_earliest_call_monotonic = 0.0
+        self._llm_semaphore = asyncio.Semaphore(self.max_concurrent_llm_calls)
+        self._budget_lock = asyncio.Lock()
+        self._interval_lock = asyncio.Lock()
         self.client = OpenAI(
+            api_key=self.api_key,
+            base_url=self.base_url,
+            timeout=self.request_timeout_seconds,
+        )
+        self.async_client = AsyncOpenAI(
             api_key=self.api_key,
             base_url=self.base_url,
             timeout=self.request_timeout_seconds,
@@ -159,7 +180,12 @@ class LLMClient:
             return True
         return (self.total_cost_usd + float(estimated_cost_usd)) <= self.max_budget_usd
 
-    def call(self, prompt: str, system: str | None = None) -> LLMResponse:
+    def call(
+        self,
+        prompt: str,
+        system: str | None = None,
+        response_schema: type[BaseModel] | None = None,
+    ) -> LLMResponse:
         """Call the LLM with retry for transient failures and token accounting."""
         estimated_prompt_tokens, estimated_completion_tokens = self._estimate_usage(
             prompt=prompt,
@@ -195,6 +221,8 @@ class LLMClient:
                     "messages": self._build_messages(prompt=prompt, system=system),
                     "temperature": self.temperature,
                 }
+                if response_schema is not None:
+                    request_payload["response_format"] = {"type": "json_object"}
 
                 response = self.client.chat.completions.create(
                     **request_payload,
@@ -211,6 +239,10 @@ class LLMClient:
                         prompt_tokens=prompt_tokens,
                         completion_tokens=completion_tokens,
                     )
+                parsed_model, parsed_response = self._parse_structured_content(
+                    content=content,
+                    response_schema=response_schema,
+                )
 
                 self.total_tokens_used += tokens_used
                 if call_cost_usd is not None:
@@ -223,6 +255,8 @@ class LLMClient:
                     model=self.model,
                     latency_ms=latency_ms,
                     cost_usd=float(call_cost_usd or 0.0),
+                    parsed=parsed_model,
+                    parsed_response=parsed_response,
                 )
             except Exception as exc:  # noqa: BLE001
                 last_error = exc
@@ -237,6 +271,115 @@ class LLMClient:
                 time.sleep(backoff_seconds)
             finally:
                 self._mark_call_slot()
+
+        assert last_error is not None
+        raise last_error
+
+    async def acall(
+        self,
+        prompt: str,
+        system: str | None = None,
+        response_schema: type[BaseModel] | None = None,
+    ) -> LLMResponse:
+        """Async variant with optional schema validation and concurrency limits."""
+        estimated_prompt_tokens, estimated_completion_tokens = self._estimate_usage(
+            prompt=prompt,
+            system=system,
+        )
+        estimated_tokens = estimated_prompt_tokens + estimated_completion_tokens
+        estimated_cost_usd = self._estimate_cost_usd(
+            prompt_tokens=estimated_prompt_tokens,
+            completion_tokens=estimated_completion_tokens,
+        )
+        await self._reserve_budget_async(
+            estimated_tokens=estimated_tokens,
+            estimated_cost_usd=estimated_cost_usd,
+        )
+
+        last_error: Exception | None = None
+        reserved_budget = True
+
+        try:
+            async with self._llm_semaphore:
+                for attempt in range(self.retry_attempts):
+                    try:
+                        await self._enforce_call_interval_async()
+                        start = time.monotonic()
+                        request_payload: dict[str, Any] = {
+                            "model": self.model,
+                            "messages": self._build_messages(prompt=prompt, system=system),
+                            "temperature": self.temperature,
+                        }
+                        if response_schema is not None:
+                            request_payload["response_format"] = {"type": "json_object"}
+
+                        response = await self.async_client.chat.completions.create(
+                            **request_payload,
+                        )
+
+                        content = self._extract_content(response)
+                        usage = getattr(response, "usage", None)
+                        prompt_tokens = int(getattr(usage, "prompt_tokens", 0) or 0)
+                        completion_tokens = int(getattr(usage, "completion_tokens", 0) or 0)
+                        tokens_used = prompt_tokens + completion_tokens
+                        call_cost_usd = self._extract_usage_cost_usd(usage=usage)
+                        if call_cost_usd is None:
+                            call_cost_usd = self._estimate_cost_usd(
+                                prompt_tokens=prompt_tokens,
+                                completion_tokens=completion_tokens,
+                            )
+
+                        parsed_model, parsed_response = self._parse_structured_content(
+                            content=content,
+                            response_schema=response_schema,
+                        )
+
+                        await self._reconcile_budget_async(
+                            estimated_tokens=estimated_tokens,
+                            estimated_cost_usd=estimated_cost_usd,
+                            actual_tokens=tokens_used,
+                            actual_cost_usd=call_cost_usd,
+                        )
+                        reserved_budget = False
+                        latency_ms = int((time.monotonic() - start) * 1000)
+
+                        return LLMResponse(
+                            content=content,
+                            tokens_used=tokens_used,
+                            model=self.model,
+                            latency_ms=latency_ms,
+                            cost_usd=float(call_cost_usd or 0.0),
+                            parsed=parsed_model,
+                            parsed_response=parsed_response,
+                        )
+                    except Exception as exc:  # noqa: BLE001
+                        last_error = exc
+                        if not self._is_retryable(exc):
+                            raise
+
+                        has_next_attempt = attempt < self.retry_attempts - 1
+                        if not has_next_attempt:
+                            break
+
+                        backoff_seconds = self._backoff_for_error(
+                            attempt=attempt, error=exc
+                        )
+                        await asyncio.sleep(backoff_seconds)
+                    finally:
+                        await self._mark_call_slot_async()
+        except Exception:
+            if reserved_budget:
+                await self._release_budget_reservation_async(
+                    estimated_tokens=estimated_tokens,
+                    estimated_cost_usd=estimated_cost_usd,
+                )
+            raise
+
+        if reserved_budget:
+            await self._release_budget_reservation_async(
+                estimated_tokens=estimated_tokens,
+                estimated_cost_usd=estimated_cost_usd,
+            )
 
         assert last_error is not None
         raise last_error
@@ -488,6 +631,121 @@ class LLMClient:
         self._next_earliest_call_monotonic = (
             time.monotonic() + self.min_call_interval_seconds
         )
+
+    async def _enforce_call_interval_async(self) -> None:
+        if self.min_call_interval_seconds <= 0.0:
+            return
+        async with self._interval_lock:
+            now = time.monotonic()
+            wait_seconds = self._next_earliest_call_monotonic - now
+            if wait_seconds > 0.0:
+                await asyncio.sleep(wait_seconds)
+
+    async def _mark_call_slot_async(self) -> None:
+        if self.min_call_interval_seconds <= 0.0:
+            return
+        async with self._interval_lock:
+            self._next_earliest_call_monotonic = (
+                time.monotonic() + self.min_call_interval_seconds
+            )
+
+    async def _reserve_budget_async(
+        self,
+        *,
+        estimated_tokens: int,
+        estimated_cost_usd: float | None,
+    ) -> None:
+        async with self._budget_lock:
+            if not self.check_budget(estimated_tokens=estimated_tokens):
+                raise RuntimeError(
+                    "Token budget exceeded before call: "
+                    f"used={self.total_tokens_used}, estimated={estimated_tokens}, budget={self.budget}"
+                )
+
+            if estimated_cost_usd is not None and not self.check_cost_budget(
+                estimated_cost_usd=estimated_cost_usd
+            ):
+                raise RuntimeError(
+                    "Cost budget exceeded before call: "
+                    f"used=${self.total_cost_usd:.6f}, estimated=${estimated_cost_usd:.6f}, "
+                    f"budget=${self.max_budget_usd:.6f}"
+                )
+
+            self.total_tokens_used += int(estimated_tokens)
+            if estimated_cost_usd is not None:
+                self.total_cost_usd += float(estimated_cost_usd)
+
+    async def _reconcile_budget_async(
+        self,
+        *,
+        estimated_tokens: int,
+        estimated_cost_usd: float | None,
+        actual_tokens: int,
+        actual_cost_usd: float | None,
+    ) -> None:
+        token_delta = int(actual_tokens) - int(estimated_tokens)
+        async with self._budget_lock:
+            self.total_tokens_used += token_delta
+
+            if estimated_cost_usd is not None:
+                current_cost = float(actual_cost_usd or 0.0)
+                self.total_cost_usd += current_cost - float(estimated_cost_usd)
+            elif actual_cost_usd is not None:
+                self.total_cost_usd += float(actual_cost_usd)
+
+    async def _release_budget_reservation_async(
+        self,
+        *,
+        estimated_tokens: int,
+        estimated_cost_usd: float | None,
+    ) -> None:
+        async with self._budget_lock:
+            self.total_tokens_used = max(
+                0,
+                self.total_tokens_used - int(estimated_tokens),
+            )
+            if estimated_cost_usd is not None:
+                self.total_cost_usd = max(
+                    0.0,
+                    self.total_cost_usd - float(estimated_cost_usd),
+                )
+
+    def _parse_structured_content(
+        self,
+        *,
+        content: str,
+        response_schema: type[BaseModel] | None,
+    ) -> tuple[BaseModel | None, LLMParsedResponse | None]:
+        if response_schema is None:
+            return None, None
+        try:
+            parsed = response_schema.model_validate_json(content)
+            return (
+                parsed,
+                LLMParsedResponse(
+                    raw_content=content,
+                    parsed=parsed.model_dump(),
+                    validation_error=None,
+                ),
+            )
+        except ValidationError as exc:
+            return (
+                None,
+                LLMParsedResponse(
+                    raw_content=content,
+                    parsed=None,
+                    validation_error=str(exc),
+                ),
+            )
+        except Exception as exc:  # noqa: BLE001
+            return (
+                None,
+                LLMParsedResponse(
+                    raw_content=content,
+                    parsed=None,
+                    validation_error=str(exc),
+                ),
+            )
 
     def _extract_content(self, response: Any) -> str:
         choices = getattr(response, "choices", None)

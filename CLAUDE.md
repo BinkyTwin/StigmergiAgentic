@@ -4,16 +4,19 @@ This file provides guidance to Claude Code when working in this repository.
 
 ## Project Overview
 
-Stigmergic orchestration framework V2 for thesis research (EMLV).
+Stigmergic orchestration framework V3 for thesis research (EMLV).
 
-The codebase is currently at **Sprint 3 V2** (generic core + infrastructure tools + assistant adapter).
+The codebase is currently at **Sprint 4 V3** (runtime overhaul: async typed LLM flow, dependency DAG coordination, reinforcement, and session isolation).
 
-## Sprint 3 V2 Status (2026-02-26)
+## Sprint 4 V3 Status (2026-03-04)
 
 Implemented modules:
 - `core/marker.py`
 - `core/marker_store.py`
 - `core/decay.py`
+- `core/schemas.py`
+- `core/dependency.py`
+- `core/reinforcement.py`
 - `core/guardrails.py`
 - `core/audit.py`
 - `core/config.py`
@@ -38,10 +41,10 @@ Implemented modules:
 - `config/default.yaml`
 - `config/assistant.yaml`
 - `main.py`
-- `tests/unit/*` + `tests/integration/test_assistant_run.py` (85 tests)
+- `tests/unit/*` + `tests/integration/test_assistant_run.py` (131 tests)
 
 Validated gate:
-- `uv run pytest tests/unit -v` -> 81 passed
+- `uv run pytest tests/unit -v` -> 127 passed
 - `uv run pytest tests/integration/test_assistant_run.py -v` -> 4 passed
 
 ## Design Principles
@@ -151,7 +154,7 @@ uv venv --python 3.11 .venv
 uv pip install -r requirements.txt
 ```
 
-### Test (Sprint 3)
+### Test (Sprint 4)
 
 ```bash
 uv run pytest tests/unit -v

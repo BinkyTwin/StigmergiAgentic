@@ -117,3 +117,8 @@
 - Build planner JSON schemas from available tool capabilities and include optional fields only for registered/declared execution tools.
 - Avoid local heuristic fallback hints in `think`; if the model does not emit structured hints, keep marker active and let subsequent ticks/agents resolve execution.
 - Read all intensity decrements/floors from `markers.*` config keys (`intensity_step_think`, `intensity_step_tool`, `intensity_step_decompose`, `child_intensity_offset`, `intensity_floor`).
+
+### V3 Structured-Async Runtime Standard
+- Add schema-backed `acall(..., response_schema=...)` at the LLM boundary and keep typed parsing close to tool execution (`think`, `decompose`) for deterministic downstream behavior.
+- Enforce dependency readiness in agent candidate filtering (`unblocked_markers`) so orchestration order is controlled by marker graph state, not agent timing.
+- Isolate runtime sessions at storage level and surface `session_id` in CLI/output summaries to keep experiments traceable and collision-free.

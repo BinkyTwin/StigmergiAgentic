@@ -180,3 +180,44 @@ def test_snapshot_and_multiprocess_read_smoke(db_path: Path) -> None:
 
     counts = [queue.get(timeout=2) for _ in workers]
     assert counts == [2, 2]
+
+
+def test_marker_store_session_isolation_path(tmp_path: Path) -> None:
+    db_path = tmp_path / "pheromones" / "markers.db"
+    store = MarkerStore(
+        db_path=db_path,
+        session_id="session-123",
+        session_isolation=True,
+    )
+    assert store.db_path == tmp_path / "pheromones" / "session-123" / "markers.db"
+
+
+def test_apply_decay_prunes_low_intensity_markers(
+    marker_store: MarkerStore,
+    config_dict: dict,
+) -> None:
+    marker_store.upsert_marker(_make_marker(marker_id="to-prune", intensity=0.2), "agent-1")
+    config_dict["markers"]["prune_threshold"] = 0.9
+
+    marker_store.apply_decay(current_tick=1, config=config_dict)
+    assert marker_store.get_marker("to-prune") is None
+    assert marker_store.last_decay_pruned_count == 1
+
+
+def test_query_markers_sql_filters_multiple_fields(marker_store: MarkerStore) -> None:
+    marker_store.upsert_marker(_make_marker(marker_id="a", state="pending", intensity=0.4), "agent-1")
+    marker_store.upsert_marker(_make_marker(marker_id="b", state="active", intensity=0.8), "agent-1")
+    marker_store.upsert_marker(_make_marker(marker_id="c", state="active", intensity=0.2), "agent-1")
+
+    rows = marker_store.query_markers(state="active", intensity__gte=0.5, id__in=["b", "c"])
+    assert [row.id for row in rows] == ["b"]
+
+
+def test_prune_threshold_boundary_is_strict_less_than(marker_store: MarkerStore) -> None:
+    marker_store.upsert_marker(_make_marker(marker_id="equal", intensity=0.3), "agent-1")
+    marker_store.upsert_marker(_make_marker(marker_id="below", intensity=0.2), "agent-1")
+
+    deleted = marker_store.prune_markers(0.3)
+    assert deleted == 1
+    assert marker_store.get_marker("equal") is not None
+    assert marker_store.get_marker("below") is None

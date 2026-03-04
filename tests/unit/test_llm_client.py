@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+import asyncio
 from types import SimpleNamespace
 
 import pytest
 
+from core.schemas import ThinkOutput
 from llm.client import LLMClient, ModelPricing
 
 
@@ -38,6 +40,42 @@ class FakeOpenAIClient:
         self.chat = FakeChat(completions)
 
 
+class AsyncFakeCompletions:
+    """Async fake completions endpoint with optional delay and concurrency tracking."""
+
+    def __init__(self, outcomes: list[object], delay_seconds: float = 0.0) -> None:
+        self.outcomes = list(outcomes)
+        self.delay_seconds = delay_seconds
+        self.calls = 0
+        self.active = 0
+        self.max_active = 0
+
+    async def create(self, **kwargs):  # type: ignore[no-untyped-def]
+        _ = kwargs
+        self.calls += 1
+        self.active += 1
+        self.max_active = max(self.max_active, self.active)
+        try:
+            if self.delay_seconds > 0.0:
+                await asyncio.sleep(self.delay_seconds)
+            current = self.outcomes.pop(0)
+            if isinstance(current, Exception):
+                raise current
+            return current
+        finally:
+            self.active -= 1
+
+
+class AsyncFakeChat:
+    def __init__(self, completions: AsyncFakeCompletions) -> None:
+        self.completions = completions
+
+
+class AsyncFakeOpenAIClient:
+    def __init__(self, completions: AsyncFakeCompletions) -> None:
+        self.chat = AsyncFakeChat(completions)
+
+
 def _build_config() -> dict:
     return {
         "llm": {
@@ -49,7 +87,11 @@ def _build_config() -> dict:
             "retry_attempts": 2,
             "retry_backoff": [1],
             "retry_jitter_seconds": 0.0,
-        }
+        },
+        "async": {
+            "max_concurrent_llm_calls": 4,
+            "subprocess_timeout": 120,
+        },
     }
 
 
@@ -137,3 +179,82 @@ def test_extract_code_block_handles_markdown_fences(monkeypatch: pytest.MonkeyPa
 
     assert extracted == "print('ok')"
     assert cleaned == "print('ok')"
+
+
+def test_llm_client_call_can_parse_structured_output(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("OPENROUTER_API_KEY", "sk-test")
+    client = LLMClient(_build_config())
+    client.client = FakeOpenAIClient(
+        FakeCompletions([_make_response('{"analysis":"ok","path":"README.md"}')])
+    )
+
+    result = client.call(prompt="hello", response_schema=ThinkOutput)
+    assert isinstance(result.parsed, ThinkOutput)
+    assert result.parsed is not None
+    assert result.parsed.path == "README.md"
+
+
+def test_llm_client_acall_parses_structured_output(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("OPENROUTER_API_KEY", "sk-test")
+    client = LLMClient(_build_config())
+    client.async_client = AsyncFakeOpenAIClient(
+        AsyncFakeCompletions(
+            [_make_response('{"analysis":"Use file_read first","path":"README.md"}')]
+        )
+    )
+
+    result = asyncio.run(
+        client.acall(prompt="hello", response_schema=ThinkOutput)
+    )
+    assert isinstance(result.parsed, ThinkOutput)
+    assert result.parsed is not None
+    assert result.parsed.path == "README.md"
+
+
+def test_llm_client_acall_keeps_raw_when_schema_validation_fails(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("OPENROUTER_API_KEY", "sk-test")
+    client = LLMClient(_build_config())
+    client.async_client = AsyncFakeOpenAIClient(
+        AsyncFakeCompletions([_make_response('{"path":"README.md"}')])
+    )
+
+    result = asyncio.run(client.acall(prompt="hello", response_schema=ThinkOutput))
+    assert result.parsed is None
+    assert result.parsed_response is not None
+    assert result.parsed_response.is_valid is False
+    assert "analysis" in str(result.parsed_response.validation_error)
+
+
+def test_llm_client_acall_limits_concurrency_with_semaphore(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("OPENROUTER_API_KEY", "sk-test")
+    config = _build_config()
+    config["async"]["max_concurrent_llm_calls"] = 1
+    client = LLMClient(config)
+    fake = AsyncFakeCompletions(
+        [_make_response("ok-1"), _make_response("ok-2")],
+        delay_seconds=0.05,
+    )
+    client.async_client = AsyncFakeOpenAIClient(fake)
+
+    async def _run_two_calls() -> None:
+        await asyncio.gather(
+            client.acall(prompt="first"),
+            client.acall(prompt="second"),
+        )
+
+    asyncio.run(_run_two_calls())
+    assert fake.max_active == 1
+
+
+def test_llm_client_acall_enforces_budget_precheck(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("OPENROUTER_API_KEY", "sk-test")
+    config = _build_config()
+    config["llm"]["max_tokens_total"] = 5
+    client = LLMClient(config)
+
+    with pytest.raises(RuntimeError, match="Token budget exceeded before call"):
+        asyncio.run(client.acall(prompt="x" * 200))

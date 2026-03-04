@@ -39,6 +39,7 @@ class OrchestratorResult:
     total_ticks: int
     tick_rows: list[TickRow]
     final_snapshot: EnvironmentSnapshot
+    session_id: str | None = None
 
 
 class Orchestrator:
@@ -51,11 +52,13 @@ class Orchestrator:
         agents: list[StigmergicAgent],
         config: dict[str, Any],
         llm_client: Any | None = None,
+        session_id: str | None = None,
     ) -> None:
         self.environment = environment
         self.agents = agents
         self.config = config
         self.llm_client = llm_client
+        self.session_id = session_id
 
     async def run(self) -> OrchestratorResult:
         """Run orchestrator until one stop condition is met."""
@@ -160,6 +163,7 @@ class Orchestrator:
             total_ticks=len(tick_rows),
             tick_rows=tick_rows,
             final_snapshot=final_snapshot,
+            session_id=self.session_id,
         )
 
     def run_sync(self) -> OrchestratorResult:

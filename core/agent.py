@@ -5,6 +5,7 @@ from __future__ import annotations
 import random
 from typing import Any
 
+from .dependency import unblocked_markers
 from .environment import Environment, EnvironmentSnapshot
 from .guardrails import BudgetExceededError
 from .marker import Marker
@@ -45,6 +46,11 @@ class StigmergicAgent:
             return None
 
         pressure_weights = self.config.get("pressures", {}).get("default_weights", {})
+        pressure_formula = str(
+            self.config.get("pressures", {}).get("formula", "simple")
+        )
+        pressure_alpha = float(self.config.get("pressures", {}).get("alpha", 1.0))
+        pressure_beta = float(self.config.get("pressures", {}).get("beta", 1.0))
         inhibition_threshold = float(
             self.config.get("markers", {}).get("inhibition_threshold", 1.0)
         )
@@ -53,6 +59,9 @@ class StigmergicAgent:
             action_types=action_types,
             weights=pressure_weights,
             inhibition_threshold=inhibition_threshold,
+            formula=pressure_formula,
+            alpha=pressure_alpha,
+            beta=pressure_beta,
         )
 
         temperature = float(
@@ -129,6 +138,11 @@ class StigmergicAgent:
             self.config.get("markers", {}).get("inhibition_threshold", 1.0)
         )
         candidates: list[Marker] = []
+        terminal_ids = {
+            marker.id
+            for marker in snapshot.markers
+            if marker.state in TERMINAL_STATES
+        }
 
         for marker in snapshot.markers:
             if marker.state in TERMINAL_STATES:
@@ -156,4 +170,4 @@ class StigmergicAgent:
             candidate.payload["eligible_actions"] = list(eligible_actions)
             candidates.append(candidate)
 
-        return candidates
+        return unblocked_markers(markers=candidates, terminal_ids=terminal_ids)

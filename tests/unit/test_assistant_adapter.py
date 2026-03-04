@@ -6,6 +6,7 @@ import copy
 from pathlib import Path
 
 from adapters.assistant import AssistantAdapter
+from adapters.assistant.workspace import LocalWorkspace
 from core.marker import Marker
 from core.tool_registry import ToolRegistry
 
@@ -147,3 +148,46 @@ def test_evaluate_run_returns_completion_metrics(
     assert metrics["markers_total"] == 2
     assert metrics["markers_terminal"] == 1
     assert metrics["terminal_ratio"] == 0.5
+
+
+def test_workspace_context_summary_includes_tree_and_snippets(tmp_path: Path) -> None:
+    workspace_root = tmp_path / "workspace"
+    workspace_root.mkdir(parents=True, exist_ok=True)
+    (workspace_root / "README.md").write_text("# Demo\\nContext", encoding="utf-8")
+    (workspace_root / "pyproject.toml").write_text("[tool.demo]\\nname='x'", encoding="utf-8")
+    (workspace_root / "src").mkdir(parents=True, exist_ok=True)
+    (workspace_root / "src" / "app.py").write_text("print('ok')", encoding="utf-8")
+
+    workspace = LocalWorkspace(root=workspace_root)
+    summary = workspace.get_context_summary(max_depth=3, max_files=10)
+
+    assert "Workspace Context" in summary
+    assert "README.md" in summary
+    assert "src/" in summary
+
+
+def test_workspace_context_summary_respects_tree_depth(tmp_path: Path) -> None:
+    workspace_root = tmp_path / "workspace"
+    nested = workspace_root / "a" / "b" / "c"
+    nested.mkdir(parents=True, exist_ok=True)
+    (nested / "deep.txt").write_text("deep", encoding="utf-8")
+
+    workspace = LocalWorkspace(root=workspace_root)
+    shallow = workspace.get_context_summary(max_depth=1, max_files=20)
+    deep = workspace.get_context_summary(max_depth=4, max_files=20)
+
+    assert "deep.txt" not in shallow
+    assert "deep.txt" in deep
+
+
+def test_workspace_identifies_key_files(tmp_path: Path) -> None:
+    workspace_root = tmp_path / "workspace"
+    workspace_root.mkdir(parents=True, exist_ok=True)
+    (workspace_root / "Makefile").write_text("test:\\n\\tpytest", encoding="utf-8")
+    (workspace_root / "requirements.txt").write_text("pytest>=8", encoding="utf-8")
+
+    workspace = LocalWorkspace(root=workspace_root)
+    keys = workspace._identify_key_files()
+
+    assert "Makefile" in keys
+    assert "requirements.txt" in keys

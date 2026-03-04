@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import math
+from typing import Mapping
 
 
 def _clamp(value: float, min_value: float, max_value: float) -> float:
@@ -34,6 +35,25 @@ def decay_intensity(
         return _clamp(updated, min_value, max_value)
 
     raise ValueError(f"Unsupported decay_type: {decay_type}")
+
+
+def decay_intensity_by_type(
+    value: float,
+    marker_type: str,
+    decay_rates: Mapping[str, float] | None,
+    default_rate: float,
+    clamp: tuple[float, float],
+    decay_type: str = "exponential",
+) -> float:
+    """Apply marker-type specific decay rate with a default fallback."""
+    rates = dict(decay_rates or {})
+    rate = float(rates.get(str(marker_type), default_rate))
+    return decay_intensity(
+        value=value,
+        decay_type=decay_type,
+        decay_rate=rate,
+        clamp=clamp,
+    )
 
 
 def decay_inhibition(value: float, inhibition_decay_rate: float) -> float:

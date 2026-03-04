@@ -159,3 +159,11 @@
 - `rationale`: Fixed `subtask_count=3` and local hint inference introduced non-emergent behavior and planner bias; optional shaping + strict structured outputs better preserve execution-first stigmergic dynamics.
 - `alternatives_rejected`: Keep forced default subtask counts, keep `_infer_tool_hints` fallback, or keep hardcoded intensity decrements in tool code.
 - `linked_adr`: `N/A (Sprint 3 V2 runtime behavior refinement)`
+
+## 2026-03-04 (Sprint 4 V3 Runtime Overhaul)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: Standardize V3 runtime on structured async LLM interactions, dependency-gated marker scheduling, and session-isolated persistence while preserving sync backward compatibility.
+- `rationale`: This combination addresses major instability sources (untyped outputs, race-prone concurrency, dependency violations, and cross-run state leakage) without breaking existing sync consumers.
+- `alternatives_rejected`: Async-only breaking migration, prompt-only dependency conventions without runtime enforcement, shared single DB path across runs.
+- `linked_adr`: `documentation/decisions/20260304-sprint4-v3-runtime-overhaul.md`
