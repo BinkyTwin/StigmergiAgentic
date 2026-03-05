@@ -61,3 +61,25 @@ class LLMParsedResponse(BaseModel):
     @property
     def is_valid(self) -> bool:
         return self.parsed is not None and not self.validation_error
+
+
+class TravelDayPlan(BaseModel):
+    """One TravelPlanner day plan row."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    current_city: str
+    transportation: str
+    breakfast: str
+    attraction: str
+    lunch: str
+    dinner: str
+    accommodation: str
+
+
+class TravelItineraryOutput(BaseModel):
+    """Structured TravelPlanner itinerary output."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    plan: list[TravelDayPlan] = Field(default_factory=list)

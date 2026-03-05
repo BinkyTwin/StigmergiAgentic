@@ -127,3 +127,9 @@
 - Keep agent episodic memory local and bounded (`capacity`, `decay_rate`) and pass recalled context through `Decision` payload fields instead of adding DB/schema coupling.
 - Compute emergence metrics from `TickRow` aggregates and audit events at run end; avoid embedding metric state in marker persistence paths.
 - Materialize high-quality reusable knowledge as `lesson` markers with low decay to bridge short-term memory and long-term stigmergic coordination.
+
+### Domain Adapter Vertical-Slice Standard
+- Implement domain adapters as a strict vertical slice: `workspace` (data access), `tools` (stateful actions), `adapter` (DAG/state machine wiring), `evaluator` (metrics), and adapter-specific config.
+- Keep planner output structured with schema validation and always include a deterministic fallback path to avoid LLM-format deadlocks.
+- For benchmark domains, define evaluation metrics as first-class outputs in adapter `evaluate_run` so CLI summaries remain comparable across runs.
+

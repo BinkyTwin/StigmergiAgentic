@@ -175,3 +175,12 @@
 - `rationale`: The thesis runtime needed cognition and observability signals beyond intensity reinforcement, but introducing DB/schema migrations would increase risk and coupling; decision-level memory payloads + audit-log parsing preserve compatibility and traceability.
 - `alternatives_rejected`: Persist agent memory directly in marker schema, add dedicated emergence tables, or keep emergence/lesson logic as external post-processing only.
 - `linked_adr`: `documentation/decisions/20260304-sprint5-v3-memory-emergence-lessons.md`
+
+## 2026-03-05 (Sprint 6 V3 TravelPlanner Domainization)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: Standardize TravelPlanner integration as a dedicated adapter vertical slice (`workspace`, `tools`, `adapter`, `evaluator`) and remove V0.1 legacy runtime/tests in the same sprint.
+- `rationale`: This provides a clean domain-validation signal for V3 architecture without core coupling to legacy code paths, while ensuring benchmark scoring remains deterministic and auditable.
+- `alternatives_rejected`: Keep mixed V0.1/V3 runtime coexistence; perform LLM-based constraint evaluation; postpone cleanup to a later sprint.
+- `linked_adr`: `documentation/decisions/20260305-sprint6-travelplanner-adapter-and-fidelity-eval.md`
+

@@ -1,4 +1,4 @@
-"""CLI entrypoint for the V2 generic assistant runtime."""
+"""CLI entrypoint for V3 adapters (assistant and travelplanner)."""
 
 from __future__ import annotations
 
@@ -14,7 +14,9 @@ from uuid import uuid4
 import yaml
 from dotenv import load_dotenv
 
+from adapters.base import DomainAdapter
 from adapters.assistant import AssistantAdapter
+from adapters.travelplanner import TravelPlannerAdapter
 from core.agent import StigmergicAgent
 from core.config import load_config, merge_config, validate_config
 from core.dependency import validate_dag
@@ -27,15 +29,18 @@ from llm.client import LLMClient
 
 
 ASSISTANT_CONFIG_PATH = Path("config/assistant.yaml")
+TRAVELPLANNER_CONFIG_PATH = Path("config/travelplanner.yaml")
 DEFAULT_DB_PATH = Path("pheromones/markers.db")
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     """Parse CLI arguments for assistant execution."""
-    parser = argparse.ArgumentParser(description="Stigmergic V2 assistant runtime")
-    parser.add_argument("--adapter", choices=["assistant"], default="assistant")
+    parser = argparse.ArgumentParser(description="Stigmergic V3 runtime")
+    parser.add_argument("--adapter", choices=["assistant", "travelplanner"], default="assistant")
     parser.add_argument("--objective", type=str, required=True)
     parser.add_argument("--workspace", type=str, default=".")
+    parser.add_argument("--data-dir", type=str, default=None)
+    parser.add_argument("--query-idx", type=int, default=None)
     parser.add_argument("--config", type=str, default=None)
     parser.add_argument("--max-ticks", type=int, default=None)
     parser.add_argument("--agents", type=int, default=None)
@@ -56,11 +61,13 @@ def main(argv: list[str] | None = None) -> int:
     session_id = str(uuid4())
 
     config = _build_config(args)
-    adapter = AssistantAdapter(config=config)
+    adapter = _build_adapter(name=args.adapter, config=config)
     workspace = adapter.create_workspace(config)
+    user_input: dict[str, Any] = {"objective": args.objective}
+    if args.query_idx is not None:
+        user_input["query_idx"] = int(args.query_idx)
+    objective = adapter.create_objective(user_input, config)
     workspace_context = _workspace_context(workspace)
-
-    objective = adapter.create_objective({"objective": args.objective}, config)
     markers_cfg = dict(config.get("markers", {}))
     session_isolation = bool(markers_cfg.get("session_isolation", False))
     db_path = DEFAULT_DB_PATH
@@ -104,10 +111,13 @@ def main(argv: list[str] | None = None) -> int:
 
     evaluation = adapter.evaluate_run({"markers": result.final_snapshot.markers})
     dag_info = _dag_info(result.final_snapshot.markers)
-    assistant_response = _build_assistant_response(
-        objective_id=objective.objective_id,
-        markers=result.final_snapshot.markers,
-    )
+    if args.adapter == "assistant":
+        assistant_response = _build_assistant_response(
+            objective_id=objective.objective_id,
+            markers=result.final_snapshot.markers,
+        )
+    else:
+        assistant_response = _build_travelplanner_response(result.final_snapshot.markers)
 
     print(f"Session ID: {session_id}")
     print("Assistant response:")
@@ -159,9 +169,14 @@ def _cleanup_session(session_dir: Path) -> None:
 def _build_config(args: argparse.Namespace) -> dict[str, Any]:
     config = load_config()
 
-    assistant_overrides = _load_yaml(ASSISTANT_CONFIG_PATH)
-    if assistant_overrides:
-        config = merge_config(config, assistant_overrides)
+    if args.adapter == "assistant":
+        assistant_overrides = _load_yaml(ASSISTANT_CONFIG_PATH)
+        if assistant_overrides:
+            config = merge_config(config, assistant_overrides)
+    elif args.adapter == "travelplanner":
+        travelplanner_overrides = _load_yaml(TRAVELPLANNER_CONFIG_PATH)
+        if travelplanner_overrides:
+            config = merge_config(config, travelplanner_overrides)
 
     if args.config:
         user_overrides = _load_yaml(Path(args.config))
@@ -169,6 +184,11 @@ def _build_config(args: argparse.Namespace) -> dict[str, Any]:
 
     config.setdefault("tools", {})
     config["tools"]["sandbox_root"] = str(Path(args.workspace).expanduser().resolve())
+    if args.data_dir:
+        config.setdefault("travelplanner", {})
+        config["travelplanner"]["database_path"] = str(
+            Path(args.data_dir).expanduser().resolve()
+        )
 
     if args.max_ticks is not None:
         config.setdefault("orchestrator", {})
@@ -180,6 +200,14 @@ def _build_config(args: argparse.Namespace) -> dict[str, Any]:
 
     validate_config(config)
     return config
+
+
+def _build_adapter(*, name: str, config: dict[str, Any]) -> DomainAdapter:
+    if name == "assistant":
+        return AssistantAdapter(config=config)
+    if name == "travelplanner":
+        return TravelPlannerAdapter(config=config)
+    raise ValueError(f"Unsupported adapter: {name}")
 
 
 def _load_yaml(path: Path) -> dict[str, Any]:
@@ -264,6 +292,42 @@ def _build_assistant_response(objective_id: str, markers: list[Any]) -> str:
     if not lines:
         return "No assistant response generated."
     return "\n".join(lines)
+
+
+def _build_travelplanner_response(markers: list[Any]) -> str:
+    """Render final travel plan from finalize marker payload when available."""
+    final_markers = [
+        marker
+        for marker in markers
+        if str(getattr(marker, "id", "")).endswith("::finalize")
+    ]
+    if not final_markers:
+        return "No travel plan generated."
+
+    final_marker = sorted(final_markers, key=lambda marker: str(getattr(marker, "id", "")))[0]
+    payload = dict(getattr(final_marker, "payload", {}))
+    plan = payload.get("final_plan", [])
+    if not isinstance(plan, list) or not plan:
+        return "No travel plan generated."
+
+    lines: list[str] = []
+    for index, day in enumerate(plan, start=1):
+        if not isinstance(day, dict):
+            continue
+        city = str(day.get("current_city", "")).strip()
+        transport = str(day.get("transportation", "")).strip()
+        breakfast = str(day.get("breakfast", "")).strip()
+        lunch = str(day.get("lunch", "")).strip()
+        dinner = str(day.get("dinner", "")).strip()
+        attraction = str(day.get("attraction", "")).strip()
+        accommodation = str(day.get("accommodation", "")).strip()
+        lines.append(
+            f"Day {index}: {city} | transport={transport} | breakfast={breakfast} "
+            f"| attraction={attraction} | lunch={lunch} | dinner={dinner} "
+            f"| accommodation={accommodation}"
+        )
+
+    return "\n".join(lines) if lines else "No travel plan generated."
 
 
 def _render_marker_output(*, task: str, payload: dict[str, Any]) -> str:

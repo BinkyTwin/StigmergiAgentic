@@ -1,0 +1,61 @@
+framework:
+  mode: "travelplanner"
+
+travelplanner:
+  database_path: "data/travelplanner/database"
+  dataset_split: "validation"
+  default_query_idx: 0
+
+agents:
+  num_agents: 3
+  selection_temperature: 0.1
+  memory_capacity: 20
+  memory_decay_rate: 0.1
+
+orchestrator:
+  max_ticks: 30
+  idle_cycles_to_stop: 4
+  parallel: true
+
+reinforcement:
+  enabled: true
+  rate: 0.1
+  propagation_factor: 0.5
+  lesson_threshold: 0.6
+
+markers:
+  decay_type: "exponential"
+  decay_rate: 0.05
+  default_decay_rate: 0.05
+  decay_rates_by_type:
+    task: 0.03
+    progress: 0.03
+    quality: 0.02
+    dependency: 0.01
+    anticipatory: 0.15
+    lesson: 0.01
+  inhibition_decay_rate: 0.08
+  inhibition_increment: 0.5
+  inhibition_threshold: 0.1
+  prune_threshold: 0.05
+  session_isolation: true
+  intensity_clamp: [0.1, 1.0]
+  intensity_step_tool: 0.05
+  intensity_step_think: 0.1
+  intensity_step_decompose: 0.1
+  child_intensity_offset: 0.2
+  intensity_floor: 0.1
+
+pressures:
+  formula: "aco"
+  alpha: 1.0
+  beta: 2.0
+  default_weights:
+    search_flights: 0.8
+    search_hotels: 0.8
+    search_restaurants: 0.8
+    search_attractions: 0.8
+    plan_itinerary: 1.0
+    validate_constraints: 0.9
+    think: 0.2
+    decompose: 0.2
