@@ -1042,3 +1042,63 @@ Ce plan V3 corrige les defauts fondamentaux identifies dans le V2 tout en preser
 14. `main.py` (session ID, nettoyage, output enrichi)
 15. Tests (en parallele avec chaque module)
 16. Integration test end-to-end
+
+---
+
+## Suivi de realisation
+
+### Sprint 4 V3 -- FAIT (commit `5b292a9`)
+
+Tous les points du Sprint 4 ont ete implementes :
+
+| Item | Statut | Details |
+|------|--------|---------|
+| 4.1 Client LLM Async + Structured Output | FAIT | `llm/client.py` refonte async + `core/schemas.py` Pydantic models |
+| 4.2 Session Isolation + Pruning | FAIT | `pheromones/{session_id}/markers.db`, prune_threshold, SQL queries |
+| 4.3 Contexte Workspace dans les Prompts | FAIT | `adapters/assistant/workspace.py` + injection dans `llm/prompts.py` |
+| 4.4 Reinforcement Positif | FAIT | `core/reinforcement.py` sigmoid + propagation arriere DAG |
+| 4.5 Dependances Inter-Markers (DAG) | FAIT | `core/dependency.py` Kahn's algo + `unblocked_markers()` |
+| 4.6 Evaporation Differentielle | FAIT | `core/decay.py` decay par `marker_type` via config |
+| 4.7 Execution Async Reelle | FAIT | `tools/bash_exec.py` asyncio subprocess + orchestrateur async |
+| 4.8 Correction des Outils | FAIT | `tools/think.py` + `tools/decompose.py` schemas + contexte workspace |
+| Tests | FAIT | 164 unit + 4 integration = 168 tests passed |
+
+Causes racines corrigees : CR-1, CR-2, CR-3, CR-4, CR-5, CR-6, CR-8 (7/9).
+
+### Sprint 5 V3 -- FAIT (commit `49376b3`)
+
+Tous les points du Sprint 5 ont ete implementes :
+
+| Item | Statut | Details |
+|------|--------|---------|
+| 5.1 Memoire Cognitive par Agent | FAIT | `AgentMemory` dans `core/agent.py` : remember/recall/reinforce/decay, capacity=20 |
+| 5.2 Formule de Pression ACO | FAIT | `core/pressure.py` : `heuristic_fn` optionnel, alpha/beta ACO |
+| 5.3 Metriques d'Emergence Natives | FAIT | `core/emergence.py` : 8 metriques calculees a chaque run |
+| 5.4 Markers de type `lesson` | FAIT | `core/environment.py` : depot automatique lesson markers + decay 0.01 |
+| Dashboard emergence CLI | FAIT | `main.py` : affichage des 8 metriques en sortie |
+| Injection memoire dans prompts | FAIT | `llm/prompts.py` : contexte episodique + lessons |
+| Tests | FAIT | 168 tests passed (unit + integration) |
+
+Causes racines corrigees : CR-7, CR-9 (les 2 restantes). **9/9 causes racines corrigees.**
+
+#### Resultats re-run Sprint 5 V3 (2026-03-05)
+
+Tests relances sur les 4 objectifs originaux -- comparaison V2 vs V3 :
+
+| Test | V2 markers | V3 markers | V2 ticks | V3 ticks | V2 stop | V3 stop | V3 DAG |
+|------|-----------|-----------|---------|---------|---------|---------|--------|
+| Paris-Londres | 65 | 8 | 22 | 7 | idle_cycles | idle_cycles | valid (8n/6e) |
+| Analyse repo | 72 | 8 | 30 | 7 | max_ticks | idle_cycles | valid (8n/5e) |
+| Snake game | 73 | 10 | 4 | 5 | idle_cycles | idle_cycles | valid (10n/7e) |
+| Rapport Iran | 92 | 8 | 30 | 7 | max_ticks | idle_cycles | valid (8n/5e) |
+
+Ameliorations constatees :
+- **Convergence** : 4/4 tests terminent avec `idle_cycles` (vs 2/4 `max_ticks` en V2)
+- **Markers maitrises** : 7-10 markers (vs 65-92 en V2) -- explosion eliminee
+- **Structure** : tous les runs produisent un DAG valide avec edges
+- **Emergence** : 8 metriques calculees par run (specialization_entropy, collaboration_density, etc.)
+- **Reinforcement** : 1-2 events de reinforcement par run
+
+### Sprint 6 V3 -- A FAIRE
+
+Prochain : adaptateur TravelPlanner + benchmark DSR Iteration 1.
