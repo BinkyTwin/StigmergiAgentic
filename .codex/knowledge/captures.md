@@ -266,61 +266,181 @@ Executed 5 complete stigmergic runs on `docopt/docopt@0.6.2` using `openai/gpt-5
 - `metrics/output/pre_sprint4_gpt5nano_20260219_stigmergic_5runs_curated` (5 manifests, 5 summaries, 5 ticks CSV)
 - `uv run python metrics/pareto.py --input-dir metrics/output/pre_sprint4_gpt5nano_20260219_stigmergic_5runs_curated --output .../pareto.png --plot-mode per-run --export-json .../pareto_summary.json` (`points=5`, `baselines=1`)
 
-## 2026-02-20 — V0.2 Sprint 6 Scope Expansion and Branch Scaffold
-
-- `repo_slug`: `stigmergiagentic-33b989`
-- `impact_score`: `8/10`
-- `confidence`: `high`
-- `scope`: `Branch preparation + V0.2 Sprint 6 plan extension to multi-file text pipeline`
-
-### Outcome
-Created the V0.2 branch chain (`codex/v2` -> `codex/v2-sprint6`) and updated the V0.2 plan to expand Sprint 6 from pure refactoring to capability extraction plus strict non-Python text pipeline scope.
-
-### Reusable Patterns (1-3)
-1. Create a two-level branch scaffold (`v2` baseline + sprint branch) before scope expansion to preserve clean sequencing for future sprint PRs.
-2. When sprint scope changes materially, update objective, API signatures, acceptance tests, and duration/risk estimates in one documentation pass.
-3. Keep non-Python scope explicit with default guardrails (`text-only`, `strict validation`, `LLM full-file`) to avoid ambiguity before implementation starts.
-
-### Evidence
-- `git checkout main && git pull --ff-only origin main && git checkout -b codex/v2 && git checkout -b codex/v2-sprint6`
-- Updated: `consigne/POC_V02_plan.md`, `AGENTS.md`, `CLAUDE.md`
-
-## 2026-02-20 — Sprint 6 Delivery: Capabilities + Non-Python Strict Pipeline
+## 2026-02-26 — V2 Sprint 1 Core Environment Reset (SQLite WAL)
 
 - `repo_slug`: `stigmergiagentic-33b989`
 - `impact_score`: `9/10`
 - `confidence`: `high`
-- `scope`: `Full Sprint 6 implementation, wrappers refactor, strict non-Python path, and complete regression validation`
+- `scope`: `Hard reset V0.1 runtime and implement V2 Sprint 1 generic environment core`
 
 ### Outcome
-Implemented Sprint 6 end-to-end by extracting reusable capabilities, refactoring all four specialized agents into wrappers, extending migration flow to non-Python text files with strict guardrails, and validating with a fully green suite.
+Delivered a clean V2 baseline with a generic `Marker` contract, transactional SQLite/WAL `MarkerStore`, append-only JSONL audit, guardrails, strict config validation, and a complete 31-test Sprint 1 unit gate.
 
 ### Reusable Patterns (1-3)
-1. Preserve backward compatibility during capability extraction by delegating from existing agent methods and keeping test-monkeypatch callback surfaces intact.
-2. Gate non-Python transformations with strict parse/reference checks and explicit confidence mapping, so validator behavior remains consistent with existing thresholds.
-3. Validate refactor-heavy sprints in four layers: new capability tests, legacy unit parity tests, integration handoff tests, then full suite.
+1. For architecture resets, remove legacy runtime paths early in a dedicated branch to prevent hybrid coupling and simplify acceptance gates.
+2. Use SQLite `WAL` + `BEGIN IMMEDIATE` for coordination state to keep write integrity while preserving concurrent read scalability.
+3. Treat audit logging as a first-class write-path invariant (`before/after` per mutation) rather than a post-processing export.
 
 ### Evidence
-- `uv run pytest tests/test_capabilities.py -v` (`8 passed`)
-- `uv run pytest tests/test_scout.py tests/test_transformer.py tests/test_tester.py tests/test_validator.py -v` (`26 passed`)
-- `uv run pytest tests/test_agents_integration.py -v` (`4 passed`)
-- `uv run pytest tests/ -v` (`100 passed, 1 skipped`)
+- `uv run pytest tests/unit -v` (`31 passed`)
+- `uv run pytest tests/unit/test_marker_store.py -v` (`12 passed`)
+- `uv run pytest tests/unit/test_guardrails.py -v` (`6 passed`)
 
-## 2026-02-23 — Sprint 6 Hardening: Reference Safety + Non-Python Prompt Alignment
+## 2026-02-26 — V2 Sprint Documentation Rule (`documentation/redisgn_v2`)
 
 - `repo_slug`: `stigmergiagentic-33b989`
 - `impact_score`: `8/10`
 - `confidence`: `high`
-- `scope`: `Non-Python guardrail correctness hardening before Sprint 7`
+- `scope`: `Process governance for per-sprint artifact-state documentation`
 
 ### Outcome
-Hardened non-Python strict checks to reject absolute/traversal `.py` references, made `.sh` syntax guardrail resilient when `bash` is unavailable, and aligned transformer system prompts with text-file migration mode.
+Established a mandatory sprint-close documentation protocol in `documentation/redisgn_v2`, with a reusable template and a first concrete artifact status document for Sprint 1.
 
 ### Reusable Patterns (1-3)
-1. Treat extracted path references from text files as untrusted input and enforce repository-bound resolution before existence checks.
-2. When a strict guardrail depends on an external binary, degrade to explicit non-blocking metadata if the binary is unavailable, instead of hard-failing unrelated content.
-3. Keep system and user prompts consistent per file mode (`python` vs `text`) to reduce task-drift in LLM outputs.
+1. Introduce a dedicated sprint-state folder to separate architecture evolution notes from generic construction logs.
+2. Enforce one fixed file naming convention (`sprint_XX_artifact.md`) to make cross-sprint retrieval deterministic.
+3. Make the protocol executable by embedding it directly in agent instruction files (`AGENTS.md`, `CLAUDE.md`).
 
 ### Evidence
-- `uv run pytest tests/test_capabilities.py tests/test_transformer.py -v` (`16 passed`)
-- `uv run pytest tests/ -v` (`103 passed, 1 skipped`)
+- `documentation/redisgn_v2/README.md`
+- `documentation/redisgn_v2/sprint_01_artifact.md`
+- Rule references added in `AGENTS.md` and `CLAUDE.md`
+
+## 2026-02-26 — Sprint 2 V2 Generic Runtime Closure
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `impact_score`: `9/10`
+- `confidence`: `high`
+- `scope`: `Sprint 2 V2 runtime (agent, pressure, orchestrator, tool contracts, llm client port, unit validation)`
+
+### Outcome
+Delivered a generic, testable multi-agent runtime on top of the Sprint 1 marker environment, including asynchronous orchestration with deterministic sync entrypoints, lock-safe conflict resolution, and provider-aware LLM client integration.
+
+### Reusable Patterns (1-3)
+1. Keep async orchestration core with a synchronous wrapper for deterministic unit tests and low-friction local validation.
+2. Enforce marker-state transitions and budget checks in the environment layer so tools stay domain-focused and side effects remain auditable.
+3. Test orchestration deterministically with a mock adapter exposing simple staged tools (`increment/check/finalize`) to validate conflicts, stop conditions, and parallel tick behavior.
+
+### Evidence
+- `uv run pytest tests/unit/test_pressure.py tests/unit/test_agent.py tests/unit/test_orchestrator.py tests/unit/test_llm_client.py -q` (`30 passed`)
+- `uv run pytest tests/unit -v` (`61 passed`)
+
+## 2026-02-26 — Sprint 3 V2 Infrastructure Tools + Assistant Mode
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `impact_score`: `9/10`
+- `confidence`: `high`
+- `scope`: `Sprint 3 V2 tools layer, assistant adapter, CLI runtime, unit+integration validation`
+
+### Outcome
+Implemented Sprint 3 end-to-end by adding reusable infrastructure tools, a sandboxed assistant adapter, and a CLI execution path that runs the stigmergic orchestrator without domain-specific adapters.
+
+### Reusable Patterns (1-3)
+1. Keep infrastructure tools under the same `Tool` contract as domain tools so pressure-driven action selection remains uniform across adapters.
+2. Enforce workspace safety at the workspace layer (path resolution + size constraints + allowlists), then let tools focus on action semantics.
+3. Combine deterministic integration runs (`num_agents=1`, `temperature=0`) with mock LLM outputs to validate full tick-loop behavior without external API coupling.
+
+### Evidence
+- `uv run pytest tests/unit -q` (`81 passed`)
+- `uv run pytest tests/integration/test_assistant_run.py -q` (`4 passed`)
+- `uv run pytest tests/unit tests/integration -q` (`85 passed`)
+- `uv run python main.py --adapter assistant --objective "Create a short checklist" --max-ticks 12 --agents 1 --seed 7` (`stop_reason=all_terminal`)
+
+## 2026-03-04 — Assistant Action Eligibility Rework (Execution-First)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `impact_score`: `9/10`
+- `confidence`: `high`
+- `scope`: `assistant adapter marker seeding, tool eligibility policy, response synthesis, Sprint 3 tests`
+
+### Outcome
+Reworked assistant marker/tool eligibility so explicit `eligible_actions` remains optional, while default behavior now enables action selection from marker context (instead of hard-locking to `decompose/think`), and expanded CLI response synthesis to include concrete tool outputs (`last_read`, `last_bash`, `last_write`, `last_search`) alongside reasoning.
+
+### Reusable Patterns (1-3)
+1. Treat marker action filters as optional override contracts; when omitted, infer tool eligibility from marker payload prerequisites (`path`, `command`, `query`, `write`) instead of forcing one hardcoded action.
+2. Keep `decompose` root-only by default using marker-local context (`decomposed` + `parent_id`) to avoid recursive decomposition loops without adding central orchestration branches.
+3. Build assistant final responses from execution artifacts first (file/bash/write/search outputs), then include reasoning text as supporting context.
+
+### Evidence
+- `uv run pytest tests/unit -q` (`83 passed`)
+- `uv run pytest tests/integration/test_assistant_run.py -q` (`4 passed`)
+- `uv run pytest tests/unit/test_assistant_adapter.py tests/unit/test_file_tools.py tests/unit/test_pressure.py tests/integration/test_assistant_run.py -q` (`26 passed`)
+
+## 2026-03-04 — Think-Then-Act Gate + `.env`-Aware CLI
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `impact_score`: `9/10`
+- `confidence`: `high`
+- `scope`: `think/decompose runtime gating, assistant config provider defaults, integration/runtime reliability`
+
+### Outcome
+Implemented a think-then-act execution gate: `think` no longer advances generic active subtasks, active subtasks must be progressed by concrete tools, decomposed root markers retain a controlled completion path, and CLI now auto-loads `.env` so API keys used in notebooks are also available in direct `main.py` runs.
+
+### Reusable Patterns (1-3)
+1. Prevent plan-only loops by blocking planner actions on active subtasks and requiring concrete tool outputs for `active -> completed` progression.
+2. Handle coordinator/root markers as a distinct lifecycle class (decomposed-root exception) to avoid deadlocking orchestration after decomposition.
+3. Call `load_dotenv()` at CLI entrypoints to align notebook and shell execution environments for provider credentials.
+
+### Evidence
+- `uv run pytest tests/unit/test_think_tool.py tests/integration/test_assistant_run.py -q` (`7 passed`)
+- `uv run pytest tests/unit tests/integration/test_assistant_run.py -q` (`92 passed`)
+- `uv run pytest tests/unit/test_main_response.py tests/integration/test_assistant_run.py -q` (`6 passed`)
+
+## 2026-03-04 — Emergent Decomposition + LLM-Only Tool Hinting
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `impact_score`: `9/10`
+- `confidence`: `high`
+- `scope`: `assistant decomposition policy, think prompt contract, configurable intensity dynamics, test/integration stabilization`
+
+### Outcome
+Removed structural hardcoding that forced planning shape and fallback hints: decomposition no longer enforces a fixed default subtask count, think no longer auto-infers tool hints from heuristics, prompts now expose optional fields dynamically based on declared available tools, and all intensity decrements/floors are configurable from marker settings.
+
+### Reusable Patterns (1-3)
+1. Keep `subtask_count` as an optional operator hint, not a required runtime invariant, so decomposition shape can emerge from objective complexity.
+2. Prefer strict LLM JSON contracts over local heuristic hint injection when execution eligibility should reflect model intent rather than adapter guesswork.
+3. Move marker intensity constants to config keys to tune planning/execution pressure without code edits.
+
+### Evidence
+- `uv run pytest tests/unit tests/integration/test_assistant_run.py -v` (`94 passed`)
+
+## 2026-03-04 — Sprint 4 V3 Runtime Overhaul (Structured Async + DAG)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `impact_score`: `9/10`
+- `confidence`: `high`
+- `scope`: `V3 runtime hardening (typed LLM outputs, async execution, dependency gating, reinforcement, session isolation)`
+
+### Outcome
+Implemented Sprint 4 V3 end-to-end with schema-validated async LLM calls, dependency-aware scheduling, reinforcement propagation, session-isolated storage, and expanded test coverage validated at 128 passing tests.
+
+### Reusable Patterns (1-3)
+1. Keep sync and async LLM paths side-by-side (`call` + `acall`) to preserve backward compatibility while enabling typed structured-output enforcement in new runtime flows.
+2. Treat marker dependencies as first-class runtime constraints (`depends_on` + unblocked filtering) instead of soft conventions in prompts.
+3. Pair per-run `session_id` with isolated persistence path (`pheromones/<session_id>/markers.db`) to avoid cross-run contamination during concurrent experiments.
+
+### Evidence
+- `uv run pytest tests/unit -q` (`127 passed`)
+- `uv run pytest tests/integration/test_assistant_run.py -q` (`4 passed`)
+- `uv run pytest tests/unit tests/integration -q` (`131 passed`)
+- `uv run pytest tests/unit/test_llm_client.py tests/unit/test_dependency.py tests/unit/test_reinforcement.py -q` (structured async + DAG + reinforcement focus)
+
+## 2026-03-04 — Sprint 5 V3 Memory + Emergence + Lesson Runtime
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `impact_score`: `9/10`
+- `confidence`: `high`
+- `scope`: `agent episodic memory, emergence metrics, lesson marker deposition, heuristic-aware pressure, CLI dashboard`
+
+### Outcome
+Implemented Sprint 5 V3 end-to-end with bounded episodic memory in agents, run-level emergence telemetry from tick rows and audit traces, automatic lesson marker deposition on high-quality transitions, heuristic-aware ACO pressure extension, and CLI emergence dashboard integration.
+
+### Reusable Patterns (1-3)
+1. Add cognitive extensions at decision boundaries (`perceive_and_decide`/`execute`) by passing contextual payload through decision contracts instead of mutating persistent marker schema.
+2. Compute collaboration metrics from append-only audit logs to avoid storage schema churn while still quantifying cross-agent interaction density.
+3. Promote high-quality transitions into durable `lesson` markers so reusable coordination knowledge can outlive local agent memory decay.
+
+### Evidence
+- `uv run pytest tests/ -v` (`168 passed`)
+- `uv run python main.py --adapter assistant --objective "Summarize workspace status" --max-ticks 10 --agents 2` (emergence dashboard shown; JSON includes `emergence`)
+- `sqlite3 pheromones/<session_id>/markers.db "SELECT id, marker_type, state, target FROM markers WHERE marker_type='lesson';"` (lesson marker present)

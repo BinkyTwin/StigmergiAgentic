@@ -1,0 +1,108 @@
+framework:
+  name: "stigmergy-v3"
+  version: "3.0.0"
+
+agents:
+  num_agents: 4
+  num_agents_mode: "fixed"
+  files_per_agent: 6
+  selection_temperature: 0.1
+  memory_capacity: 20
+  memory_decay_rate: 0.1
+
+markers:
+  decay_type: "exponential"
+  decay_rate: 0.05
+  default_decay_rate: 0.05
+  decay_rates_by_type:
+    task: 0.05
+    progress: 0.03
+    quality: 0.02
+    dependency: 0.01
+    anticipatory: 0.15
+    lesson: 0.01
+  inhibition_decay_rate: 0.08
+  inhibition_increment: 0.5
+  inhibition_threshold: 0.1
+  prune_threshold: 0.05
+  session_isolation: true
+  intensity_clamp: [0.1, 1.0]
+  intensity_step_think: 0.1
+  intensity_step_tool: 0.05
+  intensity_step_decompose: 0.1
+  child_intensity_offset: 0.2
+  intensity_floor: 0.1
+
+reinforcement:
+  enabled: true
+  rate: 0.1
+  propagation_factor: 0.5
+  max_intensity: 1.0
+  lesson_threshold: 0.7
+
+guardrails:
+  max_retry_count: 3
+  scope_lock_ttl: 3
+  traceability: true
+  audit_completeness: true
+
+orchestrator:
+  max_ticks: 50
+  idle_cycles_to_stop: 3
+  parallel: true
+
+emergence:
+  enabled: true
+  metrics:
+    - "specialization_entropy"
+    - "colony_specialization"
+    - "collaboration_density"
+    - "action_switching_rate"
+    - "convergence_tick"
+    - "lock_contention_rate"
+    - "parallel_utilization"
+    - "pressure_entropy"
+
+llm:
+  provider: "openrouter"
+  model: "qwen/qwen3-235b-a22b-2507"
+  temperature: 0.2
+  max_tokens_total: 200000
+  max_budget_usd: 5.0
+  request_timeout_seconds: 300
+  retry_attempts: 3
+  min_429_backoff_seconds: 8.0
+
+pressures:
+  formula: "aco"
+  alpha: 1.0
+  beta: 2.0
+  default_weights:
+    think: 1.0
+    decompose: 1.0
+    file_read: 1.0
+    file_write: 1.0
+    bash_exec: 1.0
+    web_search: 1.0
+
+decompose:
+  max_depth: 2
+  max_subtasks: 8
+  allow_redecompose: false
+
+async:
+  max_concurrent_llm_calls: 4
+  subprocess_timeout: 120
+
+tools:
+  sandbox_root: "."
+  allowed_commands:
+    - "python"
+    - "pytest"
+    - "git"
+    - "pip"
+    - "uv"
+  bash_timeout_seconds: 120
+  max_file_size_bytes: 1048576
+  web_search_provider: "none"
+  web_search_max_results: 5

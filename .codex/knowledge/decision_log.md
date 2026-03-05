@@ -104,26 +104,74 @@
 - `alternatives_rejected`: Keep the interrupted mixed run set as-is, or rerun everything from scratch serially.
 - `linked_adr`: `documentation/decisions/TBD-pre-sprint-gpt5nano-trial-protocol.md`
 
-## 2026-02-20 (V0.2 Sprint 6 Scope Expansion)
+## 2026-02-26
 
 - `repo_slug`: `stigmergiagentic-33b989`
-- `decision`: Expand Sprint 6 from pure capability refactor to capability refactor plus non-Python text pipeline scope with strict guardrails, and establish a two-level branch lineage (`codex/v2` -> `codex/v2-sprint6`).
-- `rationale`: The migration objective requires updates beyond `.py` files (docs/scripts/config references), and branch lineage must remain explicit before implementation starts.
-- `alternatives_rejected`: Keep Sprint 6 as refactor-only, or apply the scope expansion directly on a single branch without version parent branch.
-- `linked_adr`: `documentation/decisions/TBD-v02-sprint6-non-python-scope-and-branch-lineage.md`
+- `decision`: Execute V2 Sprint 1 as a hard reset branch and replace JSON pheromone storage with a generic SQLite/WAL marker store plus mandatory append-only audit.
+- `rationale`: A clean cut removes legacy role-coupled constraints and provides a stable, domain-agnostic coordination substrate with stronger concurrency and governance guarantees.
+- `alternatives_rejected`: Coexistence with V0.1 runtime, or delaying SQLite migration while keeping JSON+file-lock storage.
+- `linked_adr`: `documentation/decisions/20260226-sprint1-v2-core-reset-and-sqlite-marker-store.md`
 
-## 2026-02-20 (Sprint 6 Implementation Completed)
-
-- `repo_slug`: `stigmergiagentic-33b989`
-- `decision`: Implement Sprint 6 as capability extraction plus strict non-Python text pipeline, with specialized agents preserved as wrappers over reusable capability modules.
-- `rationale`: This keeps V0.1 Python behavior stable while delivering immediate migration coverage for docs/scripts/config artifacts that still encode Python 2 references.
-- `alternatives_rejected`: Postpone non-Python execution to Sprint 7, or replace agents directly with a new generalist runtime before capability parity was validated.
-- `linked_adr`: `documentation/decisions/20260220-sprint6-capabilities-non-python.md`
-
-## 2026-02-23 (Sprint 6 Guardrail Hardening)
+## 2026-02-26 (Documentation Protocol)
 
 - `repo_slug`: `stigmergiagentic-33b989`
-- `decision`: Enforce repository-scoped non-Python `.py` reference validation (reject absolute/traversal paths), and use a dedicated non-Python transformer system prompt.
-- `rationale`: Host-path leakage in reference checks can produce false positives in strict guardrails, and Python-only system prompts reduce output quality for text-file migration tasks.
-- `alternatives_rejected`: Keep basename-only host filesystem lookup behavior, or rely on user prompt only without role-prompt specialization for non-Python mode.
-- `linked_adr`: `documentation/decisions/20260223-sprint6-guardrail-hardening.md`
+- `decision`: Require a per-sprint artifact functioning note in `documentation/redisgn_v2/sprint_XX_artifact.md` for all future sprint closures.
+- `rationale`: This creates a stable, sprint-granular trace of runtime behavior and reduces onboarding ambiguity for future agents.
+- `alternatives_rejected`: Keeping artifact-state notes only in `construction_log.md`, or relying on ad-hoc sprint summaries.
+- `linked_adr`: `N/A (process rule)`
+
+## 2026-02-26 (Sprint 2 V2 Runtime)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: Implement Sprint 2 with an async core runtime (`Environment`, `StigmergicAgent`, `Orchestrator`) plus sync test wrapper, pressure-driven selection, and environment-mediated deposits.
+- `rationale`: This preserves stigmergic decentralization, keeps mutation/guardrail control centralized, and enables deterministic unit validation without external dependencies.
+- `alternatives_rejected`: Fully synchronous orchestrator, direct tool-to-store writes, and deferred LLM client port.
+- `linked_adr`: `documentation/decisions/20260226-sprint2-v2-agent-orchestrator-runtime.md`
+
+## 2026-02-26 (Sprint 3 V2 Assistant Runtime)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: Implement Sprint 3 as a shared infrastructure-tool layer plus an `assistant` adapter and CLI entrypoint, while keeping adapter scope `assistant`-only for this sprint.
+- `rationale`: This enables end-to-end framework usage without coupling to benchmark adapters and preserves a clean path to register the same tools in future domain adapters.
+- `alternatives_rejected`: Adding partial TravelPlanner/CodeMigration stubs in Sprint 3, or introducing assistant-specific tool contracts outside `ToolRegistry`.
+- `linked_adr`: `documentation/decisions/20260226-sprint3-v2-infrastructure-tools-and-assistant-mode.md`
+
+## 2026-03-04 (Assistant Eligibility Defaults + Execution-Oriented Output)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: Remove hardcoded assistant marker allowlists (`decompose`/`think`) and move to context-derived tool eligibility defaults, while preserving explicit `eligible_actions` as an override and enriching final CLI responses with concrete tool outputs.
+- `rationale`: Hardcoded allowlists prevented execution-capable tools from participating in normal assistant runs and produced plan-only outputs; context-derived eligibility restores practical execution without losing adapter-level control.
+- `alternatives_rejected`: Keep strict allowlists everywhere, or make all tools universally eligible regardless of required payload inputs.
+- `linked_adr`: `N/A (runtime behavior refinement in Sprint 3 scope)`
+
+## 2026-03-04 (Think-Then-Act Gate for Active Subtasks)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: Enforce a think-then-act lifecycle where active subtasks are progressed by concrete execution tools, while `think` is blocked on generic active markers and only allowed on a decomposed root-marker exception path.
+- `rationale`: This prevents plan-only marker completion and aligns terminal progress with artifact-generating actions (read/write/bash/search) rather than repeated reasoning-only loops.
+- `alternatives_rejected`: Keep `think` fully eligible on active markers, or force all markers through static hardcoded tool allowlists.
+- `linked_adr`: `N/A (runtime execution policy update)`
+
+## 2026-03-04 (Emergent Structure over Fixed Decomposition Defaults)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: Remove fixed decomposition defaults and heuristic tool-hint inference by making `subtask_count` optional, using LLM-only structured hints in `think`, and driving intensity decrements from config.
+- `rationale`: Fixed `subtask_count=3` and local hint inference introduced non-emergent behavior and planner bias; optional shaping + strict structured outputs better preserve execution-first stigmergic dynamics.
+- `alternatives_rejected`: Keep forced default subtask counts, keep `_infer_tool_hints` fallback, or keep hardcoded intensity decrements in tool code.
+- `linked_adr`: `N/A (Sprint 3 V2 runtime behavior refinement)`
+
+## 2026-03-04 (Sprint 4 V3 Runtime Overhaul)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: Standardize V3 runtime on structured async LLM interactions, dependency-gated marker scheduling, and session-isolated persistence while preserving sync backward compatibility.
+- `rationale`: This combination addresses major instability sources (untyped outputs, race-prone concurrency, dependency violations, and cross-run state leakage) without breaking existing sync consumers.
+- `alternatives_rejected`: Async-only breaking migration, prompt-only dependency conventions without runtime enforcement, shared single DB path across runs.
+- `linked_adr`: `documentation/decisions/20260304-sprint4-v3-runtime-overhaul.md`
+
+## 2026-03-04 (Sprint 5 V3 Memory + Emergence + Lessons)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: Extend Sprint 4 V3 with bounded episodic agent memory, schema-neutral emergence telemetry, and automatic high-quality `lesson` marker deposition while keeping marker persistence schema unchanged.
+- `rationale`: The thesis runtime needed cognition and observability signals beyond intensity reinforcement, but introducing DB/schema migrations would increase risk and coupling; decision-level memory payloads + audit-log parsing preserve compatibility and traceability.
+- `alternatives_rejected`: Persist agent memory directly in marker schema, add dedicated emergence tables, or keep emergence/lesson logic as external post-processing only.
+- `linked_adr`: `documentation/decisions/20260304-sprint5-v3-memory-emergence-lessons.md`

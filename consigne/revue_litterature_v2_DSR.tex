@@ -1,0 +1,2553 @@
+\documentclass[12pt,a4paper]{article}
+
+% ============================================================================
+% PACKAGES DE BASE
+% ============================================================================
+\usepackage{fontspec}
+\usepackage[french]{babel}
+\usepackage[left=2.5cm,right=2.5cm,top=2.5cm,bottom=2.5cm]{geometry}
+\usepackage{setspace}
+\usepackage{graphicx}
+\usepackage{csquotes}
+\usepackage{enumitem}
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{multirow}
+\usepackage{array}
+\usepackage{xcolor}
+\usepackage{adjustbox}
+\usepackage{float}
+\usepackage{hyperref}
+\usepackage{fancyvrb}
+
+% ============================================================================
+% CONFIGURATION TYPOGRAPHIE
+% ============================================================================
+\IfFontExistsTF{Times New Roman}{%
+  \setmainfont{Times New Roman}%
+}{%
+  \setmainfont{TeX Gyre Termes}%
+}
+
+\onehalfspacing
+\graphicspath{{images/}}
+
+% Pandoc helpers
+\providecommand{\tightlist}{%
+  \setlength{\itemsep}{0pt}\setlength{\parskip}{0pt}}
+\providecommand{\pandocbounded}[1]{%
+  \adjustbox{max width=0.94\linewidth,max totalheight=0.60\textheight,center}{#1}}
+\setlength{\textfloatsep}{10pt plus 2pt minus 2pt}
+\setlength{\intextsep}{10pt plus 2pt minus 2pt}
+\newcommand{\AnnexeInput}[1]{%
+  \VerbatimInput[fontsize=\small,frame=single]{#1}}
+
+% ============================================================================
+% HYPERLINKS ET MÉTADONNÉES PDF
+% ============================================================================
+\hypersetup{
+  hidelinks,
+  unicode=true,
+  pdfauthor={Abdelatif DJEDDOU},
+  pdftitle={Orchestration stigmergique de systèmes multi-agents LLM : principes de conception d'un framework adaptatif et application à la transformation de code},
+  pdfsubject={Revue de littérature - Design Science Research - EMLV},
+  pdfkeywords={stigmergie, multi-agents, LLM, Design Science Research, coordination organisationnelle, migration de code, gouvernance}
+}
+
+% ============================================================================
+% MÉTADONNÉES DOCUMENT
+% ============================================================================
+\title{Orchestration stigmergique de systèmes multi-agents LLM : principes de conception d'un framework adaptatif et application à la transformation de code}
+\author{Abdelatif DJEDDOU}
+\date{6 février 2026}
+
+% ============================================================================
+% DÉBUT DU DOCUMENT
+% ============================================================================
+\begin{document}
+
+\input{title_page_declaration.tex}
+\tableofcontents
+\newpage
+
+\section{Introduction}\label{introduction}
+
+En 2025, l\textquotesingle intelligence artificielle générative a
+franchi un seuil décisif dans le domaine du génie logiciel : les grands
+modèles de langage (LLM) ne se contentent plus de compléter du code
+ligne par ligne, ils orchestrent désormais des workflows complets de
+développement, de migration et de maintenance logicielle. Chez Google,
+39 migrations de code distinctes totalisant 93 574 éditions
+individuelles ont été réalisées avec l\textquotesingle assistance de LLM
+en seulement douze mois, avec 74,45 \% des changements appliqués sans
+modification humaine (Ziftci et al., 2025). Amazon Q Developer
+transforme automatiquement des applications Java 8 vers Java 17 avec 79
+\% du code appliqué directement (Amazon, 2024). IBM Watsonx
+s\textquotesingle attaque à la modernisation de systèmes COBOL, estimant
+que 775 milliards de lignes de code legacy restent en production à
+l\textquotesingle échelle mondiale (IBM, 2023).
+
+Ces avancées industrielles convergent vers un constat : la
+transformation de code à grande échelle ne relève plus de la correction
+unitaire de bugs, mais de la coordination de multiples agents logiciels
+opérant simultanément sur des bases de code massives, interdépendantes
+et critiques pour l\textquotesingle activité des entreprises.
+Les organisations font face à des choix architecturaux complexes :
+certaines cherchent à casser des monolithes pour migrer vers des
+microservices, d\textquotesingle autres modernisent progressivement
+des composants tout en maintenant le système principal en production,
+d\textquotesingle autres encore doivent arbitrer entre refonte complète
+et migration incrémentale. Cette diversité de stratégies exige des
+cadres d\textquotesingle orchestration flexibles, capables de
+s\textquotesingle adapter à des objectifs variés plutôt que de
+prescrire un workflow unique.
+
+Or, l\textquotesingle architecture dominante pour orchestrer ces agents
+repose sur des modèles hiérarchiques où un superviseur central planifie,
+distribue et contrôle les tâches de chaque agent subordonné, à
+l\textquotesingle image des frameworks MetaGPT (Hong et al., 2024),
+CrewAI ou AutoGen. Cette approche centralisée reproduit, dans le monde
+logiciel, les structures organisationnelles classiques du
+command-and-control.
+
+Pourtant, la littérature récente révèle des limitations structurelles
+préoccupantes de ces architectures hiérarchiques. Le framework MAST
+identifie 14 modes d\textquotesingle échec distincts des systèmes
+multi-agents LLM, avec des taux d\textquotesingle échec allant de 41 \%
+à 86,7 \% sur sept frameworks état de l\textquotesingle art (Cemri et
+al., 2025). L\textquotesingle approche Agentless démontre
+qu\textquotesingle un pipeline séquentiel simple atteint 32 \% de
+résolution sur SWE-bench Lite pour seulement 0,70 USD par problème,
+surpassant tous les systèmes agents open source (Xia et al., 2024). Gao
+et al. (2025) observent que les gains de performance des systèmes
+multi-agents chutent de 10-16 \% à seulement 0,8-3 \% lorsque des
+modèles frontières sont utilisés, questionnant la valeur ajoutée réelle
+de la complexité agentique.
+
+Face à ces constats, une alternative théorique existe : la stigmergie,
+mécanisme de coordination indirecte où les traces laissées par une
+action dans un médium stimulent les actions subséquentes (Heylighen,
+2016a). Conceptualisée par Grassé (1959) pour expliquer la construction
+collective des termitières sans superviseur central, la stigmergie a été
+formalisée par Bonabeau, Dorigo et Theraulaz (1999) comme fondement de
+l\textquotesingle intelligence en essaim, puis étendue par Heylighen
+(2016a, 2016b) aux systèmes numériques contemporains tels que Wikipédia,
+le développement open source et les systèmes de contrôle de version.
+Ricci et al. (2007) ont proposé le cadre de la \emph{stigmergie
+cognitive}, démontrant que des agents rationnels dotés de capacités
+avancées peuvent se coordonner via des artefacts environnementaux
+manipulables et instrumentables.
+
+L\textquotesingle application de la stigmergie à
+l\textquotesingle orchestration d\textquotesingle agents LLM pour la
+transformation de code présente un intérêt théorique et pratique
+considérable. D\textquotesingle un point de vue théorique, elle propose
+de remplacer la communication explicite inter-agents, source de 36,94 \%
+des échecs identifiés par MAST (Cemri et al., 2025), par une
+coordination médiée par l\textquotesingle environnement.
+D\textquotesingle un point de vue pratique, les systèmes de contrôle de
+version comme Git fonctionnent déjà comme des médiums stigmergiques où
+les commits stimulent les revues, tests et intégrations subséquentes
+(Bolici et al., 2016). D\textquotesingle un point de vue managérial, la
+traçabilité intrinsèque des artefacts partagés répond aux exigences
+croissantes de gouvernance, d\textquotesingle auditabilité et de
+conformité réglementaire, notamment celles de l\textquotesingle Article
+14 de l\textquotesingle EU AI Act imposant une supervision humaine
+effective des systèmes d\textquotesingle IA à haut risque (Fink, 2025).
+
+Toutefois, la littérature académique présente un gap significatif : si
+la stigmergie est bien théorisée en biologie et en systèmes distribués
+classiques, et si les systèmes multi-agents LLM font
+l\textquotesingle objet d\textquotesingle une recherche active, aucun
+cadre intégrateur ne propose de combiner coordination stigmergique,
+agents LLM et gouvernance organisationnelle dans un framework
+généraliste applicable à des workflows complexes, dont la transformation
+de code à grande échelle constitue un cas d\textquotesingle étude
+privilégié. Les travaux existants traitent ces dimensions de
+manière cloisonnée : la littérature sur la stigmergie ignore les LLM, la
+littérature sur les agents LLM privilégie les architectures
+hiérarchiques, et la littérature en management des systèmes
+d\textquotesingle information aborde la gouvernance de
+l\textquotesingle IA sans considérer les mécanismes de coordination
+émergente. Plus fondamentalement, la théorie de la coordination
+(Malone \& Crowston, 1994) identifie la stigmergie comme un mécanisme
+organisationnel à part entière, au même titre que les hiérarchies et les
+marchés, mais cette perspective n\textquotesingle a jamais été
+opérationnalisée pour l\textquotesingle orchestration d\textquotesingle agents IA.
+
+Ce constat motive la problématique suivante :
+
+\begin{quote}
+Comment concevoir un framework d\textquotesingle orchestration
+multi-agents à coordination stigmergique, généraliste et gouvernable,
+capable de surpasser les architectures hiérarchiques sur des tâches
+complexes de coordination sous contraintes ?
+La transformation de code constitue le domaine
+d\textquotesingle application principal pour la validation empirique de
+ces principes de conception.
+\end{quote}
+
+Cette problématique se décline en cinq objectifs de conception,
+conformément à la méthodologie Design Science Research adoptée
+(Hevner et al., 2004 ; Peffers et al., 2007) :
+
+\begin{itemize}
+\tightlist
+\item
+  OC1, Architecture généraliste : Concevoir un framework
+  d\textquotesingle orchestration stigmergique (phéromones numériques,
+  règles locales, environnement partagé) applicable à des tâches
+  variées de coordination multi-agents, indépendamment du domaine.
+\item
+  OC2, Coordination émergente : Démontrer que les agents développent
+  une spécialisation émergente et une allocation dynamique des tâches
+  sans assignation explicite de rôles, conformément aux principes
+  des systèmes adaptatifs complexes.
+\item
+  OC3, Supériorité sur la planification sous contraintes : Surpasser
+  les frameworks centralisés sur le benchmark TravelPlanner (Xie et al.,
+  2024) en score final et en satisfaction des contraintes dures.
+\item
+  OC4, Spécialisation à la transformation de code : Adapter le
+  framework aux tâches de migration et de modernisation logicielle, et
+  démontrer sa compétitivité sur les benchmarks PolyMigration (Amazon,
+  2025) et SWE-bench (Jimenez et al., 2024) par rapport aux baselines
+  existantes.
+\item
+  OC5, Gouvernance et auditabilité : Intégrer des mécanismes de
+  traçabilité et de conformité réglementaire directement dans
+  l\textquotesingle environnement stigmergique, et en valider la
+  pertinence par évaluation d\textquotesingle experts.
+\end{itemize}
+
+La revue suit une progression continue : d\textquotesingle abord les
+fondements de la stigmergie et leur ancrage dans les théories
+managériales (coordination organisationnelle, capacités dynamiques,
+routines organisationnelles), puis les mécanismes de coordination
+computationnelle, les limites des architectures multi-agents, les usages
+concrets en migration de code, et enfin les enjeux de gouvernance, de
+processus et d\textquotesingle évaluation. L\textquotesingle objectif est
+de construire un cadre cohérent, à la fois techniquement crédible et
+ancré dans les sciences de gestion, conformément aux exigences du
+Design Science Research en systèmes d\textquotesingle information
+(Hevner et al., 2004).
+
+\section{Fondements théoriques de la
+stigmergie}\label{fondements-thuxe9oriques-de-la-stigmergie}
+
+La stigmergie constitue le socle conceptuel de cette recherche. Pour
+poser ce socle, on part de son origine en biologie, puis on suit son
+passage vers les systèmes numériques contemporains.
+
+\subsection{L\textquotesingle émergence du concept : Grassé et le
+paradoxe de la
+coordination}\label{luxe9mergence-du-concept--grassuxe9-et-le-paradoxe-de-la-coordination}
+
+Le terme « stigmergie » fut introduit par le biologiste français
+Pierre-Paul Grassé dans son étude pionnière des comportements de
+construction chez les termites \emph{Bellicositermes natalensis} et
+\emph{Cubitermes} sp. (Grassé, 1959). Grassé observa un paradoxe
+fondamental : les termites semblaient travailler indépendamment les uns
+des autres, sans coordination apparente, tout en produisant des
+structures architecturales collectives d\textquotesingle une remarquable
+complexité et cohérence. Ce « paradoxe de coordination » remettait en
+question les deux théories dominantes de l\textquotesingle époque.
+L\textquotesingle approche organiciste, inspirée de Spencer et Wheeler,
+postulait l\textquotesingle existence de propriétés émergentes au niveau
+de la colonie considérée comme un « superorganisme ».
+L\textquotesingle approche individualiste, défendue par Rabaud,
+soutenait que toute apparence de coopération n\textquotesingle était que
+fortuite (Theraulaz \& Bonabeau, 1999).
+
+Grassé résolut ce paradoxe en identifiant un troisième mécanisme : la
+coordination indirecte médiée par l\textquotesingle environnement. Il
+forgea le néologisme « stigmergie » à partir des racines grecques
+\emph{stigma} (marque) et \emph{ergon} (travail), définissant ainsi la
+stimulation des ouvriers par les performances qu\textquotesingle ils ont
+eux-mêmes accomplies (Grassé, 1959). Le mécanisme stigmergique
+fonctionne comme une boucle de rétroaction : une configuration
+architecturale A déclenche une réponse comportementale R chez un
+termite, qui modifie l\textquotesingle environnement pour créer une
+nouvelle configuration A\textquotesingle, laquelle déclenche à son tour
+une nouvelle réponse R\textquotesingle. Comme
+l\textquotesingle expliquent Bonabeau et al. (1999, p. 18), chaque
+travailleur crée de nouveaux stimuli en réponse aux configurations
+existantes, ces stimuli agissant sur le même termite ou sur
+n\textquotesingle importe quel autre membre de la colonie. Les
+interactions pertinentes sont donc indirectes, transitant par
+l\textquotesingle environnement.
+
+\begin{figure}[H]
+\centering
+\pandocbounded{\includegraphics[keepaspectratio,alt={Boucle de rétroaction stigmergique : une action modifie l\textquotesingle environnement, ce qui déclenche l\textquotesingle action suivante. Source : adaptation à partir de Grassé (1959) et Bonabeau et al. (1999).}]{images/stigmergic_feedback_loop.png}}
+\caption{Boucle de rétroaction stigmergique : une action modifie
+l\textquotesingle environnement, ce qui déclenche
+l\textquotesingle action suivante. Source : adaptation à partir de
+Grassé (1959) et Bonabeau et al. (1999).}
+\end{figure}
+
+Cette découverte établit plusieurs principes fondamentaux pour la
+compréhension des systèmes auto-organisés. Premièrement, la
+décentralisation : aucun agent individuel ne possède une vision globale
+ni n\textquotesingle exerce de contrôle centralisé. Deuxièmement, la
+construction incrémentale : les agents exploitent ce que
+d\textquotesingle autres ont construit pour apporter leur propre
+contribution. Troisièmement, la flexibilité adaptative : lorsque
+l\textquotesingle environnement change en raison d\textquotesingle une
+perturbation externe, les agents répondent de manière appropriée sans
+reprogrammation spécifique (Bonabeau et al., 1999). Quatrièmement, la
+réduction de la communication : la stigmergie minimise le besoin de
+communication directe entre agents, l\textquotesingle environnement
+servant de mémoire partagée distribuée (Marsh \& Onof, 2008).
+
+\begin{figure}[H]
+\centering
+\pandocbounded{\includegraphics[keepaspectratio,alt={Principes fondamentaux des systèmes auto-organisés : décentralisation, contribution incrémentale, adaptation et mémoire environnementale partagée. Source : Bonabeau et al. (1999) ; Marsh et Onof (2008).}]{images/fundamental_principles_self_organizing_systems.png}}
+\caption{Principes fondamentaux des systèmes auto-organisés :
+décentralisation, contribution incrémentale, adaptation et mémoire
+environnementale partagée. Source : Bonabeau et al. (1999) ; Marsh et
+Onof (2008).}
+\end{figure}
+
+\subsection{Formalisation algorithmique : l\textquotesingle intelligence
+en essaim}\label{formalisation-algorithmique--lintelligence-en-essaim}
+
+L\textquotesingle ouvrage fondateur \emph{Swarm Intelligence: From
+Natural to Artificial Systems} (Bonabeau et al., 1999), publié dans la
+série du Santa Fe Institute, établit l\textquotesingle intelligence en
+essaim comme discipline scientifique légitime. Les auteurs y démontrent
+systématiquement comment les principes d\textquotesingle autonomie, de
+décentralisation et d\textquotesingle émergence peuvent remplacer le
+contrôle centralisé traditionnel dans la résolution de problèmes
+complexes. Leur contribution majeure réside dans
+l\textquotesingle articulation du rôle de la modélisation comme
+interface entre la compréhension de la nature et la conception de
+systèmes artificiels (Bonabeau et al., 1999, p. 18). Cette approche
+méthodologique permet d\textquotesingle explorer les modèles
+biologiquement motivés au-delà de leurs contraintes naturelles initiales
+, par exemple, les algorithmes d\textquotesingle optimisation par
+colonie de fourmis (ACO) utilisent des taux de décroissance de
+phéromones biologiquement implausibles mais computationnellement
+efficaces.
+
+Parallèlement, Theraulaz et Bonabeau (1999) clarifient dans leur
+synthèse historique parue dans \emph{Artificial Life} la
+conceptualisation de la stigmergie en distinguant deux mécanismes
+fondamentaux. La stigmergie quantitative repose sur
+l\textquotesingle intensité de la trace qui affecte la probabilité
+d\textquotesingle une action : plus une piste de phéromone est
+concentrée, plus la probabilité qu\textquotesingle une fourmi la suive
+est élevée (Theraulaz \& Bonabeau, 1999, p. 104-105). La stigmergie
+qualitative implique des stimuli qualitativement différents déclenchant
+des réponses comportementales qualitativement différentes, comme dans la
+construction de nids de guêpes où la configuration spatiale détermine le
+type de réponse architecturale (Theraulaz \& Bonabeau, 1999, p. 105).
+Cette typologie fournit un cadre conceptuel pour guider le choix entre
+approches de coordination dans la conception de systèmes multi-agents.
+
+\subsection{Extension aux systèmes numériques : la stigmergie comme
+mécanisme
+universel}\label{extension-aux-systuxe8mes-numuxe9riques--la-stigmergie-comme-muxe9canisme-universel}
+
+Francis Heylighen entreprend, dans sa synthèse en deux parties publiée
+dans \emph{Cognitive Systems Research}, la première formalisation
+véritablement générale de la stigmergie (Heylighen, 2016a, 2016b). Il
+propose une définition unifiée : la stigmergie est le mécanisme de
+coordination indirecte où la trace laissée par une action dans un médium
+stimule les actions subséquentes (Heylighen, 2016a). Cette définition
+capture l\textquotesingle essence bidirectionnelle du processus :
+l\textquotesingle action (\emph{ergon}) laisse une marque
+(\emph{stigma}), qui stimule de nouvelles actions, formant une boucle de
+rétroaction.
+
+Heylighen (2016b) enrichit la typologie de Theraulaz et Bonabeau en
+distinguant la stigmergie sématectonique, communication via modification
+physique de l\textquotesingle environnement où la stimulation provient
+du travail lui-même, et la stigmergie basée sur marqueurs, communication
+via mécanismes de signalisation qui ne contribuent pas directement à la
+tâche mais rendent les traces d\textquotesingle activité plus
+saillantes. En contexte numérique, cette distinction
+s\textquotesingle illustre avec Wikipédia : les lecteurs sont stimulés à
+améliorer les pages soit directement en remarquant les lacunes du texte
+(stigmergie sématectonique), soit indirectement via les notes « à faire
+» résumant les tâches restantes (stigmergie basée sur marqueurs)
+(Heylighen, 2016b, p. 51).
+
+L\textquotesingle identification par Heylighen (2016a) de la stigmergie
+comme mécanisme sous-jacent de multiples phénomènes de coordination
+numérique est particulièrement pertinente pour cette recherche.
+Wikipédia, le développement open source, les systèmes de contrôle de
+version et même le mécanisme de prix du marché reposent sur des
+dynamiques stigmergiques où les actions passées, réifiées dans un
+médium, stimulent les actions futures. Heylighen (2016a, p. 6) explique
+pourquoi ce mécanisme est resté longtemps sous-étudié :
+l\textquotesingle interaction stigmergique étant par définition
+indirecte, notre esprit biaisé pour rechercher des causes directes tend
+à négliger la possibilité qu\textquotesingle un agent puisse influencer
+le comportement d\textquotesingle un autre uniquement via la route
+indirecte d\textquotesingle une trace laissée dans un environnement
+passif.
+
+\subsection{Épistémologie stigmergique et cognition
+distribuée}\label{uxe9pistuxe9mologie-stigmergique-et-cognition-distribuuxe9e}
+
+Marsh et Onof (2008) opèrent un pont entre stigmergie et philosophie de
+l\textquotesingle esprit dans \emph{Cognitive Systems Research}. Partant
+d\textquotesingle une conception située de la cognition, ils proposent
+que la stigmergie constitue le mécanisme de coordination fondamental
+pour comprendre comment la connaissance dans les communautés complexes
+est essentiellement stigmergique (Marsh \& Onof, 2008, p. 136). Leur
+caractérisation formelle des systèmes stigmergiques comporte trois
+ensembles de propriétés : un environnement global comprenant des
+environnements locaux avec une dynamique interne propre et une
+perceptibilité seulement partielle ; des agents multiples présentant
+rationalité limitée, comportement auto-organisé, stochastique et
+adaptatif ; et des propriétés émergentes résultant des interactions,
+propriétés qui ne sont ni prédictibles ni réductibles à des constituants
+plus simples (Marsh \& Onof, 2008, p. 138).
+
+Cette formalisation est directement applicable aux systèmes multi-agents
+LLM : les agents disposent d\textquotesingle une rationalité limitée par
+leur fenêtre de contexte, ils se comportent de manière stochastique
+(génération probabiliste), et leurs interactions via un dépôt de code
+partagé produisent des résultats collectifs non réductibles aux
+contributions individuelles.
+
+\subsection{Stigmergie cognitive et paradigme Agents \&
+Artifacts}\label{stigmergie-cognitive-et-paradigme-agents--artifacts}
+
+Ricci, Omicini, Viroli, Gardelli et Oliva (2007) proposent une extension
+conceptuelle majeure avec la stigmergie cognitive, applicable aux agents
+rationnels dotés de capacités cognitives avancées, par opposition aux
+agents réactifs simples des approches biologiques classiques. Leur
+cadre, publié dans \emph{Environments for Multi-Agent Systems III}
+(Springer LNCS 4389), établit un pont fondamental entre stigmergie
+classique et architectures de systèmes multi-agents (MAS) modernes.
+
+Le paradigme Agents \& Artifacts repose sur une distinction
+architecturale clé : les agents (entités computationnelles autonomes et
+proactives) interagissent indirectement via des artefacts (ressources
+environnementales manipulables supportant les activités des agents). Les
+artefacts ne sont pas de simples objets passifs mais des médiateurs
+actifs de coordination, fournissant des interfaces
+d\textquotesingle interaction bien définies et rendant la coordination
+indirecte explicitement instrumentable (Ricci et al., 2007).
+Contrairement aux phéromones biologiques dont la dynamique est fixée par
+la nature, les artefacts numériques peuvent être conçus, configurés et
+adaptés pour répondre aux besoins spécifiques de coordination. Leur état
+interne peut être exposé, permettant aux agents rationnels
+d\textquotesingle observer les traces d\textquotesingle actions passées
+et d\textquotesingle ajuster leur comportement. La durée de vie des
+traces stigmergiques peut être contrôlée programmatiquement, offrant une
+alternative à l\textquotesingle évaporation naturelle des phéromones.
+
+Cette contribution s\textquotesingle avère fondamentale pour
+l\textquotesingle orchestration multi-agents moderne basée sur les LLM,
+car elle fournit le cadre conceptuel permettant de traiter les artefacts
+numériques, documents partagés, bases de connaissances, systèmes de
+tickets, logs d\textquotesingle exécution, comme médiateurs de
+coordination stigmergique. Les agents LLM, dotés de capacités de
+raisonnement complexes, peuvent interpréter et manipuler ces artefacts
+avec une sophistication bien supérieure aux agents biologiques ou
+réactifs traditionnels. En outre, les artefacts conservent
+l\textquotesingle historique des modifications, permettant
+l\textquotesingle audit a posteriori des décisions collectives, les
+artefacts sont inspectables par des opérateurs humains maintenant le
+\emph{human-in-the-loop}, et la coordination est externalisée dans des
+artefacts dédiés séparant la logique métier de la mécanique de
+coordination (Ricci et al., 2007).
+
+\subsection{Systèmes adaptatifs complexes : Holland et
+Kauffman}\label{systuxe8mes-adaptatifs-complexes--holland-et-kauffman}
+
+Les travaux fondateurs de Holland (1995) et Kauffman (1993) fournissent
+le cadre théorique des systèmes adaptatifs complexes (CAS) permettant de
+comprendre comment l\textquotesingle organisation complexe émerge
+d\textquotesingle agents adaptatifs simples. Holland (1995) introduit le
+concept d\textquotesingle ordre caché pour décrire comment des patterns
+organisationnels complexes peuvent émerger de règles
+d\textquotesingle interaction simples entre agents, démontrant que la
+complexité structurelle n\textquotesingle est pas nécessairement le
+résultat d\textquotesingle une conception centralisée explicite.
+Kauffman (1993) développe le concept d\textquotesingle ordre gratuit et
+la dynamique au bord du chaos, montrant que les systèmes biologiques et
+organisationnels opèrent dans une zone critique entre ordre rigide et
+désordre chaotique où l\textquotesingle adaptabilité est maximale.
+
+Ces fondations théoriques sont essentielles car elles établissent que
+l\textquotesingle auto-organisation est une propriété fondamentale des
+systèmes composés d\textquotesingle agents adaptatifs interagissant
+localement, que la complexité peut émerger de la simplicité, et que les
+systèmes opérant au bord du chaos peuvent s\textquotesingle adapter
+dynamiquement aux perturbations sans reconfiguration centralisée. Ces
+principes fournissent le fondement théorique pour concevoir des systèmes
+d\textquotesingle orchestration multi-agents capables
+d\textquotesingle auto-organisation, d\textquotesingle adaptation et de
+coordination décentralisée.
+
+Ces bases théoriques permettent maintenant de passer à la question
+pratique : comment transformer cette logique de coordination indirecte
+en mécanismes réellement utilisables dans des systèmes multi-agents
+logiciels.
+
+\subsection{Ancrage managérial : la stigmergie comme mécanisme de coordination organisationnelle}\label{ancrage-managuxe9rial--la-stigmergie-comme-muxe9canisme-de-coordination-organisationnelle}
+
+Si les fondements biologiques et computationnels de la stigmergie sont
+bien établis, son ancrage dans les théories du management et des
+systèmes d\textquotesingle information reste insuffisamment exploité
+dans la littérature sur les agents LLM. Trois cadres théoriques
+permettent de repositionner la stigmergie comme mécanisme
+organisationnel à part entière, dépassant ainsi la seule perspective
+technique.
+
+\subsubsection{Théorie de la coordination (Malone \& Crowston, 1994)}
+
+Malone et Crowston (1994), dans un article fondateur publié dans
+\emph{ACM Computing Surveys}, définissent la coordination comme la
+gestion des dépendances entre activités. Leur taxonomie identifie
+plusieurs mécanismes de coordination selon le type de dépendance :
+les hiérarchies gèrent les dépendances par autorité centralisée, les
+marchés par ajustement de prix, et la communication directe par
+échanges de messages entre acteurs. La stigmergie constitue un
+quatrième mécanisme, rarement identifié dans la littérature
+managériale mais formellement cohérent avec le cadre de Malone et
+Crowston : elle gère les dépendances par modification environnementale,
+les agents se coordonnant en lisant et écrivant dans un artefact partagé
+plutôt que par messages directs ou par soumission à une autorité
+centrale.
+
+Cette perspective est fondamentale car elle situe la stigmergie dans le
+vocabulaire des sciences de gestion, non comme une curiosité biologique
+transposée à l\textquotesingle informatique, mais comme un mécanisme de
+coordination organisationnelle théorisé et comparable aux formes
+classiques. Crowston lui-même a ultérieurement démontré empiriquement la
+présence de coordination stigmergique dans les équipes de développement
+open source distribuées (Bolici, Howison \& Crowston, 2016), validant la
+transposition du concept au sein des organisations logicielles. Pour la
+présente recherche, la théorie de la coordination fournit le cadre
+analytique permettant d\textquotesingle évaluer quand et pourquoi la
+coordination stigmergique surpasse les alternatives hiérarchiques ou
+conversationnelles : elle réduit le nombre de liens de communication
+de O($n^2$) à O($n$), élimine les goulots d\textquotesingle étranglement
+centraux, et découple temporellement les activités interdépendantes.
+
+\subsubsection{Capacités dynamiques et orchestration stratégique (Teece, 2007)}
+
+Teece (2007), dans \emph{Strategic Management Journal}, conceptualise
+les capacités dynamiques comme l\textquotesingle aptitude d\textquotesingle une
+organisation à détecter les opportunités et menaces (\emph{sensing}),
+à saisir les occasions (\emph{seizing}), et à reconfigurer ses actifs
+pour maintenir un avantage compétitif (\emph{transforming}). Son concept
+d\textquotesingle \emph{asset orchestration} désigne la capacité
+managériale à assembler, structurer et recombiner les ressources
+organisationnelles de manière dynamique.
+
+Appliquée à la transformation de code, cette théorie requalifie
+fondamentalement l\textquotesingle objet de recherche.
+La modernisation logicielle continue n\textquotesingle est plus un
+problème technique isolé mais une capacité dynamique que
+l\textquotesingle organisation doit construire et maintenir : détecter
+la dette technique et les opportunités de modernisation (\emph{sensing}),
+mobiliser les ressources pour exécuter les transformations
+(\emph{seizing}), et reconfigurer l\textquotesingle architecture
+logicielle en réponse aux évolutions de l\textquotesingle environnement
+technologique (\emph{transforming}). Le framework stigmergique proposé
+dans ce mémoire opérationnalise cette capacité dynamique en fournissant
+un mécanisme d\textquotesingle orchestration qui s\textquotesingle adapte
+aux changements de contexte sans reconfiguration centralisée. Le
+parallèle avec le concept d\textquotesingle \emph{asset orchestration}
+de Teece est direct : les agents LLM orchestrés stigmergiquement
+assemblent, transforment et reconfigurent les actifs logiciels de
+l\textquotesingle organisation de manière distribuée et adaptative.
+
+\subsubsection{Routines organisationnelles et évolution du code (Feldman \& Pentland, 2003)}
+
+Feldman et Pentland (2003), dans un article influent publié dans
+\emph{Administrative Science Quarterly}, reconceptualisent les routines
+organisationnelles non comme des structures statiques mais comme des
+sources de flexibilité et de changement. Ils distinguent
+l\textquotesingle aspect ostensif (la structure abstraite de la routine
+telle que comprise par les acteurs) et l\textquotesingle aspect
+performatif (les actions concrètes réalisées par des personnes
+spécifiques à des moments spécifiques). Les routines évoluent par
+l\textquotesingle interaction continue entre ces deux aspects.
+
+Cette théorie offre un éclairage puissant sur la transformation de code
+vue comme processus organisationnel. Le code source incarne des routines
+organisationnelles : chaque fonction, chaque module encode des
+procédures, des règles métier et des pratiques qui structurent
+l\textquotesingle activité de l\textquotesingle organisation. Transformer
+du code, c\textquotesingle est donc transformer des routines
+organisationnelles, avec toutes les implications de résistance, de
+perte de savoir tacite et de recomposition des pratiques que cela
+implique. La coordination stigmergique préserve l\textquotesingle aspect
+ostensif des routines (les agents lisent et respectent la structure
+existante du code comme contexte) tout en permettant l\textquotesingle évolution
+de l\textquotesingle aspect performatif (les transformations concrètes
+sont réalisées de manière incrémentale et traçable). Les traces
+stigmergiques (commits, métadonnées, résultats de tests) constituent
+la mémoire organisationnelle de l\textquotesingle évolution des
+routines, permettant audit, apprentissage et réversibilité.
+
+\subsubsection{Affordances technologiques (Strong et al., 2014)}
+
+Strong et al. (2014) proposent dans \emph{MIS Quarterly} la théorie de
+l\textquotesingle actualisation des affordances technologiques, qui
+fournit un vocabulaire structuré pour analyser la valeur
+organisationnelle des systèmes d\textquotesingle information. Une
+affordance est une relation entre les propriétés d\textquotesingle un
+objet technologique et les capacités d\textquotesingle un acteur
+organisationnel qui permet une action potentielle. Appliqué au
+framework stigmergique, ce cadre permet d\textquotesingle identifier
+cinq affordances organisationnelles distinctes : la transformation
+continue (les agents modifient le code de manière asynchrone et
+incrémentale), l\textquotesingle auditabilité intrinsèque (les traces
+environnementales créent automatiquement un historique complet),
+la scalabilité adaptative (de nouveaux agents peuvent rejoindre la
+colonie sans reconfiguration), la gouvernance distribuée (les
+guardrails sont encodés dans l\textquotesingle environnement plutôt
+que dans chaque agent), et la préservation des connaissances (les
+artefacts partagés capitalisent le savoir collectif). Chacune de ces
+affordances doit être actualisée par des pratiques organisationnelles
+spécifiques, ce qui inscrit le déploiement du framework dans une
+démarche de transformation organisationnelle et non de simple
+implémentation technique.
+
+Ces quatre cadres théoriques, théorie de la coordination, capacités
+dynamiques, routines organisationnelles et affordances technologiques,
+constituent l\textquotesingle ancrage managérial de ce mémoire. Ils
+permettent de répondre à l\textquotesingle exigence d\textquotesingle un
+mémoire en management des systèmes d\textquotesingle information : la
+contribution ne réside pas uniquement dans l\textquotesingle artefact
+technique, mais dans les principes de conception
+généralisables qui émergent de
+l\textquotesingle intersection entre théorie organisationnelle et
+ingénierie des systèmes multi-agents.
+
+\section{Coordination multi-agents et systèmes
+distribués}\label{coordination-multi-agents-et-systuxe8mes-distribuuxe9s}
+
+La transposition des principes stigmergiques vers des systèmes
+informatiques distribués demande des mécanismes concrets. On clarifie
+d\textquotesingle abord les notions d\textquotesingle agent et de
+système multi-agent, puis on regarde comment la coordination passe par
+un environnement partagé.
+
+\subsection{Agents LLM et systèmes multi-agents : définitions
+opératoires}\label{agents-llm-et-systuxe8mes-multi-agents--duxe9finitions-opuxe9ratoires}
+
+Avant de détailler la coordination, il faut distinguer deux niveaux
+souvent mélangés dans les publications récentes :
+l\textquotesingle agent LLM et le système multi-agent (Cemri et al.,
+2025). Un agent LLM est un logiciel qui reçoit des consignes, garde un
+état (historique ou mémoire) et agit dans un environnement via des
+outils. Un système single-agent concentre tout dans une seule boucle
+d\textquotesingle action. Un système multi-agent répartit le travail
+entre plusieurs agents spécialisés qui se coordonnent entre eux (Cemri
+et al., 2025 ; Gao et al., 2025).
+
+La littérature avance des bénéfices clairs pour les MAS : découpage des
+tâches, parallélisation et spécialisation des rôles. Mais ce choix a
+aussi des coûts : plus de latence, plus de tokens, plus de difficulté de
+débogage et de gouvernance (Gao et al., 2025 ; Kapoor et al., 2024).
+
+Un constat important pour cette recherche est que les MAS LLM dominants
+s\textquotesingle appuient sur des patterns de coordination
+conversationnels (échanges de messages) ou hiérarchiques
+(superviseur-workers). Rodriguez (2026) formalise une alternative via
+une coordination par champs de pression et décroissance temporelle, où
+les agents opèrent localement sur un artefact commun. Ce déplacement
+vers l\textquotesingle environnement comme support de coordination est
+cohérent avec la perspective \emph{environment-first} de Weyns et al.
+(2007), qui conceptualisent l\textquotesingle environnement comme une
+abstraction de première classe dans les systèmes multi-agents.
+
+\begin{figure}[H]
+\centering
+\pandocbounded{\includegraphics[keepaspectratio,alt={Agent LLM vs système multi-agent (MAS) : comparaison des niveaux d\textquotesingle organisation et des modes de coordination. Source : adaptation de Cemri et al. (2025) et Gao et al. (2025).}]{images/agentLLMvsMAS.png}}
+\caption{Agent LLM vs système multi-agent (MAS) : comparaison des
+niveaux d\textquotesingle organisation et des modes de coordination.
+Source : adaptation de Cemri et al. (2025) et Gao et al. (2025).}
+\end{figure}
+
+\subsection{Phéromones numériques : de la biologie au
+calcul}\label{phuxe9romones-numuxe9riques--de-la-biologie-au-calcul}
+
+Parunak (1997) développe dans son article fondateur une traduction
+systématique des principes biologiques en principes
+d\textquotesingle ingénierie pour systèmes multi-agents, identifiant
+trois principes fondamentaux : localité de perception et
+d\textquotesingle action, coordination stigmergique, et feedback
+positif. Il souligne que les agents dans les systèmes naturels sont
+remarquablement simples, mais que leur interaction produit des
+comportements collectifs sophistiqués (Parunak, 1997, p. 70). Cette
+simplicité individuelle couplée à la complexité émergente constitue un
+avantage architectural majeur : la robustesse du système dépend de la
+redondance et de l\textquotesingle adaptabilité collective plutôt que de
+la sophistication de composants individuels fragiles.
+
+\subsection{Espaces de tuples et communication
+générative}\label{espaces-de-tuples-et-communication-guxe9nuxe9rative}
+
+Le modèle Linda, introduit par Gelernter (1985), révolutionne la
+coordination dans les systèmes distribués en proposant la communication
+générative via un espace de tuples, mémoire associative partagée où les
+processus déposent et récupèrent des tuples sans connaître
+l\textquotesingle identité des autres processus. Gelernter (1985, p. 81)
+critique le modèle classique de message-passing qui crée un couplage
+temporel et spatial rendant les programmes fragiles. Linda permet une
+coordination découplée selon trois dimensions : temporelle (producteur
+et consommateur n\textquotesingle ont pas besoin
+d\textquotesingle exister simultanément), spatiale (les processus ne
+connaissent pas l\textquotesingle identité les uns des autres), et de
+synchronisation (la communication est asynchrone).
+
+L\textquotesingle espace de tuples constitue une concrétisation
+computationnelle du médium stigmergique théorisé par Heylighen (2016a).
+Les tuples représentent les traces laissées par les actions des agents,
+qui stimulent les actions subséquentes d\textquotesingle autres agents.
+Gelernter (1985, p. 89) observe que les données acquièrent une existence
+indépendante dans l\textquotesingle espace de tuples, incarnant le
+principe stigmergique de médiation environnementale.
+
+Carriero et Gelernter (1992) formalisent un principe architectural
+fondamental : la séparation entre modèle de calcul et modèle de
+coordination. La coordination doit être traitée comme une préoccupation
+de première classe, distincte et orthogonale au calcul (Carriero \&
+Gelernter, 1992, p. 98). Cette orthogonalité justifie théoriquement la
+séparation entre services métier et mécanismes
+d\textquotesingle orchestration, fondement des architectures de
+microservices contemporaines.
+
+Mamei et Zambonelli (2009) proposent l\textquotesingle extension TOTA
+(\emph{Tuples On The Air}) introduisant des tuples distribués capables
+de se propager de manière autonome à travers le réseau, de
+s\textquotesingle auto-maintenir face aux changements topologiques, et
+de se transformer selon leur contexte de propagation. Cette approche
+génère des champs computationnels, gradients distribués
+d\textquotesingle information guidant les agents, et
+s\textquotesingle avère particulièrement pertinente pour les
+architectures de microservices dynamiques (Mamei \& Zambonelli, 2009).
+
+\subsection{Auto-organisation dans les systèmes
+multi-agents}\label{auto-organisation-dans-les-systuxe8mes-multi-agents}
+
+Serugendo, Gleizes et Karageorgos (2005) proposent une taxonomie
+complète des mécanismes d\textquotesingle auto-organisation, définissant
+l\textquotesingle auto-organisation comme un processus dynamique et
+adaptatif où les systèmes acquièrent et maintiennent une structure sans
+contrôle externe explicite (Serugendo et al., 2005, p. 166). Weyns,
+Omicini et Odell (2007) complètent cette perspective en proposant
+l\textquotesingle environnement comme abstraction de première classe
+dans les systèmes multi-agents, argumentant que les environnements ne
+sont pas de simples conteneurs passifs mais des entités actives
+structurant la coordination. Ce positionnement résonne directement avec
+le cadre stigmergique où l\textquotesingle environnement est le médium
+de coordination plutôt qu\textquotesingle un simple support
+d\textquotesingle exécution.
+
+\subsection{Stigmergie empirique dans le développement open
+source}\label{stigmergie-empirique-dans-le-duxe9veloppement-open-source}
+
+Bolici, Howison et Crowston (2016) fournissent une validation empirique
+de la coordination stigmergique dans le développement logiciel libre
+(FLOSS). Leur étude, publiée dans \emph{Cognitive Systems Research},
+démontre que les équipes FLOSS utilisent des mécanismes stigmergiques
+via les systèmes de contrôle de version, les systèmes de suivi de bugs,
+et les listes de diffusion, où les contributions de code servent de
+stimuli déclenchant les activités subséquentes de revue, test et
+intégration (Bolici et al., 2016). La traçabilité intrinsèque des
+systèmes de contrôle de version crée automatiquement une trace complète
+et auditable des modifications.
+
+Cette observation est directement pertinente pour notre problématique :
+Git, outil omniprésent du génie logiciel, fonctionne déjà comme un
+médium stigmergique. Les commits représentent les traces, les branches
+les chemins de phéromones, les pull requests les points de validation
+collective, et les tests CI/CD les mécanismes de feedback
+environnemental. L\textquotesingle orchestration multi-agents
+stigmergique ne nécessite donc pas la création d\textquotesingle une
+infrastructure nouvelle, mais l\textquotesingle instrumentation et
+l\textquotesingle extension d\textquotesingle outils déjà adoptés
+industriellement.
+
+\subsection{Développements récents : bio-inspiration dans
+l\textquotesingle orchestration agentique
+(2023-2026)}\label{duxe9veloppements-ruxe9cents--bio-inspiration-dans-lorchestration-agentique-2023-2026}
+
+Un développement notable du SOTA 2023-2026 est la réintroduction
+explicite de mécanismes d\textquotesingle intelligence en essaim dans
+l\textquotesingle orchestration agentique. Chari et al. (2025) proposent
+ACO-ToT, combinant LLM et optimisation par colonie de fourmis pour
+apprendre des chemins de raisonnement via renforcement de phéromones
+dans un arbre de pensée. Zhang et al. (2025) introduisent SwarmAgentic,
+un cadre visant à automatiser la conception de systèmes multi-agents via
+une population de systèmes candidats évoluant par mises à jour guidées
+par feedback, inspirées du Particle Swarm Optimization. Rodriguez (2026)
+formalise une coordination émergente par champs de pression et
+décroissance temporelle, où les agents opèrent localement sur un
+artefact commun.
+
+SwarmAgentic mérite une attention particulière car il démontre la
+viabilité d\textquotesingle un framework généraliste inspiré de
+l\textquotesingle intelligence en essaim. Évalué sur le benchmark
+TravelPlanner (Xie et al., 2024), qui mesure la capacité des systèmes
+agents à planifier des itinéraires sous contraintes multiples
+(budget, durée, préférences), SwarmAgentic obtient avec GPT-4o un score
+final de 32,2\%, surpassant nettement les baselines : Direct (2,2\%),
+Chain-of-Thought (2,2\%), Self-Refine (1,1\%), EvoAgent (7,2\%) et ADAS
+(8,9\%) (Zhang et al., 2025). Le score de satisfaction des contraintes
+dures (\emph{Hard Constraint Macro}) atteint 52,8\% avec GPT-4o, contre
+27,8\% pour ADAS, le second meilleur système. Ces résultats sont
+significatifs pour deux raisons : ils montrent qu\textquotesingle une
+coordination bio-inspirée peut surpasser des approches
+conversationnelles classiques sur des tâches de planification complexe,
+et ils établissent TravelPlanner comme benchmark de référence pour
+l\textquotesingle évaluation de frameworks d\textquotesingle orchestration
+généralistes, au-delà du seul génie logiciel.
+
+Ces travaux convergent vers le positionnement de cette recherche : le
+déplacement d\textquotesingle une partie de la coordination depuis des
+protocoles conversationnels explicites vers un médium partagé et des
+signaux d\textquotesingle évaluation, favorisant
+l\textquotesingle adaptation et réduisant l\textquotesingle overhead
+d\textquotesingle orchestration. Rahman et al. (2025) interrogent
+toutefois la transposition du terme « swarm » aux frameworks LLM,
+soulignant les différences fondamentales entre agents biologiques
+simples et agents LLM complexes dotés de capacités de raisonnement
+avancées. Cette tension justifie le recours au concept de
+\emph{stigmergie cognitive} (Ricci et al., 2007) plutôt qu\textquotesingle à
+l\textquotesingle intelligence en essaim classique : les agents LLM ne
+sont pas des fourmis réactives mais des agents cognitifs capables
+d\textquotesingle interpréter et de manipuler des artefacts
+environnementaux complexes.
+
+\subsection{Panorama des frameworks et
+benchmarks}\label{panorama-des-frameworks-et-benchmarks}
+
+Deux familles complémentaires de frameworks coexistent pour concevoir
+des systèmes multi-agents : les plateformes MAS classiques pré-LLM
+(JADE, Jason, SPADE) reposant sur le message-passing et des modèles
+organisationnels explicites, et les frameworks LLM-native (LangGraph,
+AutoGen, CrewAI, MetaGPT) orientés orchestration
+d\textquotesingle agents LLM intégrant tool-use, gestion
+d\textquotesingle état et topologies d\textquotesingle interaction (Geng
+\& Chang, 2025 ; Cemri et al., 2025). MetaGPT formalise des
+\emph{Standardized Operating Procedures} (SOPs) pour réduire les
+incohérences des chaînes d\textquotesingle agents dans les tâches de
+génie logiciel (Hong et al., 2024). OpenHands propose une plateforme
+open source pour développer et évaluer des agents généralistes capables
+d\textquotesingle interagir avec dépôts, shell et tests (Wang et al.,
+2025).
+
+L\textquotesingle essor des agents s\textquotesingle accompagne de
+benchmarks dédiés : AgentBench vise l\textquotesingle évaluation «
+LLM-as-Agent » dans plusieurs environnements (Liu et al., 2024),
+SWE-bench structure l\textquotesingle évaluation sur des issues GitHub
+réelles (Jimenez et al., 2024), et SWE-agent met en avant
+l\textquotesingle importance des interfaces agent-ordinateur (Yang et
+al., 2024). Ces benchmarks sont repris plus loin dans la section dédiée
+à l\textquotesingle évaluation.
+
+Ce cadrage permet d\textquotesingle aborder le point suivant de manière
+plus lucide : même si les MAS promettent beaucoup, ils ont aussi des
+limites concrètes qu\textquotesingle il faut intégrer dès la conception.
+
+\section{Limites des approches
+multi-agents}\label{limites-des-approches-multi-agents}
+
+Pour garder une lecture équilibrée, il faut aussi regarder les limites
+des architectures multi-agents et les cas où des approches plus simples
+fonctionnent mieux.
+
+\subsection{L\textquotesingle approche Agentless : la simplicité contre
+la
+complexité}\label{lapproche-agentless--la-simplicituxe9-contre-la-complexituxe9}
+
+L\textquotesingle article Agentless (Xia et al., 2024) constitue une
+contribution majeure remettant en question les présupposés de
+l\textquotesingle ingénierie logicielle basée sur des agents autonomes.
+Xia et al. (2024) proposent une approche simplifiée structurée en trois
+phases séquentielles : localisation hiérarchique des emplacements
+d\textquotesingle édition pertinents, génération de multiples patches
+candidats en format diff, et validation via tests de reproduction et
+régression. Contrairement aux outils basés sur agents, Agentless
+contient des étapes bien définies sans laisser l\textquotesingle agent
+LLM décider des actions futures ni utiliser d\textquotesingle outils
+complexes (Xia et al., 2024, p. 4).
+
+Les résultats sur SWE-bench Lite sont remarquables : 32 \% de précision
+(96 corrections sur 300 problèmes) pour 0,70 USD de coût moyen par
+problème, surpassant tous les systèmes agents open source (Xia et al.,
+2024, p. 3). Cette performance est d\textquotesingle autant plus
+significative qu\textquotesingle elle est obtenue sans mécanismes
+complexes d\textquotesingle agents autonomes. Les auteurs espèrent
+qu\textquotesingle Agentless aidera à réinitialiser le baseline et le
+point de départ pour les agents logiciels autonomes (Xia et al., 2024,
+p. 3).
+
+Il convient de contextualiser cette critique : Agentless est focalisé
+sur le software engineering avec SWE-bench comme benchmark spécifique.
+La généralisation à des workflows de migration multi-fichiers à grande
+échelle, où les dépendances inter-composants créent une complexité
+structurelle supérieure, nécessite une validation empirique
+supplémentaire.
+
+\subsection{Framework MAST : comprendre où les MAS
+échouent}\label{framework-mast--comprendre-ouxf9-les-mas-uxe9chouent}
+
+Le framework MAST (Cemri et al., 2025) est utile parce
+qu\textquotesingle il montre clairement les familles
+d\textquotesingle échecs récurrents dans les systèmes multi-agents LLM.
+En pratique, ces échecs reviennent souvent à trois problèmes : des
+tâches mal cadrées, des agents qui se comprennent mal entre eux, et des
+sorties insuffisamment vérifiées avant la fin du processus.
+
+Même sans entrer dans les détails méthodologiques, le message est fort :
+les taux d\textquotesingle échec observés restent élevés sur plusieurs
+frameworks open source, ce qui indique un enjeu de conception, pas
+seulement de puissance de modèle. Pour un lecteur orienté management SI,
+cela renforce l\textquotesingle idée qu\textquotesingle un bon système
+ne dépend pas uniquement du modèle, mais surtout de
+l\textquotesingle architecture de coordination et des mécanismes de
+contrôle.
+
+\begin{figure}[H]
+\centering
+\pandocbounded{\includegraphics[keepaspectratio,alt={Taxonomie MAST des modes d\textquotesingle échec des systèmes multi-agents LLM. Source : Cemri et al. (2025).}]{images/taxomanie_MAST.png}}
+\caption{Taxonomie MAST des modes d\textquotesingle échec des systèmes
+multi-agents LLM. Source : Cemri et al. (2025).}
+\end{figure}
+
+\subsection{Analyse coût-efficacité et érosion de
+l\textquotesingle avantage
+multi-agents}\label{analyse-couxfbt-efficacituxe9-et-uxe9rosion-de-lavantage-multi-agents}
+
+Kapoor et al. (2024), dans leur article « AI Agents That Matter »
+(Princeton University), démontrent que l\textquotesingle optimisation
+mono-objectif (précision seule) masque des inefficacités systémiques
+majeures. Leur analyse révèle des variations de coût allant
+jusqu\textquotesingle à 50x entre agents atteignant des niveaux de
+précision similaires, et introduisent le concept de frontière de Pareto
+coût-précision comme méthodologie d\textquotesingle évaluation
+rigoureuse. La précision seule ne peut identifier le progrès car elle
+peut être améliorée par des méthodes scientifiquement dénuées de sens
+telles que le retry (Kapoor et al., 2024, p. 4).
+
+Gao et al. (2025) approfondissent cette critique en comparant
+systématiquement systèmes single-agent et multi-agents. Leurs résultats
+montrent que les gains de performance MAS chutent de 10-16 \% avec des
+modèles de capacité moyenne à seulement 0,8-3 \% avec des modèles
+frontières, pour un surcoût en tokens de 4x à 220x (Gao et al., 2025).
+Les auteurs proposent des paradigmes hybrides (routing, cascade)
+améliorant simultanément précision (+1,1-12 \%) et efficacité (-88,1 \%
+de coût), suggérant que la question n\textquotesingle est pas «
+single-agent ou multi-agent ? » mais comment adapter dynamiquement le
+degré de coordination à la complexité de la tâche.
+
+\subsection{Positions industrielles et principe de
+parcimonie}\label{positions-industrielles-et-principe-de-parcimonie}
+
+Yan (2025), CTO de Cognition AI (créateurs de Devin), argumente dans un
+billet de blog technique que la fragmentation de contexte constitue le
+défaut architectural fondamental des systèmes multi-agents. Lorsque le
+contexte est distribué entre multiples agents, aucun agent individuel ne
+possède une vue suffisamment complète pour prendre des décisions
+optimales.
+
+Anthropic (2025) recommande officiellement de commencer avec
+l\textquotesingle approche la plus simple qui fonctionne et
+d\textquotesingle ajouter de la complexité seulement quand
+l\textquotesingle évidence le supporte. Cette guidance méthodologique
+s\textquotesingle inscrit dans la tradition du rasoir
+d\textquotesingle Occam appliqué à l\textquotesingle ingénierie
+logicielle.
+
+Cette lecture critique ne disqualifie pas la stigmergie ; elle fixe
+plutôt un niveau d\textquotesingle exigence. La suite doit donc montrer,
+sur des cas de migration concrets, qu\textquotesingle une coordination
+par environnement peut réellement améliorer le compromis
+performance-coût-gouvernabilité.
+
+\section{Migration de code et transformation avec les
+LLM}\label{migration-de-code-et-transformation-avec-les-llm}
+
+La migration et la transformation de code constituent le terrain
+d\textquotesingle application principal de cette recherche. Ce terrain
+permet de relier directement les choix d\textquotesingle orchestration à
+des contraintes industrielles réelles : qualité, coût, délai et maîtrise
+du risque.
+
+\subsection{Migration à grande échelle : la validation industrielle de
+Google}\label{migration-uxe0-grande-uxe9chelle--la-validation-industrielle-de-google}
+
+L\textquotesingle article de Ziftci et al. (2025), présenté au FSE 2025
+(conférence top-tier en génie logiciel), constitue la première
+validation industrielle académiquement documentée de migration
+LLM-assistée à très grande échelle. Sur 39 migrations distinctes
+totalisant 595 changements de code et 93 574 éditions individuelles,
+74,45 \% des changements générés ont été appliqués sans modification
+humaine, réduisant de 50 \% le temps développeur total requis (Ziftci et
+al., 2025, p. 6). L\textquotesingle architecture repose sur une
+combinaison d\textquotesingle analyse statique pour
+l\textquotesingle identification des emplacements, de génération LLM
+pour les patches, de validation automatisée via tests existants, et de
+review humaine sélective pour les cas complexes.
+
+Malgré ces résultats, Ziftci et al. (2025) identifient des limitations
+significatives. La fenêtre de contexte limitée des LLM contraint
+l\textquotesingle efficacité pour les fichiers volumineux ou les
+migrations nécessitant la compréhension de multiples fichiers
+interdépendants (p. 11). Les tests pré-existants défaillants
+(\emph{flaky tests}) empêchent la validation automatique (p. 12).
+Environ 25 \% des changements nécessitent une intervention humaine pour
+des cas non anticipés.
+
+Ces principes sont directement transposables à
+l\textquotesingle orchestration multi-agents stigmergique : les tests
+automatisés servent de feedback stigmergique validant la qualité des
+modifications, les changements peuvent être générés, validés et intégrés
+de manière asynchrone, et chaque changement est tracé dans le système de
+contrôle de version fournissant l\textquotesingle auditabilité requise
+pour la gouvernance.
+
+\subsection{Coordination multi-agents pour le codage autonome : les
+leçons de
+Cursor}\label{coordination-multi-agents-pour-le-codage-autonome--les-leuxe7ons-de-cursor}
+
+L\textquotesingle article de Cursor (2025) documente les leçons tirées
+d\textquotesingle expérimentations avec des agents de codage autonomes
+fonctionnant pendant des semaines consécutives.
+L\textquotesingle approche initiale reposait sur une coordination
+décentralisée égalitaire où chaque agent vérifiait ce que les autres
+faisaient via un fichier partagé avec mécanismes de verrouillage. Cette
+approche a échoué de manière instructive : goulots
+d\textquotesingle étranglement des verrous (vingt agents ralentissant au
+débit effectif de deux ou trois), fragilité systémique (défaillances en
+cascade), et aversion au risque collective (sans hiérarchie, les agents
+évitaient les tâches difficiles) (Cursor, 2025).
+
+Le passage à un contrôle de concurrence optimiste puis à une
+architecture planificateurs-travailleurs illustre une trajectoire
+pertinente pour la conception d\textquotesingle orchestrations
+stigmergiques. L\textquotesingle échec de la coordination décentralisée
+naïve confirme que la stigmergie ne peut se réduire à un simple fichier
+partagé : elle nécessite des mécanismes de sélection, de renforcement et
+d\textquotesingle évaporation inspirés des systèmes biologiques pour
+produire une coordination effective.
+
+\subsection{Traduction cross-language et modernisation
+legacy}\label{traduction-cross-language-et-modernisation-legacy}
+
+Rozière et al. (2020), dans leur article présenté à NeurIPS 2020,
+démontrent la possibilité de traduction non supervisée entre langages de
+programmation en exploitant les mécanismes de \emph{back-translation} et
+de \emph{denoising auto-encoding}, atteignant des scores BLEU de 68,7
+pour la traduction C++ vers Java et 61,9 pour Java vers C++ sans données
+d\textquotesingle entraînement parallèles (le score BLEU mesure la
+proximité entre une traduction générée et une traduction de référence :
+plus il est élevé, plus les deux sont proches). CodeRosetta (2024) étend
+cette approche à la programmation parallèle (NeurIPS 2024). Ces travaux
+établissent que la traduction cross-language par LLM est techniquement
+faisable, ouvrant la voie à son orchestration dans des workflows de
+migration multi-fichiers.
+
+La modernisation de systèmes COBOL vers Java représente un cas
+industriel critique. Sneed (2010) documente les défis fondamentaux de
+cette migration : différences paradigmatiques entre COBOL procédural et
+Java orienté-objet, complexité des systèmes legacy (775 milliards de
+lignes en production selon IBM, 2023), et nécessité de préserver la
+sémantique métier exacte. Cet enjeu est central pour les secteurs
+bancaire, assurance et paiements, où une partie du cœur opérationnel
+repose encore sur du COBOL. IBM Watsonx combine analyse statique et
+génération LLM pour automatiser cette transformation (IBM, 2023). Diggs
+et al. (2025) évaluent l\textquotesingle utilisation de LLM pour générer
+la documentation de code legacy comme prérequis à la modernisation,
+publié dans le cadre du workshop LLM4Code@ICSE 2025.
+
+\subsection{Évolution et refactoring
+d\textquotesingle API}\label{uxe9volution-et-refactoring-dapi}
+
+Lamothe, Guéhéneuc et Shang (2021) produisent dans \emph{ACM Computing
+Surveys} la revue systématique la plus complète sur
+l\textquotesingle évolution des API, analysant 110 études primaires.
+Leur synthèse identifie les ruptures d\textquotesingle API comme un
+problème central du génie logiciel et cartographie les solutions
+existantes pour la migration de clients lors
+d\textquotesingle évolutions d\textquotesingle API. Dig et Johnson
+(2005) classifient les refactorings de manière à orienter les outils de
+migration automatisés. Ces travaux fondent les exigences fonctionnelles
+pour un système multi-agents de migration : identification automatique
+des breaking changes, génération de patches de mise à jour, et
+validation de la préservation sémantique.
+
+\subsection{Transformation du développeur par
+l\textquotesingle IA}\label{transformation-du-duxe9veloppeur-par-lia}
+
+Peng et al. (2023), dans une étude contrôlée randomisée, documentent une
+amélioration de 55,8 \% de la productivité des développeurs utilisant
+GitHub Copilot. Barke et al. (2023) montrent de leur côté que le travail
+alterne entre un mode « accélération » (l\textquotesingle IA aide à
+produire plus vite) et un mode « exploration » (l\textquotesingle IA
+aide à clarifier un problème encore flou).
+
+Ce déplacement du rôle apparaît encore plus clairement dans des retours
+récents de terrain. Le billet OpenAI du 5 février 2026 sur GPT‑5.3‑Codex
+décrit des équipes qui utilisent Codex pour accélérer leur propre cycle
+de recherche et de déploiement, avec des chercheurs et ingénieurs
+expliquant que leur travail est déjà « fondamentalement différent » de
+celui d\textquotesingle il y a deux mois (OpenAI, 2026). Côté Anthropic,
+une étude interne publiée en décembre 2025 montre aussi un glissement
+vers des tâches de pilotage, supervision et arbitrage, plutôt
+qu\textquotesingle une production ligne par ligne en continu (Anthropic,
+2025b).
+
+Dans ce contexte, la \emph{pull request} (PR, proposition de changement
+de code soumise à revue) devient un objet clé : le développeur
+n\textquotesingle est plus seulement auteur direct du code, il devient
+aussi superviseur de sorties générées, arbitre de qualité et garant de
+cohérence.
+
+Ces retours terrain préparent logiquement la suite : si les agents
+peuvent produire beaucoup plus vite, la question centrale devient la
+gouvernance de cette production à l\textquotesingle échelle.
+
+\section{Gouvernance, auditabilité et
+conformité}\label{gouvernance-auditabilituxe9-et-conformituxe9}
+
+La gouvernance devient ici le point d\textquotesingle équilibre entre
+autonomie des agents et contrôle organisationnel.
+
+\subsection{Guardrails pour écologies
+humain-IA}\label{guardrails-pour-uxe9cologies-humain-ia}
+
+Grisold, Berente et Seidel (2025) publient dans \emph{MIS Quarterly} une
+contribution théorique majeure introduisant le concept
+d\textquotesingle écologies humain-IA, définies comme des environnements
+où agents humains et IA se coordonnent via des normes sociales plutôt
+que par programmation explicite (Grisold et al., 2025, p. 1241). Leur
+concept central de \emph{guardrails} est défini comme des zones de
+comportement désirable qui contraignent les opérations système sans
+éliminer l\textquotesingle autonomie adaptative (Grisold et al., 2025,
+p. 1243).
+
+Les auteurs distinguent les normes profondes (\emph{deep norms}),
+principes fondamentaux stables reflétant les valeurs organisationnelles
+de long terme, et les normes de surface (\emph{surface norms}),
+guardrails opérationnels spécifiques pouvant évoluer selon les
+contextes. Leur Design Theory for Predictability
+s\textquotesingle articule autour de trois principes :
+l\textquotesingle explicitation sélective des normes, la transparence
+des frontières comportementales, et l\textquotesingle évolutivité des
+guardrails sans reconfiguration système complète (Grisold et al., 2025,
+p. 1250-1253).
+
+Cette approche possède une pertinence directe pour
+l\textquotesingle orchestration multi-agents stigmergique. Dans un
+système stigmergique, les guardrails peuvent être implémentés comme
+contraintes environnementales plutôt que comme règles programmatiques
+dans chaque agent. L\textquotesingle environnement (dépôt Git) peut
+n\textquotesingle accepter que les commits signés et liés à une issue
+tracker (guardrail structurel), déclencher automatiquement un workflow
+de revue humaine au-delà d\textquotesingle un seuil de complexité
+(guardrail de validation), et révoquer automatiquement toute
+modification échouant aux tests CI/CD (guardrail de rollback). Cette
+approche centralise la gouvernance dans l\textquotesingle environnement
+plutôt que de la distribuer dans chaque agent, facilitant
+l\textquotesingle auditabilité et l\textquotesingle évolution des
+politiques.
+
+\subsection{Perspective principal-agent et
+orchestration}\label{perspective-principal-agent-et-orchestration}
+
+Jarrahi et Ritala (2025), dans \emph{California Management Review},
+appliquent la théorie économique principal-agent aux agents IA,
+démontrant que les agents IA travaillent au nom des utilisateurs dans
+des contraintes définies mais disposent d\textquotesingle une capacité
+de traitement et d\textquotesingle accès à l\textquotesingle information
+supérieurs (Jarrahi \& Ritala, 2025, p. 2). Leur framework à cinq
+dimensions pour la gouvernance, interactivité et adaptabilité,
+autonomie guidée, intelligence collective, sécurité, responsabilité et
+interopérabilité via orchestration, individualisation et alignement,
+fournit un cadre structurant pour la conception de systèmes multi-agents
+gouvernables (Jarrahi \& Ritala, 2025).
+
+\begin{figure}[H]
+\centering
+\pandocbounded{\includegraphics[keepaspectratio,alt={Cadre de gouvernance pour systèmes multi-agents : articulation des dimensions de contrôle, responsabilité et alignement. Source : adaptation de Jarrahi et Ritala (2025).}]{images/cadre_de_gouvernance.png}}
+\caption{Cadre de gouvernance pour systèmes multi-agents : articulation
+des dimensions de contrôle, responsabilité et alignement. Source :
+adaptation de Jarrahi et Ritala (2025).}
+\end{figure}
+
+L\textquotesingle emphase sur l\textquotesingle auditabilité et la
+traçabilité des décisions agents comme prérequis pour
+l\textquotesingle accountability organisationnelle (Jarrahi \& Ritala,
+2025, p. 9) converge avec l\textquotesingle approche stigmergique via
+systèmes de contrôle de version, où l\textquotesingle historique des
+modifications reste inspectable.
+
+\subsection{Conformité réglementaire : EU AI Act Article
+14}\label{conformituxe9-ruxe9glementaire--eu-ai-act-article-14}
+
+L\textquotesingle Article 14 de l\textquotesingle EU AI Act impose que
+les systèmes d\textquotesingle IA à haut risque soient conçus et
+développés de manière à permettre une supervision humaine effective
+durant leur utilisation (cité dans Fink, 2025, p. 3). Cette formulation
+établit deux principes : le \emph{design for oversight} (la supervision
+doit être intégrée dès la conception) et
+l\textquotesingle{}\emph{effectiveness} (la supervision doit être
+significative, pas simplement formelle).
+
+Holmström et al. (2023) identifient trois modèles de supervision
+reconnus par l\textquotesingle AI Act : \emph{Human-in-the-loop} (HITL)
+où chaque décision requiert approbation humaine,
+\emph{Human-on-the-loop} (HOTL) où le système opère de manière autonome
+avec surveillance et capacité d\textquotesingle intervention humaine, et
+\emph{Human-in-command} (HIC) où les humains maintiennent un contrôle
+stratégique sans intervenir dans les décisions opérationnelles
+individuelles. Fink (2025) détaille les cinq obligations de
+l\textquotesingle Article 14(4) : compréhension des capacités et
+limitations, conscience du biais d\textquotesingle automation,
+interprétation correcte des outputs, capacité
+d\textquotesingle override, et capacité d\textquotesingle arrêt.
+
+Pour les systèmes multi-agents stigmergiques, le mode HOTL apparaît
+comme le plus adapté : les agents opèrent de manière autonome via
+coordination indirecte, tandis que les superviseurs humains monitent les
+artefacts partagés et interviennent quand nécessaire. Les guardrails
+environnementaux (Grisold et al., 2025) incarnent le \emph{design for
+oversight} en intégrant la supervision dès la conception de
+l\textquotesingle environnement partagé.
+
+\subsection{Meaningful Human Control : tracking et
+tracing}\label{meaningful-human-control--tracking-et-tracing}
+
+Santoni de Sio et van den Hoven (2018) proposent dans \emph{Frontiers in
+Robotics and AI} un cadre conceptuel pour la supervision humaine
+effective des systèmes autonomes complexes, structuré autour de deux
+conditions nécessaires. La condition de \emph{tracking} exige que le
+système réponde de manière appropriée aux raisons morales identifiées
+par les humains (Santoni de Sio \& van den Hoven, 2018, p. 3),
+garantissant que les décisions reflètent les considérations éthiques et
+normatives humaines même lorsque le contrôle opérationnel direct est
+impossible. La condition de \emph{tracing} exige qu\textquotesingle il
+soit possible de remonter les résultats du système à au moins un humain
+responsable (Santoni de Sio \& van den Hoven, 2018, p. 4), garantissant
+l\textquotesingle accountability.
+
+Pour les systèmes multi-agents stigmergiques, cette exigence est
+particulièrement critique car la coordination indirecte via
+environnement peut créer des chaînes causales opaques et les
+comportements émergents résultent d\textquotesingle interactions
+multiples diluant potentiellement la responsabilité. Les traces dans
+l\textquotesingle environnement (commits Git, logs) doivent permettre de
+reconstituer qui a configuré quelles contraintes et approuvé quelles
+politiques.
+
+\subsection{Dimensions organisationnelles : résistance et
+acceptabilité}\label{dimensions-organisationnelles--ruxe9sistance-et-acceptabilituxe9}
+
+L\textquotesingle introduction de systèmes multi-agents dans des
+workflows de développement logiciel constitue une transformation
+organisationnelle profonde dont la gouvernance technique ne suffit pas à
+garantir le succès. Markus (1983), dans un article fondateur publié dans
+\emph{Communications of the ACM}, établit que les échecs
+d\textquotesingle implémentation de systèmes
+d\textquotesingle information ne résultent pas principalement de
+déficiences techniques, mais émergent lorsque le SI redistribue pouvoir
+et contrôle au sein de l\textquotesingle organisation (Markus, 1983, p.
+430). Cette théorie interactionniste, qui attribue la résistance à
+l\textquotesingle interaction entre les caractéristiques du système et
+le contexte organisationnel plutôt qu\textquotesingle aux seules
+caractéristiques du système ou des utilisateurs, est particulièrement
+pertinente pour l\textquotesingle orchestration stigmergique. En effet,
+le passage d\textquotesingle une coordination hiérarchique à une
+coordination émergente réalloue fondamentalement trois dimensions
+organisationnelles : qui décide (les décisions de design peuvent
+basculer des développeurs seniors vers des algorithmes de coordination),
+qui est évalué (la performance individuelle devient visible via des
+métriques automatisées de contribution aux artefacts partagés), et qui
+contrôle le processus (la coordination peut passer de chefs de projets
+humains à des orchestrateurs algorithmiques). Markus (1983) conclut que
+la gouvernance doit inclure un travail explicite sur les enjeux de
+pouvoir et la re-légitimation des rôles humains, une recommandation qui
+demeure essentielle quarante ans après sa formulation.
+
+Kim et Kankanhalli (2009) approfondissent cette analyse dans \emph{MIS
+Quarterly} en mobilisant la théorie du biais de statu quo pour modéliser
+la résistance des utilisateurs. Leur modèle identifie trois catégories
+de coûts perçus du changement, les coûts de transition
+(apprentissage, adaptation des routines), les coûts
+d\textquotesingle incertitude (imprévisibilité des résultats) et les
+coûts de submersion (\emph{sunk costs} dans les pratiques existantes)
+, auxquels s\textquotesingle ajoutent deux biais cognitifs
+amplificateurs : l\textquotesingle aversion aux pertes et
+l\textquotesingle illusion de contrôle (Kim \& Kankanhalli, 2009, p.
+575). Pour l\textquotesingle orchestration stigmergique, les coûts
+d\textquotesingle incertitude sont particulièrement saillants car le
+comportement émergent est, par définition, moins prévisible que le
+comportement d\textquotesingle un workflow orchestré hiérarchiquement.
+Kim et Kankanhalli (2009) recommandent que les systèmes soient gouvernés
+comme des programmes de transformation organisationnelle : réduire les
+coûts de basculement par des phases d\textquotesingle adoption
+graduelles, rendre la valeur tangible rapidement (\emph{quick wins}), et
+prévoir des mécanismes de retour en arrière réduisant le risque perçu.
+
+Lee et See (2004) proposent dans \emph{Human Factors} un modèle de
+confiance calibrée en l\textquotesingle automation, qui éclaire une
+dimension complémentaire de la résistance. Leur cadre distingue deux
+pathologies de confiance : la sur-confiance (\emph{complacency})
+conduisant à une supervision insuffisante, particulièrement
+dangereuse lorsque les agents LLM produisent des hallucinations
+convaincantes dans du code, et la sous-confiance (\emph{disuse})
+conduisant au rejet de systèmes performants, ce qui annule les gains de
+productivité attendus. La calibration de la confiance dépend de la
+transparence du processus décisionnel et de la prédictibilité des
+résultats (Lee \& See, 2004), deux propriétés que la stigmergie peut
+favoriser : les artefacts partagés (phéromones numériques, logs de
+coordination) rendent le processus de coordination observable, et les
+patterns de dépôt/lecture de phéromones créent des régularités
+identifiables par les opérateurs humains.
+
+Dietvorst, Simmons et Massey (2015) documentent dans le \emph{Journal of
+Experimental Psychology: General} le phénomène
+d\textquotesingle{}\emph{algorithm aversion}, la tendance
+systématique à rejeter les algorithmes après avoir observé même une
+seule erreur, tout en tolérant des taux d\textquotesingle erreur
+supérieurs chez les décideurs humains. Ce biais est particulièrement
+pertinent pour les systèmes multi-agents où les erreurs sont visibles
+(un commit incorrect, une transformation de code erronée) et
+attribuables au système algorithmique. Dans une étude complémentaire,
+Dietvorst et al. (2018) démontrent dans \emph{Management Science} que
+permettre aux utilisateurs de modifier même légèrement les outputs
+algorithmiques, par exemple ajuster un paramètre de 2\%, réduit
+significativement l\textquotesingle aversion, même lorsque cette
+modification n\textquotesingle améliore pas objectivement les résultats.
+Cette découverte a des implications directes pour la conception des
+guardrails stigmergiques : offrir aux développeurs la possibilité de
+paramétrer les seuils de phéromones, les critères de validation
+automatique et les niveaux d\textquotesingle autonomie des agents peut
+considérablement améliorer l\textquotesingle acceptabilité du système.
+
+Turel et Kalhan (2023), dans \emph{MIS Quarterly}, approfondissent
+encore cette analyse en montrant que l\textquotesingle aversion
+algorithmique fonctionne comme un préjugé implicite mesurable par
+l\textquotesingle Implicit Association Test (IAT), révélant que les
+individus associent automatiquement les algorithmes à des attributs
+négatifs (manque de fiabilité, froideur) même lorsque leurs jugements
+explicites sont neutres. Cependant, et c\textquotesingle est un résultat
+encourageant pour le déploiement organisationnel, cette aversion
+implicite est transitoire et diminue significativement avec
+l\textquotesingle expérience d\textquotesingle utilisation (Turel \&
+Kalhan, 2023, p. 1385). Ce résultat suggère que les phases pilotes et
+les programmes d\textquotesingle exposition progressive sont des leviers
+efficaces de gestion du changement.
+
+García-Ruiz et Rocchi (2025) apportent une dimension éthique
+complémentaire essentielle en examinant, dans \emph{Business Ethics
+Quarterly}, si le travail peut rester significatif (\emph{meaningful
+work}) sous management algorithmique. Leur analyse, ancrée dans la
+philosophie des vertus d\textquotesingle Alasdair MacIntyre, argumente
+que le travail significatif requiert l\textquotesingle exercice de
+l\textquotesingle agentivité morale, la capacité de prendre des
+décisions délibérées reflétant des valeurs et un jugement professionnel.
+Le management algorithmique, lorsqu\textquotesingle il réduit le rôle
+humain à celui de simple exécutant de prescriptions automatisées, peut
+éroder cette agentivité et transformer le travail en activité vide de
+sens (García-Ruiz \& Rocchi, 2025). Pour l\textquotesingle orchestration
+stigmergique, cette analyse implique que la conformité à
+l\textquotesingle AI Act ne suffit pas : il faut également identifier
+des points de contrôle critiques où l\textquotesingle intervention
+humaine n\textquotesingle est pas seulement autorisée mais véritablement
+significative, c\textquotesingle est-à-dire où le jugement humain
+apporte une valeur que l\textquotesingle automatisation ne peut fournir,
+préservant ainsi les conditions de l\textquotesingle agentivité
+professionnelle des développeurs.
+
+Ces six perspectives convergent vers des implications intégrées pour le
+déploiement d\textquotesingle orchestrateurs stigmergiques.
+L\textquotesingle adoption doit être progressive et gouvernée comme un
+programme de transformation organisationnelle (Markus, 1983 ; Kim \&
+Kankanhalli, 2009). Les guardrails doivent être paramétrables par les
+utilisateurs pour réduire l\textquotesingle aversion algorithmique
+(Dietvorst et al., 2018). La transparence des mécanismes de coordination
+, rendue possible par la nature même des artefacts stigmergiques,
+est essentielle pour maintenir une confiance calibrée (Lee \& See,
+2004). Des phases pilotes doivent être prévues pour capitaliser sur la
+transience de l\textquotesingle aversion implicite (Turel \& Kalhan,
+2023). Enfin, les points de contrôle humains doivent préserver
+l\textquotesingle agentivité professionnelle et le sens du travail
+(García-Ruiz \& Rocchi, 2025), allant au-delà d\textquotesingle une
+simple supervision formelle.
+
+\subsection{Responsabilité morale distribuée et gouvernance éthique des
+systèmes
+swarm}\label{responsabilituxe9-morale-distribuuxe9e-et-gouvernance-uxe9thique-des-systuxe8mes-swarm}
+
+Floridi (2016) introduit dans \emph{Philosophical Transactions of the
+Royal Society A} le concept de \emph{Distributed Moral Actions} (DMAs)
+: actions moralement significatives résultant
+d\textquotesingle interactions locales individuellement neutres. Ce
+cadre est essentiel pour comprendre comment des comportements émergents
+moralement significatifs résultent d\textquotesingle interactions
+stigmergiques individuellement neutres.
+
+Winfield et al. (2025), dans la même revue, abordent spécifiquement la
+gouvernance éthique des systèmes swarm en milieu réel, observant que
+dans les systèmes conventionnels, une propriété émergente est un bug qui
+doit être corrigé, mais que dans les systèmes swarm,
+l\textquotesingle émergence est une propriété désirée plutôt
+qu\textquotesingle un bug (Winfield et al., 2025). Cette distinction est
+fondamentale pour notre recherche : les comportements émergents des
+orchestrations stigmergiques ne doivent pas être supprimés mais
+gouvernés, ce qui nécessite des cadres de gouvernance spécifiques allant
+au-delà des approches traditionnelles d\textquotesingle assurance
+qualité.
+
+Mukherjee et Chang (2025) proposent le framework
+d\textquotesingle{}\emph{Operational Agency} pour tracer
+l\textquotesingle intention et la responsabilité dans les systèmes
+multi-agents IA, fournissant un mécanisme de reconstruction causale des
+décisions collectives.
+
+\subsection{Sécurité des systèmes
+multi-agents}\label{suxe9curituxe9-des-systuxe8mes-multi-agents}
+
+Chen et al. (2024), dans un article publié à NeurIPS 2024, documentent
+AgentPoison, la première attaque backdoor ciblant les bases de
+connaissances RAG et mémoires persistantes des agents LLM, avec un taux
+de succès d\textquotesingle au moins 80 \% pour un taux de poison
+inférieur à 0,1 \% (Chen et al., 2024). L\textquotesingle environnement
+partagé, équivalent stigmergique aux phéromones numériques,
+devient ainsi un vecteur d\textquotesingle attaque persistante, créant
+une vulnérabilité spécifique aux architectures stigmergiques. Lee et
+Tiwari (2024) documentent le \emph{Prompt Infection}, injection de
+prompts LLM-to-LLM se propageant silencieusement entre agents
+interconnectés, analogie virale particulièrement pertinente pour les
+systèmes de coordination indirecte.
+
+Ces vulnérabilités imposent des exigences de sécurité spécifiques pour
+les orchestrations stigmergiques : authentification des traces déposées
+dans l\textquotesingle environnement, validation de
+l\textquotesingle intégrité des artefacts partagés, et mécanismes de
+détection d\textquotesingle anomalies dans les patterns de coordination
+émergents.
+
+À ce stade, la lecture conjointe des dimensions réglementaires,
+organisationnelles et sécurité montre qu\textquotesingle une
+orchestration stigmergique n\textquotesingle est viable que si la
+gouvernance est pensée dès le design, pas ajoutée a posteriori.
+
+\section{Agentic BPM et workflows}\label{agentic-bpm-et-workflows}
+
+Le domaine émergent de l\textquotesingle Agentic Business Process
+Management (BPM) constitue un terrain d\textquotesingle application
+naturel pour l\textquotesingle orchestration stigmergique, à
+l\textquotesingle intersection de l\textquotesingle automatisation des
+processus et de la coordination multi-agents.
+
+\subsection{Définition formelle de l\textquotesingle Agentic
+BPM}\label{duxe9finition-formelle-de-lagentic-bpm}
+
+Vu et al. (2026), dans un article présenté au BPM 2025 Responsible BPM
+Forum (Springer LNBIP vol. 565), établissent la première définition
+formelle de l\textquotesingle Agentic BPM basée sur une étude
+qualitative avec 22 praticiens. Leur conceptualisation bidirectionnelle
+distingue deux perspectives complémentaires : \emph{Agents for BPM}, le
+déploiement d\textquotesingle agents logiciels autonomes pour atteindre
+des objectifs de processus métier, et \emph{BPM for Agents},
+l\textquotesingle application du BPM comme discipline pour la
+gouvernance des agents (Vu et al., 2026, p. 2). Cette dualité résout la
+tension entre autonomie et contrôle en reconnaissant que les agents
+nécessitent eux-mêmes une gouvernance structurée que le BPM peut
+fournir.
+
+Vu et al. (2026) formulent six recommandations opérationnelles : définir
+des objectifs clairs plutôt que des instructions procédurales rigides
+(R1), établir des guardrails éthiques (R2), concevoir la collaboration
+humain-agent plutôt que la substitution (R3), personnaliser le
+comportement des agents (R4), gérer les risques proactivement (R5), et
+assurer une intégration sûre avec traçabilité (R6). La recommandation R1
+reflète le principe stigmergique de coordination indirecte : les agents
+réagissent aux configurations environnementales plutôt que de suivre des
+scripts rigides (Heylighen, 2016a). La recommandation R6 trouve une
+implémentation naturelle dans les systèmes de contrôle de version
+identifiés par Bolici et al. (2016) comme médiums stigmergiques.
+
+\subsection{Agentic Business Process Management
+Systems}\label{agentic-business-process-management-systems}
+
+Dumas et al. (2026), dans un position paper présenté au AI for BPM
+Workshop 2025, définissent les Agentic BPMS (A-BPMS) comme une classe de
+systèmes d\textquotesingle information \emph{process-aware} utilisant la
+technologie AI agentique pour exécuter des processus métier (Dumas et
+al., 2026, p. 2). Ils identifient trois caractéristiques distinctives :
+les flux d\textquotesingle exécution ne sont pas entièrement
+prédéterminés, les adaptations s\textquotesingle opèrent sans
+changements logiciels explicites, et les opportunités
+d\textquotesingle amélioration sont découvertes de manière autonome.
+
+Dumas et al. (2026) cartographient également la trajectoire évolutive
+des systèmes de gestion de processus sur plusieurs décennies, depuis les
+systèmes papier (1960-1980) jusqu\textquotesingle à
+l\textquotesingle Agentic AI (2025+), en passant par les SOP, les
+business rules engines et le RPA. Cette progression révèle une tendance
+constante vers davantage d\textquotesingle autonomie décisionnelle, les
+A-BPMS représentant le point d\textquotesingle inflexion où les systèmes
+peuvent raisonner de manière véritablement autonome.
+
+\subsection{Du RPA à l\textquotesingle automatisation
+cognitive}\label{du-rpa-uxe0-lautomatisation-cognitive}
+
+L\textquotesingle évolution du RPA vers l\textquotesingle automatisation
+cognitive illustre la transition progressive vers les agents autonomes
+et contextualise l\textquotesingle émergence de
+l\textquotesingle Agentic BPM dans une trajectoire technologique plus
+longue. Le Cognitive RPA Framework (2025), publié dans
+l\textquotesingle{}\emph{European Journal of Computer Science and
+Information Technology}, propose l\textquotesingle hybridation de
+l\textquotesingle IA avec le RPA pour créer des systèmes capables de
+traiter des cas non structurés, d\textquotesingle apprendre de
+l\textquotesingle expérience, et de s\textquotesingle adapter aux
+variations processuelles. Cette évolution s\textquotesingle inscrit dans
+la trajectoire identifiée par Dumas et al. (2026) et prépare le terrain
+pour les agents véritablement autonomes.
+
+La distinction entre RPA traditionnel et automatisation cognitive est
+fondamentale pour comprendre la valeur ajoutée d\textquotesingle une
+approche stigmergique. Le RPA classique opère sur des règles
+déterministes appliquées à des interfaces utilisateur, il reproduit
+des séquences d\textquotesingle actions prédéfinies sans comprendre le
+contexte ni s\textquotesingle adapter aux variations.
+L\textquotesingle automatisation cognitive, en revanche, introduit la
+capacité de perception contextuelle, de raisonnement et
+d\textquotesingle apprentissage, trois propriétés que les agents LLM
+possèdent nativement. Le passage à l\textquotesingle Agentic BPM ajoute
+une quatrième propriété : l\textquotesingle autonomie décisionnelle,
+c\textquotesingle est-à-dire la capacité de l\textquotesingle agent à
+choisir ses actions en fonction de l\textquotesingle état de
+l\textquotesingle environnement plutôt que de suivre un script
+prédéterminé. C\textquotesingle est précisément cette propriété qui rend
+la coordination stigmergique pertinente : des agents autonomes
+nécessitent un mécanisme de coordination qui ne repose pas sur une
+orchestration centralisée prescrivant chaque action, mais sur un
+environnement partagé guidant le comportement collectif.
+
+\subsection{Systèmes adaptatifs complexes appliqués au
+BPM}\label{systuxe8mes-adaptatifs-complexes-appliquuxe9s-au-bpm}
+
+Dooley (1997) propose un modèle de changement organisationnel basé sur
+les systèmes adaptatifs complexes, démontrant que les organisations
+opèrent comme des CAS avec des propriétés d\textquotesingle émergence,
+d\textquotesingle auto-organisation et de co-évolution avec leur
+environnement. Son cadre identifie quatre caractéristiques des CAS
+organisationnels, la multiplicité d\textquotesingle agents
+hétérogènes, les interactions locales non linéaires, la sensibilité aux
+conditions initiales et l\textquotesingle émergence de patterns macro à
+partir de comportements micro, qui s\textquotesingle appliquent
+directement aux systèmes multi-agents d\textquotesingle orchestration
+logicielle.
+
+Uluhan et Aydin (2014) appliquent spécifiquement cette théorie au BPM,
+argumentant que les processus métier dans les organisations complexes se
+comportent comme des systèmes adaptatifs nécessitant des approches de
+gestion tenant compte de l\textquotesingle émergence et de
+l\textquotesingle auto-organisation plutôt que d\textquotesingle une
+planification rigide et linéaire. Leur contribution principale réside
+dans l\textquotesingle identification de trois limites des approches BPM
+traditionnelles face à la complexité organisationnelle :
+l\textquotesingle hypothèse de prévisibilité (les processus suivent des
+chemins prédéterminés), l\textquotesingle hypothèse de décomposabilité
+(les processus complexes peuvent être décomposés en sous-processus
+indépendants), et l\textquotesingle hypothèse de stabilité (les
+processus changent lentement et de manière contrôlée). Les trois
+hypothèses sont violées dans les contextes de transformation de code à
+grande échelle, où les interdépendances entre fichiers créent des effets
+de cascade imprévisibles, les refactorings parallèles interfèrent
+mutuellement, et l\textquotesingle environnement technique évolue
+continûment (mises à jour de dépendances, changements
+d\textquotesingle API).
+
+La convergence entre CAS et BPM stigmergique est structurelle. Dans les
+deux cas, la coordination émerge des interactions locales plutôt que
+d\textquotesingle une planification globale, les agents
+s\textquotesingle adaptent aux changements environnementaux sans
+reconfiguration centralisée, et les patterns d\textquotesingle activité
+collective émergent de manière organique plutôt que prescrite. La
+stigmergie fournit le mécanisme opérationnel concret qui permet aux
+principes abstraits des CAS de s\textquotesingle instancier dans des
+systèmes informatiques réels.
+
+\subsection{Process Mining et LLM pour le cycle de vie
+BPM}\label{process-mining-et-llm-pour-le-cycle-de-vie-bpm}
+
+Berti et al. (2024) examinent comment le Process Mining peut être
+repensé à l\textquotesingle ère des agents IA, proposant que les agents
+puissent interagir directement avec les \emph{event logs} pour
+découvrir, analyser et optimiser les processus de manière autonome.
+Cette vision est particulièrement pertinente pour
+l\textquotesingle orchestration stigmergique, où les traces
+environnementales (commits, modifications de fichiers, résultats de
+tests) constituent naturellement un \emph{event log} exploitable par les
+techniques de Process Mining. L\textquotesingle intégration du Process
+Mining dans une architecture stigmergique permettrait de boucler la
+boucle d\textquotesingle apprentissage : les agents génèrent des traces
+via leurs actions sur l\textquotesingle environnement, le Process Mining
+analyse ces traces pour identifier des patterns
+d\textquotesingle efficacité ou des goulots
+d\textquotesingle étranglement, et ces analyses alimentent à leur tour
+les mécanismes de phéromones (renforcement des traces associées à des
+patterns efficaces, évaporation de celles associées à des impasses).
+
+Vidgof, Bachhofner et Mendling (2023) identifient les opportunités et
+défis de l\textquotesingle application des LLM à
+l\textquotesingle ensemble du cycle de vie BPM, découverte de
+processus, analyse de conformité, identification de goulots
+d\textquotesingle étranglement, et recommandation
+d\textquotesingle améliorations, tout en soulignant les risques de
+hallucination et d\textquotesingle incohérence qui nécessitent des
+mécanismes de validation robustes, précisément le type de guardrails
+environnementaux qu\textquotesingle un cadre stigmergique permet
+d\textquotesingle implémenter.
+
+Ce détour par le BPM montre qu\textquotesingle une coordination
+stigmergique peut s\textquotesingle inscrire dans un cadre de processus
+déjà connu des organisations, ce qui facilite
+l\textquotesingle appropriation côté métier et gouvernance.
+
+\section{Benchmarks et évaluation des systèmes
+multi-agents}\label{benchmarks-et-uxe9valuation-des-systuxe8mes-multi-agents}
+
+L\textquotesingle étape suivante consiste à évaluer cette proposition
+avec des critères robustes, au-delà de la seule performance brute.
+
+\subsection{MultiAgentBench : évaluation de la collaboration et
+compétition}\label{multiagentbench--uxe9valuation-de-la-collaboration-et-compuxe9tition}
+
+Zhu et al. (2025) introduisent le premier benchmark systématique pour
+évaluer les capacités de collaboration et de compétition dans les MAS
+basés sur LLM, observant que les benchmarks existants se concentrent sur
+les capacités d\textquotesingle agents individuels dans des
+environnements statiques, négligeant les dynamiques
+d\textquotesingle interaction (Zhu et al., 2025, p. 1). MultiAgentBench
+structure l\textquotesingle évaluation autour de scénarios
+collaboratifs, compétitifs et mixtes, et teste systématiquement
+plusieurs topologies de coordination (étoile, chaîne, arbre, graphe). La
+topologie impacte significativement la performance : les architectures
+en étoile excellent pour la centralisation de décision tandis que les
+graphes complets favorisent l\textquotesingle émergence de consensus
+distribués (Zhu et al., 2025, p. 8). Le benchmark introduit des
+métriques multidimensionnelles incluant des KPIs basés sur des jalons,
+des scores de complétion, et des métriques spécifiques de qualité de
+coordination.
+
+\subsection{REALM-Bench : planification
+dynamique}\label{realm-bench--planification-dynamique}
+
+Geng et Chang (2025) introduisent REALM-Bench, évaluant les MAS dans des
+contextes de planification et scheduling sous contraintes dynamiques.
+Identifiant une lacune critique, la plupart des benchmarks évaluent
+dans des environnements statiques alors que les déploiements réels
+impliquent perturbations continues (Geng \& Chang, 2025, p. 2),
+REALM-Bench intègre perturbations dynamiques, contraintes de ressources
+évolutives et nécessité de réoptimisation continue. Son intégration
+prête à l\textquotesingle emploi avec cinq frameworks majeurs
+(LangGraph, OpenAI Swarm, CrewAI, AutoGen, ALAS) permet des comparaisons
+directes standardisées (Geng \& Chang, 2025, p. 9).
+
+\subsection{Métriques pour la génération de
+code}\label{muxe9triques-pour-la-guxe9nuxe9ration-de-code}
+
+Ghosh Paul et al. (2024) produisent la synthèse la plus complète des
+métriques d\textquotesingle évaluation pour la génération de code par
+LLM, classifiant les métriques en quatre catégories : similarité
+textuelle (BLEU, ROUGE, CodeBLEU), correction fonctionnelle (Pass@k),
+qualité logicielle (lisibilité, maintenabilité, sécurité), et métriques
+sémantiques évaluant la préservation de la signification. Le benchmark
+RACE (2025) propose d\textquotesingle aller au-delà de la correction
+pour évaluer la lisibilité, l\textquotesingle efficacité, la
+maintenabilité et la documentation du code généré.
+
+SWE-bench (Jimenez et al., 2024) s\textquotesingle est imposé comme
+référence pour l\textquotesingle évaluation des agents de génie
+logiciel, structuré autour d\textquotesingle issues GitHub réelles
+nécessitant compréhension du contexte, localisation de bugs et
+génération de patches. SWE-bench Pro (Scale AI, 2025) étend cette
+évaluation avec des problèmes plus complexes nécessitant modifications
+multi-fichiers.
+
+Deux benchmarks complémentaires sont particulièrement pertinents pour
+la validation du framework proposé dans ce mémoire. TravelPlanner
+(Xie et al., 2024) évalue la capacité des systèmes agents à planifier
+des itinéraires sous contraintes multiples (budget, durée, transport,
+hébergement), servant de benchmark généraliste pour
+l\textquotesingle orchestration multi-agents au-delà du génie logiciel.
+Son intérêt réside dans l\textquotesingle évaluation de la satisfaction
+de contraintes dures et souples (\emph{hard/soft constraints}), une
+métrique transposable à la transformation de code où les contraintes
+de compilation, de tests et de conventions constituent des contraintes
+analogues. Amazon PolyMigration (Amazon, 2025) constitue un benchmark
+industriel dédié à la migration de code cross-langage, couvrant des
+scénarios de migration réalistes à l\textquotesingle échelle de
+projets complets. Son orientation industrielle en fait un complément
+naturel aux benchmarks académiques pour la validation de la pertinence
+pratique du framework.
+
+\subsection{Coût-efficacité et
+reproductibilité}\label{couxfbt-efficacituxe9-et-reproductibilituxe9}
+
+Kapoor et al. (2024) établissent la nécessité de frontières de Pareto
+coût-précision comme méthodologie d\textquotesingle évaluation,
+argumentant que les agents qui importent sont ceux qui offrent le
+meilleur compromis coût-performance plutôt que la précision maximale à
+tout prix. Desai et al. (2025) examinent la reproductibilité de la
+recherche sur l\textquotesingle IA, proposant des métriques
+distributionnelles plutôt que déterministes pour les systèmes
+intrinsèquement stochastiques.
+
+Avec ces repères d\textquotesingle évaluation, le passage au cadre
+conceptuel devient plus solide : on ne propose pas seulement une idée
+d\textquotesingle architecture, on prépare aussi la manière de la tester
+de façon crédible.
+
+\section{Cadre conceptuel et identification du
+gap}\label{cadre-conceptuel-et-identification-du-gap}
+
+\subsection{Synthèse croisée de la
+littérature}\label{synthuxe8se-croisuxe9e-de-la-littuxe9rature}
+
+L\textquotesingle analyse des sept blocs thématiques révèle un paysage
+de recherche riche mais fragmenté. La stigmergie est bien théorisée
+comme mécanisme de coordination universel (Heylighen, 2016a, 2016b) et
+formalisée pour les agents cognitifs (Ricci et al., 2007). Un mouvement de convergence se dessine d'ailleurs : des frameworks récents inspirés de l'intelligence en essaim, ainsi que des sorties industrielles (dont Kimi 2.5), adoptent progressivement cette logique stigmergique.
+Les systèmes multi-agents LLM font
+l\textquotesingle objet d\textquotesingle une recherche active, mais
+privilégient encore majoritairement les architectures hiérarchiques dont
+les limitations sont documentées (Cemri et al., 2025 ; Gao et al., 2025
+; Kapoor et al., 2024). Autrement dit, les briques techniques existent
+désormais en grande partie, et le défi se déplace vers
+l\textquotesingle intégration et l\textquotesingle orchestration
+cohérente de ces éléments. La migration de code avec LLM est validée industriellement
+(Ziftci et al., 2025) mais manque de cadres
+d\textquotesingle orchestration multi-agents. La gouvernance de
+l\textquotesingle IA est traitée au niveau réglementaire (Fink, 2025) et
+organisationnel (Grisold et al., 2025 ; Jarrahi \& Ritala, 2025) mais
+sans considérer les spécificités des systèmes à coordination émergente.
+
+\subsection{Gap identifié}\label{gap-identifiuxe9}
+
+Le gap principal réside dans l\textquotesingle absence
+d\textquotesingle un cadre intégrateur combinant :
+
+\begin{enumerate}
+\def\labelenumi{\arabic{enumi}.}
+\tightlist
+\item
+  Les principes de coordination stigmergique (Heylighen, 2016a ; Ricci
+  et al., 2007) appliqués aux agents LLM plutôt qu\textquotesingle aux
+  agents réactifs simples, et positionnés comme mécanisme de coordination
+  organisationnelle au sens de Malone et Crowston (1994).
+\item
+  Les exigences de gouvernance et auditabilité (Grisold et al., 2025 ;
+  Fink, 2025 ; Santoni de Sio \& van den Hoven, 2018) opérationnalisées
+  pour des systèmes à coordination émergente.
+\item
+  Un ancrage managérial articulant capacités dynamiques (Teece, 2007),
+  transformation des routines organisationnelles (Feldman \& Pentland,
+  2003) et affordances technologiques (Strong et al., 2014) pour
+  dépasser la seule perspective technique.
+\item
+  La validation empirique sur des benchmarks reconnus (TravelPlanner
+  pour la validation généraliste, PolyMigration et SWE-bench pour la
+  transformation de code) avec des métriques multidimensionnelles
+  (performance, coût, gouvernabilité, conformité réglementaire).
+\end{enumerate}
+
+Aucune étude existante ne propose, à notre connaissance, un framework
+d\textquotesingle orchestration multi-agents LLM à coordination
+stigmergique (a) fondé théoriquement dans les sciences de gestion
+(coordination organisationnelle, capacités dynamiques), (b) évalué
+empiriquement sur des benchmarks reconnus avec des métriques intégrant
+performance, coût, gouvernabilité et conformité réglementaire, et
+(c) articulé sous forme de principes de conception
+généralisables. C\textquotesingle est ce gap que le présent
+mémoire vise à combler par une démarche de Design Science Research.
+
+\subsection{Relations conceptuelles entre les blocs
+thématiques}\label{relations-conceptuelles-entre-les-blocs-thuxe9matiques}
+
+L\textquotesingle articulation entre les blocs thématiques de cette
+revue révèle un réseau de relations conceptuelles structurant la
+contribution de ce mémoire. Les fondements théoriques de la stigmergie
+fournissent les principes de décentralisation, construction incrémentale
+et flexibilité adaptative, ensuite opérationnalisés dans les mécanismes
+computationnels de coordination par artefacts. L\textquotesingle ancrage
+managérial (théorie de la coordination, capacités dynamiques, routines
+organisationnelles, affordances technologiques) repositionne la
+stigmergie comme mécanisme de coordination organisationnelle et requalifie
+la transformation logicielle comme capacité dynamique stratégique.
+Les contre-arguments
+(Agentless, MAST, coût-efficacité) contraignent le design en fixant les
+baselines à dépasser et les risques à éviter. Les cas de migration
+(Google, Cursor, COBOL, évolution d\textquotesingle API) définissent le
+domaine applicatif. Les analyses de gouvernance (guardrails,
+principal-agent, AI Act, Meaningful Human Control) apportent les
+contraintes de traçabilité, conformité et acceptabilité.
+L\textquotesingle Agentic BPM fournit le cadre processuel intégrateur,
+et les benchmarks (TravelPlanner, PolyMigration, MultiAgentBench,
+REALM-Bench, RACE, SWE-bench) structurent la méthode
+d\textquotesingle évaluation.
+
+Cette structure révèle que le gap identifié n\textquotesingle est pas
+simplement une absence de travail sur un sujet donné, mais une absence
+d\textquotesingle intégration entre des champs de recherche riches mais
+cloisonnés. La contribution originale de ce mémoire réside précisément
+dans cette intégration, proposant un cadre unifié où les mécanismes
+stigmergiques servent simultanément de support de coordination
+technique, de vecteur de traçabilité pour la gouvernance, et
+d\textquotesingle infrastructure d\textquotesingle évaluation pour la
+validation empirique.
+
+\subsection{Complexity Leadership Theory et transformation du rôle
+managérial}\label{complexity-leadership-theory-et-transformation-du-ruxf4le-managuxe9rial}
+
+L\textquotesingle adoption d\textquotesingle orchestrations
+stigmergiques dans les organisations implique une transformation
+profonde du rôle managérial. Uhl-Bien, Marion et McKelvey (2007), dans
+un article fondamental publié dans \emph{The Leadership Quarterly},
+proposent la Complexity Leadership Theory (CLT) comme cadre pour
+comprendre le passage du leadership bureaucratique industriel au
+leadership adaptatif de l\textquotesingle ère de la connaissance. La CLT
+distingue trois fonctions de leadership interdépendantes : le leadership
+administratif (structures, planification, allocation de ressources), le
+leadership adaptatif (émergence créative, apprentissage organisationnel,
+innovation), et le leadership enabling (création des conditions
+permettant l\textquotesingle émergence adaptive) (Uhl-Bien et al.,
+2007).
+
+Cette théorie s\textquotesingle applique directement à la gouvernance
+des systèmes stigmergiques : le leadership administratif définit les
+guardrails et contraintes environnementales (Grisold et al., 2025), le
+leadership adaptatif reconnaît et exploite les comportements émergents
+plutôt que de les supprimer, et le leadership enabling crée les
+conditions (infrastructure technique, culture organisationnelle,
+formation) permettant la coordination stigmergique efficace. La CLT
+légitime ainsi théoriquement le passage d\textquotesingle un management
+directif des workflows (orchestration hiérarchique) à un management
+facilitateur de l\textquotesingle auto-organisation (orchestration
+stigmergique).
+
+Shrestha, Ben-Menahem et von Krogh (2019) complètent cette perspective
+dans \emph{California Management Review} en proposant un framework des
+structures décisionnelles humain-IA : délégation complète à
+l\textquotesingle IA, décision séquentielle hybride, et décision agrégée
+humain-IA. Ces trois structures décisionnelles correspondent à des
+niveaux d\textquotesingle autonomie agentique croissants et doivent être
+sélectionnées en fonction de cinq facteurs contingents incluant la
+prévisibilité de la tâche, la disponibilité des données et les enjeux
+éthiques (Shrestha et al., 2019). Pour l\textquotesingle orchestration
+stigmergique de la migration de code, la décision séquentielle hybride
+semble la plus adaptée : les agents génèrent et proposent des
+transformations (première phase), les guardrails environnementaux
+filtrent et valident automatiquement (deuxième phase), et les humains
+interviennent pour les cas complexes ou critiques (troisième phase).
+
+\subsection{Cadre conceptuel proposé}\label{cadre-conceptuel-proposuxe9}
+
+Le cadre conceptuel de ce mémoire repose sur trois piliers articulant
+les contributions de la littérature, structurés selon la logique du
+Design Science Research (Hevner et al., 2004) qui exige un ancrage
+simultané dans l\textquotesingle environnement organisationnel
+(pertinence pratique) et dans la base de connaissances théoriques
+(rigueur scientifique).
+
+Pilier managérial (primaire), Coordination organisationnelle et
+capacités dynamiques. La théorie de la coordination (Malone \& Crowston,
+1994) positionne la stigmergie comme un mécanisme de coordination
+organisationnelle distinct des hiérarchies et des marchés, gérant les
+dépendances par modification environnementale. Les capacités dynamiques
+(Teece, 2007) requalifient la transformation logicielle continue comme
+une capacité organisationnelle stratégique que le framework
+opérationnalise. Les routines organisationnelles (Feldman \& Pentland,
+2003) éclairent la nature du code comme incarnation de routines
+organisationnelles dont la transformation exige traçabilité et
+préservation du savoir tacite. Les affordances technologiques (Strong
+et al., 2014) fournissent le vocabulaire analytique pour évaluer la
+valeur organisationnelle du framework. Les guardrails de Grisold et al.
+(2025) structurent les contraintes environnementales. La perspective
+principal-agent de Jarrahi et Ritala (2025) cadre la relation
+utilisateur-agents. La Complexity Leadership Theory de Uhl-Bien et al.
+(2007) théorise le passage du command-and-control à
+l\textquotesingle orchestration d\textquotesingle écologies
+d\textquotesingle agents. Les structures décisionnelles de Shrestha et
+al. (2019) définissent les modes de collaboration humain-IA.
+
+Pilier conceptuel (fondation), Stigmergie cognitive et coordination
+par artefacts. La stigmergie cognitive (Ricci et al., 2007) fournit le
+cadre théorique pour des agents LLM rationnels se coordonnant via des
+artefacts numériques manipulables. Le modèle de coordination de
+Heylighen (2016a, 2016b) guide la conception des mécanismes de dépôt,
+évaporation et renforcement des traces. Les espaces de tuples de
+Gelernter (1985) et leur extension distribuée TOTA (Mamei \& Zambonelli,
+2009) fournissent l\textquotesingle infrastructure computationnelle. Les
+systèmes adaptatifs complexes (Holland, 1995 ; Kauffman, 1993 ; Dooley,
+1997) fondent théoriquement l\textquotesingle émergence de
+l\textquotesingle ordre à partir d\textquotesingle interactions locales.
+
+Pilier évaluation et conformité, Rigueur empirique et gouvernance.
+Le Meaningful Human Control (Santoni de Sio \& van den Hoven, 2018)
+opérationnalise les exigences de l\textquotesingle Article 14 de
+l\textquotesingle EU AI Act (Fink, 2025). Les frontières de Pareto
+coût-précision de Kapoor et al. (2024) structurent
+l\textquotesingle évaluation. Le baseline Agentless (Xia et al., 2024)
+et le diagnostic MAST (Cemri et al., 2025) fournissent les références
+comparatives. TravelPlanner (Xie et al., 2024) et Amazon PolyMigration
+(Amazon, 2025) complètent le dispositif d\textquotesingle évaluation
+empirique, le premier comme benchmark généraliste de planification sous
+contraintes, le second comme benchmark industriel de migration
+cross-langage.
+
+\section{Design de recherche}\label{design-de-recherche}
+
+\subsection{Approche méthodologique : Design Science Research}\label{approche-muxe9thodologique--design-science-research}
+
+Cette recherche adopte une démarche de \emph{Design Science Research}
+(DSR), méthodologie établie en systèmes d\textquotesingle information par
+Hevner, March, Park et Ram (2004) dans \emph{MIS Quarterly} et
+opérationnalisée par le modèle de processus DSRM de Peffers, Tuunanen,
+Rothenberger et Chatterjee (2007). Le DSR est la méthodologie appropriée
+pour cette recherche car l\textquotesingle objectif n\textquotesingle est
+pas de tester des hypothèses causales (approche positiviste) ni de
+comprendre des significations subjectives (approche interprétiviste),
+mais de \emph{concevoir et évaluer un artefact} résolvant un problème
+organisationnel identifié (Hevner et al., 2004, p. 77).
+
+L\textquotesingle artefact central est un framework
+d\textquotesingle orchestration stigmergique pour systèmes multi-agents
+LLM, conçu d\textquotesingle abord comme architecture généraliste puis
+spécialisé pour la transformation de code. Suivant la taxonomie de
+Hevner et al. (2004), cet artefact comprend trois niveaux :
+un \emph{modèle} (l\textquotesingle architecture stigmergique définissant
+types de marqueurs, règles comportementales des agents et propriétés
+de coordination émergente), une \emph{instanciation} (le prototype
+fonctionnel validant la faisabilité), et des \emph{principes de
+conception} généralisables extraits des
+cycles de conception-évaluation (Gregor, Chandra Kruse \& Seidel, 2020).
+
+Le positionnement de la contribution suit le cadre de Gregor et Hevner
+(2013) : il s\textquotesingle agit d\textquotesingle une exaptation
+au sens de Gregor et Hevner,
+c\textquotesingle est-à-dire l\textquotesingle application d\textquotesingle un
+concept de solution mature (la stigmergie, étudiée depuis 1959) à un
+domaine problématique nouveau (l\textquotesingle orchestration
+d\textquotesingle agents LLM). Ce positionnement maximise la
+revendication de nouveauté tout en s\textquotesingle appuyant sur des
+fondations théoriques solides.
+
+\subsection{Processus DSRM}\label{processus-dsrm}
+
+Le processus de recherche suit les six activités du DSRM (Peffers et al.,
+2007), avec un point d\textquotesingle entrée centré sur le problème :
+
+\emph{Activité 1, Identification et motivation du problème.}
+Les organisations investissent massivement dans la modernisation logicielle,
+mais les approches actuelles échouent à l\textquotesingle échelle. Les
+architectures multi-agents hiérarchiques présentent des taux
+d\textquotesingle échec de 41\% à 86,7\% (Cemri et al., 2025), des surcoûts
+en tokens de 4x à 220x (Gao et al., 2025), et des gains marginaux
+décroissants avec les modèles frontières. Simultanément, les organisations
+font face à des choix stratégiques complexes, casser des monolithes,
+migrer vers des microservices, moderniser incrémentalement, qui
+exigent des cadres d\textquotesingle orchestration flexibles plutôt que
+des workflows rigides.
+
+\emph{Activité 2, Définition des objectifs de la solution.}
+Le framework doit satisfaire cinq objectifs mesurables correspondant aux
+cinq objectifs de conception : (O1) proposer une architecture
+généraliste de coordination stigmergique applicable à des tâches variées ;
+(O2) démontrer l\textquotesingle émergence d\textquotesingle une
+spécialisation des agents sans assignation explicite de rôles ;
+(O3) surpasser les frameworks centralisés sur le benchmark TravelPlanner
+en score final et satisfaction des contraintes dures ;
+(O4) adapter le framework à la transformation de code et atteindre des
+résultats compétitifs sur PolyMigration et SWE-bench ;
+(O5) produire une trace d\textquotesingle audit complète satisfaisant
+les exigences de traçabilité et de conformité réglementaire, validée
+par un panel d\textquotesingle experts.
+
+\emph{Activité 3, Conception et développement.}
+Le prototype sera développé en trois itérations documentées, chaque
+itération étant informée par les résultats de la précédente (conformément
+au principe de recherche itérative (sixième ligne directrice de Hevner
+et al., 2004). Itération 1 : test des rôles agents de base et des
+marqueurs stigmergiques sur des tâches simples (TravelPlanner, benchmark
+de planification généraliste). Itération 2 : raffinement de la
+sémantique des marqueurs et des mécanismes de résolution de conflits sur
+des migrations de complexité modérée (Amazon PolyMigration). Itération
+3 : introduction de comportements émergents sophistiqués
+(spécialisation, priorisation par intensité de phéromone) sur des
+transformations multi-fichiers (SWE-bench). Chaque décision de
+conception sera tracée à une théorie fondatrice, comme
+l\textquotesingle exige la rigueur DSR.
+
+\emph{Activité 4, Démonstration.}
+Application du prototype à 2-3 scénarios concrets de transformation de
+code de complexité croissante sur des projets open source, permettant
+la reproductibilité.
+
+\emph{Activité 5, Évaluation.}
+L\textquotesingle évaluation suit le framework FEDS (Venable, Pries-Heje
+\& Baskerville, 2016) avec une stratégie centrée sur les risques
+techniques et l\textquotesingle efficacité, en trois épisodes :
+(1) Benchmarks techniques (TravelPlanner pour la validation généraliste,
+PolyMigration et SWE-bench pour la validation spécialisée) comparant
+stigmergique vs. single-agent vs. hiérarchique sur les métriques de
+précision, coût, temps et \emph{overhead} de coordination ;
+(2) Étude de cas sur un projet open source réaliste documentant les
+comportements émergents et les patterns de coordination ;
+(3) Évaluation par experts (5-8 professionnels, architectes logiciels,
+managers SI, ingénieurs IA) évaluant utilité, faisabilité,
+gouvernabilité et valeur organisationnelle du framework.
+
+\emph{Activité 6, Communication.}
+Le présent mémoire constitue le vecteur principal de communication.
+Un article ciblant un journal classé ABS/FNEGE est envisagé en
+extension.
+
+\subsection{Conformité aux sept lignes directrices de Hevner et al. (2004)}\label{conformituxe9-aux-sept-guidelines}
+
+Le tableau suivant synthétise la conformité du design de recherche
+aux sept guidelines du DSR :
+
+\begin{longtable}[]{@{}p{0.28\linewidth}p{0.65\linewidth}@{}}
+\toprule
+\textbf{Ligne directrice (Hevner et al., 2004)} & \textbf{Application dans ce mémoire} \\
+\midrule
+\endhead
+G1. Conception d\textquotesingle un artefact & Framework stigmergique (modèle +
+instanciation + principes de conception) \\
+G2. Pertinence du problème & Échecs documentés des MAS hiérarchiques ;
+besoins industriels de modernisation flexible \\
+G3. Évaluation rigoureuse & Trois épisodes FEDS : benchmarks quantitatifs,
+étude de cas, évaluation par experts \\
+G4. Contributions à la recherche & Principes de conception généralisables ;
+extension de la théorie de la coordination aux agents LLM \\
+G5. Rigueur scientifique & Ancrage théorique multi-disciplinaire ;
+métriques standardisées ; comparaison aux baselines \\
+G6. Processus itératif de recherche & Trois itérations documentées avec
+apprentissage inter-cycles \\
+G7. Communication des résultats & Double audience : technique
+(réplicabilité) et managériale (implications organisationnelles) \\
+\bottomrule
+\end{longtable}
+
+\subsection{Champ d\textquotesingle étude}\label{champ-duxe9tude}
+
+Le champ d\textquotesingle étude se situe à
+l\textquotesingle intersection de trois domaines : le génie logiciel
+(migration et transformation de code), les systèmes multi-agents
+(orchestration et coordination), et le management des systèmes
+d\textquotesingle information (gouvernance, coordination
+organisationnelle et conformité). Le terrain empirique est constitué de
+benchmarks reconnus (TravelPlanner, PolyMigration, SWE-bench) et de
+dépôts de code open source permettant l\textquotesingle évaluation
+reproductible. Le framework est conçu comme une architecture
+généraliste, validée d\textquotesingle abord sur un benchmark de
+planification (TravelPlanner), puis spécialisée et évaluée sur des
+tâches de transformation de code.
+Ce positionnement interdisciplinaire est cohérent avec la formation de
+l\textquotesingle EMLV qui vise à former des managers comprenant les
+enjeux technologiques et capables de gouverner
+l\textquotesingle innovation.
+
+\subsection{Collecte de données}\label{collecte-de-donnuxe9es}
+
+La collecte de données s\textquotesingle inscrit dans le cadre DSRM et
+porte sur trois sources complémentaires.
+
+Source 1, Données du processus de conception.
+Chaque itération de conception produira une documentation structurée :
+décisions de conception et leurs justifications théoriques (théories
+fondatrices), alternatives considérées et raisons de leur abandon,
+résultats intermédiaires et apprentissages. Cette documentation
+constitue la matière première pour l\textquotesingle extraction des
+principes de conception.
+
+Source 2, Données d\textquotesingle évaluation quantitative.
+Le prototype générera des métriques sur chaque benchmark : taux de
+succès par tâche et par projet, coût en tokens par transformation,
+temps d\textquotesingle exécution, taux de rollback, \emph{overhead}
+de coordination, couverture de tests avant/après, et traces
+d\textquotesingle exécution (séquences d\textquotesingle actions des
+agents, patterns de lecture/écriture des phéromones, cas
+d\textquotesingle émergence ou d\textquotesingle impasse). Les
+frontières de Pareto coût-précision (Kapoor et al., 2024) permettront de
+situer l\textquotesingle approche par rapport aux alternatives.
+
+Source 3, Données d\textquotesingle évaluation par experts.
+Un panel de 5-8 experts (architectes logiciels, managers SI, ingénieurs
+IA) évaluera le framework via un protocole structuré : présentation du
+concept stigmergique, démonstration live, questionnaire avec items
+Likert sur utilité, faisabilité, gouvernabilité et valeur
+organisationnelle, puis questions ouvertes. Ce dispositif remplace les
+entretiens semi-directifs exploratoires initialement envisagés : dans
+le cadre DSR, les experts évaluent l\textquotesingle artefact plutôt que
+de fournir des données exploratoires (Venable et al., 2016). Des
+entretiens complémentaires informels avec des praticiens du terrain
+(data scientists, responsables IA, managers de programmes de
+transformation) pourront enrichir la compréhension du contexte
+organisationnel et nourrir la discussion.
+
+\subsection{Analyse des données}\label{analyse-des-donnuxe9es}
+
+Les données quantitatives seront analysées selon plusieurs cadres
+complémentaires. Les frontières de Pareto coût-précision (Kapoor et al.,
+2024) permettront de situer l\textquotesingle approche stigmergique par
+rapport à l\textquotesingle ensemble des alternatives existantes. La
+comparaison au baseline Agentless (Xia et al., 2024) établira si la
+complexité additionnelle de la coordination multi-agents est justifiée.
+La taxonomie MAST (Cemri et al., 2025) servira de grille de lecture
+des modes d\textquotesingle échec observés.
+
+Les données qualitatives (traces de conception, évaluations experts)
+seront analysées pour extraire des principes de conception selon le
+format de Gregor et al. (2020) : « Pour [contexte/classe
+d\textquotesingle utilisateurs], [caractéristique de
+l\textquotesingle artefact] produira [résultat] parce que
+[mécanisme/justification] ». L\textquotesingle objectif est de formuler
+4-6 principes de conception généralisables au-delà du seul cas de la
+transformation de code.
+
+\subsection{Limites anticipées}\label{limites-anticipuxe9es}
+
+Plusieurs limites méthodologiques sont anticipées. Le prototype sera
+évalué sur un ensemble de benchmarks et de cas, mais la
+généralisabilité restera conditionnée par le volume et la diversité des
+scénarios effectivement testés. Le panel d\textquotesingle experts
+(5-8 personnes) vise la richesse qualitative mais ne prétend pas à la
+représentativité statistique. Les résultats dépendront des modèles LLM
+disponibles au moment du développement, dont les capacités évoluent
+rapidement. Le protocole expérimental peut engendrer des coûts
+d\textquotesingle API non négligeables, ce qui peut contraindre
+l\textquotesingle ampleur des campagnes de test. Le contexte
+mono-chercheur du mémoire limite les possibilités de triangulation par
+les investigateurs. Enfin, le niveau de contribution visé est celui de
+la théorie de conception émergente au sens de Gregor et Hevner (2013), c\textquotesingle est-à-dire
+des principes de conception soutenus par une instanciation et des
+preuves d\textquotesingle évaluation initiales, nécessitant des
+recherches futures pour atteindre le statut de théorie de conception
+complète. Ces limites sont reconnues et seront discutées dans
+l\textquotesingle analyse des résultats.
+
+\newpage
+\section{Bibliographie}\label{bibliographie}
+
+Amazon. (2024). \emph{Amazon Q Developer Agent: Java migration
+capabilities}. \url{https://aws.amazon.com/q/developer/}
+
+Amazon. (2025). \emph{PolyMigration: A benchmark for cross-language code
+migration}. Amazon Web Services.
+\url{https://aws.amazon.com/q/developer/polymigration/}
+
+Anthropic. (2025). \emph{When to use multi-agent systems (and when not
+to)}. Claude Documentation. \url{https://docs.anthropic.com/}
+
+Anthropic. (2025b, December 2). \emph{How AI is transforming work at
+Anthropic}.
+\url{https://www.anthropic.com/news/how-ai-is-transforming-work-at-anthropic}
+
+Anthropic. (2025c). \emph{Model Context Protocol (MCP)}.
+\url{https://modelcontextprotocol.io/}
+
+Anthropic. (2026). \emph{Claude Code}. \url{https://claude.ai/code}
+
+Barke, S., James, M. B., \& Polikarpova, N. (2023). Grounded Copilot:
+How programmers interact with code-generating models. \emph{Proceedings
+of the ACM on Programming Languages, 7}(OOPSLA1), 85-111.
+\url{https://doi.org/10.1145/3586030}
+
+Berti, A., Maatallah, M., Jessen, U., Sroka, M., \& Ghannouchi, S. A.
+(2024). Re-thinking process mining in the AI-based agents era.
+\emph{arXiv preprint arXiv:2408.07720}.
+\url{https://doi.org/10.48550/arXiv.2408.07720}
+
+Bolici, F., Howison, J., \& Crowston, K. (2016). Stigmergic coordination
+in FLOSS development teams: Integrating explicit and implicit
+mechanisms. \emph{Cognitive Systems Research, 38}, 14-22.
+\url{https://doi.org/10.1016/j.cogsys.2015.12.003}
+
+Bonabeau, E., Dorigo, M., \& Theraulaz, G. (1999). \emph{Swarm
+intelligence: From natural to artificial systems}. Oxford University
+Press.
+
+Carriero, N., \& Gelernter, D. (1992). Coordination languages and their
+significance. \emph{Communications of the ACM, 35}(2), 97-107.
+\url{https://doi.org/10.1145/129630.129635}
+
+Cemri, M., Pan, M. Z., Yang, S., et al. (2025). Why do multi-agent LLM
+systems fail? \emph{arXiv preprint arXiv:2503.13657}.
+\url{https://doi.org/10.48550/arXiv.2503.13657}
+
+Chari, A., Tiwari, A., Lian, R., Reddy, S., \& Zhou, B. (2025).
+Pheromone-based learning of optimal reasoning paths. \emph{arXiv
+preprint arXiv:2501.19278}.
+\url{https://doi.org/10.48550/arXiv.2501.19278}
+
+Chen, Z., Zhao, Z., Zhou, A., Huang, Y., Wang, D., Poon, J., \& Li, J.
+(2024). AgentPoison: Red-teaming LLM agents via poisoning memory or
+knowledge bases. In \emph{Advances in Neural Information Processing
+Systems 37 (NeurIPS 2024)}. \url{https://arxiv.org/abs/2407.12784}
+
+CodeRosetta. (2024). Pushing the boundaries of unsupervised code
+translation for parallel programming. \emph{Advances in Neural
+Information Processing Systems 37 (NeurIPS 2024)}.
+
+Cognitive RPA Framework. (2025). Cognitive RPA: A framework for
+hybridizing artificial intelligence with robotic process automation.
+\emph{European Journal of Computer Science and Information Technology,
+13}(19), 64-78.
+
+Creswell, J. W., \& Creswell, J. D. (2018). \emph{Research design:
+Qualitative, quantitative, and mixed methods approaches} (5th ed.). SAGE
+Publications.
+
+Cursor. (2025). Scaling long-running autonomous coding. \emph{Cursor
+Blog}. \url{https://cursor.com/blog/scaling-agents}
+
+Desai, A., et al. (2025). What is reproducibility in artificial
+intelligence and machine learning research? \emph{arXiv preprint
+arXiv:2407.10239}. \url{https://doi.org/10.48550/arXiv.2407.10239}
+
+Dietvorst, B. J., Simmons, J. P., \& Massey, C. (2015). Algorithm
+aversion: People erroneously avoid algorithms after seeing them err.
+\emph{Journal of Experimental Psychology: General, 144}(1), 114-126.
+\url{https://doi.org/10.1037/xge0000033}
+
+Dietvorst, B. J., Simmons, J. P., \& Massey, C. (2018). Overcoming
+algorithm aversion: People will use algorithms if they can (even
+slightly) modify them. \emph{Management Science, 64}(3), 1155-1170.
+\url{https://doi.org/10.1287/mnsc.2016.2643}
+
+Dig, D., \& Johnson, R. (2005). The role of refactorings in API
+evolution. In \emph{IEEE International Conference on Software
+Maintenance (ICSM 2005)} (pp. 2-11).
+\url{https://doi.org/10.1109/ICSM.2005.26}
+
+Diggs, C., Doyle, M., Madan, A., \& Scott, E. O. (2025). Leveraging LLMs
+for legacy code modernization: Evaluation of LLM-generated
+documentation. In \emph{2025 IEEE/ACM International Workshop on Large
+Language Models for Code (LLM4Code@ICSE 2025)}.
+\url{https://doi.org/10.1109/LLM4Code66737.2025.00027}
+
+Dooley, K. (1997). A complex adaptive systems model of organization
+change. \emph{Nonlinear Dynamics, Psychology, and Life Sciences, 1}(1),
+69-97. \url{https://doi.org/10.1023/A:1022375910940}
+
+Dumas, M., Leopold, H., Mendling, J., Rinderle-Ma, S., Smedt, J. D., \&
+Zimoch, M. (2026). Agentic business process management systems.
+\emph{arXiv preprint arXiv:2601.18833}.
+\url{https://doi.org/10.48550/arXiv.2601.18833}
+
+Fink, M. (2025). Human oversight under Article 14 of the EU AI Act.
+\emph{SSRN}. \url{https://ssrn.com/abstract=5147196}
+
+Feldman, M. S., \& Pentland, B. T. (2003). Reconceptualizing
+organizational routines as a source of flexibility and change.
+\emph{Administrative Science Quarterly, 48}(1), 94-118.
+\url{https://doi.org/10.2307/3556620}
+
+Floridi, L. (2016). Faultless responsibility: On the nature and
+allocation of moral responsibility for distributed moral actions.
+\emph{Philosophical Transactions of the Royal Society A, 374}(2083),
+20160112. \url{https://doi.org/10.1098/rsta.2016.0112}
+
+Gao, M., Li, Y., Liu, B., et al. (2025). Single-agent or multi-agent
+systems? Why not both? \emph{arXiv preprint arXiv:2505.18286}.
+\url{https://doi.org/10.48550/arXiv.2505.18286}
+
+García-Ruiz, P., \& Rocchi, M. (2025). Can work remain meaningful under
+algorithmic management? A MacIntyrean analysis. \emph{Business Ethics
+Quarterly, 35}(1), 1-28. \url{https://doi.org/10.1017/beq.2024.36}
+
+Gelernter, D. (1985). Generative communication in Linda. \emph{ACM
+Transactions on Programming Languages and Systems, 7}(1), 80-112.
+\url{https://doi.org/10.1145/2363.2433}
+
+Geng, L., \& Chang, E. Y. (2025). REALM-Bench: A benchmark for
+evaluating multi-agent systems on real-world, dynamic planning and
+scheduling tasks. \emph{arXiv preprint arXiv:2502.18836}.
+\url{https://doi.org/10.48550/arXiv.2502.18836}
+
+Ghosh Paul, D., Zhu, H., \& Bayley, I. (2024). Benchmarks and metrics
+for evaluations of code generation: A critical review. \emph{arXiv
+preprint arXiv:2406.12655}.
+\url{https://doi.org/10.48550/arXiv.2406.12655}
+
+Grassé, P.-P. (1959). La reconstruction du nid et les coordinations
+interindividuelles chez \emph{Bellicositermes natalensis} et
+\emph{Cubitermes} sp. la théorie de la stigmergie. \emph{Insectes
+Sociaux, 6}(1), 41-80. \url{https://doi.org/10.1007/BF02223791}
+
+Gregor, S., \& Hevner, A. R. (2013). Positioning and presenting design
+science research for maximum impact. \emph{MIS Quarterly, 37}(2),
+337-355. \url{https://doi.org/10.25300/MISQ/2013/37.2.01}
+
+Gregor, S., Chandra Kruse, L., \& Seidel, S. (2020). The anatomy of a
+design principle. \emph{Journal of the Association for Information
+Systems, 21}(6), 1622-1652.
+\url{https://doi.org/10.17705/1jais.00649}
+
+Grisold, T., Berente, N., \& Seidel, S. (2025). Guardrails for human-AI
+ecologies: Norm-based coordination and design for predictability.
+\emph{MIS Quarterly, 49}(4), 1239-1266.
+\url{https://doi.org/10.25300/MISQ/2025/18058}
+
+Heylighen, F. (2016a). Stigmergy as a universal coordination mechanism
+I: Definition and components. \emph{Cognitive Systems Research, 38},
+4-13. \url{https://doi.org/10.1016/j.cogsys.2015.12.002}
+
+Heylighen, F. (2016b). Stigmergy as a universal coordination mechanism
+II: Varieties and evolution. \emph{Cognitive Systems Research, 38},
+50-59. \url{https://doi.org/10.1016/j.cogsys.2015.12.007}
+
+Holland, J. H. (1995). \emph{Hidden order: How adaptation builds
+complexity}. Addison-Wesley.
+
+Holmström, J., et al. (2023). \textquotesingle Human
+oversight\textquotesingle{} in the EU artificial intelligence act: What,
+when and by whom? \emph{Law, Innovation and Technology} (Taylor \&
+Francis). \url{https://doi.org/10.1080/17579961.2023.2293129}
+
+Hevner, A. R., March, S. T., Park, J., \& Ram, S. (2004). Design
+science in information systems research. \emph{MIS Quarterly, 28}(1),
+75-105. \url{https://doi.org/10.2307/25148625}
+
+Hong, S., Zhuge, M., Chen, J., et al. (2024). MetaGPT: Meta programming
+for a multi-agent collaborative framework. \emph{arXiv preprint
+arXiv:2308.00352}. \url{https://doi.org/10.48550/arXiv.2308.00352}
+
+IBM. (2023). \emph{IBM unveils watsonx generative AI capabilities to
+accelerate mainframe application modernization}.
+\url{https://newsroom.ibm.com/2023-08-22-IBM-Unveils-watsonx-Generative-AI-Capabilities-to-Accelerate-Mainframe-Application-Modernization}
+
+Jarrahi, M. H., \& Ritala, P. (2025, July 23). Rethinking AI agents: A
+principal-agent perspective. \emph{California Management Review}
+(Insight).
+\url{https://cmr.berkeley.edu/2025/07/rethinking-ai-agents-a-principal-agent-perspective/}
+
+Jimenez, C. E., Yang, J., Wettig, A., et al. (2024). SWE-bench: Can
+language models resolve real-world GitHub issues? \emph{arXiv preprint
+arXiv:2310.06770}. \url{https://doi.org/10.48550/arXiv.2310.06770}
+
+Kapoor, S., Stroebl, B., Siegel, Z. S., Nadgir, N., \& Narayanan, A.
+(2024). AI agents that matter. \emph{arXiv preprint arXiv:2407.01502}.
+\url{https://doi.org/10.48550/arXiv.2407.01502}
+
+Kauffman, S. A. (1993). \emph{The origins of order: Self-organization
+and selection in evolution}. Oxford University Press.
+
+Kim, H.-W., \& Kankanhalli, A. (2009). Investigating user resistance to
+information systems implementation: A status quo bias perspective.
+\emph{MIS Quarterly, 33}(3), 567-582.
+\url{https://doi.org/10.2307/20650309}
+
+Lamothe, M., Guéhéneuc, Y.-G., \& Shang, W. (2021). A systematic review
+of API evolution literature. \emph{ACM Computing Surveys, 54}(8),
+171:1-171:36. \url{https://doi.org/10.1145/3450268}
+
+Lee, D., \& Tiwari, M. (2024). Prompt injection: LLM-to-LLM prompt
+injection within multi-agent systems. \emph{arXiv preprint
+arXiv:2410.07283}. \url{https://arxiv.org/abs/2410.07283}
+
+Lee, J. D., \& See, K. A. (2004). Trust in automation: Designing for
+appropriate reliance. \emph{Human Factors, 46}(1), 50-80.
+\url{https://doi.org/10.1518/hfes.46.1.50_30392}
+
+Liu, X., Yu, H., Zhang, H., et al. (2024). AgentBench: Evaluating LLMs
+as agents. \emph{arXiv preprint arXiv:2308.03688}.
+\url{https://doi.org/10.48550/arXiv.2308.03688}
+
+Mamei, M., \& Zambonelli, F. (2009). Programming pervasive and mobile
+computing applications: The TOTA approach. \emph{ACM Transactions on
+Software Engineering and Methodology, 18}(4), 1-56.
+\url{https://doi.org/10.1145/1538942.1538945}
+
+Malone, T. W., \& Crowston, K. (1994). The interdisciplinary study of
+coordination. \emph{ACM Computing Surveys, 26}(1), 87-119.
+\url{https://doi.org/10.1145/174666.174668}
+
+Markus, M. L. (1983). Power, politics, and MIS implementation.
+\emph{Communications of the ACM, 26}(6), 430-444.
+\url{https://doi.org/10.1145/358141.358148}
+
+Marsh, L., \& Onof, C. (2008). Stigmergic epistemology, stigmergic
+cognition. \emph{Cognitive Systems Research, 9}(1-2), 136-149.
+\url{https://doi.org/10.1016/j.cogsys.2007.06.009}
+
+Miles, M. B., Huberman, A. M., \& Saldaña, J. (2020). \emph{Qualitative
+data analysis: A methods sourcebook} (4th ed.). SAGE Publications.
+
+Mukherjee, A., \& Chang, H. (2025). Operational agency: A framework for
+tracing intent and liability in multi-agent artificial intelligence
+systems. \emph{SSRN Electronic Journal}.
+\url{https://doi.org/10.2139/ssrn.5136065}
+
+Parunak, H. V. D. (1997). "Go to the ant": Engineering principles from
+natural agent systems. \emph{Annals of Operations Research, 75}, 69-101.
+\url{https://doi.org/10.1023/A:1018980001403}
+
+OpenAI. (2026, February 5). \emph{Introducing GPT‑5.3‑Codex}.
+\url{https://openai.com/index/introducing-gpt-5-3-codex/}
+
+OpenAI. (2022, November 30). \emph{Introducing ChatGPT}.
+\url{https://openai.com/index/chatgpt/}
+
+OpenAI. (2026b). \emph{Codex CLI Documentation}.
+\url{https://developers.openai.com/codex/cli}
+
+Peng, S., Kalliamvakou, E., Cihon, P., \& Demirer, M. (2023). The impact
+of AI on developer productivity: Evidence from GitHub Copilot.
+\emph{arXiv preprint arXiv:2302.06590}.
+\url{https://doi.org/10.48550/arXiv.2302.06590}
+
+Peffers, K., Tuunanen, T., Rothenberger, M. A., \& Chatterjee, S.
+(2007). A design science research methodology for information systems
+research. \emph{Journal of Management Information Systems, 24}(3),
+45-77. \url{https://doi.org/10.2753/MIS0742-1222240302}
+
+Rahman, M. A. U., Schranz, M., \& Hayat, S. (2025). LLM-powered swarms:
+A new frontier or a conceptual stretch? \emph{arXiv preprint
+arXiv:2506.14496}. \url{https://doi.org/10.48550/arXiv.2506.14496}
+
+Ricci, A., Omicini, A., Viroli, M., Gardelli, L., \& Oliva, E. (2007).
+Cognitive stigmergy: Towards a framework based on agents and artifacts.
+In D. Weyns, H. V. D. Parunak, \& F. Michel (Eds.), \emph{Environments
+for Multi-Agent Systems III} (LNCS Vol. 4389, pp. 124-140). Springer.
+\url{https://doi.org/10.1007/978-3-540-71103-2_7}
+
+Rodriguez, R. R., Jr. (2026). Emergent coordination in multi-agent
+systems via pressure fields and temporal decay. \emph{arXiv preprint
+arXiv:2601.08129}. \url{https://doi.org/10.48550/arXiv.2601.08129}
+
+Rozière, B., Lachaux, M.-A., Chanussot, L., \& Lample, G. (2020).
+Unsupervised translation of programming languages. \emph{Advances in
+Neural Information Processing Systems 33 (NeurIPS 2020)}, 20601-20611.
+\url{https://doi.org/10.48550/arXiv.2009.08732}
+
+Santoni de Sio, F., \& van den Hoven, J. (2018). Meaningful human
+control over autonomous systems: A philosophical account.
+\emph{Frontiers in Robotics and AI, 5}, Article 15.
+\url{https://doi.org/10.3389/frobt.2018.00015}
+
+Serugendo, G. D. M., Gleizes, M. P., \& Karageorgos, A. (2005).
+Self-organization in multi-agent systems. \emph{The Knowledge
+Engineering Review, 20}(2), 165-189.
+\url{https://doi.org/10.1017/S0269888905000494}
+
+Shrestha, Y. R., Ben-Menahem, S. M., \& von Krogh, G. (2019).
+Organizational decision-making structures in the age of artificial
+intelligence. \emph{California Management Review, 61}(4), 66-83.
+\url{https://doi.org/10.1177/0008125619862257}
+
+Sneed, H. M. (2010). Migrating from COBOL to Java. In \emph{IEEE
+International Conference on Software Maintenance (ICSM 2010)} (pp.
+237-246). \url{https://doi.org/10.1109/ICSM.2010.5609741}
+
+Strong, D. M., Volkoff, O., Johnson, S. A., Pelletier, L. R., Tulu, B.,
+Bar-On, I., Trudel, J., \& Garber, L. (2014). A theory of
+organization-EHR affordance actualization. \emph{Journal of the
+Association for Information Systems, 15}(2), 53-85.
+\url{https://doi.org/10.17705/1jais.00353}
+
+Teece, D. J. (2007). Explicating dynamic capabilities: The nature and
+microfoundations of (sustainable) enterprise performance.
+\emph{Strategic Management Journal, 28}(13), 1319-1350.
+\url{https://doi.org/10.1002/smj.640}
+
+Theraulaz, G., \& Bonabeau, E. (1999). A brief history of stigmergy.
+\emph{Artificial Life, 5}(2), 97-116.
+\url{https://doi.org/10.1162/106454699568700}
+
+Turel, O., \& Kalhan, S. (2023). Prejudiced against the machine?
+Implicit associations and the transience of algorithm aversion.
+\emph{MIS Quarterly, 47}(4), 1369-1394.
+\url{https://doi.org/10.25300/MISQ/2023/16860}
+
+Uhl-Bien, M., Marion, R., \& McKelvey, B. (2007). Complexity leadership
+theory: Shifting leadership from the industrial age to the knowledge
+era. \emph{The Leadership Quarterly, 18}(4), 298-318.
+\url{https://doi.org/10.1016/j.leaqua.2007.04.002}
+
+Uluhan, E., \& Aydin, M. N. (2014). Complex adaptive systems theory in
+the context of business process management. In \emph{S-BPM ONE 2014:
+Scientific Research} (pp. 11-23). Springer.
+\url{https://doi.org/10.1007/978-3-319-06191-7_2}
+
+Vidgof, M., Bachhofner, S., \& Mendling, J. (2023). Large language
+models for business process management: Opportunities and challenges.
+\emph{arXiv preprint arXiv:2304.04309}.
+\url{https://doi.org/10.48550/arXiv.2304.04309}
+
+Vu, H., Klievtsova, N., Leopold, H., Rinderle-Ma, S., \& Kampik, T.
+(2026). Agentic business process management: Practitioner perspectives
+on agent governance in business processes. In \emph{BPM 2025 Responsible
+BPM Forum. Lecture Notes in Business Information Processing} (vol. 565).
+Springer. \url{https://doi.org/10.48550/arXiv.2504.03693}
+
+Venable, J., Pries-Heje, J., \& Baskerville, R. (2016). FEDS: A
+framework for evaluation in design science research. \emph{European
+Journal of Information Systems, 25}(1), 77-89.
+\url{https://doi.org/10.1057/ejis.2014.36}
+
+Wang, X., Li, B., Song, Y., et al. (2025). OpenHands: An open platform
+for AI software developers as generalist agents. \emph{arXiv preprint
+arXiv:2407.16741}. \url{https://doi.org/10.48550/arXiv.2407.16741}
+
+Weyns, D., Omicini, A., \& Odell, J. (2007). Environment as a first
+class abstraction in multiagent systems. \emph{Autonomous Agents and
+Multi-Agent Systems, 14}(1), 5-30.
+\url{https://doi.org/10.1007/s10458-006-0012-0}
+
+Winfield, A. F. T., et al. (2025). On the ethical governance of swarm
+robotic systems in the real world. \emph{Philosophical Transactions of
+the Royal Society A, 383}(2289), 20240142.
+\url{https://doi.org/10.1098/rsta.2024.0142}
+
+Xia, C. S., Deng, Y., Dunn, S., \& Zhang, L. (2024). Agentless:
+Demystifying LLM-based software engineering agents. \emph{arXiv preprint
+arXiv:2407.01489}. \url{https://doi.org/10.48550/arXiv.2407.01489}
+
+Xie, J., Zhang, K., Chen, J., Zhu, T., Lou, R., Tian, Y., Xiao, Y.,
+\& Su, Y. (2024). TravelPlanner: A benchmark for real-world planning
+with language agents. In \emph{Proceedings of the 41st International
+Conference on Machine Learning (ICML 2024)}.
+\url{https://doi.org/10.48550/arXiv.2402.01622}
+
+Yan, W. (2025, June 12). Don\textquotesingle t build multi-agents.
+\emph{Cognition AI Blog}. \url{https://www.cognition-labs.com/blog}
+
+Yang, J., Jimenez, C. E., Yao, S., et al. (2024). SWE-agent:
+Agent-computer interfaces enable automated software engineering.
+\emph{arXiv preprint arXiv:2405.15793}.
+\url{https://doi.org/10.48550/arXiv.2405.15793}
+
+Zhang, Y., Lin, C., Tang, S., Chen, H., Zhou, S., Ma, Y., \& Tresp, V.
+(2025). SwarmAgentic: Towards fully automated agentic system generation
+via swarm intelligence. \emph{arXiv preprint arXiv:2506.15672}.
+\url{https://doi.org/10.48550/arXiv.2506.15672}
+
+Zhu, K., Du, H., Hong, Z., et al. (2025). MultiAgentBench: Evaluating
+the collaboration and competition of LLM agents. \emph{arXiv preprint
+arXiv:2503.01935}. \url{https://doi.org/10.48550/arXiv.2503.01935}
+
+Ziftci, C., Zheng, J., Choudhary, S., Rossbach, C., Chen, W., Li, W.,
+Wang, J., \& Zhang, L. (2025). Migrating code at scale with LLMs at
+Google. In \emph{Proceedings of the ACM International Conference on the
+Foundations of Software Engineering (FSE 2025)}.
+
+\newpage
+\appendix
+\input{annexe_ia.tex}
+
+\end{document}

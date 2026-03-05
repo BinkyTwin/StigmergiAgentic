@@ -16,8 +16,11 @@ Les ADRs suivent le format : `YYYYMMDD-titre-court.md`
 | 004 | 2026-02-12 | [Sprint 2.5 Docker Infrastructure for Tests & Migrations](20260212-sprint2.5-docker-infrastructure.md) | Accepté | Docker multi-stage + docker-compose + Makefile pour exécution reproductible |
 | 005 | 2026-02-12 | [Sprint 3 Full Orchestration Loop with Blocking Gate on docopt/docopt@0.6.2](20260212-sprint3-loop-gating-docopt.md) | Accepté | Loop/CLI/metrics Sprint 3 + fallback adaptatif + gate bloquant local/Docker validé |
 | 006 | 2026-02-12 | [Sprint 3 LLM Cost Budgeting with Uncapped Output Tokens](20260212-sprint3-llm-cost-budget-and-uncapped-output.md) | Accepté | Suppression du cap output dur + budget USD optionnel basé sur pricing OpenRouter et usage réel |
-| 007 | 2026-02-20 | [Sprint 6 Capability Extraction with Non-Python Text Pipeline](20260220-sprint6-capabilities-non-python.md) | Accepté | Capacités réutilisables + pipeline texte non-Python avec guardrails stricts |
-| 008 | 2026-02-23 | [Sprint 6 Guardrail Hardening for Non-Python Pipeline](20260223-sprint6-guardrail-hardening.md) | Accepté | Références `.py` bornées au repo, guardrail `.sh` portable, prompt système non-Python dédié |
+| 007 | 2026-02-26 | [Sprint 1 V2 Core Reset and SQLite Marker Store](20260226-sprint1-v2-core-reset-and-sqlite-marker-store.md) | Accepté | Hard reset runtime V0.1 + core générique V2 (Marker, MarkerStore WAL, Guardrails, Audit, Config, 31 tests) |
+| 008 | 2026-02-26 | [Sprint 2 V2 Generic Agent Runtime (Pressure + Orchestrator)](20260226-sprint2-v2-agent-orchestrator-runtime.md) | Accepté | Runtime générique Sprint 2 (tool registry, pressure model, environment, agent, orchestrator async/sync, port LLM client, 61 tests unitaires) |
+| 009 | 2026-02-26 | [Sprint 3 V2 Infrastructure Tools and Assistant Mode](20260226-sprint3-v2-infrastructure-tools-and-assistant-mode.md) | Accepté | Ajout couche `tools/`, adaptateur assistant, CLI `main.py`, validation stricte config tools, 85 tests |
+| 010 | 2026-03-04 | [Sprint 4 V3 Runtime Overhaul](20260304-sprint4-v3-runtime-overhaul.md) | Accepté | Async LLM structuré, DAG dépendances, renforcement, isolation de session, contexte workspace, 131 tests |
+| 011 | 2026-03-04 | [Sprint 5 V3 Memory, Emergence, and Lesson Markers](20260304-sprint5-v3-memory-emergence-lessons.md) | Accepté | Mémoire agentique, métriques d’émergence, markers lesson, pressure heuristique, dashboard CLI, 168 tests |
 
 ---
 
@@ -37,4 +40,4 @@ Quand NE PAS créer un ADR :
 
 ---
 
-**Dernière mise à jour** : 2026-02-23
+**Dernière mise à jour** : 2026-03-04

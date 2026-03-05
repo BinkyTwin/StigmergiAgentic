@@ -1,0 +1,42 @@
+framework:
+  mode: "assistant"
+
+agents:
+  num_agents: 2
+  selection_temperature: 0.15
+  memory_capacity: 20
+  memory_decay_rate: 0.1
+
+orchestrator:
+  max_ticks: 30
+  idle_cycles_to_stop: 3
+
+decompose:
+  max_depth: 2
+  max_subtasks: 10
+  allow_redecompose: false
+
+reinforcement:
+  enabled: true
+  rate: 0.12
+  propagation_factor: 0.6
+  lesson_threshold: 0.7
+
+emergence:
+  enabled: true
+
+async:
+  max_concurrent_llm_calls: 4
+  subprocess_timeout: 60
+
+tools:
+  sandbox_root: "."
+  allowed_commands:
+    - "python"
+    - "pytest"
+    - "git"
+    - "uv"
+  bash_timeout_seconds: 60
+  max_file_size_bytes: 1048576
+  web_search_provider: "tavily"
+  web_search_max_results: 5

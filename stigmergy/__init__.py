@@ -1,1 +1,0 @@
-"""Stigmergic orchestration package."""

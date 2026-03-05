@@ -682,91 +682,262 @@ Chaque entrée suit ce format :
 - `CLAUDE.md`
 - `documentation/construction_log.md`
 
-
 ---
 
-### 2026-02-20 14:35 — Sprint 6 implémenté (capabilities + non-Python strict)
+### 2026-02-26 13:15 — V2 Sprint 1 Reset and Core Environment (SQLite Marker Store)
 
 **Assistant IA utilisé** : Codex (GPT-5)
 
-**Objectif** : Implémenter Sprint 6 de bout en bout sur `codex/v2-sprint6` avec extraction des capacités et extension du pipeline aux fichiers texte non-`.py`.
+**Objectif** : Réinitialiser le runtime V0.1 et implémenter Sprint 1 V2 de bout en bout avec un noyau environnement générique (markers, store SQLite WAL, guardrails, audit, config, tests unitaires).
 
 **Actions effectuées** :
-- Création du package `agents/capabilities/` :
-  - `discover.py` : détection Python (regex + AST + LLM) + découverte non-Python texte.
-  - `transform.py` : exécution de transformation unifiée (`python` + `text_full_file`).
-  - `test.py` : tests Python via callbacks existants + guardrails stricts non-Python.
-  - `validate.py` : décision validator réutilisable (validate/needs_review/retry/skipped).
-- Refactor des agents spécialisés en wrappers fins :
-  - `agents/scout.py` délègue à `capabilities.discover`.
-  - `agents/transformer.py` délègue à `capabilities.transform`.
-  - `agents/tester.py` délègue à `capabilities.test`.
-  - `agents/validator.py` délègue à `capabilities.validate`.
-- Extension config runtime :
-  - ajout `capabilities.non_python` dans `stigmergy/config.yaml` (`enabled`, `include_extensions`, `strict_guardrails`, `legacy_tokens`, etc.).
-- Ajout des tests Sprint 6 :
-  - `tests/test_capabilities.py` (8 tests : 4 parité Python + 4 non-Python strict).
-- Synchronisation documentation de pilotage :
-  - `AGENTS.md`, `CLAUDE.md`, `consigne/POC_V02_plan.md`.
+- Création de la branche `codex/v2-redesign-sprint1` depuis `main`
+- Suppression du runtime V0.1 (`agents/`, `environment/`, `stigmergy/`, `main.py`) et des anciens tests `tests/test_*.py`
+- Implémentation des modules `core/` : `marker.py`, `marker_store.py`, `decay.py`, `guardrails.py`, `audit.py`, `config.py`, `__init__.py`
+- Création de `config/default.yaml` avec sections Sprint 1 validées
+- Création de la nouvelle suite `tests/unit/` (31 tests) + mise à jour `tests/conftest.py`
+- Exécution des validations Sprint 1 strictes
+- Mise à jour de la documentation de pilotage (`AGENTS.md`, `CLAUDE.md`)
 
-**Validation** :
-- `uv run pytest tests/test_capabilities.py -v` ✅ (`8 passed`)
-- `uv run pytest tests/test_scout.py tests/test_transformer.py tests/test_tester.py tests/test_validator.py -v` ✅ (`26 passed`)
-- `uv run pytest tests/test_agents_integration.py -v` ✅ (`4 passed`)
-- `uv run pytest tests/ -v` ✅ (`100 passed, 1 skipped`)
+**Décisions prises** :
+- Adopter SQLite en mode WAL comme store principal de coordination dès Sprint 1 V2
+- Rendre l’audit JSONL append-only obligatoire pour chaque mutation du store
+- Appliquer un hard reset du runtime V0.1 dans la branche V2 pour éviter la cohabitation de deux architectures
+
+**Problèmes rencontrés** :
+- Import `core` indisponible lors de la collecte pytest (`tests/conftest.py`) → correction de l’ordre d’initialisation du `sys.path` avant import des fixtures
+
+**Résultat** : Sprint 1 V2 implémenté et validé (`31 passed` sur `tests/unit`)
 
 **Fichiers modifiés** :
-- `agents/capabilities/__init__.py`
-- `agents/capabilities/discover.py`
-- `agents/capabilities/transform.py`
-- `agents/capabilities/test.py`
-- `agents/capabilities/validate.py`
-- `agents/scout.py`
-- `agents/transformer.py`
-- `agents/tester.py`
-- `agents/validator.py`
-- `stigmergy/config.yaml`
-- `tests/test_capabilities.py`
-- `AGENTS.md`
-- `CLAUDE.md`
-- `consigne/POC_V02_plan.md`
-- `documentation/construction_log.md`
-
+- `core/marker.py` — Dataclass `Marker`, validations strictes, `StateMachine`
+- `core/marker_store.py` — CRUD transactionnel SQLite WAL, lock/unlock, decay, TTL maintenance, snapshot, audit
+- `core/decay.py` — Décroissance intensité et inhibition
+- `core/guardrails.py` — Budget/retry/TTL/traceability guards
+- `core/audit.py` — `AuditEvent` + `AuditLog` append-only
+- `core/config.py` — chargement, fusion, validation stricte de config
+- `core/__init__.py` — exports publics Sprint 1
+- `config/default.yaml` — configuration par défaut V2
+- `tests/conftest.py` — fixtures Sprint 1
+- `tests/unit/test_marker.py` — 5 tests
+- `tests/unit/test_decay.py` — 4 tests
+- `tests/unit/test_guardrails.py` — 6 tests
+- `tests/unit/test_audit.py` — 4 tests
+- `tests/unit/test_marker_store.py` — 12 tests
+- `AGENTS.md` — documentation alignée V2 Sprint 1
+- `CLAUDE.md` — documentation alignée V2 Sprint 1
 
 ---
 
-### 2026-02-23 11:10 — Sprint 6 hardening (guardrails path safety + prompt alignment)
+### 2026-02-26 13:40 — Rule Added: Per-Sprint Artifact Functioning Notes (V2)
 
 **Assistant IA utilisé** : Codex (GPT-5)
 
-**Objectif** : corriger les risques relevés en review sur la pipeline non-Python avant lancement Sprint 7.
+**Objectif** : Ajouter une règle documentaire obligatoire pour les futurs agents: documenter le fonctionnement actuel de l’artefact à chaque sprint dans `documentation/redisgn_v2`.
 
 **Actions effectuées** :
-- Renforcement `agents/capabilities/test.py` :
-  - rejet explicite des references `.py` absolues et des traversals (`..`) dans les checks non-Python,
-  - resolution des references limitee au scope du repo,
-  - indexation des fichiers Python une seule fois par evaluation de fichier non-Python (evite les scans repetes),
-  - guardrail `.sh` portable : absence de `bash` traitee en metadata non-bloquante (`guardrail_tool_unavailable:bash`).
-- Alignement `agents/capabilities/transform.py` + `agents/transformer.py` :
-  - ajout d'un system prompt dedie non-Python (`TEXT_TRANSFORMER_ROLE_PROMPT`) pour eviter l'incoherence "Python-only" en mode texte.
-- Planification future :
-  - ajout d'un backlog Sprint 7.1 dans `consigne/POC_V02_plan.md` pour la mise en cache globale tick-level de l'index de references Python.
-- Mise a jour guidance projet :
-  - `AGENTS.md`, `CLAUDE.md`.
+- Création du dossier `documentation/redisgn_v2/`
+- Création de `documentation/redisgn_v2/README.md` (règle + format attendu)
+- Création de `documentation/redisgn_v2/sprint_01_artifact.md` (état actuel Sprint 1)
+- Mise à jour de `AGENTS.md` et `CLAUDE.md` pour rendre cette règle obligatoire
 
-**Validation** :
-- `uv run pytest tests/test_capabilities.py tests/test_transformer.py -v` ✅ (`16 passed`)
-- `uv run pytest tests/ -v` ✅ (`103 passed, 1 skipped`)
-- `uv run ruff check agents/capabilities/test.py agents/capabilities/transform.py agents/transformer.py tests/test_capabilities.py tests/test_transformer.py` ✅
-- `uv run mypy agents/capabilities/test.py agents/capabilities/transform.py agents/transformer.py --ignore-missing-imports` ✅
+**Décisions prises** :
+- Standardiser le nommage des fichiers de suivi sprint: `sprint_XX_artifact.md`
+- Inclure systématiquement: scope, comportement actuel, interfaces, guardrails, limites, preuves de validation
+
+**Résultat** : Règle de documentation V2 en place pour les prochains sprints et futurs agents.
 
 **Fichiers modifiés** :
-- `agents/capabilities/test.py`
-- `agents/capabilities/transform.py`
-- `agents/transformer.py`
-- `tests/test_capabilities.py`
-- `tests/test_transformer.py`
-- `consigne/POC_V02_plan.md`
+- `documentation/redisgn_v2/README.md`
+- `documentation/redisgn_v2/sprint_01_artifact.md`
 - `AGENTS.md`
 - `CLAUDE.md`
 - `documentation/construction_log.md`
+
+### 2026-02-26 15:40 — Sprint 2 V2 Core Runtime (Agents, Pressure, Orchestrator, Tooling)
+
+**Assistant IA utilisé** : Codex (GPT-5)
+
+**Objectif** : Implémenter Sprint 2 V2 de bout en bout sur la base Sprint 1 (runtime générique agentique, tests unitaires, documentation de clôture, knowledge loop).
+
+**Actions effectuées** :
+- Création des modules Sprint 2 core: `core/tool_registry.py`, `core/pressure.py`, `core/environment.py`, `core/agent.py`, `core/orchestrator.py`.
+- Création des contrats d’adaptateur: `adapters/base.py` + exports `adapters/__init__.py`.
+- Port du client LLM provider-aware dans `llm/client.py` + ajout `llm/prompts.py` et `llm/__init__.py`.
+- Extension des exports publics dans `core/__init__.py`.
+- Création de la fixture mock d’intégration unitaire: `tests/fixtures/mock_adapter.py`.
+- Ajout des suites unitaires Sprint 2: `test_pressure.py`, `test_agent.py`, `test_orchestrator.py`, `test_llm_client.py`.
+- Mise à jour de `tests/conftest.py` pour exposer `tests/fixtures`.
+- Validation ciblée des nouvelles suites puis validation gate complète `tests/unit`.
+- Mise à jour documentaire Sprint 2: `AGENTS.md`, `CLAUDE.md`, artefact Sprint 02, ADR Sprint 2, index ADR.
+- Exécution de la boucle knowledge locale (`captures`, `playbook`, `decision_log`).
+
+**Décisions prises** :
+- Conserver un cœur d’orchestration asynchrone avec wrapper synchrone (`run_sync`) pour simplifier les tests unitaires sans dépendance plugin async.
+- Garder la sortie orchestrateur Sprint 2 en mémoire (`OrchestratorResult` + `TickRow`) et reporter les exports fichiers alignés V2 aux sprints dédiés métriques.
+- Maintenir un port LLM mock-first sans test live bloquant pour garantir la reproductibilité des validations locales.
+
+**Problèmes rencontrés** :
+- Une incohérence de sélection d’action agent (priorité payload `eligible_actions` non appliquée) causait un échec test unitaire → correction par intersection explicite des actions éligibles outil/payload dans `StigmergicAgent._candidate_markers`.
+
+**Résultat** : Sprint 2 V2 implémenté et validé localement.
+
+**Validation** :
+- `uv run pytest tests/unit/test_pressure.py tests/unit/test_agent.py tests/unit/test_orchestrator.py tests/unit/test_llm_client.py -q` → `30 passed`
+- `uv run pytest tests/unit -v` → `61 passed`
+
+**Fichiers modifiés** :
+- `core/tool_registry.py` — contrats `Tool`, `Decision`, `ActionResult`, registre d’actions.
+- `core/pressure.py` — calcul de pression normalisé + softmax/greedy.
+- `core/environment.py` — composition runtime + dépôt + maintenance + budget.
+- `core/agent.py` — agent homogène perceive/decide/execute.
+- `core/orchestrator.py` — tick loop parallèle, arbitrage lock, stop conditions.
+- `core/__init__.py` — exports Sprint 2.
+- `adapters/base.py` / `adapters/__init__.py` — contrats adaptateurs.
+- `llm/client.py` / `llm/prompts.py` / `llm/__init__.py` — client LLM et prompts.
+- `tests/conftest.py` — ajout path fixtures.
+- `tests/fixtures/mock_adapter.py` — adaptateur mock + outils increment/check/finalize.
+- `tests/unit/test_pressure.py` — 6 tests pression/sélection.
+- `tests/unit/test_agent.py` — 10 tests agent.
+- `tests/unit/test_orchestrator.py` — 8 tests orchestrateur.
+- `tests/unit/test_llm_client.py` — tests LLM mock-first.
+- `AGENTS.md` / `CLAUDE.md` — scope Sprint 2 synchronisé.
+- `documentation/redisgn_v2/sprint_02_artifact.md` — artefact Sprint 2.
+- `documentation/decisions/20260226-sprint2-v2-agent-orchestrator-runtime.md` — ADR Sprint 2.
+- `documentation/decisions/INDEX.md` — index ADR mis à jour.
+- `.codex/knowledge/captures.md` / `.codex/knowledge/playbook.md` / `.codex/knowledge/decision_log.md` — boucle knowledge locale.
+
+---
+
+### 2026-02-26 17:40 — Sprint 3 V2 Infrastructure Tools + Assistant Adapter + CLI
+
+**Assistant IA utilisé** : Codex (GPT-5)
+
+**Objectif** : Implémenter Sprint 3 V2 de bout en bout (outils d'infrastructure, mode assistant général, CLI, tests, documentation, knowledge loop).
+
+**Actions effectuées** :
+- Ajout de la section `tools` dans `config/default.yaml` + création de `config/assistant.yaml`.
+- Extension de la validation stricte dans `core/config.py` (provider web search, allowlist commandes, limites taille/timeout).
+- Implémentation de la couche `tools/` : `file_read`, `file_write`, `bash_exec`, `web_search`, `think`, `decompose`, et helper `register_infrastructure_tools()`.
+- Implémentation de `adapters/assistant/` avec `AssistantAdapter` et `LocalWorkspace` sandboxé.
+- Création de `main.py` pour exécuter le runtime assistant (`--adapter assistant --objective ...`).
+- Ajout des tests Sprint 3 :
+  - `tests/unit/test_file_tools.py`
+  - `tests/unit/test_bash_tool.py`
+  - `tests/unit/test_assistant_adapter.py`
+  - `tests/integration/test_assistant_run.py`
+- Mise à jour des guides et artefacts sprint : `AGENTS.md`, `CLAUDE.md`, `documentation/redisgn_v2/sprint_03_artifact.md`.
+- Création d'un ADR Sprint 3 et mise à jour de l'index ADR.
+
+**Décisions prises** :
+- Conserver la CLI Sprint 3 en mode `assistant` uniquement (pas de stubs multi-adapters).
+- Implémenter `FileWriteTool` en mode patch structuré (`overwrite`, `append`, `replace_text`).
+- Définir `web_search_provider: none` comme no-op explicite traçable (pas d'échec par défaut).
+
+**Problèmes rencontrés** :
+- Aucun blocage majeur; validations passées au premier cycle après implémentation.
+
+**Résultat** : Sprint 3 V2 implémenté et validé.
+
+**Validation** :
+- `uv run pytest tests/unit -q` -> `81 passed`
+- `uv run pytest tests/integration/test_assistant_run.py -q` -> `4 passed`
+- `uv run pytest tests/unit tests/integration -q` -> `85 passed`
+- `uv run python main.py --adapter assistant --objective "Create a short checklist" --max-ticks 12 --agents 1 --seed 7` -> run réussi, `stop_reason=all_terminal`
+
+**Fichiers modifiés/créés** :
+- `config/default.yaml`, `config/assistant.yaml`, `core/config.py`, `main.py`
+- `tools/__init__.py`, `tools/file_read.py`, `tools/file_write.py`, `tools/bash_exec.py`, `tools/web_search.py`, `tools/think.py`, `tools/decompose.py`
+- `adapters/__init__.py`, `adapters/assistant/__init__.py`, `adapters/assistant/adapter.py`, `adapters/assistant/workspace.py`
+- `tests/conftest.py`, `tests/unit/test_file_tools.py`, `tests/unit/test_bash_tool.py`, `tests/unit/test_assistant_adapter.py`, `tests/integration/test_assistant_run.py`
+- `AGENTS.md`, `CLAUDE.md`, `documentation/redisgn_v2/sprint_03_artifact.md`
+- `documentation/decisions/20260226-sprint3-v2-infrastructure-tools-and-assistant-mode.md`, `documentation/decisions/INDEX.md`
+
+---
+
+### 2026-03-04 13:35 — Sprint 4 V3 Runtime Overhaul
+
+**Assistant IA utilisé** : Codex (GPT-5)
+
+**Objectif** : Implémenter le plan Sprint 4 V3 « Runtime Overhaul » avec sorties structurées, exécution async, dépendances DAG, renforcement, isolation de session et extension de la couverture de tests.
+
+**Actions effectuées** :
+- Ajout des schémas Pydantic (`core/schemas.py`) pour `ThinkOutput`, `DecomposeOutput`, `ToolResult`, `LLMParsedResponse`.
+- Ajout de la couche dépendances DAG (`core/dependency.py`) et du module de renforcement (`core/reinforcement.py`).
+- Extension `llm/client.py` avec `AsyncOpenAI`, `acall()`, sémaphore de concurrence, verrou budget, parsing structuré optionnel.
+- Refactor `core/marker_store.py` : isolation de session optionnelle, filtres SQL dans `query_markers`, pruning (`prune_markers`), decay différentiel par type.
+- Intégration environnement/agent/orchestrateur/main : renforcement + propagation, filtrage `unblocked_markers`, `session_id` runtime, résumé enrichi (DAG/reinforcement/session).
+- Extension `adapters/assistant/workspace.py` avec `get_context_summary()` et injection de contexte workspace dans prompts/outils.
+- Mise à jour des outils `think`, `decompose`, `bash_exec` (sorties typées, bornes de décomposition, subprocess réellement async).
+- Mise à jour config V3 (`config/default.yaml`, `config/assistant.yaml`, `core/config.py`) et dépendances (`requirements.txt` avec `pydantic`).
+- Ajout/mise à jour des tests unitaires et intégration (nouveaux tests `schemas`, `dependency`, `reinforcement`, extensions `llm_client`, `marker_store`, `decay`, `bash_tool`, `assistant_adapter`, `conftest`).
+
+**Décisions prises** :
+- Conserver une compatibilité rétroactive sur les chemins synchrones (`LLMClient.call`) tout en ajoutant un chemin async natif (`acall`) pour le runtime V3.
+- Faire du marquage de dépendances (`depends_on`) une contrainte d’éligibilité agent, au lieu d’une convention applicative non vérifiée.
+- Activer l’isolation de session via configuration (`markers.session_isolation`) avec `session_id` généré au démarrage CLI.
+
+**Problèmes rencontrés** :
+- Un test timeout bash supposait une sortie partielle non déterministe selon OS/scheduling → assertion rendue robuste sur la présence des champs timeout.
+
+**Résultat** : Sprint 4 V3 implémenté et validé localement.
+
+**Validation** :
+- `uv run pytest tests/unit -q` → `127 passed`
+- `uv run pytest tests/integration/test_assistant_run.py -q` → `4 passed`
+
+**Fichiers modifiés** :
+- `core/schemas.py`, `core/dependency.py`, `core/reinforcement.py`
+- `llm/client.py`, `llm/prompts.py`
+- `core/marker_store.py`, `core/decay.py`, `core/environment.py`, `core/agent.py`, `core/orchestrator.py`, `core/config.py`
+- `tools/think.py`, `tools/decompose.py`, `tools/bash_exec.py`
+- `adapters/assistant/workspace.py`, `main.py`
+- `config/default.yaml`, `config/assistant.yaml`, `requirements.txt`
+- `tests/unit/test_schemas.py`, `tests/unit/test_dependency.py`, `tests/unit/test_reinforcement.py`
+- `tests/unit/test_llm_client.py`, `tests/unit/test_marker_store.py`, `tests/unit/test_decay.py`, `tests/unit/test_bash_tool.py`, `tests/unit/test_assistant_adapter.py`, `tests/conftest.py`
+
+---
+
+### 2026-03-04 19:10 — Sprint 5 V3 Implementation (Memory, Emergence, Lessons)
+
+**Assistant IA utilisé** : Codex (GPT-5)
+
+**Objectif** : Implémenter le plan Sprint 5 V3 final (mémoire agentique, métriques d’émergence, pressure ACO heuristique, markers lesson, dashboard CLI, extension de tests).
+
+**Actions effectuées** :
+- Ajout d’une mémoire épisodique agent (`MemoryEntry`, `AgentMemory`) dans `core/agent.py` avec `remember()`, `recall()`, `reinforce()`, `decay_all()`.
+- Extension de `Decision` (`core/tool_registry.py`) pour transporter `tick`, `context`, `recalled_memories`, `lesson_markers`.
+- Création de `core/emergence.py` avec 8 métriques: `specialization_entropy`, `colony_specialization`, `collaboration_density`, `action_switching_rate`, `convergence_tick`, `lock_contention_rate`, `parallel_utilization`, `pressure_entropy`.
+- Extension `core/pressure.py` avec `heuristic_fn` optionnelle pour la formule ACO.
+- Intégration orchestrateur (`core/orchestrator.py`) : `TickRow.emergence`, `OrchestratorResult.emergence_summary`, calcul de résumé post-run, et `agent.memory.decay_all()` à chaque tick.
+- Dépôt automatique de markers `lesson` dans `core/environment.py` au-dessus de `reinforcement.lesson_threshold`.
+- Enrichissement prompts (`llm/prompts.py`, `tools/think.py`) avec contexte mémoire épisodique et lessons.
+- Mise à jour config (`config/default.yaml`, `config/assistant.yaml`, `core/config.py`) : section obligatoire `emergence`, paramètres mémoire, `lesson_threshold`, `pressures.beta=2.0`, validation stricte associée.
+- Ajout dashboard CLI (`main.py`) et export `emergence` dans le résumé JSON.
+- Ajout/extension tests Sprint 5 :
+  - nouveaux `tests/unit/test_agent_memory.py`, `tests/unit/test_emergence.py`, `tests/unit/test_config.py`
+  - extensions `test_pressure.py`, `test_orchestrator.py`, `test_environment.py`, `tests/conftest.py`
+
+**Décisions prises** :
+- Tracking de collaboration via parsing audit log (`audit_log.jsonl`) sans changement du schéma `Marker`.
+- Section config `emergence` rendue obligatoire dans `REQUIRED_TOP_LEVEL_SECTIONS`.
+- Recall mémoire volontairement simple et local (`keyword_overlap * relevance * recency`) sans dépendances externes.
+
+**Validation** :
+- `uv run pytest tests/ -v` -> `168 passed`
+- Run réel: `uv run python main.py --adapter assistant --objective "Summarize workspace status" --max-ticks 10 --agents 2`
+  - dashboard émergence affiché en CLI
+  - `colony_specialization` mesuré > 0 (`0.2709`)
+  - `action_switching_rate` mesuré < 1 (`0.8333`)
+- Vérification SQL marker lesson:
+  - `sqlite3 pheromones/<session_id>/markers.db "SELECT id, marker_type, state, target FROM markers WHERE marker_type='lesson';"`
+  - présence de `lesson::<source_marker_id>`
+
+**Théorie tracée (références de conception)** :
+- Mémoire cognitive : Ricci et al. (2007) stigmergie cognitive, CoALA episodic memory.
+- Formule ACO alpha/beta : Bonabeau et al. (1999) Eq. 2.1, Chari et al. (2025) ACO-ToT.
+- Métriques d’émergence : Rodriguez (2026), Serugendo et al. (2005).
+- Markers lesson : Heylighen (2016b) stigmergie basée sur marqueurs.
+- Évaporation différentielle lesson : Parunak et al. (2005).
+
+---

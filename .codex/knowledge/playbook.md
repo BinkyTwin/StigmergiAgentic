@@ -82,17 +82,48 @@
 - Include only complete triplets (`manifest`, `summary`, `ticks`) per selected run id in curated sets.
 - Generate benchmark plots/JSON from curated sets to keep reported `n` aligned with user intent.
 
-### Sprint Scope Change Control
-- When a sprint is expanded after initial planning, update a single source plan file with objective, APIs, acceptance tests, and timeline/risk deltas in one atomic edit.
-- Reflect planning-scope changes in both `AGENTS.md` and `CLAUDE.md` so assistant guidance stays aligned with the active delivery track.
-- Create a parent branch for the version stream (for example `codex/v2`) before creating a sprint branch (for example `codex/v2-sprint6`) to keep sprint lineage explicit.
+### V2 Core Reset Baseline Standard
+- During redesign pivots, enforce a branch-level hard reset of obsolete runtime modules before implementing new core primitives.
+- Use a transaction-first store contract (`SQLite WAL` + explicit immediate transactions) for stigmergic markers to avoid partial updates under contention.
+- Require append-only audit with `before/after` mutation payloads as part of every state write path.
 
-### Capability-Wrapper Migration Standard
-- During capability extraction, keep specialized agents as stable wrappers and inject callbacks for legacy helper methods to avoid breaking existing unit-test monkeypatch points.
-- For non-Python support, require strict text guardrails (format parse + legacy token scan + `.py` reference existence) before confidence is raised above validator rollback threshold.
-- Close refactor sprints with layered evidence: capability tests, legacy parity tests, integration handoffs, and full-suite confirmation.
+### Per-Sprint Artifact-State Documentation Standard
+- At every sprint closure, write/update `documentation/redisgn_v2/sprint_XX_artifact.md`.
+- Keep sections fixed: scope, behavior, interfaces, guardrails, limits, validation evidence.
+- Mirror the rule in both agent instruction files to keep future contributors aligned.
 
-### Repository-Scoped Reference Guardrail Standard
-- Normalize text-extracted file references before validation and reject absolute/drive-prefixed/traversal patterns (`/`, `C:\`, `..`) as out-of-scope inputs.
-- Resolve references only against repository-indexed Python files (relative paths + basenames), never against host filesystem global paths.
-- For shell syntax checks in strict text guardrails, treat missing validation tooling as explicit non-blocking metadata and continue evaluating other guardrails.
+### Sprint 2 Runtime Contract Standard
+- Model orchestration as `snapshot -> decision -> lock -> execute -> deposit -> maintain` to keep coordination medium explicit and testable.
+- Keep tool APIs narrow (`is_eligible`, async `execute`) and treat environment as the single mutation gate for store writes and guardrails.
+- For concurrency tests, use one minimal mock adapter with staged marker transitions to validate lock arbitration and stop reasons without domain noise.
+
+### Assistant Tool-Layer Standard
+- Register infrastructure actions through one helper (`register_infrastructure_tools`) to keep adapter wiring explicit and consistent.
+- Keep tool payload contracts structured (for example `write.mode/path/content`) and validate early to make failures traceable in marker metadata.
+- Treat optional external providers (`web_search`) as explicit no-op defaults in local/dev mode to preserve deterministic baseline behavior.
+
+### Assistant Eligibility and Response Standard
+- Keep `eligible_actions` as an optional allowlist; if absent, infer eligibility from marker payload prerequisites to preserve flexibility without blind tool execution.
+- Restrict `decompose` by marker context (`not decomposed` and `no parent_id`) so decomposition happens once at root unless explicitly overridden.
+- Synthesize CLI assistant output from concrete execution payloads (`last_read`, `last_bash`, `last_write`, `last_search`) and include `last_thought` as complementary context.
+
+### Think-Then-Act Progression Standard
+- Treat `active` subtasks as execution-only by default: planner tools should not advance active work items without concrete artifact/tool outputs.
+- Keep a narrow root-marker exception path after decomposition so orchestration metadata markers can still converge to terminal states.
+- Ensure CLI entrypoints load `.env` proactively so provider keys are consistent between notebook and terminal runs.
+
+### Emergent Decomposition and Hinting Standard
+- Do not inject default `subtask_count` during objective or seed-marker creation; only propagate it when explicitly provided by input.
+- Build planner JSON schemas from available tool capabilities and include optional fields only for registered/declared execution tools.
+- Avoid local heuristic fallback hints in `think`; if the model does not emit structured hints, keep marker active and let subsequent ticks/agents resolve execution.
+- Read all intensity decrements/floors from `markers.*` config keys (`intensity_step_think`, `intensity_step_tool`, `intensity_step_decompose`, `child_intensity_offset`, `intensity_floor`).
+
+### V3 Structured-Async Runtime Standard
+- Add schema-backed `acall(..., response_schema=...)` at the LLM boundary and keep typed parsing close to tool execution (`think`, `decompose`) for deterministic downstream behavior.
+- Enforce dependency readiness in agent candidate filtering (`unblocked_markers`) so orchestration order is controlled by marker graph state, not agent timing.
+- Isolate runtime sessions at storage level and surface `session_id` in CLI/output summaries to keep experiments traceable and collision-free.
+
+### Cognitive-Emergence Runtime Standard
+- Keep agent episodic memory local and bounded (`capacity`, `decay_rate`) and pass recalled context through `Decision` payload fields instead of adding DB/schema coupling.
+- Compute emergence metrics from `TickRow` aggregates and audit events at run end; avoid embedding metric state in marker persistence paths.
+- Materialize high-quality reusable knowledge as `lesson` markers with low decay to bridge short-term memory and long-term stigmergic coordination.
