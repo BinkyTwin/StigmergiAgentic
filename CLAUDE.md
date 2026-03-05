@@ -6,9 +6,9 @@ This file provides guidance to Claude Code when working in this repository.
 
 Stigmergic orchestration framework V3 for thesis research (EMLV).
 
-The codebase is currently at **Sprint 4 V3** (runtime overhaul: async typed LLM flow, dependency DAG coordination, reinforcement, and session isolation).
+The codebase is currently at **Sprint 5 V3** (Sprint 4 runtime overhaul + episodic memory, emergence telemetry, lesson markers, and heuristic-aware pressure).
 
-## Sprint 4 V3 Status (2026-03-04)
+## Sprint 5 V3 Status (2026-03-04)
 
 Implemented modules:
 - `core/marker.py`
@@ -17,6 +17,7 @@ Implemented modules:
 - `core/schemas.py`
 - `core/dependency.py`
 - `core/reinforcement.py`
+- `core/emergence.py`
 - `core/guardrails.py`
 - `core/audit.py`
 - `core/config.py`
@@ -41,11 +42,12 @@ Implemented modules:
 - `config/default.yaml`
 - `config/assistant.yaml`
 - `main.py`
-- `tests/unit/*` + `tests/integration/test_assistant_run.py` (131 tests)
+- `tests/unit/*` + `tests/integration/test_assistant_run.py` (168 tests)
 
 Validated gate:
-- `uv run pytest tests/unit -v` -> 127 passed
+- `uv run pytest tests/unit -v` -> 164 passed
 - `uv run pytest tests/integration/test_assistant_run.py -v` -> 4 passed
+- `uv run pytest tests/ -v` -> 168 passed
 
 ## Design Principles
 
@@ -114,17 +116,23 @@ The state machine remains configurable and validated through `StateMachine`.
 - `compute_pressures`
 - `select_action`
 
+`compute_pressures` now accepts optional `heuristic_fn(marker, action)` for ACO heuristic substitution.
+
 ### `core.environment`
 - `Environment`
 - `EnvironmentSnapshot`
 
 ### `core.agent`
 - `StigmergicAgent`
+- `AgentMemory`
+- `MemoryEntry`
 
 ### `core.orchestrator`
 - `Orchestrator`
 - `TickRow`
 - `OrchestratorResult`
+
+`OrchestratorResult` now includes `emergence_summary`.
 
 ### `llm.client`
 - `LLMClient`
@@ -154,11 +162,12 @@ uv venv --python 3.11 .venv
 uv pip install -r requirements.txt
 ```
 
-### Test (Sprint 4)
+### Test (Sprint 5)
 
 ```bash
 uv run pytest tests/unit -v
 uv run pytest tests/integration/test_assistant_run.py -v
+uv run pytest tests/ -v
 uv run python main.py --adapter assistant --objective "Create a short plan"
 ```
 

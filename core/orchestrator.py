@@ -8,6 +8,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from .agent import StigmergicAgent
+from .emergence import compute_emergence_metrics
 from .environment import Environment, EnvironmentSnapshot
 from .guardrails import BudgetExceededError
 from .tool_registry import ActionResult, Decision
@@ -29,6 +30,7 @@ class TickRow:
     actions_by_type: dict[str, int]
     terminal_progress: float
     maintenance: dict[str, Any] = field(default_factory=dict)
+    emergence: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass(slots=True)
@@ -40,6 +42,7 @@ class OrchestratorResult:
     tick_rows: list[TickRow]
     final_snapshot: EnvironmentSnapshot
     session_id: str | None = None
+    emergence_summary: dict[str, Any] = field(default_factory=dict)
 
 
 class Orchestrator:
@@ -71,6 +74,7 @@ class Orchestrator:
         stop_reason = "max_ticks"
         tick_rows: list[TickRow] = []
         final_snapshot = self.environment.snapshot(tick=0)
+        emergence_summary: dict[str, Any] = {}
 
         for tick in range(max_ticks):
             maintenance = self.environment.maintain(current_tick=tick)
@@ -110,6 +114,9 @@ class Orchestrator:
                 for result in execution_results
                 if result is not None and not bool(result.metadata.get("failed", False))
             )
+            for agent in self.agents:
+                if hasattr(agent, "memory") and hasattr(agent.memory, "decay_all"):
+                    agent.memory.decay_all()
 
             if executed_actions == 0:
                 idle_cycles += 1
@@ -127,6 +134,11 @@ class Orchestrator:
                 )
                 for agent, decision in decisions_by_agent
             }
+            tick_emergence = self._tick_emergence_payload(
+                decisions=decisions_payload,
+                active_agents=len(winners),
+                lock_conflicts=lock_conflicts,
+            )
             tick_rows.append(
                 TickRow(
                     tick=tick,
@@ -138,6 +150,7 @@ class Orchestrator:
                     actions_by_type=actions_by_type,
                     terminal_progress=self._terminal_progress(post_snapshot),
                     maintenance=maintenance,
+                    emergence=tick_emergence,
                 )
             )
 
@@ -158,12 +171,30 @@ class Orchestrator:
                 stop_reason = "idle_cycles"
                 break
 
+        emergence_cfg = dict(self.config.get("emergence", {}))
+        if bool(emergence_cfg.get("enabled", False)):
+            selected_metrics = emergence_cfg.get("metrics", [])
+            computed = compute_emergence_metrics(
+                tick_rows=tick_rows,
+                total_agents=len(self.agents),
+                audit_log_path=getattr(self.environment.store.audit_log, "path", None),
+            )
+            if isinstance(selected_metrics, list) and selected_metrics:
+                emergence_summary = {
+                    metric: computed[metric]
+                    for metric in selected_metrics
+                    if metric in computed
+                }
+            else:
+                emergence_summary = computed
+
         return OrchestratorResult(
             stop_reason=stop_reason,
             total_ticks=len(tick_rows),
             tick_rows=tick_rows,
             final_snapshot=final_snapshot,
             session_id=self.session_id,
+            emergence_summary=emergence_summary,
         )
 
     def run_sync(self) -> OrchestratorResult:
@@ -262,3 +293,27 @@ class Orchestrator:
             return 0.0
         terminal_count = sum(1 for marker in snapshot.markers if marker.state in TERMINAL_STATES)
         return float(terminal_count) / float(len(snapshot.markers))
+
+    def _tick_emergence_payload(
+        self,
+        *,
+        decisions: dict[str, str | None],
+        active_agents: int,
+        lock_conflicts: int,
+    ) -> dict[str, Any]:
+        lock_attempts = sum(1 for action in decisions.values() if action is not None)
+        lock_contention_rate = (
+            0.0
+            if lock_attempts == 0
+            else float(lock_conflicts) / float(lock_attempts)
+        )
+        total_agents = len(self.agents)
+        parallel_utilization = (
+            0.0
+            if total_agents <= 0
+            else float(active_agents) / float(total_agents)
+        )
+        return {
+            "lock_contention_rate": lock_contention_rate,
+            "parallel_utilization": parallel_utilization,
+        }

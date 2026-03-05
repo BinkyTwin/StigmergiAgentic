@@ -20,6 +20,7 @@ Les ADRs suivent le format : `YYYYMMDD-titre-court.md`
 | 008 | 2026-02-26 | [Sprint 2 V2 Generic Agent Runtime (Pressure + Orchestrator)](20260226-sprint2-v2-agent-orchestrator-runtime.md) | Accepté | Runtime générique Sprint 2 (tool registry, pressure model, environment, agent, orchestrator async/sync, port LLM client, 61 tests unitaires) |
 | 009 | 2026-02-26 | [Sprint 3 V2 Infrastructure Tools and Assistant Mode](20260226-sprint3-v2-infrastructure-tools-and-assistant-mode.md) | Accepté | Ajout couche `tools/`, adaptateur assistant, CLI `main.py`, validation stricte config tools, 85 tests |
 | 010 | 2026-03-04 | [Sprint 4 V3 Runtime Overhaul](20260304-sprint4-v3-runtime-overhaul.md) | Accepté | Async LLM structuré, DAG dépendances, renforcement, isolation de session, contexte workspace, 131 tests |
+| 011 | 2026-03-04 | [Sprint 5 V3 Memory, Emergence, and Lesson Markers](20260304-sprint5-v3-memory-emergence-lessons.md) | Accepté | Mémoire agentique, métriques d’émergence, markers lesson, pressure heuristique, dashboard CLI, 168 tests |
 
 ---
 

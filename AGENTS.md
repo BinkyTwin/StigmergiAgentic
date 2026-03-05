@@ -6,9 +6,9 @@ This file provides guidance to GitHub Copilot / Codex when working in this repos
 
 Stigmergic orchestration framework V3 (runtime overhaul on top of V2 foundations) for a Master's thesis (EMLV).
 
-Current repository state is **Sprint 4 V3**: async/typed runtime + dependency-aware coordination + reinforcement + session-isolated runs.
+Current repository state is **Sprint 5 V3**: Sprint 4 foundations + episodic memory, emergence metrics, lesson markers, and heuristic-aware ACO pressure.
 
-## Current Scope (Sprint 4 V3)
+## Current Scope (Sprint 5 V3)
 
 Implemented:
 - `core/marker.py` — generic marker model + configurable state machine
@@ -17,28 +17,29 @@ Implemented:
 - `core/schemas.py` — Pydantic schemas for structured LLM/tool outputs
 - `core/dependency.py` — DAG validation, topological ordering, unblocked filtering
 - `core/reinforcement.py` — success reinforcement + backward propagation
+- `core/emergence.py` — 8-run emergence metrics from tick rows + audit collaboration parsing
 - `core/guardrails.py` — deep norms (budget, retry limit, lock TTL, traceability)
 - `core/audit.py` — append-only JSONL audit trail
 - `core/config.py` + `config/default.yaml` — V3 config sections (`reinforcement`, `decompose`, `async`, marker decay map/pruning/session)
 - `core/tool_registry.py` — tool contracts + action registry
-- `core/pressure.py` — pressure computation + softmax action selection
-- `core/environment.py` — runtime wrapper with reinforcement + propagation + maintenance metrics
-- `core/agent.py` — dependency-aware candidate selection (`unblocked_markers`)
-- `core/orchestrator.py` — parallel tick loop + async execution + optional session_id in result
+- `core/pressure.py` — pressure computation + softmax action selection + optional ACO `heuristic_fn`
+- `core/environment.py` — runtime wrapper with reinforcement + propagation + maintenance metrics + lesson marker deposit
+- `core/agent.py` — dependency-aware candidate selection (`unblocked_markers`) + episodic memory recall/reinforcement
+- `core/orchestrator.py` — parallel tick loop + async execution + session_id + emergence summary
 - `adapters/base.py` — domain adapter/objective/workspace contracts
 - `adapters/assistant/*` — generic assistant adapter + local workspace context summarization
 - `tools/*` — infrastructure tools (`file_read`, `file_write`, async `bash_exec`, `web_search`, typed `think`, bounded DAG-aware `decompose`)
-- `llm/client.py` + `llm/prompts.py` — provider-aware sync+async client with structured response validation and V3 workspace-grounded prompts
-- `main.py` — assistant CLI entrypoint with per-run session_id, session DB path, DAG/reinforcement metadata
+- `llm/client.py` + `llm/prompts.py` — provider-aware sync+async client with structured response validation, memory/lesson prompt contexts
+- `main.py` — assistant CLI entrypoint with per-run session_id, session DB path, DAG/reinforcement metadata + emergence dashboard
 - `config/assistant.yaml` — assistant mode overrides
-- `tests/unit/*` + `tests/integration/test_assistant_run.py` — 131 tests passed (127 unit + 4 integration)
+- `tests/unit/*` + `tests/integration/test_assistant_run.py` — 168 tests passed (164 unit + 4 integration)
 
 Not implemented yet:
 - TravelPlanner adapter
 - CodeMigration adapter (V2)
 - SWE-bench adapter
 - baseline runners aligned with V2 runtime
-- emergence and Pareto instrumentation aligned with V2 runtime
+- Pareto instrumentation aligned with V2 runtime
 
 ## Architecture Baseline
 
@@ -101,6 +102,7 @@ core/
   schemas.py
   dependency.py
   reinforcement.py
+  emergence.py
   guardrails.py
   audit.py
   config.py
@@ -153,6 +155,9 @@ tests/
     test_file_tools.py
     test_bash_tool.py
     test_assistant_adapter.py
+    test_agent_memory.py
+    test_emergence.py
+    test_config.py
   integration/
     test_assistant_run.py
 ```
@@ -167,11 +172,12 @@ uv venv --python 3.11 .venv
 uv pip install -r requirements.txt
 ```
 
-### Sprint 4 validation
+### Sprint 5 validation
 
 ```bash
 uv run pytest tests/unit -v
 uv run pytest tests/integration/test_assistant_run.py -v
+uv run pytest tests/ -v
 uv run python main.py --adapter assistant --objective "Summarize workspace status"
 ```
 

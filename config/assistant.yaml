@@ -4,6 +4,8 @@ framework:
 agents:
   num_agents: 2
   selection_temperature: 0.15
+  memory_capacity: 20
+  memory_decay_rate: 0.1
 
 orchestrator:
   max_ticks: 30
@@ -18,6 +20,10 @@ reinforcement:
   enabled: true
   rate: 0.12
   propagation_factor: 0.6
+  lesson_threshold: 0.7
+
+emergence:
+  enabled: true
 
 async:
   max_concurrent_llm_calls: 4

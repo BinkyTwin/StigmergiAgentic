@@ -11,6 +11,8 @@ from core.tool_registry import ActionResult, Tool
 from llm.prompts import (
     SYSTEM_STIGMERGIC_AGENT_PROMPT,
     build_action_prompt,
+    build_lesson_context,
+    build_memory_context,
     build_system_prompt,
 )
 
@@ -66,6 +68,16 @@ class ThinkTool(Tool):
         )
         prompt = str(marker.payload.get("prompt", "")).strip()
         workspace_context = self._workspace_context(environment)
+        recalled_memories = self._memory_entries(marker)
+        lesson_markers = self._lesson_entries(marker)
+        memory_context = (
+            build_memory_context(recalled_memories)
+            if recalled_memories
+            else None
+        )
+        lesson_context = (
+            build_lesson_context(lesson_markers) if lesson_markers else None
+        )
         if not prompt:
             prompt = build_action_prompt(
                 action_type=self.action_type,
@@ -74,6 +86,8 @@ class ThinkTool(Tool):
                 marker_payload=marker.payload,
                 available_tools=self.available_hint_tools,
                 workspace_context=workspace_context,
+                memory_context=memory_context,
+                lesson_context=lesson_context,
             )
 
         analysis = ""
@@ -82,10 +96,12 @@ class ThinkTool(Tool):
         cost_usd = 0.0
         model = "fallback"
         system_prompt = SYSTEM_STIGMERGIC_AGENT_PROMPT
-        if workspace_context:
+        if workspace_context or memory_context or lesson_context:
             system_prompt = build_system_prompt(
                 workspace_context=workspace_context,
                 available_tools=self.available_hint_tools,
+                memory_context=memory_context,
+                lesson_context=lesson_context,
             )
 
         if llm_client is not None and (
@@ -164,6 +180,20 @@ class ThinkTool(Tool):
             return str(workspace.get_context_summary()).strip()
         except Exception:  # noqa: BLE001
             return ""
+
+    def _memory_entries(self, marker: Marker) -> list[dict[str, Any]]:
+        raw = marker.payload.get("recalled_memories")
+        if not isinstance(raw, list):
+            return []
+        entries = [entry for entry in raw if isinstance(entry, dict)]
+        return entries[:5]
+
+    def _lesson_entries(self, marker: Marker) -> list[dict[str, Any]]:
+        raw = marker.payload.get("lesson_markers")
+        if not isinstance(raw, list):
+            return []
+        lessons = [entry for entry in raw if isinstance(entry, dict)]
+        return lessons[:5]
 
     def _extract_analysis_and_hints(
         self,

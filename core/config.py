@@ -16,6 +16,7 @@ REQUIRED_TOP_LEVEL_SECTIONS = {
     "reinforcement",
     "guardrails",
     "orchestrator",
+    "emergence",
     "llm",
     "pressures",
     "decompose",
@@ -68,8 +69,13 @@ def validate_config(config: Mapping[str, Any]) -> None:
         missing_str = ", ".join(sorted(missing))
         raise ConfigError(f"Missing required config sections: {missing_str}")
 
-    _validate_int(config["agents"], "num_agents", minimum=1)
-    _validate_float(config["agents"], "selection_temperature", minimum=0.0)
+    agents = dict(config["agents"])
+    _validate_int(agents, "num_agents", minimum=1)
+    _validate_float(agents, "selection_temperature", minimum=0.0)
+    agents.setdefault("memory_capacity", 20)
+    agents.setdefault("memory_decay_rate", 0.1)
+    _validate_int(agents, "memory_capacity", minimum=1)
+    _validate_float(agents, "memory_decay_rate", minimum=0.0, maximum=1.0)
 
     markers = config["markers"]
     decay_type = str(markers.get("decay_type", ""))
@@ -120,6 +126,16 @@ def validate_config(config: Mapping[str, Any]) -> None:
     _validate_int(orchestrator, "max_ticks", minimum=1)
     _validate_int(orchestrator, "idle_cycles_to_stop", minimum=0)
 
+    emergence = config["emergence"]
+    enabled = emergence.get("enabled")
+    if not isinstance(enabled, bool):
+        raise ConfigError("emergence.enabled must be a boolean")
+    metrics = emergence.get("metrics")
+    if not isinstance(metrics, list) or not metrics:
+        raise ConfigError("emergence.metrics must be a non-empty list")
+    if not all(isinstance(metric, str) and metric.strip() for metric in metrics):
+        raise ConfigError("emergence.metrics entries must be non-empty strings")
+
     llm = config["llm"]
     _validate_int(llm, "max_tokens_total", minimum=1)
     _validate_float(llm, "max_budget_usd", minimum=0.0)
@@ -131,6 +147,13 @@ def validate_config(config: Mapping[str, Any]) -> None:
     _validate_float(reinforcement, "rate", minimum=0.0)
     _validate_float(reinforcement, "propagation_factor", minimum=0.0)
     _validate_float(reinforcement, "max_intensity", minimum=0.0, maximum=1.0)
+    if "lesson_threshold" in reinforcement:
+        _validate_float(
+            reinforcement,
+            "lesson_threshold",
+            minimum=0.0,
+            maximum=1.0,
+        )
 
     decompose = config["decompose"]
     _validate_int(decompose, "max_depth", minimum=1)

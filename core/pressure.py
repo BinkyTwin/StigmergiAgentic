@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import math
 import random
-from typing import Mapping, Sequence
+from typing import Callable, Mapping, Sequence
 
 from .marker import Marker
 
@@ -20,6 +20,7 @@ def compute_pressures(
     formula: str = "simple",
     alpha: float = 1.0,
     beta: float = 1.0,
+    heuristic_fn: Callable[[Marker, str], float] | None = None,
 ) -> dict[str, float]:
     """Compute normalized pressure per action from eligible markers."""
     ordered_actions = list(dict.fromkeys(action_types))
@@ -52,7 +53,13 @@ def compute_pressures(
             if formula_name == "aco":
                 # ACO-inspired pressure: pheromone^alpha * heuristic^beta.
                 pheromone = intensity**alpha_value
-                heuristic = weight**beta_value
+                heuristic_input = weight
+                if heuristic_fn is not None:
+                    try:
+                        heuristic_input = float(heuristic_fn(marker, action_type))
+                    except Exception:  # noqa: BLE001
+                        heuristic_input = weight
+                heuristic = max(0.0, heuristic_input) ** beta_value
                 raw_scores[action_type] += pheromone * heuristic
             else:
                 raw_scores[action_type] += intensity * weight

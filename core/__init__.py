@@ -11,6 +11,7 @@ from .dependency import (
     unblocked_markers,
     validate_dag,
 )
+from .emergence import EmergenceMetrics, compute_emergence_metrics
 from .environment import Environment, EnvironmentSnapshot
 from .guardrails import (
     BudgetExceededError,
@@ -53,6 +54,7 @@ __all__ = [
     "Decision",
     "Environment",
     "EnvironmentSnapshot",
+    "EmergenceMetrics",
     "GuardrailEngine",
     "GuardrailError",
     "LLMParsedResponse",
@@ -75,6 +77,7 @@ __all__ = [
     "ToolRegistry",
     "TraceabilityError",
     "build_dependency_graph",
+    "compute_emergence_metrics",
     "compute_pressures",
     "depends_on_ids",
     "decay_inhibition",

@@ -75,6 +75,7 @@ class Environment:
         reinforcement_cfg = dict(self.config.get("reinforcement", {}))
         reinforcement_enabled = bool(reinforcement_cfg.get("enabled", False))
         propagation_factor = float(reinforcement_cfg.get("propagation_factor", 0.0))
+        lesson_threshold = float(reinforcement_cfg.get("lesson_threshold", 0.7))
         quality_score = self._extract_quality_score(result)
 
         for marker_update in result.marker_updates:
@@ -113,6 +114,21 @@ class Environment:
                 )
                 if reinforced is not None:
                     persisted[-1] = reinforced
+
+            if (
+                saved.marker_type != "lesson"
+                and saved.state in {"completed", "verified"}
+                and (existing is None or existing.state != saved.state)
+                and quality_score > lesson_threshold
+            ):
+                lesson_marker = self._build_lesson_marker(
+                    source_marker=saved,
+                    source_agent=agent_id,
+                    quality_score=quality_score,
+                )
+                persisted.append(
+                    self.store.upsert_marker(marker=lesson_marker, agent_id=agent_id)
+                )
 
             if (
                 reinforcement_enabled
@@ -235,3 +251,49 @@ class Environment:
             )
             updates.append(self.store.upsert_marker(marker=updated, agent_id=actor_id))
         return updates
+
+    def _build_lesson_marker(
+        self,
+        *,
+        source_marker: Marker,
+        source_agent: str,
+        quality_score: float,
+    ) -> Marker:
+        timestamp = utc_now_iso()
+        lesson_text = self._extract_lesson_text(source_marker)
+        return Marker(
+            id=f"lesson::{source_marker.id}",
+            marker_type="lesson",
+            target=source_marker.target,
+            intensity=0.8,
+            state="terminal",
+            payload={
+                "lesson": lesson_text,
+                "source_marker": source_marker.id,
+                "source_agent": source_agent,
+                "source_state": source_marker.state,
+                "quality_score": float(quality_score),
+            },
+            created_by=source_agent,
+            created_at=timestamp,
+            updated_by=source_agent,
+            updated_at=timestamp,
+            history=["created"],
+        )
+
+    def _extract_lesson_text(self, marker: Marker) -> str:
+        thought = marker.payload.get("last_thought")
+        if isinstance(thought, dict):
+            analysis = str(thought.get("analysis", "")).strip()
+            if analysis:
+                return analysis
+
+        task = str(marker.payload.get("task", "")).strip()
+        if task:
+            return f"Successful pattern: {task}"
+
+        objective = str(marker.payload.get("objective", "")).strip()
+        if objective:
+            return f"Successful objective fragment: {objective}"
+
+        return f"Transitioned successfully to {marker.state} on {marker.target}"

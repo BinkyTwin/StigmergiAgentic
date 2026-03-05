@@ -27,6 +27,8 @@ def config_dict() -> dict:
             "num_agents_mode": "fixed",
             "files_per_agent": 6,
             "selection_temperature": 0.1,
+            "memory_capacity": 20,
+            "memory_decay_rate": 0.1,
         },
         "markers": {
             "decay_type": "exponential",
@@ -50,6 +52,7 @@ def config_dict() -> dict:
             "rate": 0.1,
             "propagation_factor": 0.5,
             "max_intensity": 1.0,
+            "lesson_threshold": 0.7,
         },
         "guardrails": {
             "max_retry_count": 3,
@@ -61,6 +64,19 @@ def config_dict() -> dict:
             "max_ticks": 50,
             "idle_cycles_to_stop": 3,
             "parallel": True,
+        },
+        "emergence": {
+            "enabled": True,
+            "metrics": [
+                "specialization_entropy",
+                "colony_specialization",
+                "collaboration_density",
+                "action_switching_rate",
+                "convergence_tick",
+                "lock_contention_rate",
+                "parallel_utilization",
+                "pressure_entropy",
+            ],
         },
         "llm": {
             "provider": "openrouter",
@@ -75,7 +91,7 @@ def config_dict() -> dict:
         "pressures": {
             "formula": "aco",
             "alpha": 1.0,
-            "beta": 1.0,
+            "beta": 2.0,
             "default_weights": {},
         },
         "decompose": {

@@ -180,3 +180,23 @@ def test_orchestrator_tick_rows_are_coherent(tmp_path, config_dict: dict) -> Non
     assert isinstance(first_row.decisions, dict)
     assert isinstance(first_row.actions_by_type, dict)
     assert 0.0 <= first_row.terminal_progress <= 1.0
+
+
+def test_orchestrator_emergence_summary_is_computed(tmp_path, config_dict: dict) -> None:
+    config, env, agents = _build_runtime(tmp_path, config_dict)
+    config["orchestrator"]["max_ticks"] = 2
+
+    result = Orchestrator(environment=env, agents=agents, config=config).run_sync()
+    assert "colony_specialization" in result.emergence_summary
+    assert "action_switching_rate" in result.emergence_summary
+
+
+def test_orchestrator_tick_emergence_payload_present(tmp_path, config_dict: dict) -> None:
+    config, env, agents = _build_runtime(tmp_path, config_dict)
+    config["orchestrator"]["max_ticks"] = 1
+
+    result = Orchestrator(environment=env, agents=agents, config=config).run_sync()
+    assert result.tick_rows
+    tick_emergence = result.tick_rows[0].emergence
+    assert "lock_contention_rate" in tick_emergence
+    assert "parallel_utilization" in tick_emergence

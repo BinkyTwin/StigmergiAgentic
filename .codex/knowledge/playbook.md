@@ -122,3 +122,8 @@
 - Add schema-backed `acall(..., response_schema=...)` at the LLM boundary and keep typed parsing close to tool execution (`think`, `decompose`) for deterministic downstream behavior.
 - Enforce dependency readiness in agent candidate filtering (`unblocked_markers`) so orchestration order is controlled by marker graph state, not agent timing.
 - Isolate runtime sessions at storage level and surface `session_id` in CLI/output summaries to keep experiments traceable and collision-free.
+
+### Cognitive-Emergence Runtime Standard
+- Keep agent episodic memory local and bounded (`capacity`, `decay_rate`) and pass recalled context through `Decision` payload fields instead of adding DB/schema coupling.
+- Compute emergence metrics from `TickRow` aggregates and audit events at run end; avoid embedding metric state in marker persistence paths.
+- Materialize high-quality reusable knowledge as `lesson` markers with low decay to bridge short-term memory and long-term stigmergic coordination.

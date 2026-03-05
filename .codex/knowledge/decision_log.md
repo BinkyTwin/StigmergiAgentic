@@ -167,3 +167,11 @@
 - `rationale`: This combination addresses major instability sources (untyped outputs, race-prone concurrency, dependency violations, and cross-run state leakage) without breaking existing sync consumers.
 - `alternatives_rejected`: Async-only breaking migration, prompt-only dependency conventions without runtime enforcement, shared single DB path across runs.
 - `linked_adr`: `documentation/decisions/20260304-sprint4-v3-runtime-overhaul.md`
+
+## 2026-03-04 (Sprint 5 V3 Memory + Emergence + Lessons)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: Extend Sprint 4 V3 with bounded episodic agent memory, schema-neutral emergence telemetry, and automatic high-quality `lesson` marker deposition while keeping marker persistence schema unchanged.
+- `rationale`: The thesis runtime needed cognition and observability signals beyond intensity reinforcement, but introducing DB/schema migrations would increase risk and coupling; decision-level memory payloads + audit-log parsing preserve compatibility and traceability.
+- `alternatives_rejected`: Persist agent memory directly in marker schema, add dedicated emergence tables, or keep emergence/lesson logic as external post-processing only.
+- `linked_adr`: `documentation/decisions/20260304-sprint5-v3-memory-emergence-lessons.md`

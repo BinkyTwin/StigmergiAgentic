@@ -97,6 +97,94 @@ def test_compute_pressures_supports_aco_formula() -> None:
     assert pressures["check"] == pytest.approx(1.0 / 5.0)
 
 
+def test_compute_pressures_aco_beta_changes_distribution() -> None:
+    marker = _make_marker("m1", payload={"eligible_actions": ["increment", "check"]})
+    beta_one = compute_pressures(
+        markers=[marker],
+        action_types=["increment", "check"],
+        weights={"increment": 2.0, "check": 1.0},
+        formula="aco",
+        alpha=1.0,
+        beta=1.0,
+    )
+    beta_two = compute_pressures(
+        markers=[marker],
+        action_types=["increment", "check"],
+        weights={"increment": 2.0, "check": 1.0},
+        formula="aco",
+        alpha=1.0,
+        beta=2.0,
+    )
+
+    assert beta_one["increment"] == pytest.approx(2.0 / 3.0)
+    assert beta_two["increment"] == pytest.approx(4.0 / 5.0)
+    assert beta_two["increment"] > beta_one["increment"]
+
+
+def test_compute_pressures_aco_alpha_changes_distribution() -> None:
+    strong = _make_marker(
+        "m-strong",
+        intensity=1.0,
+        payload={"eligible_actions": ["increment"]},
+    )
+    weak = _make_marker(
+        "m-weak",
+        intensity=0.2,
+        payload={"eligible_actions": ["check"]},
+    )
+    alpha_zero = compute_pressures(
+        markers=[strong, weak],
+        action_types=["increment", "check"],
+        formula="aco",
+        alpha=0.0,
+        beta=1.0,
+    )
+    alpha_two = compute_pressures(
+        markers=[strong, weak],
+        action_types=["increment", "check"],
+        formula="aco",
+        alpha=2.0,
+        beta=1.0,
+    )
+
+    assert alpha_zero["increment"] == pytest.approx(0.5)
+    assert alpha_two["increment"] > alpha_zero["increment"]
+
+
+def test_compute_pressures_aco_uses_heuristic_fn_when_provided() -> None:
+    marker = _make_marker("m1", payload={"eligible_actions": ["increment", "check"]})
+    pressures = compute_pressures(
+        markers=[marker],
+        action_types=["increment", "check"],
+        weights={"increment": 5.0, "check": 5.0},
+        formula="aco",
+        alpha=1.0,
+        beta=2.0,
+        heuristic_fn=lambda _marker, action: 3.0 if action == "check" else 1.0,
+    )
+    assert pressures["check"] == pytest.approx(9.0 / 10.0)
+    assert pressures["increment"] == pytest.approx(1.0 / 10.0)
+
+
+def test_compute_pressures_aco_falls_back_to_weight_on_heuristic_error() -> None:
+    marker = _make_marker("m1", payload={"eligible_actions": ["increment", "check"]})
+
+    def broken(_marker: Marker, _action: str) -> float:
+        raise RuntimeError("boom")
+
+    pressures = compute_pressures(
+        markers=[marker],
+        action_types=["increment", "check"],
+        weights={"increment": 4.0, "check": 1.0},
+        formula="aco",
+        alpha=1.0,
+        beta=1.0,
+        heuristic_fn=broken,
+    )
+    assert pressures["increment"] == pytest.approx(4.0 / 5.0)
+    assert pressures["check"] == pytest.approx(1.0 / 5.0)
+
+
 def test_select_action_returns_none_for_zero_distribution() -> None:
     assert select_action({"increment": 0.0, "check": 0.0}, temperature=0.1) is None
 

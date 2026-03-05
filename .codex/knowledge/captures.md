@@ -424,3 +424,23 @@ Implemented Sprint 4 V3 end-to-end with schema-validated async LLM calls, depend
 - `uv run pytest tests/integration/test_assistant_run.py -q` (`4 passed`)
 - `uv run pytest tests/unit tests/integration -q` (`131 passed`)
 - `uv run pytest tests/unit/test_llm_client.py tests/unit/test_dependency.py tests/unit/test_reinforcement.py -q` (structured async + DAG + reinforcement focus)
+
+## 2026-03-04 — Sprint 5 V3 Memory + Emergence + Lesson Runtime
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `impact_score`: `9/10`
+- `confidence`: `high`
+- `scope`: `agent episodic memory, emergence metrics, lesson marker deposition, heuristic-aware pressure, CLI dashboard`
+
+### Outcome
+Implemented Sprint 5 V3 end-to-end with bounded episodic memory in agents, run-level emergence telemetry from tick rows and audit traces, automatic lesson marker deposition on high-quality transitions, heuristic-aware ACO pressure extension, and CLI emergence dashboard integration.
+
+### Reusable Patterns (1-3)
+1. Add cognitive extensions at decision boundaries (`perceive_and_decide`/`execute`) by passing contextual payload through decision contracts instead of mutating persistent marker schema.
+2. Compute collaboration metrics from append-only audit logs to avoid storage schema churn while still quantifying cross-agent interaction density.
+3. Promote high-quality transitions into durable `lesson` markers so reusable coordination knowledge can outlive local agent memory decay.
+
+### Evidence
+- `uv run pytest tests/ -v` (`168 passed`)
+- `uv run python main.py --adapter assistant --objective "Summarize workspace status" --max-ticks 10 --agents 2` (emergence dashboard shown; JSON includes `emergence`)
+- `sqlite3 pheromones/<session_id>/markers.db "SELECT id, marker_type, state, target FROM markers WHERE marker_type='lesson';"` (lesson marker present)

@@ -22,6 +22,10 @@ class Decision:
     target: str
     pressures: dict[str, float]
     selected_pressure: float
+    tick: int = 0
+    context: str = ""
+    recalled_memories: list[dict[str, Any]] = field(default_factory=list)
+    lesson_markers: list[dict[str, Any]] = field(default_factory=list)
 
 
 @dataclass(slots=True)

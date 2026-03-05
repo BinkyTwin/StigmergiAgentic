@@ -897,3 +897,47 @@ Chaque entrée suit ce format :
 - `tests/unit/test_llm_client.py`, `tests/unit/test_marker_store.py`, `tests/unit/test_decay.py`, `tests/unit/test_bash_tool.py`, `tests/unit/test_assistant_adapter.py`, `tests/conftest.py`
 
 ---
+
+### 2026-03-04 19:10 — Sprint 5 V3 Implementation (Memory, Emergence, Lessons)
+
+**Assistant IA utilisé** : Codex (GPT-5)
+
+**Objectif** : Implémenter le plan Sprint 5 V3 final (mémoire agentique, métriques d’émergence, pressure ACO heuristique, markers lesson, dashboard CLI, extension de tests).
+
+**Actions effectuées** :
+- Ajout d’une mémoire épisodique agent (`MemoryEntry`, `AgentMemory`) dans `core/agent.py` avec `remember()`, `recall()`, `reinforce()`, `decay_all()`.
+- Extension de `Decision` (`core/tool_registry.py`) pour transporter `tick`, `context`, `recalled_memories`, `lesson_markers`.
+- Création de `core/emergence.py` avec 8 métriques: `specialization_entropy`, `colony_specialization`, `collaboration_density`, `action_switching_rate`, `convergence_tick`, `lock_contention_rate`, `parallel_utilization`, `pressure_entropy`.
+- Extension `core/pressure.py` avec `heuristic_fn` optionnelle pour la formule ACO.
+- Intégration orchestrateur (`core/orchestrator.py`) : `TickRow.emergence`, `OrchestratorResult.emergence_summary`, calcul de résumé post-run, et `agent.memory.decay_all()` à chaque tick.
+- Dépôt automatique de markers `lesson` dans `core/environment.py` au-dessus de `reinforcement.lesson_threshold`.
+- Enrichissement prompts (`llm/prompts.py`, `tools/think.py`) avec contexte mémoire épisodique et lessons.
+- Mise à jour config (`config/default.yaml`, `config/assistant.yaml`, `core/config.py`) : section obligatoire `emergence`, paramètres mémoire, `lesson_threshold`, `pressures.beta=2.0`, validation stricte associée.
+- Ajout dashboard CLI (`main.py`) et export `emergence` dans le résumé JSON.
+- Ajout/extension tests Sprint 5 :
+  - nouveaux `tests/unit/test_agent_memory.py`, `tests/unit/test_emergence.py`, `tests/unit/test_config.py`
+  - extensions `test_pressure.py`, `test_orchestrator.py`, `test_environment.py`, `tests/conftest.py`
+
+**Décisions prises** :
+- Tracking de collaboration via parsing audit log (`audit_log.jsonl`) sans changement du schéma `Marker`.
+- Section config `emergence` rendue obligatoire dans `REQUIRED_TOP_LEVEL_SECTIONS`.
+- Recall mémoire volontairement simple et local (`keyword_overlap * relevance * recency`) sans dépendances externes.
+
+**Validation** :
+- `uv run pytest tests/ -v` -> `168 passed`
+- Run réel: `uv run python main.py --adapter assistant --objective "Summarize workspace status" --max-ticks 10 --agents 2`
+  - dashboard émergence affiché en CLI
+  - `colony_specialization` mesuré > 0 (`0.2709`)
+  - `action_switching_rate` mesuré < 1 (`0.8333`)
+- Vérification SQL marker lesson:
+  - `sqlite3 pheromones/<session_id>/markers.db "SELECT id, marker_type, state, target FROM markers WHERE marker_type='lesson';"`
+  - présence de `lesson::<source_marker_id>`
+
+**Théorie tracée (références de conception)** :
+- Mémoire cognitive : Ricci et al. (2007) stigmergie cognitive, CoALA episodic memory.
+- Formule ACO alpha/beta : Bonabeau et al. (1999) Eq. 2.1, Chari et al. (2025) ACO-ToT.
+- Métriques d’émergence : Rodriguez (2026), Serugendo et al. (2005).
+- Markers lesson : Heylighen (2016b) stigmergie basée sur marqueurs.
+- Évaporation différentielle lesson : Parunak et al. (2005).
+
+---

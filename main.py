@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import json
 import random
+import shutil
 import sys
 from pathlib import Path
 from typing import Any
@@ -39,6 +40,12 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--max-ticks", type=int, default=None)
     parser.add_argument("--agents", type=int, default=None)
     parser.add_argument("--seed", type=int, default=None)
+    parser.add_argument(
+        "--keep-session",
+        action="store_true",
+        default=False,
+        help="Keep session DB and audit files after run (default: auto-cleanup)",
+    )
     return parser.parse_args(argv)
 
 
@@ -106,6 +113,8 @@ def main(argv: list[str] | None = None) -> int:
     print("Assistant response:")
     print(assistant_response)
     print()
+    _print_emergence_dashboard(result.emergence_summary)
+    print()
 
     summary = {
         "adapter": args.adapter,
@@ -125,12 +134,26 @@ def main(argv: list[str] | None = None) -> int:
         "maintenance": {
             "pruned_markers": int(environment.pruned_markers),
         },
+        "emergence": dict(result.emergence_summary),
         "dag": dag_info,
         "evaluation": evaluation,
         "assistant_response": assistant_response,
     }
     print(json.dumps(summary, indent=2, sort_keys=True))
+
+    if not args.keep_session and session_isolation:
+        _cleanup_session(store.db_path.parent)
+
     return 0
+
+
+def _cleanup_session(session_dir: Path) -> None:
+    """Remove ephemeral session directory (DB + audit) after run completes."""
+    try:
+        if session_dir.is_dir():
+            shutil.rmtree(session_dir)
+    except OSError:
+        pass  # cleanup must never crash the run
 
 
 def _build_config(args: argparse.Namespace) -> dict[str, Any]:
@@ -438,6 +461,32 @@ def _workspace_context(workspace: Any) -> str:
         return str(workspace.get_context_summary()).strip()
     except Exception:  # noqa: BLE001
         return ""
+
+
+def _print_emergence_dashboard(emergence: dict[str, Any]) -> None:
+    print("Emergence dashboard:")
+    if not emergence:
+        print("- disabled")
+        return
+
+    ordered_metrics = [
+        "specialization_entropy",
+        "colony_specialization",
+        "collaboration_density",
+        "action_switching_rate",
+        "convergence_tick",
+        "lock_contention_rate",
+        "parallel_utilization",
+        "pressure_entropy",
+    ]
+    for metric in ordered_metrics:
+        if metric not in emergence:
+            continue
+        value = emergence[metric]
+        if isinstance(value, float):
+            print(f"- {metric}: {value:.4f}")
+        else:
+            print(f"- {metric}: {value}")
 
 
 def _dag_info(markers: list[Any]) -> dict[str, Any]:

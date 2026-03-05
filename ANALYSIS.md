@@ -1,4 +1,0 @@
-- Reviewed configuration and deployment scripts.
-- Identified Docker and Kubernetes usage.
-- No hardcoded secrets detected.
-- Recommend validating image registry access in deployment pipeline.
