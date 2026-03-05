@@ -20,3 +20,6 @@ pandas>=2.1.0
 
 # Code analysis
 asttokens>=2.4.0
+
+# TravelPlanner
+datasets>=2.14.0

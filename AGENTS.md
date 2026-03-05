@@ -6,9 +6,9 @@ This file provides guidance to GitHub Copilot / Codex when working in this repos
 
 Stigmergic orchestration framework V3 (runtime overhaul on top of V2 foundations) for a Master's thesis (EMLV).
 
-Current repository state is **Sprint 5 V3**: Sprint 4 foundations + episodic memory, emergence metrics, lesson markers, and heuristic-aware ACO pressure.
+Current repository state is **Sprint 6 V3**: Sprint 5 runtime + TravelPlanner domain adapter (workspace/tools/evaluator), legacy V0.1 cleanup, and TravelPlanner validation tests.
 
-## Current Scope (Sprint 5 V3)
+## Current Scope (Sprint 6 V3)
 
 Implemented:
 - `core/marker.py` — generic marker model + configurable state machine
@@ -28,14 +28,16 @@ Implemented:
 - `core/orchestrator.py` — parallel tick loop + async execution + session_id + emergence summary
 - `adapters/base.py` — domain adapter/objective/workspace contracts
 - `adapters/assistant/*` — generic assistant adapter + local workspace context summarization
+- `adapters/travelplanner/*` — TravelPlanner workspace + domain tools + adapter + evaluator
 - `tools/*` — infrastructure tools (`file_read`, `file_write`, async `bash_exec`, `web_search`, typed `think`, bounded DAG-aware `decompose`)
 - `llm/client.py` + `llm/prompts.py` — provider-aware sync+async client with structured response validation, memory/lesson prompt contexts
-- `main.py` — assistant CLI entrypoint with per-run session_id, session DB path, DAG/reinforcement metadata + emergence dashboard
+- `main.py` — multi-adapter CLI (`assistant`, `travelplanner`) with per-run session_id, session DB path, DAG/reinforcement metadata + emergence dashboard
 - `config/assistant.yaml` — assistant mode overrides
-- `tests/unit/*` + `tests/integration/test_assistant_run.py` — 168 tests passed (164 unit + 4 integration)
+- `config/travelplanner.yaml` — TravelPlanner mode overrides
+- `scripts/setup_travelplanner.py` — dataset/database setup helper
+- `tests/unit/*` + `tests/integration/*` — 209 tests passed (TravelPlanner tests included)
 
 Not implemented yet:
-- TravelPlanner adapter
 - CodeMigration adapter (V2)
 - SWE-bench adapter
 - baseline runners aligned with V2 runtime
@@ -119,6 +121,12 @@ adapters/
     __init__.py
     adapter.py
     workspace.py
+  travelplanner/
+    __init__.py
+    adapter.py
+    workspace.py
+    tools.py
+    evaluator.py
 
 tools/
   __init__.py
@@ -137,6 +145,10 @@ llm/
 config/
   default.yaml
   assistant.yaml
+  travelplanner.yaml
+
+scripts/
+  setup_travelplanner.py
 
 tests/
   conftest.py
@@ -155,11 +167,16 @@ tests/
     test_file_tools.py
     test_bash_tool.py
     test_assistant_adapter.py
+    test_travelplanner_workspace.py
+    test_travelplanner_tools.py
+    test_travelplanner_adapter.py
+    test_travelplanner_evaluator.py
     test_agent_memory.py
     test_emergence.py
     test_config.py
   integration/
     test_assistant_run.py
+    test_travelplanner.py
 ```
 
 ## Commands
@@ -172,13 +189,15 @@ uv venv --python 3.11 .venv
 uv pip install -r requirements.txt
 ```
 
-### Sprint 5 validation
+### Sprint 6 validation
 
 ```bash
 uv run pytest tests/unit -v
-uv run pytest tests/integration/test_assistant_run.py -v
+uv run pytest tests/integration/test_assistant_run.py tests/integration/test_travelplanner.py -v
 uv run pytest tests/ -v
 uv run python main.py --adapter assistant --objective "Summarize workspace status"
+uv run python scripts/setup_travelplanner.py
+uv run python main.py --adapter travelplanner --objective "Query 0"
 ```
 
 ## Code Style Guidelines

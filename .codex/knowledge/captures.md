@@ -444,3 +444,24 @@ Implemented Sprint 5 V3 end-to-end with bounded episodic memory in agents, run-l
 - `uv run pytest tests/ -v` (`168 passed`)
 - `uv run python main.py --adapter assistant --objective "Summarize workspace status" --max-ticks 10 --agents 2` (emergence dashboard shown; JSON includes `emergence`)
 - `sqlite3 pheromones/<session_id>/markers.db "SELECT id, marker_type, state, target FROM markers WHERE marker_type='lesson';"` (lesson marker present)
+
+## 2026-03-05 — Sprint 6 V3 TravelPlanner Adapter (DSR Iteration 1)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `impact_score`: `9/10`
+- `confidence`: `high`
+- `scope`: `TravelPlanner domain adapter implementation + legacy V0.1 cleanup + paper-facing metrics wiring`
+
+### Outcome
+Implemented the first application-domain adapter on V3 (`travelplanner`) with CSV/HF workspace integration, deterministic domain search tools, schema-validated itinerary planning, programmatic commonsense/hard validation, CLI adapter dispatch, and end-to-end tests; removed obsolete V0.1 runtime surfaces and legacy tests.
+
+### Reusable Patterns (1-3)
+1. Keep domain adapters thin by placing data IO in `workspace`, action semantics in `tools`, and benchmark scoring in `evaluator`, while preserving core runtime contracts unchanged.
+2. For benchmark-grade reproducibility, use LLM only for plan generation and keep constraint validation fully programmatic with explicit micro/macro/final metrics.
+3. Introduce a domain setup script that verifies both data assets (CSV integrity) and query source availability before runtime execution.
+
+### Evidence
+- `uv run pytest tests/unit tests/integration -q` (`204 passed`)
+- `uv run pytest tests/ -q` (`209 passed`)
+- `uv run python scripts/setup_travelplanner.py --output-dir /tmp/travelplanner_db_check --force` (setup + integrity checks passed)
+

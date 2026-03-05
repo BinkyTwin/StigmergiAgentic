@@ -6,9 +6,9 @@ This file provides guidance to Claude Code when working in this repository.
 
 Stigmergic orchestration framework V3 for thesis research (EMLV).
 
-The codebase is currently at **Sprint 5 V3** (Sprint 4 runtime overhaul + episodic memory, emergence telemetry, lesson markers, and heuristic-aware pressure).
+The codebase is currently at **Sprint 6 V3** (Sprint 5 runtime + TravelPlanner domain adapter and legacy V0.1 cleanup).
 
-## Sprint 5 V3 Status (2026-03-04)
+## Sprint 6 V3 Status (2026-03-05)
 
 Implemented modules:
 - `core/marker.py`
@@ -30,6 +30,11 @@ Implemented modules:
 - `adapters/assistant/__init__.py`
 - `adapters/assistant/adapter.py`
 - `adapters/assistant/workspace.py`
+- `adapters/travelplanner/__init__.py`
+- `adapters/travelplanner/adapter.py`
+- `adapters/travelplanner/workspace.py`
+- `adapters/travelplanner/tools.py`
+- `adapters/travelplanner/evaluator.py`
 - `tools/__init__.py`
 - `tools/file_read.py`
 - `tools/file_write.py`
@@ -41,13 +46,14 @@ Implemented modules:
 - `llm/prompts.py`
 - `config/default.yaml`
 - `config/assistant.yaml`
+- `config/travelplanner.yaml`
 - `main.py`
-- `tests/unit/*` + `tests/integration/test_assistant_run.py` (168 tests)
+- `scripts/setup_travelplanner.py`
+- `tests/unit/*` + `tests/integration/*` (209 tests)
 
 Validated gate:
-- `uv run pytest tests/unit -v` -> 164 passed
-- `uv run pytest tests/integration/test_assistant_run.py -v` -> 4 passed
-- `uv run pytest tests/ -v` -> 168 passed
+- `uv run pytest tests/unit tests/integration -v` -> 204 passed
+- `uv run pytest tests/ -v` -> 209 passed
 
 ## Design Principles
 
@@ -152,6 +158,11 @@ The state machine remains configurable and validated through `StateMachine`.
 - `AssistantAdapter`
 - `LocalWorkspace`
 
+### `adapters.travelplanner`
+- `TravelPlannerAdapter`
+- `TravelPlannerWorkspace`
+- `TravelPlannerEvaluator`
+
 ## Commands
 
 ### Setup
@@ -162,13 +173,15 @@ uv venv --python 3.11 .venv
 uv pip install -r requirements.txt
 ```
 
-### Test (Sprint 5)
+### Test (Sprint 6)
 
 ```bash
 uv run pytest tests/unit -v
-uv run pytest tests/integration/test_assistant_run.py -v
+uv run pytest tests/integration/test_assistant_run.py tests/integration/test_travelplanner.py -v
 uv run pytest tests/ -v
 uv run python main.py --adapter assistant --objective "Create a short plan"
+uv run python scripts/setup_travelplanner.py
+uv run python main.py --adapter travelplanner --objective "Query 0"
 ```
 
 ## Coding Rules

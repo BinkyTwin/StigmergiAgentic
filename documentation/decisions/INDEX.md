@@ -21,6 +21,7 @@ Les ADRs suivent le format : `YYYYMMDD-titre-court.md`
 | 009 | 2026-02-26 | [Sprint 3 V2 Infrastructure Tools and Assistant Mode](20260226-sprint3-v2-infrastructure-tools-and-assistant-mode.md) | Accepté | Ajout couche `tools/`, adaptateur assistant, CLI `main.py`, validation stricte config tools, 85 tests |
 | 010 | 2026-03-04 | [Sprint 4 V3 Runtime Overhaul](20260304-sprint4-v3-runtime-overhaul.md) | Accepté | Async LLM structuré, DAG dépendances, renforcement, isolation de session, contexte workspace, 131 tests |
 | 011 | 2026-03-04 | [Sprint 5 V3 Memory, Emergence, and Lesson Markers](20260304-sprint5-v3-memory-emergence-lessons.md) | Accepté | Mémoire agentique, métriques d’émergence, markers lesson, pressure heuristique, dashboard CLI, 168 tests |
+| 012 | 2026-03-05 | [Sprint 6 V3 TravelPlanner Adapter and Programmatic Fidelity Evaluation](20260305-sprint6-travelplanner-adapter-and-fidelity-eval.md) | Accepté | Nettoyage legacy V0.1 + adaptateur TravelPlanner complet (workspace/tools/evaluator) + métriques paper-facing + intégration CLI + 209 tests |
 
 ---
 
@@ -40,4 +41,4 @@ Quand NE PAS créer un ADR :
 
 ---
 
-**Dernière mise à jour** : 2026-03-04
+**Dernière mise à jour** : 2026-03-05
