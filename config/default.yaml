@@ -9,6 +9,14 @@ agents:
   selection_temperature: 0.1
   memory_capacity: 20
   memory_decay_rate: 0.1
+  local_sensing:
+    enabled: false
+    intensity_threshold: 0.0
+    type_affinity_weight: 0.4
+    semantic_affinity_weight: 0.3
+    recency_weight: 0.3
+    max_candidates: 0
+    affinity_exploration_rate: 0.2
 
 markers:
   decay_type: "exponential"
@@ -32,6 +40,9 @@ markers:
   intensity_step_decompose: 0.1
   child_intensity_offset: 0.2
   intensity_floor: 0.1
+  time_decay:
+    enabled: false
+    decay_period_seconds: 60.0
 
 reinforcement:
   enabled: true
@@ -39,6 +50,12 @@ reinforcement:
   propagation_factor: 0.5
   max_intensity: 1.0
   lesson_threshold: 0.7
+  frequentation:
+    enabled: false
+    read_boost: 0.01
+    completion_boost: 0.05
+    max_boost_per_tick: 0.1
+    diminishing_factor: 0.5
 
 guardrails:
   max_retry_count: 3
@@ -50,6 +67,9 @@ orchestrator:
   max_ticks: 50
   idle_cycles_to_stop: 3
   parallel: true
+  emergent_resolution:
+    enabled: false
+    base_probability: 0.1
 
 emergence:
   enabled: true
@@ -62,13 +82,17 @@ emergence:
     - "lock_contention_rate"
     - "parallel_utilization"
     - "pressure_entropy"
+  feedback_loop:
+    enabled: false
+    interval_ticks: 5
+    max_adaptation_delta: 0.2
 
 llm:
   provider: "openrouter"
-  model: "qwen/qwen3-235b-a22b-2507"
+  model: "qwen/qwen3.5-9b"
   temperature: 0.2
   max_tokens_total: 200000
-  max_budget_usd: 5.0
+  max_budget_usd: 10.0
   request_timeout_seconds: 300
   retry_attempts: 3
   min_429_backoff_seconds: 8.0

@@ -6,26 +6,26 @@ This file provides guidance to GitHub Copilot / Codex when working in this repos
 
 Stigmergic orchestration framework V3 (runtime overhaul on top of V2 foundations) for a Master's thesis (EMLV).
 
-Current repository state is **Sprint 6 V3**: Sprint 5 runtime + TravelPlanner domain adapter (workspace/tools/evaluator), legacy V0.1 cleanup, and TravelPlanner validation tests.
+Current repository state is **Sprint 6 V3**: Sprint 5 runtime + TravelPlanner domain adapter (workspace/tools/evaluator), legacy V0.1 cleanup, TravelPlanner validation tests, and V4 stigmergic-correction features (local sensing, time decay, frequentation, emergent conflict resolution, emergence feedback).
 
 ## Current Scope (Sprint 6 V3)
 
 Implemented:
-- `core/marker.py` — generic marker model + configurable state machine
-- `core/marker_store.py` — SQLite (WAL) transactional marker store + locks + differential decay + pruning + SQL queries + optional session isolation
-- `core/decay.py` — intensity/inhibition decay + per-marker-type decay
+- `core/marker.py` — generic marker model + configurable state machine + `last_active_at`
+- `core/marker_store.py` — SQLite (WAL) transactional marker store + locks + differential decay + read tracking/frequentation + pruning + SQL queries + optional session isolation
+- `core/decay.py` — intensity/inhibition decay + per-marker-type decay + read-time effective intensity
 - `core/schemas.py` — Pydantic schemas for structured LLM/tool outputs
 - `core/dependency.py` — DAG validation, topological ordering, unblocked filtering
-- `core/reinforcement.py` — success reinforcement + backward propagation
-- `core/emergence.py` — 8-run emergence metrics from tick rows + audit collaboration parsing
+- `core/reinforcement.py` — success reinforcement + backward propagation + frequentation boost
+- `core/emergence.py` — 8-run emergence metrics from tick rows + audit collaboration parsing + feedback adaptations
 - `core/guardrails.py` — deep norms (budget, retry limit, lock TTL, traceability)
 - `core/audit.py` — append-only JSONL audit trail
 - `core/config.py` + `config/default.yaml` — V3 config sections (`reinforcement`, `decompose`, `async`, marker decay map/pruning/session)
 - `core/tool_registry.py` — tool contracts + action registry
 - `core/pressure.py` — pressure computation + softmax action selection + optional ACO `heuristic_fn`
-- `core/environment.py` — runtime wrapper with reinforcement + propagation + maintenance metrics + lesson marker deposit
-- `core/agent.py` — dependency-aware candidate selection (`unblocked_markers`) + episodic memory recall/reinforcement
-- `core/orchestrator.py` — parallel tick loop + async execution + session_id + emergence summary
+- `core/environment.py` — runtime wrapper with reinforcement + propagation + time-decayed snapshots + maintenance metrics + lesson marker deposit
+- `core/agent.py` — dependency-aware candidate selection (`unblocked_markers`) + episodic memory recall/reinforcement + local-sensing affinity profile
+- `core/orchestrator.py` — parallel tick loop + async execution + session_id + emergence summary + emergent conflict resolution + feedback loop
 - `adapters/base.py` — domain adapter/objective/workspace contracts
 - `adapters/assistant/*` — generic assistant adapter + local workspace context summarization
 - `adapters/travelplanner/*` — TravelPlanner workspace + domain tools + adapter + evaluator
@@ -35,7 +35,7 @@ Implemented:
 - `config/assistant.yaml` — assistant mode overrides
 - `config/travelplanner.yaml` — TravelPlanner mode overrides
 - `scripts/setup_travelplanner.py` — dataset/database setup helper
-- `tests/unit/*` + `tests/integration/*` — 209 tests passed (TravelPlanner tests included)
+- `tests/unit/*` + `tests/integration/*` — 235 tests passed (TravelPlanner + V4 stigmergic corrections included)
 
 Not implemented yet:
 - CodeMigration adapter (V2)
@@ -52,7 +52,7 @@ All inter-agent coordination traces are represented as `Marker` objects.
 Required fields include:
 - identity: `id`, `marker_type`, `target`
 - signal: `intensity`, `state`, `payload`
-- traceability: `created_by`, `created_at`, `updated_by`, `updated_at`
+- traceability: `created_by`, `created_at`, `updated_by`, `updated_at`, `last_active_at`
 - coordination: `lock_owner`, `lock_tick`, `inhibition`, `retry_count`, `history`
 
 ### Marker Store
@@ -71,19 +71,24 @@ Public methods:
 - `acquire_lock`
 - `release_lock`
 - `apply_decay`
+- `apply_frequentation`
 - `maintain_locks`
+- `record_read`
+- `read_count`
 - `snapshot`
 
 ### Agent Runtime
 
 `core.orchestrator.Orchestrator` executes the tick loop:
 1. environment maintenance (TTL + decay)
+   - optional frequentation reinforcement during maintenance
 2. snapshot
 3. parallel `perceive_and_decide`
-4. lock arbitration
+4. lock arbitration (sequential or emergent weighted contention resolution)
 5. parallel `execute`
 6. sequential deposit via `Environment.apply_action_result`
-7. stop-condition checks (`all_terminal`, `idle_cycles`, `budget_exhausted`, `max_ticks`)
+7. optional emergence feedback adaptation
+8. stop-condition checks (`all_terminal`, `idle_cycles`, `budget_exhausted`, `max_ticks`)
 
 ### Guardrails
 

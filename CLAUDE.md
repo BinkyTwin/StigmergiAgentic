@@ -6,9 +6,9 @@ This file provides guidance to Claude Code when working in this repository.
 
 Stigmergic orchestration framework V3 for thesis research (EMLV).
 
-The codebase is currently at **Sprint 6 V3** (Sprint 5 runtime + TravelPlanner domain adapter and legacy V0.1 cleanup).
+The codebase is currently at **Sprint 6 V3** (Sprint 5 runtime + TravelPlanner domain adapter + legacy V0.1 cleanup + V4 stigmergic-correction features).
 
-## Sprint 6 V3 Status (2026-03-05)
+## Sprint 6 V3 Status (2026-03-22)
 
 Implemented modules:
 - `core/marker.py`
@@ -49,11 +49,11 @@ Implemented modules:
 - `config/travelplanner.yaml`
 - `main.py`
 - `scripts/setup_travelplanner.py`
-- `tests/unit/*` + `tests/integration/*` (209 tests)
+- `tests/unit/*` + `tests/integration/*` (235 tests)
 
 Validated gate:
-- `uv run pytest tests/unit tests/integration -v` -> 204 passed
-- `uv run pytest tests/ -v` -> 209 passed
+- `uv run pytest tests/unit tests/integration -q` -> 235 passed
+- `uv run pytest tests/ -q` -> 235 passed
 
 ## Design Principles
 
@@ -61,13 +61,16 @@ Validated gate:
 - Separation of concerns: adapters provide domain logic through tool contracts.
 - Strong governance: traceability, budget checks, retry limits, lock TTL.
 - Auditability by default: append-only JSONL events with before/after payloads.
-- Role-free agents: same agent logic, specialization through pressures and marker availability.
+- Role-free agents: same agent logic, specialization through pressures, local sensing, and marker availability.
+- Backward compatibility first: stigmergic-correction features are opt-in via config.
 
 ## Runtime Model
 
 ```text
-snapshot -> decide (parallel) -> lock arbitration -> execute (parallel)
--> deposit (transactional) -> maintain (TTL + decay)
+snapshot -> decide (parallel, optional local sensing) -> lock arbitration
+-> execute (parallel) -> deposit (transactional)
+-> maintain (TTL + decay + optional frequentation)
+-> optional emergence feedback adaptation
 ```
 
 Stop conditions:
@@ -93,6 +96,7 @@ The state machine remains configurable and validated through `StateMachine`.
 - Mode: `WAL`
 - Transaction model: `BEGIN IMMEDIATE` on all mutations
 - Audit stream: `pheromones/audit_log.jsonl`
+- Optional read-tracking table: `marker_reads`
 
 ## Current Public API Surface
 
@@ -130,6 +134,7 @@ The state machine remains configurable and validated through `StateMachine`.
 
 ### `core.agent`
 - `StigmergicAgent`
+- `AgentAffinityProfile`
 - `AgentMemory`
 - `MemoryEntry`
 
@@ -138,7 +143,7 @@ The state machine remains configurable and validated through `StateMachine`.
 - `TickRow`
 - `OrchestratorResult`
 
-`OrchestratorResult` now includes `emergence_summary`.
+`OrchestratorResult` now includes `emergence_summary`, and the runtime can optionally use emergent contention resolution plus in-memory emergence feedback adaptation.
 
 ### `llm.client`
 - `LLMClient`

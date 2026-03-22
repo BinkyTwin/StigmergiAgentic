@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 import asyncio
-from collections import Counter
+from collections import Counter, defaultdict
 from dataclasses import dataclass, field
+import random
 from typing import Any
 
+from .audit import AuditEvent, utc_timestamp
 from .agent import StigmergicAgent
-from .emergence import compute_emergence_metrics
+from .emergence import compute_adaptations, compute_emergence_metrics
 from .environment import Environment, EnvironmentSnapshot
 from .guardrails import BudgetExceededError
 from .tool_registry import ActionResult, Decision
@@ -62,6 +64,8 @@ class Orchestrator:
         self.config = config
         self.llm_client = llm_client
         self.session_id = session_id
+        self._rng = random.Random(0)
+        self._bind_agent_callbacks()
 
     async def run(self) -> OrchestratorResult:
         """Run orchestrator until one stop condition is met."""
@@ -84,21 +88,10 @@ class Orchestrator:
                 snapshot=pre_snapshot,
                 parallel=parallel,
             )
-
-            lock_conflicts = 0
-            winners: list[tuple[StigmergicAgent, Decision]] = []
-            for agent, decision in decisions_by_agent:
-                if decision is None:
-                    continue
-                acquired = self.environment.acquire_lock(
-                    marker_id=decision.marker_id,
-                    agent_id=agent.agent_id,
-                    tick=tick,
-                )
-                if acquired:
-                    winners.append((agent, decision))
-                else:
-                    lock_conflicts += 1
+            winners, lock_conflicts = self._resolve_winners(
+                decisions_by_agent=decisions_by_agent,
+                tick=tick,
+            )
 
             try:
                 execution_results = await self._execute_winners(
@@ -139,20 +132,25 @@ class Orchestrator:
                 active_agents=len(winners),
                 lock_conflicts=lock_conflicts,
             )
-            tick_rows.append(
-                TickRow(
-                    tick=tick,
-                    decisions=decisions_payload,
-                    executed_actions=executed_actions,
-                    lock_conflicts=lock_conflicts,
-                    active_agents=len(winners),
-                    pressures=pressures,
-                    actions_by_type=actions_by_type,
-                    terminal_progress=self._terminal_progress(post_snapshot),
-                    maintenance=maintenance,
-                    emergence=tick_emergence,
-                )
+            row = TickRow(
+                tick=tick,
+                decisions=decisions_payload,
+                executed_actions=executed_actions,
+                lock_conflicts=lock_conflicts,
+                active_agents=len(winners),
+                pressures=pressures,
+                actions_by_type=actions_by_type,
+                terminal_progress=self._terminal_progress(post_snapshot),
+                maintenance=maintenance,
+                emergence=tick_emergence,
             )
+            tick_rows.append(row)
+            adaptations = self._maybe_apply_feedback(
+                tick=tick,
+                tick_rows=tick_rows,
+            )
+            if adaptations:
+                row.maintenance["adaptations"] = dict(adaptations)
 
             if stop_reason == "budget_exhausted":
                 break
@@ -258,6 +256,239 @@ class Orchestrator:
                 marker_id=decision.marker_id,
                 agent_id=agent.agent_id,
             )
+
+    def _bind_agent_callbacks(self) -> None:
+        for agent in self.agents:
+            if hasattr(agent, "bind_on_perceive"):
+                agent.bind_on_perceive(self._record_agent_reads)
+
+    def _record_agent_reads(
+        self,
+        agent_id: str,
+        markers: list[Any],
+        tick: int,
+    ) -> None:
+        marker_ids = {
+            str(getattr(marker, "id", "")).strip()
+            for marker in markers
+            if str(getattr(marker, "id", "")).strip()
+        }
+        for marker_id in marker_ids:
+            self.environment.store.record_read(
+                marker_id=marker_id,
+                agent_id=agent_id,
+                tick=int(tick),
+            )
+
+    def _resolve_winners(
+        self,
+        *,
+        decisions_by_agent: list[tuple[StigmergicAgent, Decision | None]],
+        tick: int,
+    ) -> tuple[list[tuple[StigmergicAgent, Decision]], int]:
+        emergent_cfg = dict(
+            self.config.get("orchestrator", {}).get("emergent_resolution", {})
+        )
+        if not bool(emergent_cfg.get("enabled", False)):
+            return self._resolve_winners_sequential(
+                decisions_by_agent=decisions_by_agent,
+                tick=tick,
+            )
+        return self._resolve_winners_emergent(
+            decisions_by_agent=decisions_by_agent,
+            tick=tick,
+            base_probability=float(emergent_cfg.get("base_probability", 0.1)),
+        )
+
+    def _resolve_winners_sequential(
+        self,
+        *,
+        decisions_by_agent: list[tuple[StigmergicAgent, Decision | None]],
+        tick: int,
+    ) -> tuple[list[tuple[StigmergicAgent, Decision]], int]:
+        lock_conflicts = 0
+        winners: list[tuple[StigmergicAgent, Decision]] = []
+        for agent, decision in decisions_by_agent:
+            if decision is None:
+                continue
+            acquired = self.environment.acquire_lock(
+                marker_id=decision.marker_id,
+                agent_id=agent.agent_id,
+                tick=tick,
+            )
+            if acquired:
+                winners.append((agent, decision))
+            else:
+                lock_conflicts += 1
+        return winners, lock_conflicts
+
+    def _resolve_winners_emergent(
+        self,
+        *,
+        decisions_by_agent: list[tuple[StigmergicAgent, Decision | None]],
+        tick: int,
+        base_probability: float,
+    ) -> tuple[list[tuple[StigmergicAgent, Decision]], int]:
+        groups: dict[str, list[tuple[StigmergicAgent, Decision]]] = defaultdict(list)
+        marker_order: list[str] = []
+        for agent, decision in decisions_by_agent:
+            if decision is None:
+                continue
+            if decision.marker_id not in groups:
+                marker_order.append(decision.marker_id)
+            groups[decision.marker_id].append((agent, decision))
+
+        winners: list[tuple[StigmergicAgent, Decision]] = []
+        lock_conflicts = 0
+        for marker_id in marker_order:
+            contenders = groups.get(marker_id, [])
+            if not contenders:
+                continue
+            if len(contenders) == 1:
+                agent, decision = contenders[0]
+                if self.environment.acquire_lock(
+                    marker_id=decision.marker_id,
+                    agent_id=agent.agent_id,
+                    tick=tick,
+                ):
+                    winners.append((agent, decision))
+                else:
+                    lock_conflicts += 1
+                continue
+
+            lock_conflicts += len(contenders) - 1
+            winner = self._weighted_contender_choice(
+                contenders=contenders,
+                base_probability=base_probability,
+            )
+            if winner is not None:
+                winner_agent, winner_decision = winner
+                if self.environment.acquire_lock(
+                    marker_id=winner_decision.marker_id,
+                    agent_id=winner_agent.agent_id,
+                    tick=tick,
+                ):
+                    winners.append((winner_agent, winner_decision))
+                    continue
+
+            for agent, decision in contenders:
+                if winner is not None and agent.agent_id == winner[0].agent_id:
+                    continue
+                if self.environment.acquire_lock(
+                    marker_id=decision.marker_id,
+                    agent_id=agent.agent_id,
+                    tick=tick,
+                ):
+                    winners.append((agent, decision))
+                    break
+        return winners, lock_conflicts
+
+    def _weighted_contender_choice(
+        self,
+        *,
+        contenders: list[tuple[StigmergicAgent, Decision]],
+        base_probability: float,
+    ) -> tuple[StigmergicAgent, Decision] | None:
+        if not contenders:
+            return None
+
+        weights = [
+            max(0.0, float(getattr(decision, "selection_affinity", 0.0)))
+            + max(0.0, float(base_probability))
+            for _, decision in contenders
+        ]
+        total = sum(weights)
+        if total <= 0.0:
+            return contenders[0]
+
+        draw = self._rng.random() * total
+        cumulative = 0.0
+        for contender, weight in zip(contenders, weights):
+            cumulative += weight
+            if draw <= cumulative:
+                return contender
+        return contenders[-1]
+
+    def _maybe_apply_feedback(
+        self,
+        *,
+        tick: int,
+        tick_rows: list[TickRow],
+    ) -> dict[str, float]:
+        feedback_cfg = dict(self.config.get("emergence", {}).get("feedback_loop", {}))
+        if not bool(feedback_cfg.get("enabled", False)):
+            return {}
+
+        interval_ticks = max(1, int(feedback_cfg.get("interval_ticks", 5)))
+        if (int(tick) + 1) % interval_ticks != 0:
+            return {}
+
+        metrics = compute_emergence_metrics(
+            tick_rows=tick_rows,
+            total_agents=len(self.agents),
+            audit_log_path=getattr(self.environment.store.audit_log, "path", None),
+        )
+        adaptations = compute_adaptations(metrics, self.config)
+        if not adaptations:
+            return {}
+
+        before = {path: self._get_config_value(path) for path in adaptations}
+        self._apply_adaptations(adaptations)
+        after = {path: self._get_config_value(path) for path in adaptations}
+        self._audit_adaptations(
+            tick=tick,
+            before=before,
+            after=after,
+            metrics=metrics,
+        )
+        return after
+
+    def _apply_adaptations(self, adaptations: dict[str, float]) -> None:
+        for path, value in adaptations.items():
+            self._set_config_value(path, value)
+
+    def _set_config_value(self, path: str, value: float) -> None:
+        keys = [part for part in str(path).split(".") if part]
+        if not keys:
+            return
+        cursor: Any = self.config
+        for key in keys[:-1]:
+            next_value = cursor.get(key)
+            if not isinstance(next_value, dict):
+                next_value = {}
+                cursor[key] = next_value
+            cursor = next_value
+        cursor[keys[-1]] = value
+
+    def _get_config_value(self, path: str) -> Any:
+        cursor: Any = self.config
+        for key in [part for part in str(path).split(".") if part]:
+            if not isinstance(cursor, dict) or key not in cursor:
+                return None
+            cursor = cursor[key]
+        return cursor
+
+    def _audit_adaptations(
+        self,
+        *,
+        tick: int,
+        before: dict[str, Any],
+        after: dict[str, Any],
+        metrics: dict[str, Any],
+    ) -> None:
+        self.environment.store.audit_log.append(
+            AuditEvent(
+                timestamp=utc_timestamp(),
+                agent_id="system_emergence",
+                action="adaptation",
+                marker_id="runtime_config",
+                marker_type="system",
+                target="feedback_loop",
+                before={"config": before, "metrics": metrics},
+                after={"config": after, "metrics": metrics},
+                tick=int(tick),
+            )
+        )
 
     def _aggregate_pressures(
         self,

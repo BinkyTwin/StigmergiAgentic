@@ -10,6 +10,7 @@ from core.schemas import (
     LLMParsedResponse,
     SubtaskSpec,
     ThinkOutput,
+    TravelItineraryOutput,
     ToolResult,
 )
 
@@ -79,3 +80,23 @@ def test_tool_result_and_parsed_response_edge_cases() -> None:
     assert tool_result.artifacts == {}
     assert parsed.is_valid is True
     assert invalid.is_valid is False
+
+
+def test_travel_itinerary_output_coerces_null_text_fields() -> None:
+    payload = TravelItineraryOutput.model_validate(
+        {
+            "plan": [
+                {
+                    "current_city": "Myrtle Beach",
+                    "transportation": "Flight F3927581",
+                    "breakfast": "First Eat, Myrtle Beach",
+                    "attraction": "SkyWheel Myrtle Beach, Myrtle Beach",
+                    "lunch": "Catfish Charlie's, Myrtle Beach",
+                    "dinner": "Nagai, Myrtle Beach",
+                    "accommodation": None,
+                }
+            ]
+        }
+    )
+
+    assert payload.plan[0].accommodation == "-"

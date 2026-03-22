@@ -62,3 +62,21 @@ def test_validate_config_accepts_missing_memory_fields_with_defaults(
     config["agents"].pop("memory_capacity")
     config["agents"].pop("memory_decay_rate")
     validate_config(config)
+
+
+def test_validate_config_rejects_invalid_local_sensing_exploration_rate(
+    config_dict: dict,
+) -> None:
+    config = copy.deepcopy(config_dict)
+    config["agents"]["local_sensing"]["affinity_exploration_rate"] = 1.5
+    with pytest.raises(ConfigError):
+        validate_config(config)
+
+
+def test_validate_config_rejects_invalid_feedback_loop_interval(
+    config_dict: dict,
+) -> None:
+    config = copy.deepcopy(config_dict)
+    config["emergence"]["feedback_loop"]["interval_ticks"] = 0
+    with pytest.raises(ConfigError):
+        validate_config(config)

@@ -37,6 +37,42 @@ Chaque entrée suit ce format :
 
 ## Log des Sessions
 
+### 2026-03-22 15:45 — Sprint 6 V4 Stigmergic Corrections Implementation
+
+**Assistant IA utilisé** : Codex (GPT-5)
+
+**Objectif** : Appliquer le plan `consigne/V4-correction-plan.md` pour renforcer la validité stigmergique du runtime V3 tout en gardant une compatibilité arrière complète.
+
+**Actions effectuées** :
+- Ajout du profil d'affinité agentique et du filtrage de perception locale opt-in dans `core/agent.py`
+- Ajout du champ `last_active_at`, de la migration SQLite associée, et du decay temporel en lecture dans `core/marker.py`, `core/marker_store.py`, `core/decay.py`, `core/environment.py`
+- Ajout du tracking des lectures (`marker_reads`), du boost de frequentation, et de l'application pendant `maintain()`
+- Ajout de la résolution émergente des contentions et de la boucle de feedback d'émergence dans `core/orchestrator.py` / `core/emergence.py`
+- Extension de la configuration YAML et de la validation (`core/config.py`, `config/default.yaml`, `config/travelplanner.yaml`)
+- Ajout de tests ciblés (`test_local_sensing.py`, `test_frequentation.py`) et extension des tests existants
+- Validation complète de la suite `tests/unit` + `tests/integration`
+
+**Décisions prises** :
+- Rendre les cinq nouvelles propriétés strictement opt-in pour préserver le comportement historique quand elles sont désactivées
+- Traiter `last_active_at` comme un signal d'activité métier distinct de `updated_at`, afin que le decay temporel ne soit pas réinitialisé par la maintenance système
+- Connecter l'enregistrement des lectures via l'orchestrateur pour garder le store comme source de vérité des traces de frequentation
+
+**Problèmes rencontrés** :
+- Les tests frequentation décroissaient encore à cause du decay par type `task` → neutralisation explicite du taux `task` dans les scénarios de test concernés
+- Le test d'adaptation sur la température activait simultanément deux règles opposées → métriques de test rendues non contradictoires pour valider le comportement ciblé
+
+**Résultat** : Succès — les corrections V4 sont implémentées, documentées, et validées avec compatibilité arrière conservée.
+
+**Fichiers modifiés** :
+- `core/marker.py` / `core/marker_store.py` / `core/decay.py` — support `last_active_at`, migration SQLite, decay temporel, read tracking
+- `core/reinforcement.py` / `core/environment.py` — boost de frequentation et application pendant la maintenance
+- `core/agent.py` / `core/orchestrator.py` / `core/emergence.py` — local sensing, résolution émergente, feedback loop
+- `core/config.py` / `config/default.yaml` / `config/travelplanner.yaml` — nouvelles sections de configuration opt-in
+- `tests/unit/test_local_sensing.py` / `tests/unit/test_frequentation.py` / tests unitaires étendus — couverture des nouvelles capacités
+- `AGENTS.md` / `CLAUDE.md` / `documentation/redisgn_v2/sprint_06_artifact.md` — synchronisation documentaire du nouveau contrat runtime
+
+---
+
 ### 2026-02-09 16:10 — Mise en Place de la Documentation
 
 **Assistant IA utilisé** : Claude Code (Antigravity)
@@ -989,5 +1025,93 @@ Chaque entrée suit ce format :
 - `requirements.txt`, `.gitignore` — Dépendances et exclusions data
 - `tests/unit/test_travelplanner_*.py`, `tests/integration/test_travelplanner.py`, `tests/fixtures/travelplanner_data.py` — Validation Sprint 6
 - `AGENTS.md`, `CLAUDE.md` — Synchronisation scope Sprint 6
+
+---
+
+### 2026-03-22 — Sprint 6 V4: Stigmergic Corrections (5 opt-in features)
+
+**Assistant IA utilisé** : Codex (GPT-5) + Claude Opus 4.6
+
+**Objectif** : Refactoriser le framework pour introduire 5 propriétés stigmergiques genuines identifiées par l'audit d'alignement OC1-OC5, tout en préservant la compatibilité arrière (209 tests existants, API publique, interface DomainAdapter).
+
+**Contexte** : L'audit a révélé que le framework V3, bien qu'il implémente une coordination indirecte via markers (cœur de la stigmergie), violait 4 principes fondamentaux : sensing global (pas local), évaporation schedulée (pas continue), renforcement explicite (pas émergent), et arbitrage centralisé (pas émergent). Score TravelPlanner de départ : 10% final_pass_rate (180 queries, Qwen 3.5 9B).
+
+**Actions effectuées** :
+
+P1 — Local Sensing (`core/agent.py`, `config/default.yaml`) :
+- `AgentAffinityProfile` : profil d'affinité construit par actions réussies (type_counts, target_keywords)
+- `_apply_local_sensing()` : filtrage par seuil d'intensité + scoring pondéré (type, sémantique, récence) + exploration stochastique
+- `_affinity_heuristic()` : injection dans `compute_pressures()` via `heuristic_fn` ACO existante
+- Config `agents.local_sensing` (enabled: false par défaut)
+
+P2 — Évaporation temporelle continue (`core/decay.py`, `core/marker.py`, `core/environment.py`) :
+- Champ `Marker.last_active_at` (ISO-8601 UTC, défaut vide = fallback `updated_at`)
+- Migration SQLite idempotente (`_ensure_column`)
+- `effective_intensity()` : intensité ajustée au temps de lecture (exponentielle ou linéaire)
+- `Environment.snapshot()` applique le decay read-time sans muter le stockage
+- Config `markers.time_decay` (enabled: false par défaut)
+
+P3 — Renforcement par fréquentation (`core/marker_store.py`, `core/reinforcement.py`) :
+- Table `marker_reads` (PK: marker_id, agent_id, tick)
+- `record_read()` / `read_count()` dans MarkerStore
+- `frequentation_boost()` : rendements décroissants (géométrique bornée)
+- `apply_frequentation()` : boost maintenance-time après decay
+- Callback `on_perceive` connecté par l'orchestrateur pour enregistrer les lectures
+- Config `reinforcement.frequentation` (enabled: false par défaut)
+
+P4 — Résolution de conflits émergente (`core/orchestrator.py`) :
+- `_resolve_winners_emergent()` : groupement par marker_id, sélection probabiliste pondérée par affinité
+- `_weighted_contender_choice()` : weight = selection_affinity + base_probability
+- Fallback séquentiel en cas d'échec du gagnant stochastique
+- Config `orchestrator.emergent_resolution` (enabled: false par défaut)
+
+P5 — Feedback d'émergence (`core/emergence.py`, `core/orchestrator.py`) :
+- `compute_adaptations()` : adaptations in-memory basées sur colony_specialization, lock_contention_rate, parallel_utilization, pressure_entropy
+- `_maybe_apply_feedback()` : application tous les N ticks avec audit trail
+- Config `emergence.feedback_loop` (enabled: false par défaut)
+
+**Décisions prises** :
+- Toutes les features sont opt-in (enabled: false) pour préserver la compatibilité arrière
+- Le snapshot `EnvironmentSnapshot` reste complet — le filtrage local est au niveau agent
+- L'évaporation continue est read-time only (les valeurs stockées ne changent pas)
+- La fréquentation est enregistrée au niveau orchestrateur via callback, pas dans l'agent directement
+
+**Théorie tracée (références de conception)** :
+- Local sensing : Dorigo & Stützle (2004) perception locale ACO, Heylighen (2016b) stigmergie cognitive
+- Évaporation continue : Bonabeau et al. (1999) Eq. 2.1, Parunak et al. (2005) évaporation différentielle
+- Fréquentation (pheromone trails) : Dorigo et al. (1996) Ant System, Deneubourg et al. (1990) trail reinforcement
+- Résolution émergente : Theraulaz & Bonabeau (1999) threshold models, Serugendo et al. (2005) self-organisation
+- Feedback adaptatif : Kapoor et al. (2024) AI agent benchmarks, Rodriguez (2026) emergence metrics
+
+**Validation** :
+- `uv run pytest tests/unit tests/integration -q` → `235 passed`
+- `uv run pytest tests/ -q` → `235 passed`
+- Vérification backward compat : toutes features disabled = comportement identique au Sprint 6 V3
+
+**Fichiers créés** :
+- `tests/unit/test_local_sensing.py` — 5 tests P1
+- `tests/unit/test_frequentation.py` — 5 tests P3
+- `tests/unit/test_main_summary.py` — 1 test CLI summary
+- `documentation/decisions/20260322-sprint6-v4-stigmergic-corrections.md` — ADR 013
+- `documentation/v3_oc1_oc5_alignment_audit.md` — Audit d'alignement OC1-OC5
+- `consigne/V4-correction-plan.md` — Plan de correction V4
+
+**Fichiers modifiés** :
+- `core/agent.py` — AgentAffinityProfile, local sensing, affinity heuristic
+- `core/decay.py` — effective_intensity()
+- `core/marker.py` — last_active_at field
+- `core/marker_store.py` — marker_reads table, record_read, read_count, apply_frequentation
+- `core/reinforcement.py` — frequentation_boost()
+- `core/environment.py` — time-decayed snapshots, frequentation in maintain()
+- `core/orchestrator.py` — emergent resolution, feedback loop, agent callbacks
+- `core/emergence.py` — compute_adaptations()
+- `core/__init__.py` — updated exports
+- `config/default.yaml` — all 5 feature config sections
+- `config/travelplanner.yaml` — mirrored config sections
+- `tests/unit/test_decay.py` — 4 new effective_intensity tests
+- `tests/unit/test_environment.py` — time_decay snapshot test
+- `AGENTS.md`, `CLAUDE.md` — synchronized with V4 scope
+- `documentation/decisions/INDEX.md` — ADR 013 entry
+- `documentation/redisgn_v2/sprint_06_artifact.md` — V4 capabilities documented
 
 ---

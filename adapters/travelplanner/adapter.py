@@ -17,6 +17,7 @@ from .tools import (
     PlanDayTool,
     SearchAttractionsTool,
     SearchFlightsTool,
+    SearchGroundTransportTool,
     SearchHotelsTool,
     SearchRestaurantsTool,
     ValidateConstraintsTool,
@@ -78,6 +79,7 @@ class TravelPlannerAdapter(DomainAdapter):
 
     def register_tools(self, registry: ToolRegistry) -> None:
         registry.register(SearchFlightsTool(config=self.config))
+        registry.register(SearchGroundTransportTool(config=self.config))
         registry.register(SearchHotelsTool(config=self.config))
         registry.register(SearchRestaurantsTool(config=self.config))
         registry.register(SearchAttractionsTool(config=self.config))
@@ -86,6 +88,7 @@ class TravelPlannerAdapter(DomainAdapter):
 
         hintable = [
             "search_flights",
+            "search_ground_transport",
             "search_hotels",
             "search_restaurants",
             "search_attractions",
@@ -146,10 +149,15 @@ class TravelPlannerAdapter(DomainAdapter):
         query = dict(objective.payload.get("query_data", {}))
         dates = query.get("date", [])
         outbound_date = str(dates[0]) if isinstance(dates, list) and dates else ""
+        return_date = str(dates[-1]) if isinstance(dates, list) and dates else outbound_date
 
         objective_id = objective.objective_id
-        flights_id = f"{objective_id}::search_flights"
+        outbound_flights_id = f"{objective_id}::search_flights_outbound"
+        return_flights_id = f"{objective_id}::search_flights_return"
+        outbound_ground_id = f"{objective_id}::search_ground_transport_outbound"
+        return_ground_id = f"{objective_id}::search_ground_transport_return"
         hotels_id = f"{objective_id}::search_hotels"
+        restaurants_id = f"{objective_id}::search_restaurants"
         attractions_id = f"{objective_id}::search_attractions"
         plan_id = f"{objective_id}::plan_itinerary"
         validate_id = f"{objective_id}::validate_constraints"
@@ -163,9 +171,9 @@ class TravelPlannerAdapter(DomainAdapter):
 
         return [
             Marker(
-                id=flights_id,
+                id=outbound_flights_id,
                 marker_type="task",
-                target=flights_id,
+                target=outbound_flights_id,
                 intensity=0.95,
                 state="pending",
                 payload={
@@ -173,8 +181,70 @@ class TravelPlannerAdapter(DomainAdapter):
                     "origin": str(query.get("org", "")),
                     "dest": str(query.get("dest", "")),
                     "date": outbound_date,
+                    "result_key": "search_flights_outbound",
                     "eligible_actions": ["search_flights"],
-                    "stage": "search_flights",
+                    "stage": "search_flights_outbound",
+                },
+                created_by=agent_id,
+                created_at=now,
+                updated_by=agent_id,
+                updated_at=now,
+                history=["created"],
+            ),
+            Marker(
+                id=return_flights_id,
+                marker_type="task",
+                target=return_flights_id,
+                intensity=0.94,
+                state="pending",
+                payload={
+                    **base,
+                    "origin": str(query.get("dest", "")),
+                    "dest": str(query.get("org", "")),
+                    "date": return_date,
+                    "result_key": "search_flights_return",
+                    "eligible_actions": ["search_flights"],
+                    "stage": "search_flights_return",
+                },
+                created_by=agent_id,
+                created_at=now,
+                updated_by=agent_id,
+                updated_at=now,
+                history=["created"],
+            ),
+            Marker(
+                id=outbound_ground_id,
+                marker_type="task",
+                target=outbound_ground_id,
+                intensity=0.93,
+                state="pending",
+                payload={
+                    **base,
+                    "origin": str(query.get("org", "")),
+                    "dest": str(query.get("dest", "")),
+                    "result_key": "search_ground_transport_outbound",
+                    "eligible_actions": ["search_ground_transport"],
+                    "stage": "search_ground_transport_outbound",
+                },
+                created_by=agent_id,
+                created_at=now,
+                updated_by=agent_id,
+                updated_at=now,
+                history=["created"],
+            ),
+            Marker(
+                id=return_ground_id,
+                marker_type="task",
+                target=return_ground_id,
+                intensity=0.92,
+                state="pending",
+                payload={
+                    **base,
+                    "origin": str(query.get("dest", "")),
+                    "dest": str(query.get("org", "")),
+                    "result_key": "search_ground_transport_return",
+                    "eligible_actions": ["search_ground_transport"],
+                    "stage": "search_ground_transport_return",
                 },
                 created_by=agent_id,
                 created_at=now,
@@ -193,6 +263,25 @@ class TravelPlannerAdapter(DomainAdapter):
                     "city": str(query.get("dest", "")),
                     "eligible_actions": ["search_hotels"],
                     "stage": "search_hotels",
+                },
+                created_by=agent_id,
+                created_at=now,
+                updated_by=agent_id,
+                updated_at=now,
+                history=["created"],
+            ),
+            Marker(
+                id=restaurants_id,
+                marker_type="task",
+                target=restaurants_id,
+                intensity=0.92,
+                state="pending",
+                payload={
+                    **base,
+                    "city": str(query.get("dest", "")),
+                    "result_key": "search_restaurants",
+                    "eligible_actions": ["search_restaurants"],
+                    "stage": "search_restaurants",
                 },
                 created_by=agent_id,
                 created_at=now,
@@ -226,7 +315,15 @@ class TravelPlannerAdapter(DomainAdapter):
                 state="pending",
                 payload={
                     **base,
-                    "depends_on": [flights_id, hotels_id, attractions_id],
+                    "depends_on": [
+                        outbound_flights_id,
+                        return_flights_id,
+                        outbound_ground_id,
+                        return_ground_id,
+                        hotels_id,
+                        restaurants_id,
+                        attractions_id,
+                    ],
                     "eligible_actions": ["plan_itinerary"],
                     "stage": "planning",
                 },
@@ -279,7 +376,42 @@ class TravelPlannerAdapter(DomainAdapter):
             raise ValueError("workspace must be created before evaluation")
         evaluator = TravelPlannerEvaluator(workspace=self._workspace)
         markers = env_snapshot.get("markers", [])
-        return evaluator.evaluate_snapshot(markers)
+        result = evaluator.evaluate_snapshot(markers)
+
+        domain_cfg = dict(self.config.get("travelplanner", {}))
+        include_full_split = bool(domain_cfg.get("official_full_split_eval", False))
+        if include_full_split:
+            predictions = self._collect_predictions_by_query_idx(markers)
+            result["official_full_split"] = evaluator.evaluate_predictions_by_query_idx(
+                predictions=predictions,
+            )
+
+        return result
+
+    def _collect_predictions_by_query_idx(
+        self,
+        markers: list[Any],
+    ) -> dict[int, list[dict[str, Any]]]:
+        predictions: dict[int, list[dict[str, Any]]] = {}
+        for marker in markers:
+            marker_id = str(getattr(marker, "id", ""))
+            if not marker_id.endswith("::finalize"):
+                continue
+            payload = dict(getattr(marker, "payload", {}))
+            query_data = payload.get("query_data")
+            plan = payload.get("final_plan")
+            if not isinstance(query_data, dict):
+                continue
+            if not isinstance(plan, list):
+                continue
+            try:
+                query_idx = int(query_data.get("query_idx", -1))
+            except Exception:  # noqa: BLE001
+                continue
+            if query_idx < 0:
+                continue
+            predictions[query_idx] = plan
+        return predictions
 
     def _resolve_query_idx(self, user_input: dict[str, Any]) -> int:
         if "query_idx" in user_input:

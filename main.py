@@ -126,29 +126,19 @@ def main(argv: list[str] | None = None) -> int:
     _print_emergence_dashboard(result.emergence_summary)
     print()
 
-    summary = {
-        "adapter": args.adapter,
-        "objective_id": objective.objective_id,
-        "session_id": session_id,
-        "session_db_path": str(store.db_path),
-        "stop_reason": result.stop_reason,
-        "total_ticks": result.total_ticks,
-        "agents": len(agents),
-        "markers": len(result.final_snapshot.markers),
-        "tokens_used": int(environment.tokens_used),
-        "cost_used": float(environment.cost_used),
-        "reinforcement": {
-            "events": int(environment.reinforcement_events),
-            "propagation_events": int(environment.propagation_events),
-        },
-        "maintenance": {
-            "pruned_markers": int(environment.pruned_markers),
-        },
-        "emergence": dict(result.emergence_summary),
-        "dag": dag_info,
-        "evaluation": evaluation,
-        "assistant_response": assistant_response,
-    }
+    summary = _build_run_summary(
+        adapter_name=args.adapter,
+        objective_id=objective.objective_id,
+        session_id=session_id,
+        store=store,
+        result=result,
+        environment=environment,
+        agents=agents,
+        evaluation=evaluation,
+        dag_info=dag_info,
+        assistant_response=assistant_response,
+        config=config,
+    )
     print(json.dumps(summary, indent=2, sort_keys=True))
 
     if not args.keep_session and session_isolation:
@@ -252,6 +242,48 @@ def _build_agents(
             )
         )
     return agents
+
+
+def _build_run_summary(
+    *,
+    adapter_name: str,
+    objective_id: str,
+    session_id: str,
+    store: MarkerStore,
+    result: Any,
+    environment: Environment,
+    agents: list[StigmergicAgent],
+    evaluation: dict[str, Any],
+    dag_info: dict[str, Any],
+    assistant_response: str,
+    config: dict[str, Any],
+) -> dict[str, Any]:
+    llm_config = dict(config.get("llm", {}))
+    return {
+        "adapter": adapter_name,
+        "objective_id": objective_id,
+        "session_id": session_id,
+        "session_db_path": str(store.db_path),
+        "stop_reason": result.stop_reason,
+        "total_ticks": result.total_ticks,
+        "agents": len(agents),
+        "markers": len(result.final_snapshot.markers),
+        "tokens_used": int(environment.tokens_used),
+        "cost_used": float(environment.cost_used),
+        "llm_provider": str(llm_config.get("provider", "")),
+        "llm_model": str(llm_config.get("model", "")),
+        "reinforcement": {
+            "events": int(environment.reinforcement_events),
+            "propagation_events": int(environment.propagation_events),
+        },
+        "maintenance": {
+            "pruned_markers": int(environment.pruned_markers),
+        },
+        "emergence": dict(result.emergence_summary),
+        "dag": dag_info,
+        "evaluation": evaluation,
+        "assistant_response": assistant_response,
+    }
 
 
 def _build_assistant_response(objective_id: str, markers: list[Any]) -> str:

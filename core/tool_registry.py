@@ -22,6 +22,8 @@ class Decision:
     target: str
     pressures: dict[str, float]
     selected_pressure: float
+    marker_type: str = ""
+    selection_affinity: float = 0.0
     tick: int = 0
     context: str = ""
     recalled_memories: list[dict[str, Any]] = field(default_factory=list)

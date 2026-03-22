@@ -21,8 +21,10 @@ class FakeCompletions:
     def __init__(self, outcomes: list[object]) -> None:
         self.outcomes = list(outcomes)
         self.calls = 0
+        self.last_kwargs: dict | None = None
 
     def create(self, **kwargs):  # type: ignore[no-untyped-def]
+        self.last_kwargs = kwargs
         self.calls += 1
         current = self.outcomes.pop(0)
         if isinstance(current, Exception):
@@ -49,9 +51,10 @@ class AsyncFakeCompletions:
         self.calls = 0
         self.active = 0
         self.max_active = 0
+        self.last_kwargs: dict | None = None
 
     async def create(self, **kwargs):  # type: ignore[no-untyped-def]
-        _ = kwargs
+        self.last_kwargs = kwargs
         self.calls += 1
         self.active += 1
         self.max_active = max(self.max_active, self.active)
@@ -80,7 +83,7 @@ def _build_config() -> dict:
     return {
         "llm": {
             "provider": "openrouter",
-            "model": "qwen/qwen3-235b-a22b-2507",
+            "model": "qwen/qwen3.5-9b",
             "temperature": 0.2,
             "max_tokens_total": 10000,
             "max_budget_usd": 0.0,
@@ -194,6 +197,42 @@ def test_llm_client_call_can_parse_structured_output(monkeypatch: pytest.MonkeyP
     assert result.parsed.path == "README.md"
 
 
+def test_llm_client_forwards_max_tokens_when_configured(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("OPENROUTER_API_KEY", "sk-test")
+    config = _build_config()
+    config["llm"]["max_response_tokens"] = 128
+
+    completions = FakeCompletions([_make_response("ok")])
+    client = LLMClient(config)
+    client.client = FakeOpenAIClient(completions)
+
+    client.call(prompt="hello")
+
+    assert completions.last_kwargs is not None
+    assert completions.last_kwargs["max_tokens"] == 128
+
+
+def test_llm_client_forwards_reasoning_config_when_configured(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("OPENROUTER_API_KEY", "sk-test")
+    config = _build_config()
+    config["llm"]["reasoning"] = {"effort": "none", "exclude": True}
+
+    completions = FakeCompletions([_make_response("ok")])
+    client = LLMClient(config)
+    client.client = FakeOpenAIClient(completions)
+
+    client.call(prompt="hello")
+
+    assert completions.last_kwargs is not None
+    assert completions.last_kwargs["extra_body"] == {
+        "reasoning": {"effort": "none", "exclude": True}
+    }
+
+
 def test_llm_client_acall_parses_structured_output(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("OPENROUTER_API_KEY", "sk-test")
     client = LLMClient(_build_config())
@@ -209,6 +248,23 @@ def test_llm_client_acall_parses_structured_output(monkeypatch: pytest.MonkeyPat
     assert isinstance(result.parsed, ThinkOutput)
     assert result.parsed is not None
     assert result.parsed.path == "README.md"
+
+
+def test_llm_client_acall_forwards_max_tokens_when_configured(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("OPENROUTER_API_KEY", "sk-test")
+    config = _build_config()
+    config["llm"]["max_response_tokens"] = 128
+
+    completions = AsyncFakeCompletions([_make_response("ok")])
+    client = LLMClient(config)
+    client.async_client = AsyncFakeOpenAIClient(completions)
+
+    asyncio.run(client.acall(prompt="hello"))
+
+    assert completions.last_kwargs is not None
+    assert completions.last_kwargs["max_tokens"] == 128
 
 
 def test_llm_client_acall_keeps_raw_when_schema_validation_fails(

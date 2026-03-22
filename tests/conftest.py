@@ -29,6 +29,15 @@ def config_dict() -> dict:
             "selection_temperature": 0.1,
             "memory_capacity": 20,
             "memory_decay_rate": 0.1,
+            "local_sensing": {
+                "enabled": False,
+                "intensity_threshold": 0.0,
+                "type_affinity_weight": 0.4,
+                "semantic_affinity_weight": 0.3,
+                "recency_weight": 0.3,
+                "max_candidates": 0,
+                "affinity_exploration_rate": 0.2,
+            },
         },
         "markers": {
             "decay_type": "exponential",
@@ -46,6 +55,10 @@ def config_dict() -> dict:
             "prune_threshold": 0.05,
             "session_isolation": False,
             "intensity_clamp": [0.1, 1.0],
+            "time_decay": {
+                "enabled": False,
+                "decay_period_seconds": 60.0,
+            },
         },
         "reinforcement": {
             "enabled": True,
@@ -53,6 +66,13 @@ def config_dict() -> dict:
             "propagation_factor": 0.5,
             "max_intensity": 1.0,
             "lesson_threshold": 0.7,
+            "frequentation": {
+                "enabled": False,
+                "read_boost": 0.01,
+                "completion_boost": 0.05,
+                "max_boost_per_tick": 0.1,
+                "diminishing_factor": 0.5,
+            },
         },
         "guardrails": {
             "max_retry_count": 3,
@@ -64,6 +84,10 @@ def config_dict() -> dict:
             "max_ticks": 50,
             "idle_cycles_to_stop": 3,
             "parallel": True,
+            "emergent_resolution": {
+                "enabled": False,
+                "base_probability": 0.1,
+            },
         },
         "emergence": {
             "enabled": True,
@@ -77,10 +101,15 @@ def config_dict() -> dict:
                 "parallel_utilization",
                 "pressure_entropy",
             ],
+            "feedback_loop": {
+                "enabled": False,
+                "interval_ticks": 5,
+                "max_adaptation_delta": 0.2,
+            },
         },
         "llm": {
             "provider": "openrouter",
-            "model": "qwen/qwen3-235b-a22b-2507",
+            "model": "qwen/qwen3.5-9b",
             "temperature": 0.2,
             "max_tokens_total": 200000,
             "max_budget_usd": 5.0,

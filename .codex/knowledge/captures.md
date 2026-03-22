@@ -1,5 +1,67 @@
 # Project Captures
 
+## 2026-03-17 — TravelPlanner Official Eval Failure Pattern Analysis
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `impact_score`: `8/10`
+- `confidence`: `high`
+- `scope`: `TravelPlanner validation benchmark result analysis for run 20260317_112916`
+
+### Outcome
+Analyzed the official TravelPlanner validation run and isolated a structural regime split: the runtime is viable on single-destination 3-day queries, degrades on 5-day 2-city queries, and collapses to zero delivery on 7-day 3-city queries, with the main bottlenecks shifting from delivery failure to closed-circle and budget/cuisine constraint failures.
+
+### Reusable Patterns (1-3)
+1. Segment TravelPlanner benchmark analysis first by `(days, visiting_city_number)` before reading aggregate pass rates; this immediately distinguishes planner-format collapse from constraint-level quality issues.
+2. When `final_pass_rate` is low but `delivery_rate` is moderate, inspect `official_detailed` and a few re-evaluated representative queries to separate commonsense route failures from hard-constraint failures.
+3. Treat a planner that only searches and injects inventory for `dest` as structurally single-destination, even if prompts mention multi-city travel; benchmark failures on 2-city/3-city tasks will then be expected behavior, not random variance.
+
+### Evidence
+- `output/travelplanner_official_full_eval/20260317_112916/official_eval.json`
+- `output/travelplanner_official_full_eval/20260317_112916/runs.json`
+- Replay of representative queries with `OfficialTravelPlannerEvaluator` (`query_013`, `query_055`, `query_072`, `query_120`, `query_128`, `query_151`)
+
+## 2026-03-17 — Controlled GPT-4o Framework Comparison Notebook for TravelPlanner
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `impact_score`: `8/10`
+- `confidence`: `high`
+- `scope`: `Notebook-driven framework comparison pipeline for StigmergiAgentic vs SwarmAgentic on OpenRouter-routed GPT-4o with the official TravelPlanner scorer`
+
+### Outcome
+Prepared a reproducible notebook workflow that compares StigmergiAgentic and SwarmAgentic under the same routed model (`openai/gpt-4o` on OpenRouter) and the same official TravelPlanner scorer, while explicitly documenting the remaining non-controlled dimension that SwarmAgentic performs a PSO optimization phase before evaluation.
+
+### Reusable Patterns (1-3)
+1. For cross-framework LLM comparisons, separate `shared evaluation controls` (provider, routed model, split, scorer) from `framework-native steps` (for example PSO training) and state the uncontrolled remainder explicitly in the notebook header.
+2. When an external benchmark repo is not directly OpenRouter-compatible, patch only the provider/model adapter layer in a throwaway clone and keep framework logic unchanged.
+3. Normalize third-party result files into one local `runs.json` contract before official scoring so downstream analysis, notebooks, and tables can reuse a single scorer path.
+
+### Evidence
+- `output/jupyter-notebook/travelplanner-framework-comparison-openrouter-gpt4o.ipynb`
+- `scripts/prepare_swarmagentic_openrouter.py`
+- `scripts/export_swarmagentic_save_jsonl.py`
+- `scripts/convert_swarmagentic_travelplanner_results.py`
+- `scripts/render_travelplanner_comparison_table.py`
+
+## 2026-03-22 — Opt-In Stigmergic Corrections for V3 Runtime
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `impact_score`: `9/10`
+- `confidence`: `high`
+- `scope`: `Implementation of V4 stigmergic corrections (local sensing, temporal decay, frequentation, emergent conflict resolution, emergence feedback) on top of Sprint 6 V3`
+
+### Outcome
+Implemented the full V4 correction plan as opt-in runtime capabilities, preserving backward compatibility while strengthening the framework's stigmergic semantics through local perception, time-aware evaporation, read-traffic reinforcement, and adaptive emergence reuse.
+
+### Reusable Patterns (1-3)
+1. When hardening a research runtime against theory-alignment critiques, add new mechanisms behind explicit config gates first, then validate that the legacy path still passes the full suite unchanged.
+2. Separate `updated_at` from `last_active_at` when introducing time-based read semantics, so maintenance writes do not accidentally reset temporal dynamics.
+3. If agent perception should become observable for later reinforcement, connect read tracking at the orchestrator callback boundary rather than coupling agents directly to store APIs.
+
+### Evidence
+- `consigne/V4-correction-plan.md`
+- `uv run pytest tests/unit tests/integration -q` (`235 passed`)
+- `uv run pytest tests/ -q` (`235 passed`)
+
 ## 2026-02-10 — Sprint 1 Environment Foundation
 
 - `repo_slug`: `stigmergiagentic-33b989`
@@ -465,3 +527,372 @@ Implemented the first application-domain adapter on V3 (`travelplanner`) with CS
 - `uv run pytest tests/ -q` (`209 passed`)
 - `uv run python scripts/setup_travelplanner.py --output-dir /tmp/travelplanner_db_check --force` (setup + integrity checks passed)
 
+## 2026-03-06 — OC1-OC5 Alignment Audit (Review vs Plan vs Runtime)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `impact_score`: `8/10`
+- `confidence`: `high`
+- `scope`: `Thesis-alignment audit of V3 plan against literature review and current runtime evidence`
+
+### Outcome
+Produced a repo-backed audit that separates theoretical intent, V3 plan promises, and currently proven V3 capabilities, concluding that the framework is strong on runtime architecture (OC1-OC2) but still only partially validated at thesis scale (OC3-OC5, DSR/FEDS, governance).
+
+### Reusable Patterns (1-3)
+1. Audit thesis artifacts against three explicit layers: literature target, implementation plan, and current repo evidence.
+2. Treat configured-but-unwired metrics or controls as intentions, not capabilities, until runtime outputs or tests prove them.
+3. Separate `runtime complete` from `research validated`; benchmarks, case studies, and expert evaluation must be tracked as independent proof layers.
+
+### Evidence
+- `pytest -q` (`209 passed`)
+- `documentation/v3_oc1_oc5_alignment_audit.md`
+- V3 evidence sources reviewed: Sprint 4-6 ADRs, Sprint 6 artifact note, `core/*`, `adapters/*`, `tests/*`
+
+## 2026-03-06 — Colab Qwen3-14B-AWQ Benchmark Notebook Rebuild
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `impact_score`: `7/10`
+- `confidence`: `medium`
+- `scope`: `Google Colab notebook rebuild for local Qwen3-14B-AWQ benchmarking on Tesla T4`
+
+### Outcome
+Created a new Colab-oriented benchmark notebook that replaces brittle vLLM startup assumptions with a cleaner install-restart flow, conservative T4 memory settings, file-backed server logs, and the same latency/throughput plus structured-JSON checks needed for local model viability testing.
+
+### Reusable Patterns (1-3)
+1. For Colab notebooks that upgrade `torch` or `vllm`, separate the dependency install into its own restart-triggering section and resume runtime logic only after reconnect.
+2. On constrained T4 setups, prefer auto-detected AWQ handling with conservative vLLM settings (`max_model_len`, `max_num_seqs`, `gpu_memory_utilization`) before adding backend or quantization overrides.
+3. Persist vLLM startup logs to a file and surface the full tail on health-check timeout so notebook failures expose the real engine cause instead of a generic wrapper exception.
+
+### Evidence
+- `notebooks/benchmark_colab_qwen3_14b_t4_clean.ipynb`
+- Static validation: notebook JSON parsed successfully and every code cell passed `ast.parse`
+- Manual comparison against the failing notebook identified removed risk points: forced `FLASHINFER`, forced `awq_marlin`, truncated startup logs
+
+## 2026-03-06 — TravelPlanner Colab Benchmark Notebook Rebuild
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `impact_score`: `8/10`
+- `confidence`: `medium`
+- `scope`: `Rewrite the Sprint 6 TravelPlanner benchmark notebook for Colab T4 with local vLLM serving and resumable official evaluation`
+
+### Outcome
+Rebuilt the TravelPlanner benchmark notebook around the stable Colab T4 procedure: restart-aware environment install, pinned local vLLM stack, temporary local LLM override config, per-query checkpointing, and official TravelPlanner evaluation using the repository runtime instead of a hosted LLM backend.
+
+### Reusable Patterns (1-3)
+1. For repo-level Colab benchmarks, separate the notebook into `environment install`, `local model serving`, and `benchmark execution` phases so a runtime restart does not invalidate the run protocol.
+2. When a benchmark loop depends on expensive local inference, save a checkpoint after every item instead of every N items to survive Colab disconnects and preemption.
+3. For local OpenAI-compatible servers in a repo that expects hosted providers, inject a temporary config override plus a dummy provider API key rather than patching runtime code just for notebook execution.
+
+### Evidence
+- `travelplanner-sprint6-benchmark.ipynb`
+- Static validation: notebook JSON parsed successfully and every code cell passed `ast.parse`
+- Notebook now uses `main.py --query-idx ... --config <local override>` with official TravelPlanner scorer and per-query checkpoint persistence
+
+## 2026-03-06 — Root-Level Colab Qwen3-14B-AWQ Feasibility Notebook
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `impact_score`: `7/10`
+- `confidence`: `medium`
+- `scope`: `Root-level Colab notebook for thesis-facing local feasibility and benchmark credibility assessment`
+
+### Outcome
+Created a root-level notebook artifact that answers the thesis-facing question directly by separating minimal viability from repeated stability, exporting environment provenance and failure events, and producing a `GO` / `CONDITIONAL GO` / `NO-GO` verdict for using `Qwen/Qwen3-14B-AWQ` locally on Google Colab Free T4 without OpenRouter.
+
+### Reusable Patterns (1-3)
+1. Separate `runs once` from `benchmark credible` by combining a minimal viability suite with a repeated stability campaign on representative prompts.
+2. Export benchmark provenance (`packages`, GPU, env overrides, launch command) and failure events together so Colab-session conclusions stay auditable and reproducible.
+3. Translate benchmark outcomes into three thesis-use levels (`smoke`, `exploratory`, `primary`) instead of a binary feasibility flag.
+
+### Evidence
+- `benchmark_colab_qwen3_14b_t4_clean.ipynb`
+- Static validation: notebook JSON parsed successfully and every code cell passed `ast.parse`
+- The notebook writes a machine-readable summary to `qwen3_14b_awq_benchmark_results.json` with verdict, rationale, provenance, and repeated-run records
+
+## 2026-03-12 — RunPod Ops Skill for Repo-Level Benchmarking
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `impact_score`: `8/10`
+- `confidence`: `high`
+- `scope`: `Create a repo-local RunPod skill for Pod operations, storage handling, and benchmark execution`
+
+### Outcome
+Created a local `runpod-ops` skill that combines official RunPod product constraints with the currently installed `runpodctl` command shape, plus a repo-specific workflow for running `vLLM` and TravelPlanner evaluation on RunPod Pods.
+
+### Reusable Patterns (1-3)
+1. For external CLI skills, anchor command syntax to the installed CLI `--help` output when official docs still contain deprecated verbs or outdated flows.
+2. Keep infrastructure skills concise in `SKILL.md` and move command maps plus repo runbooks into `references/` files.
+3. Separate durable Pod storage and SSH workflows from ad-hoc transfer utilities so benchmark instructions stay reproducible.
+
+### Evidence
+- `runpodctl version` -> `2.1.6-400ac40`
+- `runpodctl user` exited successfully with local config-based auth
+- `.codex/skills/runpod-ops/SKILL.md`
+- `.codex/skills/runpod-ops/references/runpodctl.md`
+- `.codex/skills/runpod-ops/references/stigmergiagentic-runpod.md`
+
+## 2026-03-12 — Autoresearch Integration Strategy for Research Workflows
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `impact_score`: `8/10`
+- `confidence`: `medium`
+- `scope`: `Integration design for adapting karpathy/autoresearch patterns into the V3 stigmergic runtime`
+
+### Outcome
+Mapped `karpathy/autoresearch` to the current V3 runtime as an integration pattern instead of a direct code import. The reusable core is a fixed evaluator plus one mutable artifact plus a keep/discard loop, while thesis-style literature research additionally requires scholarly retrieval, citation grounding, and synthesis scoring.
+
+### Reusable Patterns (1-3)
+1. Reuse `autoresearch` as a control-loop pattern, not as a domain implementation: preserve immutable evaluation, mutable artifact iteration, and experiment logging, but swap the metric to a grounded research score.
+2. Add research support as a dedicated adapter vertical slice rather than overloading the generic assistant adapter, so tool surface, state machine, and evaluator remain explicit and testable.
+3. Feed evaluator-produced `quality_score` back into V3 reinforcement so high-value source chains and synthesis strategies are amplified across ticks.
+
+### Evidence
+- External sources reviewed: `https://github.com/karpathy/autoresearch`, `https://raw.githubusercontent.com/karpathy/autoresearch/master/README.md`, `https://raw.githubusercontent.com/karpathy/autoresearch/master/program.md`
+- Local integration anchors reviewed: `main.py`, `adapters/base.py`, `adapters/assistant/adapter.py`, `core/environment.py`, `tools/decompose.py`, `tools/web_search.py`, `adapters/travelplanner/evaluator.py`
+
+## 2026-03-13 — Repo-Local Objective Autoresearch Skill
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `impact_score`: `8/10`
+- `confidence`: `high`
+- `scope`: `Create a hybrid repo-local skill for bounded autoresearch-style framework improvement and sourced research loops`
+
+### Outcome
+Implemented a repo-local `objective-autoresearch` skill that encodes a goal-locked iterative loop with explicit mode selection (`framework-improvement` vs `objective-research`), fixed evaluator discipline, keep/discard decisions, and bounded failure-stop guardrails.
+
+### Reusable Patterns (1-3)
+1. For hybrid strategy skills, keep the top-level `SKILL.md` short and decision-oriented, then push mode-specific procedures into separate `references/` files.
+2. When the user wants autonomy without drift, encode autonomy as a fixed loop contract plus immutable evaluator rules and explicit failure-stop thresholds.
+3. For repo-local autoresearch workflows, select mode from the final deliverable rather than from intermediate actions such as browsing, brainstorming, or patching.
+
+### Evidence
+- `.codex/skills/objective-autoresearch/SKILL.md`
+- `.codex/skills/objective-autoresearch/references/framework-mode.md`
+- `.codex/skills/objective-autoresearch/references/research-mode.md`
+- `.codex/skills/objective-autoresearch/references/evaluator-contracts.md`
+- `python /Users/lotfi/.codex/skills/.system/skill-creator/scripts/quick_validate.py .codex/skills/objective-autoresearch` -> `Skill is valid!`
+
+## 2026-03-13 — Simplified Home AGENTS Governance
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `impact_score`: `7/10`
+- `confidence`: `high`
+- `scope`: `Remove the heavy knowledge-governance block from the home-level AGENTS file and keep only lightweight skill-locality guidance`
+
+### Outcome
+Simplified `/Users/lotfi/.codex/AGENTS.md` by removing the dedicated `Knowledge Governance` section and replacing it with a short repo-local skill preference under `Skill Hygiene`, preserving the practical rules without the heavier policy framing.
+
+### Reusable Patterns (1-3)
+1. When an instruction file becomes noisy, prefer deleting rigid policy sections and preserving only the minimum operational rule that still guides behavior.
+2. Keep home-level AGENTS files broad and lightweight; push repository-specific process rules down into repo-local files.
+3. For skill systems, a simple "prefer repo-local for repo-specific workflows" rule is often clearer than a full governance section.
+
+### Evidence
+- `/Users/lotfi/.codex/AGENTS.md`
+- Removed section: `## Knowledge Governance`
+- Added guidance under `## Skill Hygiene` for repo-local skills
+
+## 2026-03-13 — RunPod TravelPlanner Repo-Local Workflow
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `impact_score`: `8/10`
+- `confidence`: `high`
+- `scope`: `Repo-local RunPod workflow for provisioning a Pod, bootstrapping the repo, running the TravelPlanner smoke flow, and retrieving artifacts`
+
+### Outcome
+Implemented a repo-local RunPod workflow composed of one operational guide plus four shell scripts that cover local pod creation, on-pod repository bootstrap, TravelPlanner smoke execution, and artifact packaging around the current `runpodctl 2.1.6` command shape.
+
+### Reusable Patterns (1-3)
+1. For remote pod runs, treat a pushed Git ref as the only source of truth and bootstrap empty machines from a raw GitHub script before cloning the full repository.
+2. Split remote execution into four phases with separate scripts: local pod creation, on-pod bootstrap, in-repo smoke run, and artifact packaging/transfer.
+3. Prefer environment-variable secrets and `runpodctl send/receive` artifact handoff over syncing an entire local workspace to the pod.
+
+### Evidence
+- `documentation/runpod_travelplanner_workflow.md`
+- `scripts/runpod/create_travelplanner_pod.sh`
+- `scripts/runpod/bootstrap_travelplanner_repo.sh`
+- `scripts/runpod/run_travelplanner_smoke.sh`
+- `scripts/runpod/package_artifacts.sh`
+- `bash -n scripts/runpod/create_travelplanner_pod.sh scripts/runpod/bootstrap_travelplanner_repo.sh scripts/runpod/run_travelplanner_smoke.sh scripts/runpod/package_artifacts.sh`
+- `uv run pytest tests/integration/test_travelplanner.py -q` (`5 passed`)
+- `uv run python scripts/setup_travelplanner.py --output-dir /tmp/travelplanner_runpod_impl_check --force`
+- `REPO_DIR=/Users/lotfi/Documents/EMLV/Memoire/StigmergiAgentic ARCHIVE_PATH=/tmp/travelplanner_runpod_artifacts_test.tgz bash scripts/runpod/package_artifacts.sh`
+
+## 2026-03-13 — OpenRouter 9B Baseline Reset and Repo Cleanup
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `impact_score`: `8/10`
+- `confidence`: `high`
+- `scope`: `Reset the checked-in runtime baseline to OpenRouter qwen/qwen3.5-9b, add verifiable CLI metadata, replace the pod-specific smoke entrypoint with a local TravelPlanner smoke script, and remove workflow detours from the main repo path`
+
+### Outcome
+Reset the default runtime path to `OpenRouter -> qwen/qwen3.5-9b`, aligned test fixtures and LLM fallback defaults, exposed `llm_provider` and `llm_model` in the CLI JSON summary, added a local `scripts/run_travelplanner_smoke.sh` verifier, and removed benchmark notebooks, repo-local infra skills, RunPod workflow artifacts, and leftover session scratch files from the standard repository surface. Final hardening for the live TravelPlanner path included compacting the itinerary prompt, injecting restaurant candidates from workspace data instead of raw `reference_information`, restoring bounded `max_response_tokens`, disabling OpenRouter reasoning for strict JSON calls, and coercing nullable LLM string fields so the end-to-end smoke completed successfully.
+
+### Reusable Patterns (1-3)
+1. Keep exactly one checked-in hosted LLM baseline across config, runtime fallbacks, and test fixtures; move alternate backends and experiments into transient scripts or notebooks.
+2. For strict JSON tasks on OpenRouter reasoning models, pass `reasoning` through `extra_body`, set `effort: "none"` for the runtime path, cap `max_response_tokens`, and tolerate nullable string fields at the schema edge.
+3. Keep benchmark prompts compact and domain-scoped: prefer workspace-backed slices such as restaurant/flight/hotel records over raw dataset blobs like `reference_information`.
+
+### Evidence
+- `config/default.yaml`
+- `llm/client.py`
+- `main.py`
+- `scripts/run_travelplanner_smoke.sh`
+- `tests/conftest.py`
+- `tests/unit/test_llm_client.py`
+- `tests/unit/test_main_summary.py`
+- `tests/unit/test_schemas.py`
+- `uv run pytest tests/unit/test_llm_client.py tests/unit/test_main_summary.py tests/unit/test_travelplanner_tools.py tests/unit/test_travelplanner_adapter.py tests/unit/test_travelplanner_evaluator.py tests/integration/test_travelplanner.py -q` -> `43 passed`
+- `uv run pytest tests/ -q` -> `216 passed`
+- `bash -n scripts/run_travelplanner_smoke.sh`
+- `QUERY_IDX=0 OBJECTIVE='Query 0' bash scripts/run_travelplanner_smoke.sh` -> summary JSON emitted with `llm_provider=openrouter`, `llm_model=qwen/qwen3.5-9b`
+
+## 2026-03-17 — TravelPlanner Live-Path Failure Audit for Query 0
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `impact_score`: `7/10`
+- `confidence`: `high`
+- `scope`: `Audit the latest live OpenRouter smoke run on Query 0 to identify the next highest-leverage fixes for raising official TravelPlanner pass rate`
+
+### Outcome
+The latest smoke run completes end-to-end but fails official evaluation because the generated plan is not aligned with the exact string semantics expected by the upstream scorer. The two live commonsense failures for Query 0 are `is_valid_information_in_current_city` and `is_valid_information_in_sandbox`: the model emits a bare `transportation="Flight"` instead of a route-bearing transport string, and it chooses an accommodation that exists in the raw CSV but is excluded from the upstream evaluator inventory after `dropna()`. A second structural gap is that the planner only searches the outbound flight leg and never exposes return-leg or ground-transport options, even though the official task expects a closed-circle trip from origin to destination and back. The current replan loop is also too lossy because it feeds only failed constraint keys back to the planner, not the official error messages that explain what exact field formatting or grounding must be fixed.
+
+### Reusable Patterns (1-3)
+1. For scorer-backed benchmarks, align retrieval inventories with the scorer's own filtered dataset view; "present in source CSV" is not enough if the official evaluator applies additional filtering such as `dropna()`.
+2. When an evaluator parses fields by literal substrings, feed the model canonical field templates and the exact candidate strings it should copy instead of relying on high-level natural-language guidance.
+3. Replan loops should carry scorer messages, not only constraint IDs, whenever the evaluator exposes concrete failure reasons that can be repaired in the next generation pass.
+
+### Evidence
+- `output/travelplanner_smoke/travelplanner_query0_20260313_174033.json`
+- `output/travelplanner_smoke/travelplanner_query0_20260313_174033.log`
+- `adapters/travelplanner/tools.py`
+- `adapters/travelplanner/adapter.py`
+- `adapters/travelplanner/workspace.py`
+- `third_party/travelplanner_official/evaluation/commonsense_constraint.py`
+- `third_party/travelplanner_official/tools/accommodations/apis.py`
+- `python - <<'PY' ... load_dataset('osunlp/TravelPlanner', 'validation', split='validation[:1]')[0] ... PY` -> Query 0 is `Washington -> Myrtle Beach`, 3 days, budget `1400`
+- `python - <<'PY' ... OfficialTravelPlannerEvaluator(...).evaluate_plan(...) ... PY` -> `is_valid_information_in_current_city=false`, `is_valid_information_in_sandbox=false`
+- `python - <<'PY' ... commonsense_constraint.is_valid_information_in_sandbox(...) ... PY` -> `(False, 'The accommodation in day 1 is invalid in the sandbox.')`
+- `python - <<'PY' ... Accommodations().data ... PY` -> official accommodation inventory excludes `Private sunny room with private bathroom&entrance, Myrtle Beach`
+
+## 2026-03-17 — Dockerized TravelPlanner Benchmark Validation Baseline
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `impact_score`: `8/10`
+- `confidence`: `high`
+- `scope`: `Move the TravelPlanner smoke path from host-local execution to Docker Compose so benchmark evidence matches the repository's containerized validation contract`
+
+### Outcome
+The TravelPlanner smoke entrypoint now delegates to Docker Compose by default and runs the integration test plus live OpenRouter objective inside the repository container instead of on the host shell. This keeps benchmark validation aligned with the repo's Docker baseline and removes ambiguity about whether `.env`, Python dependencies, and runtime behavior came from the workstation or from the reproducible container image. The containerized smoke reproduced the same functional result as the prior host run: integration passes, the OpenRouter path completes end-to-end, and `final_pass_rate` remains `0.0`, which confirms that the remaining work is framework quality on scorer semantics rather than host-environment drift.
+
+### Reusable Patterns (1-3)
+1. For benchmark evidence, make the top-level smoke script enter Docker first and only execute the workflow directly once inside the container.
+2. When a Docker runner image exposes the project virtualenv on `PATH`, container scripts should call `python` and `pytest` directly instead of assuming host tools like `uv` exist in the runtime image.
+3. If benchmark artifacts must survive the run, bind-mount the repository into the smoke service so logs, outputs, and the current working tree stay synchronized without image rebuild confusion.
+
+### Evidence
+- `docker-compose.yml`
+- `scripts/run_travelplanner_smoke.sh`
+- `bash -n scripts/run_travelplanner_smoke.sh`
+- `docker compose config`
+- `docker version --format '{{.Server.Version}}'` -> `29.1.3`
+- `docker compose run --rm travelplanner-smoke python --version` -> `Python 3.11.14`
+- `docker compose run --rm travelplanner-smoke pytest --version` -> `pytest 9.0.2`
+- `QUERY_IDX=0 OBJECTIVE='Query 0' bash scripts/run_travelplanner_smoke.sh` -> containerized smoke completed with `llm_provider=openrouter`, `llm_model=qwen/qwen3.5-9b`, `final_pass_rate=0.0`
+
+## 2026-03-17 — TravelPlanner Scorer-Grounded Planning Loop Passes Query 0
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `impact_score`: `9/10`
+- `confidence`: `high`
+- `scope`: `Upgrade the TravelPlanner adapter and planner loop so scorer-facing outputs are grounded in benchmark search data, replay official failure messages during replanning, and validate the result through the Docker benchmark path`
+
+### Outcome
+The TravelPlanner adapter now exposes both outbound and return route options, adds explicit ground-transport and restaurant search tasks, aligns search inventories with the official sandbox view, and normalizes planner outputs into scorer-facing canonical strings. The validation loop now persists official error messages and feeds them back into replanning instead of only constraint IDs. On top of that, hotel candidates shown to the planner are filtered by stay feasibility and occupancy constraints, and the prompt explicitly enforces exact day-count and closed-circle requirements. With those framework-level changes, the Dockerized OpenRouter smoke for `Query 0` moved from partial commonsense success to a full official pass: `commonsense_micro=1.0`, `hard_constraint_micro=1.0`, and `final_pass_rate=1.0`.
+
+### Reusable Patterns (1-3)
+1. When a benchmark scorer validates literal field syntax, normalize planner outputs against tool-grounded canonical options instead of trusting raw free-form text.
+2. Surface route legs and alternative transport modes as explicit search tasks in the DAG when itinerary correctness depends on them; do not hide critical benchmark context inside one monolithic prompt blob.
+3. Use scorer messages to drive replanning and prune infeasible accommodation candidates by declared trip constraints before generation when those constraints are already available in the task state.
+
+### Evidence
+- `adapters/travelplanner/adapter.py`
+- `adapters/travelplanner/tools.py`
+- `adapters/travelplanner/workspace.py`
+- `adapters/travelplanner/evaluator.py`
+- `third_party/travelplanner_official/runner.py`
+- `tests/unit/test_travelplanner_workspace.py`
+- `tests/unit/test_travelplanner_adapter.py`
+- `tests/unit/test_travelplanner_tools.py`
+- `tests/unit/test_travelplanner_evaluator.py`
+- `uv run pytest tests/ -q` -> `222 passed`
+- `QUERY_IDX=0 OBJECTIVE='Query 0' bash scripts/run_travelplanner_smoke.sh` -> Docker smoke completed with `final_pass_rate=1.0`
+- `output/travelplanner_smoke/travelplanner_query0_20260317_102020.json`
+
+## 2026-03-17 — Dockerized TravelPlanner Full-Eval Notebook Driver
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `impact_score`: `7/10`
+- `confidence`: `high`
+- `scope`: `Add a Jupyter notebook that launches the full official TravelPlanner evaluation through Docker, checkpoints one artifact per query, and runs the official scorer on the aggregated run set`
+
+### Outcome
+The repository now includes a notebook driver at `output/jupyter-notebook/travelplanner-official-full-eval.ipynb` that orchestrates the full official TravelPlanner validation campaign without moving benchmark execution out of Docker. The notebook builds or reuses the `travelplanner-smoke` image, prepares the database, counts split size, runs queries one by one through `scripts/run_travelplanner_query_export.py`, checkpoints each query JSON into a resumable `runs.json`, and finally launches `scripts/eval_travelplanner_official.py` on the complete run set. The notebook was validated by compiling every code cell successfully and by executing its setup and dataset-count path, which resolved the official validation split size to `180`.
+
+### Reusable Patterns (1-3)
+1. For long-running benchmark notebooks, keep the notebook as a driver and inspection surface only; dispatch actual benchmark execution into the same Docker service used by the official scripted path.
+2. Persist one structured JSON per query plus an aggregate `runs.json` checkpoint so interrupted benchmark campaigns can resume without rerunning completed queries.
+3. Run the official scorer as a separate final container step against aggregated predictions so generation, checkpointing, and evaluation remain reproducible and inspectable.
+
+### Evidence
+- `output/jupyter-notebook/travelplanner-official-full-eval.ipynb`
+- `scripts/run_travelplanner_query_export.py`
+- `scripts/eval_travelplanner_official.py`
+- `python - <<'PY' ... ast.parse(...) ... PY` -> all notebook code cells compiled successfully
+- `python - <<'PY' ... exec cells 2,3 ... PY` -> notebook helper/config cells executed successfully
+- `python - <<'PY' ... exec cell 4 with BUILD_IMAGE=False PREPARE_DATA=False MAX_QUERIES=1 ... PY` -> Docker dataset count succeeded with `total_queries_in_split=180`
+
+## 2026-03-17 — Docker Script Entrypoints Need Explicit Repo Root Imports
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `impact_score`: `6/10`
+- `confidence`: `high`
+- `scope`: `Fix the notebook-driven full evaluation path after every query failed with runtime import errors inside Docker`
+
+### Outcome
+The full-evaluation notebook had recorded `180` runtime failures because each containerized query invocation executed `python /app/scripts/run_travelplanner_query_export.py`, which put `/app/scripts` on `sys.path` instead of the repository root and broke imports like `from core.environment import Environment`. The export script now inserts `REPO_ROOT` into `sys.path` before importing project modules, matching the robustness already used by the official evaluation script. After the fix, the same Docker entrypoint succeeds for `--help` and for a minimal `Query 0` export run, which returns structured JSON with `status="ok"` instead of exiting with `ModuleNotFoundError`.
+
+### Reusable Patterns (1-3)
+1. Any repo script meant to run as `python /abs/path/to/script.py` inside Docker should prepend the repository root to `sys.path` before importing local packages.
+2. When a resumable benchmark notebook marks failed queries as checkpointed, diagnose the first per-query log before rerunning the whole split; uniform failures often indicate an entrypoint bug, not model quality.
+3. Validate Docker benchmark entrypoints with one cheap `--help` run plus one minimal real invocation before launching the full split campaign.
+
+### Evidence
+- `scripts/run_travelplanner_query_export.py`
+- `output/travelplanner_official_full_eval/20260317_112022/queries/query_000.log` -> `ModuleNotFoundError: No module named 'core'`
+- `python -m py_compile scripts/run_travelplanner_query_export.py`
+- `docker compose run --rm travelplanner-smoke python /app/scripts/run_travelplanner_query_export.py --help`
+- `docker compose run --rm travelplanner-smoke python /app/scripts/run_travelplanner_query_export.py --objective 'Query 0' --query-idx 0 --seed 42 --max-ticks 1` -> exits `0` and emits structured JSON
+
+## 2026-03-22 — Controlled Qwen TravelPlanner Framework Comparison Notebook
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `impact_score`: `8/10`
+- `confidence`: `high`
+- `scope`: `Add a reproducible notebook to compare solo Qwen, SwarmAgentic, and StigmergiAgentic on TravelPlanner with the same OpenRouter model and the same official scorer`
+
+### Outcome
+The repository now includes a controlled comparison notebook at `output/jupyter-notebook/travelplanner-framework-comparison-openrouter-qwen35-9b.ipynb` that runs three benchmark arms on the same routed model `qwen/qwen3.5-9b`: a solo baseline, SwarmAgentic, and StigmergiAgentic. The notebook reuses the local official scorer, writes one output subtree per method, and renders a final comparison table after evaluation. To support this protocol, the repo now also includes a solo TravelPlanner export runner plus small interoperability scripts that patch a cloned SwarmAgentic checkout for OpenRouter, normalize its saved state/results, and convert them into the local scorer format. The notebook and all helper scripts were validated by compiling every code cell and every Python entrypoint successfully.
+
+### Reusable Patterns (1-3)
+1. For framework comparisons, add a solo-model arm alongside agentic systems so gains can be attributed to orchestration rather than the hosted model alone.
+2. When reusing an external benchmark repo, keep compatibility glue outside the main runtime: patch the cloned repo in-place, then convert its artifacts into one local scorer format.
+3. Store each method's official evaluation JSON under a method-specific subtree and render the final table from those scorer outputs rather than from raw generation logs.
+
+### Evidence
+- `output/jupyter-notebook/travelplanner-framework-comparison-openrouter-qwen35-9b.ipynb`
+- `scripts/run_travelplanner_solo_query_export.py`
+- `scripts/prepare_swarmagentic_openrouter.py`
+- `scripts/export_swarmagentic_save_jsonl.py`
+- `scripts/convert_swarmagentic_travelplanner_results.py`
+- `scripts/render_travelplanner_comparison_table.py`
+- `python - <<'PY' ... compile(code_cell_source, ...) ... PY` -> all notebook code cells compiled successfully
+- `python -m py_compile scripts/run_travelplanner_solo_query_export.py scripts/prepare_swarmagentic_openrouter.py scripts/export_swarmagentic_save_jsonl.py scripts/convert_swarmagentic_travelplanner_results.py scripts/render_travelplanner_comparison_table.py`

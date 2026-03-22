@@ -65,6 +65,64 @@ def compute_emergence_metrics(
     return asdict(metrics)
 
 
+def compute_adaptations(
+    metrics: Mapping[str, Any],
+    config: Mapping[str, Any],
+) -> dict[str, float]:
+    """Compute in-memory runtime adaptations from emergence metrics."""
+    emergence_cfg = dict(config.get("emergence", {}))
+    feedback_cfg = dict(emergence_cfg.get("feedback_loop", {}))
+    if not bool(feedback_cfg.get("enabled", False)):
+        return {}
+
+    max_delta = max(0.0, float(feedback_cfg.get("max_adaptation_delta", 0.2)))
+    agents_cfg = dict(config.get("agents", {}))
+    local_sensing_cfg = dict(agents_cfg.get("local_sensing", {}))
+    markers_cfg = dict(config.get("markers", {}))
+
+    exploration_rate = _clamp01(
+        float(local_sensing_cfg.get("affinity_exploration_rate", 0.2))
+    )
+    inhibition_increment = max(0.0, float(markers_cfg.get("inhibition_increment", 0.5)))
+    selection_temperature = max(
+        0.0,
+        float(agents_cfg.get("selection_temperature", 0.1)),
+    )
+
+    adaptations: dict[str, float] = {}
+
+    colony_specialization = _metric_float(metrics, "colony_specialization")
+    if colony_specialization < 0.3:
+        adaptations["agents.local_sensing.affinity_exploration_rate"] = _clamp01(
+            exploration_rate - _adaptive_step(exploration_rate, max_delta)
+        )
+    elif colony_specialization > 0.8:
+        adaptations["agents.local_sensing.affinity_exploration_rate"] = _clamp01(
+            exploration_rate + _adaptive_step(exploration_rate, max_delta)
+        )
+
+    lock_contention_rate = _metric_float(metrics, "lock_contention_rate")
+    if lock_contention_rate > 0.3:
+        adaptations["markers.inhibition_increment"] = max(
+            0.0,
+            inhibition_increment + _adaptive_step(inhibition_increment, max_delta),
+        )
+
+    temperature = selection_temperature
+    parallel_utilization = _metric_float(metrics, "parallel_utilization")
+    if parallel_utilization < 0.3:
+        temperature = max(0.0, temperature - _adaptive_step(temperature, max_delta))
+
+    pressure_entropy = _metric_float(metrics, "pressure_entropy")
+    if pressure_entropy < 0.2:
+        temperature += _adaptive_step(selection_temperature, max_delta)
+
+    if temperature != selection_temperature:
+        adaptations["agents.selection_temperature"] = temperature
+
+    return adaptations
+
+
 def _agent_action_sequences(rows: list[Any]) -> dict[str, list[str]]:
     sequences: dict[str, list[str]] = {}
     for row in rows:
@@ -269,3 +327,23 @@ def _row_int(row: Any, field: str) -> int:
         return int(value)
     except (TypeError, ValueError):
         return 0
+
+
+def _metric_float(metrics: Mapping[str, Any], key: str) -> float:
+    try:
+        return float(metrics.get(key, 0.0))
+    except (TypeError, ValueError):
+        return 0.0
+
+
+def _adaptive_step(current: float, max_delta: float) -> float:
+    if max_delta <= 0.0:
+        return 0.0
+    baseline = abs(float(current))
+    if baseline <= 0.0:
+        return max(0.01, max_delta * 0.1)
+    return max(0.01, baseline * max_delta)
+
+
+def _clamp01(value: float) -> float:
+    return max(0.0, min(1.0, float(value)))

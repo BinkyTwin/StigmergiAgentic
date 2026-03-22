@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
+from .decay import effective_intensity
 from .dependency import validate_dag
 from .guardrails import GuardrailEngine
 from .marker import Marker, StateMachine, utc_now_iso
@@ -53,6 +54,35 @@ class Environment:
             marker_type: [Marker.from_dict(marker.to_dict()) for marker in markers]
             for marker_type, markers in grouped.items()
         }
+        markers_cfg = dict(self.config.get("markers", {}))
+        time_decay_cfg = dict(markers_cfg.get("time_decay", {}))
+        if bool(time_decay_cfg.get("enabled", False)):
+            decay_type = str(markers_cfg.get("decay_type", "exponential"))
+            default_decay_rate = float(
+                markers_cfg.get("default_decay_rate", markers_cfg.get("decay_rate", 0.05))
+            )
+            decay_rates_by_type = dict(markers_cfg.get("decay_rates_by_type", {}))
+            clamp_raw = markers_cfg.get("intensity_clamp", [0.1, 1.0])
+            clamp = (float(clamp_raw[0]), float(clamp_raw[1]))
+            decay_period_seconds = float(
+                time_decay_cfg.get("decay_period_seconds", 60.0)
+            )
+            now = utc_now_iso()
+
+            for markers in copied_grouped.values():
+                for marker in markers:
+                    marker_decay_rate = float(
+                        decay_rates_by_type.get(marker.marker_type, default_decay_rate)
+                    )
+                    marker.intensity = effective_intensity(
+                        stored_intensity=marker.intensity,
+                        last_active_at=marker.last_active_at or marker.updated_at,
+                        now=now,
+                        decay_type=decay_type,
+                        decay_rate=marker_decay_rate,
+                        decay_period_seconds=decay_period_seconds,
+                        clamp=clamp,
+                    )
         flat_markers = [
             marker
             for markers in copied_grouped.values()
@@ -81,6 +111,7 @@ class Environment:
         for marker_update in result.marker_updates:
             marker_to_save = Marker.from_dict(marker_update.to_dict())
             existing = self.store.get_marker(marker_to_save.id)
+            marker_to_save.last_active_at = utc_now_iso()
 
             if existing is not None:
                 if existing.state != marker_to_save.state:
@@ -153,11 +184,16 @@ class Environment:
         ttl = int(self.config.get("guardrails", {}).get("scope_lock_ttl", 3))
         released_locks = self.store.maintain_locks(current_tick=current_tick, ttl=ttl)
         decayed_markers = self.store.apply_decay(current_tick=current_tick, config=self.config)
+        frequentation_boosted_markers = self.store.apply_frequentation(
+            current_tick=current_tick,
+            config=self.config,
+        )
         pruned = int(getattr(self.store, "last_decay_pruned_count", 0))
         self.pruned_markers += pruned
         return {
             "released_locks": released_locks,
             "decayed_markers": decayed_markers,
+            "frequentation_boosted_markers": frequentation_boosted_markers,
             "pruned_markers": pruned,
         }
 
@@ -177,6 +213,7 @@ class Environment:
         max_intensity = float(reinforcement_cfg.get("max_intensity", 1.0))
 
         updated = Marker.from_dict(marker.to_dict())
+        updated.last_active_at = utc_now_iso()
         updated.intensity = reinforce_on_success(
             marker=marker,
             reinforcement_rate=rate,
@@ -245,6 +282,7 @@ class Environment:
             if marker is None:
                 continue
             updated = Marker.from_dict(marker.to_dict())
+            updated.last_active_at = utc_now_iso()
             updated.intensity = min(
                 max_intensity,
                 max(0.0, float(marker.intensity) + float(delta) * rate),
@@ -278,6 +316,7 @@ class Environment:
             created_at=timestamp,
             updated_by=source_agent,
             updated_at=timestamp,
+            last_active_at=timestamp,
             history=["created"],
         )
 

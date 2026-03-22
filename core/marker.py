@@ -49,6 +49,7 @@ class Marker:
     created_at: str
     updated_by: str
     updated_at: str
+    last_active_at: str = ""
 
     lock_owner: str | None = None
     lock_tick: int | None = None
@@ -65,6 +66,7 @@ class Marker:
             raise InvalidMarkerError("target cannot be empty")
         if not isinstance(self.payload, dict):
             raise InvalidMarkerError("payload must be a dictionary")
+        self.last_active_at = str(self.last_active_at or "")
 
         self.intensity = _validate_unit_interval(self.intensity, "intensity")
         self.inhibition = _validate_unit_interval(self.inhibition, "inhibition")
@@ -87,6 +89,7 @@ class Marker:
             "created_at": self.created_at,
             "updated_by": self.updated_by,
             "updated_at": self.updated_at,
+            "last_active_at": self.last_active_at,
             "lock_owner": self.lock_owner,
             "lock_tick": self.lock_tick,
             "inhibition": self.inhibition,
@@ -108,6 +111,7 @@ class Marker:
             created_at=str(data["created_at"]),
             updated_by=str(data["updated_by"]),
             updated_at=str(data["updated_at"]),
+            last_active_at=str(data.get("last_active_at", "") or ""),
             lock_owner=(
                 None if data.get("lock_owner") is None else str(data.get("lock_owner"))
             ),

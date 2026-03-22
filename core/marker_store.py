@@ -12,6 +12,7 @@ from .audit import AuditEvent, AuditLog, utc_timestamp
 from .decay import decay_inhibition, decay_intensity_by_type
 from .guardrails import GuardrailEngine, ScopeLockError
 from .marker import Marker
+from .reinforcement import frequentation_boost
 
 
 class MarkerStoreError(RuntimeError):
@@ -72,9 +73,17 @@ class MarkerStore:
                     )
                 marker_to_save.created_by = before.created_by
                 marker_to_save.created_at = before.created_at
+                if not marker_to_save.last_active_at:
+                    marker_to_save.last_active_at = (
+                        before.last_active_at or before.updated_at
+                    )
             else:
                 marker_to_save.created_by = marker_to_save.created_by or agent_id
                 marker_to_save.created_at = marker_to_save.created_at or timestamp
+                if not marker_to_save.last_active_at:
+                    marker_to_save.last_active_at = (
+                        marker_to_save.updated_at or marker_to_save.created_at or timestamp
+                    )
 
             self.guardrails.validate_traceability(
                 agent_id=agent_id,
@@ -295,6 +304,76 @@ class MarkerStore:
 
         return changed
 
+    def apply_frequentation(self, current_tick: int, config: Mapping[str, Any]) -> int:
+        """Apply read-traffic reinforcement boosts for one tick."""
+        reinforcement_cfg = dict(config.get("reinforcement", {}))
+        frequentation_cfg = dict(reinforcement_cfg.get("frequentation", {}))
+        if not bool(frequentation_cfg.get("enabled", False)):
+            return 0
+
+        read_boost = float(frequentation_cfg.get("read_boost", 0.01))
+        completion_boost = float(frequentation_cfg.get("completion_boost", 0.05))
+        max_boost_per_tick = float(frequentation_cfg.get("max_boost_per_tick", 0.1))
+        diminishing_factor = float(frequentation_cfg.get("diminishing_factor", 0.5))
+
+        changed = 0
+        with self._connect() as conn:
+            conn.execute("BEGIN IMMEDIATE")
+            read_rows = conn.execute(
+                """
+                SELECT marker_id, COUNT(*) AS read_count
+                FROM marker_reads
+                WHERE tick = ?
+                GROUP BY marker_id
+                """,
+                (int(current_tick),),
+            ).fetchall()
+
+            updates: list[tuple[Marker, Marker]] = []
+            for row in read_rows:
+                marker_id = str(row["marker_id"])
+                read_count = int(row["read_count"])
+                before = self._get_marker_in_tx(conn, marker_id)
+                if before is None:
+                    continue
+
+                boost = frequentation_boost(
+                    read_count=read_count,
+                    base_boost=read_boost,
+                    max_boost=max_boost_per_tick,
+                    diminishing_factor=diminishing_factor,
+                )
+                if before.state in {"completed", "verified", "terminal"}:
+                    boost = min(max_boost_per_tick, boost + max(0.0, completion_boost))
+                if boost <= 0.0:
+                    continue
+
+                after = self._copy_marker(before)
+                after.intensity = min(1.0, max(0.0, float(before.intensity) + float(boost)))
+                timestamp = utc_timestamp()
+                after.updated_by = "system_frequentation"
+                after.updated_at = timestamp
+                after.last_active_at = timestamp
+
+                self._upsert_in_tx(conn, after)
+                updates.append((before, after))
+
+            conn.execute("COMMIT")
+
+        for before, after in updates:
+            changed += 1
+            self._append_audit(
+                agent_id="system_frequentation",
+                action="frequentation",
+                marker_id=after.id,
+                marker_type=after.marker_type,
+                target=after.target,
+                before=before,
+                after=after,
+                tick=int(current_tick),
+            )
+        return changed
+
     def maintain_locks(self, current_tick: int, ttl: int) -> list[str]:
         """Release expired locks and requeue active items."""
         released_marker_ids: list[str] = []
@@ -362,6 +441,38 @@ class MarkerStore:
             grouped[marker.marker_type].append(marker)
         return dict(grouped)
 
+    def record_read(self, marker_id: str, agent_id: str, tick: int) -> None:
+        """Persist one agent read event for a marker on one tick."""
+        with self._connect() as conn:
+            conn.execute(
+                """
+                INSERT OR IGNORE INTO marker_reads (
+                    marker_id, agent_id, tick, read_at
+                ) VALUES (?, ?, ?, ?)
+                """,
+                (
+                    str(marker_id),
+                    str(agent_id),
+                    int(tick),
+                    utc_timestamp(),
+                ),
+            )
+
+    def read_count(self, marker_id: str, since_tick: int = 0) -> int:
+        """Return the number of recorded reads for one marker."""
+        with self._connect() as conn:
+            row = conn.execute(
+                """
+                SELECT COUNT(*) AS total
+                FROM marker_reads
+                WHERE marker_id = ? AND tick >= ?
+                """,
+                (str(marker_id), int(since_tick)),
+            ).fetchone()
+        if row is None:
+            return 0
+        return int(row["total"])
+
     def prune_markers(self, threshold: float) -> int:
         """Delete markers whose intensity is strictly below threshold."""
         cutoff = float(threshold)
@@ -395,6 +506,7 @@ class MarkerStore:
                     created_at TEXT NOT NULL,
                     updated_by TEXT NOT NULL,
                     updated_at TEXT NOT NULL,
+                    last_active_at TEXT NOT NULL DEFAULT '',
                     lock_owner TEXT,
                     lock_tick INTEGER,
                     inhibition REAL NOT NULL,
@@ -412,6 +524,26 @@ class MarkerStore:
             conn.execute(
                 "CREATE INDEX IF NOT EXISTS idx_markers_lock_owner ON markers(lock_owner)"
             )
+            self._ensure_column(
+                conn=conn,
+                table_name="markers",
+                column_name="last_active_at",
+                definition="TEXT NOT NULL DEFAULT ''",
+            )
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS marker_reads (
+                    marker_id TEXT NOT NULL,
+                    agent_id TEXT NOT NULL,
+                    tick INTEGER NOT NULL,
+                    read_at TEXT NOT NULL,
+                    PRIMARY KEY (marker_id, agent_id, tick)
+                )
+                """
+            )
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_marker_reads_tick ON marker_reads(tick)"
+            )
 
     def _connect(self) -> sqlite3.Connection:
         conn = sqlite3.connect(self.db_path)
@@ -423,11 +555,11 @@ class MarkerStore:
             """
             INSERT INTO markers (
                 id, marker_type, target, intensity, state, payload_json,
-                created_by, created_at, updated_by, updated_at,
+                created_by, created_at, updated_by, updated_at, last_active_at,
                 lock_owner, lock_tick, inhibition, retry_count, history_json
             ) VALUES (
                 :id, :marker_type, :target, :intensity, :state, :payload_json,
-                :created_by, :created_at, :updated_by, :updated_at,
+                :created_by, :created_at, :updated_by, :updated_at, :last_active_at,
                 :lock_owner, :lock_tick, :inhibition, :retry_count, :history_json
             )
             ON CONFLICT(id) DO UPDATE SET
@@ -438,6 +570,7 @@ class MarkerStore:
                 payload_json = excluded.payload_json,
                 updated_by = excluded.updated_by,
                 updated_at = excluded.updated_at,
+                last_active_at = excluded.last_active_at,
                 lock_owner = excluded.lock_owner,
                 lock_tick = excluded.lock_tick,
                 inhibition = excluded.inhibition,
@@ -455,6 +588,7 @@ class MarkerStore:
                 "created_at": marker.created_at,
                 "updated_by": marker.updated_by,
                 "updated_at": marker.updated_at,
+                "last_active_at": marker.last_active_at,
                 "lock_owner": marker.lock_owner,
                 "lock_tick": marker.lock_tick,
                 "inhibition": marker.inhibition,
@@ -481,6 +615,7 @@ class MarkerStore:
             created_at=str(row["created_at"]),
             updated_by=str(row["updated_by"]),
             updated_at=str(row["updated_at"]),
+            last_active_at=str(row["last_active_at"] or ""),
             lock_owner=(None if row["lock_owner"] is None else str(row["lock_owner"])),
             lock_tick=(None if row["lock_tick"] is None else int(row["lock_tick"])),
             inhibition=float(row["inhibition"]),
@@ -529,6 +664,7 @@ class MarkerStore:
             "created_at",
             "updated_by",
             "updated_at",
+            "last_active_at",
             "lock_owner",
             "lock_tick",
             "inhibition",
@@ -627,3 +763,19 @@ class MarkerStore:
             return left <= right
 
         raise MarkerStoreError(f"Unsupported numeric operator: {op}")
+
+    def _ensure_column(
+        self,
+        *,
+        conn: sqlite3.Connection,
+        table_name: str,
+        column_name: str,
+        definition: str,
+    ) -> None:
+        columns = conn.execute(f"PRAGMA table_info({table_name})").fetchall()
+        existing = {str(row["name"]) for row in columns}
+        if column_name in existing:
+            return
+        conn.execute(
+            f"ALTER TABLE {table_name} ADD COLUMN {column_name} {definition}"
+        )

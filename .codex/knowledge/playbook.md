@@ -77,6 +77,11 @@
 - Add retry jitter to avoid synchronized retry spikes in repeated benchmark batches.
 - Tune defaults per provider: keep pacing disabled (`0`) when throughput is priority and provider stability allows it.
 
+### Opt-In Stigmergic Adaptivity Standard
+- Introduce theory-alignment runtime changes behind explicit config flags first, and prove backward compatibility with a full unchanged test sweep before enabling anything by default.
+- Keep temporal semantics on a dedicated activity timestamp (`last_active_at`) instead of reusing generic mutation timestamps when system maintenance also writes to the same rows.
+- Wire perception-side telemetry at the orchestrator boundary so agents stay role-free while the environment/store can still reuse read traces for later reinforcement.
+
 ### Curated Run-Set Standard
 - If execution control changes mid-batch (interrupt/restart), preserve raw outputs but build a curated directory for the exact requested sample.
 - Include only complete triplets (`manifest`, `summary`, `ticks`) per selected run id in curated sets.
@@ -133,3 +138,87 @@
 - Keep planner output structured with schema validation and always include a deterministic fallback path to avoid LLM-format deadlocks.
 - For benchmark domains, define evaluation metrics as first-class outputs in adapter `evaluate_run` so CLI summaries remain comparable across runs.
 
+### Three-Layer Thesis Audit Standard
+- Evaluate thesis readiness across three distinct layers: `review/theory`, `plan/roadmap`, and `repo/runtime evidence`.
+- Do not count legacy or removed artifacts as proof for the current runtime unless the same capability is revalidated in V3 code/tests/docs.
+- Mark config flags, planned metrics, and placeholder states as non-capabilities until they are surfaced by runtime behavior, exported outputs, or explicit tests.
+
+### Colab vLLM Notebook Standard
+- Split Colab benchmark notebooks into `install -> runtime restart -> execution` phases whenever `torch` or `vllm` is upgraded.
+- On Tesla T4, start with auto-detected AWQ loading and conservative memory parameters (`max_model_len <= 4096`, `max_num_seqs = 1`) before forcing backend or quantization-specific flags.
+- Write vLLM server output to a log file and show the log tail on startup timeout so notebook debugging reveals the actual initialization error.
+
+### Colab Repo-Benchmark Standard
+- For Colab notebooks that run repository CLIs, write a temporary local config override instead of mutating checked-in YAML defaults.
+- Resume benchmark loops from a JSON checkpoint and persist it after every expensive query-sized unit of work.
+- When a hosted-provider client is redirected to a local OpenAI-compatible server, inject the expected provider API key as a harmless dummy value in the notebook environment.
+
+### Local Benchmark Feasibility Notebook Standard
+- Make the notebook answer a benchmark decision, not only a startup question, by using explicit `GO`, `CONDITIONAL GO`, and `NO-GO` rules.
+- Split evaluation into `minimal viability` and `repeated stability` so one successful call is never treated as benchmark credibility.
+- Export provenance, failure events, and thesis-use interpretation in the same JSON summary as latency and JSON-validity metrics.
+
+### External CLI Drift Standard
+- When official docs and the installed CLI disagree on command names or flags, treat local `--help` output as the operational source of truth and the docs as conceptual guidance.
+- Encode the drift explicitly in the skill or runbook so later turns do not fall back to deprecated examples.
+- If a required capability exists in the product docs but not in the installed CLI, use the provider console or API instead of inventing unsupported flags.
+
+### Repo-Local Infra Skill Standard
+- Keep infrastructure `SKILL.md` files short and task-oriented; move command matrices and repo-specific workflows into `references/`.
+- For remote benchmark environments, document durable storage, SSH access, and artifact retrieval separately from ad-hoc transfer commands.
+
+### Research Loop Integration Standard
+- Treat external autonomous research repos as orchestration patterns; port the loop into a domain adapter instead of importing repo-specific file assumptions.
+- Define one immutable evaluator and one mutable canonical artifact per research run (for example `draft.md`, `evidence.json`, or `literature_map.md`) so keep/discard iteration stays deterministic.
+- Extend generic web search with scholarly retrieval and citation validation before using the loop for thesis or literature-review workflows.
+
+### Objective Autoresearch Skill Standard
+- For bounded autonomous loops, force every iteration to relock the objective, evaluator, mutable surface, and stop conditions before acting.
+- Keep hybrid skills narrow by selecting one primary mode from the final deliverable and treating other activities as support only.
+- Encode drift resistance explicitly: immutable evaluator files, one-hypothesis iterations, and a finite reframe-then-stop policy.
+
+### Lightweight Home AGENTS Standard
+- Keep the home-level `AGENTS.md` operational and lightweight; avoid long governance prose when one short locality rule is enough.
+- Prefer repo-local instructions and skills for repository-specific behavior instead of centralizing too much policy in `~/.codex/AGENTS.md`.
+- When simplifying instruction files, preserve the actionable constraint and remove the framing overhead first.
+
+### RunPod Branch-Pinned Pod Workflow Standard
+- For remote pod execution, use a pushed Git branch or tag as the only source of truth and never assume the current local working tree should be mirrored to the pod.
+- Bootstrap empty pods from a raw GitHub script first, then run subsequent smoke and packaging scripts from the cloned repository.
+- Keep remote operations split into `create -> bootstrap -> smoke -> package` scripts so provisioning, runtime validation, and artifact retrieval stay independently repeatable.
+
+### OpenRouter Baseline Cleanup Standard
+- Keep one checked-in hosted-provider baseline across `config`, runtime fallback defaults, and test fixtures; experimental model/provider variants belong in temporary overrides, not the default path.
+- Surface `llm_provider` and `llm_model` in CLI JSON summaries and make smoke scripts assert them so baseline drift is visible without reading config files.
+- When simplifying a research repo back to a stable execution path, remove notebooks, pod workflows, and session artifacts from the main surface but keep the scorer-backed evaluation bridge that validates outputs.
+- For strict JSON generation on OpenRouter reasoning-capable models, pass reasoning controls via `extra_body`, disable reasoning on the stable runtime path when needed, and combine that with an explicit response-token cap.
+- Compact benchmark prompts before touching model settings: remove duplicate raw dataset blobs, inject only the needed workspace slices, and keep schema coercion tolerant to `null` string fields from live provider output.
+
+### TravelPlanner Scorer-Alignment Standard
+- Align workspace search results with the official evaluator's filtered inventory, not only the raw CSVs, before trusting a candidate to be sandbox-valid.
+- For TravelPlanner transport and city fields, give the planner canonical strings to copy verbatim, including `from <origin> to <dest>` route wording and exact flight-number forms when flights are selected.
+- Feed official evaluator failure messages back into replanning alongside constraint names so the next pass can repair the exact field that broke scorer semantics.
+- Expose outbound and return route legs as explicit search artifacts, including ground-transport alternatives, when the scorer expects closed-circle itineraries.
+- Filter or prioritize hotel candidates by stay length, occupancy, and declared room/house constraints before prompting the model; treat those as task-state constraints, not post-hoc fixes.
+- Prompt the planner with an exact day-count contract when the scorer evaluates a fixed number of itinerary rows; extra days can invalidate an otherwise plausible closed-circle plan.
+- Before interpreting aggregate TravelPlanner scores, break results down by `(days, visiting_city_number)` to detect regime shifts between single-destination and multi-city planning.
+- If delivery is strong only on `3 days / 1 city`, audit the adapter search markers and fallback search payloads for hidden single-destination assumptions (`org <-> dest` only).
+- For framework-vs-framework TravelPlanner comparisons, lock provider, routed model, split, and official scorer first; document any remaining uncontrolled training or optimization phases explicitly instead of implying a fully matched benchmark.
+- When adapting an external TravelPlanner repo to OpenRouter, patch only model-id/provider compatibility and output normalization, then score both methods through the same local official-eval script.
+- Add a solo baseline arm on the exact same routed model whenever comparing orchestration frameworks; otherwise framework gains can be confounded with raw model capability.
+- For cross-repo benchmark comparisons, keep method interoperability scripts at the repo edge and convert every method into the same `runs.json -> official_eval.json` pipeline before rendering tables.
+
+### Dockerized Benchmark Smoke Standard
+- Treat the containerized smoke path as the only benchmark evidence path once the repo declares Dockerized validation; host-local smokes are debugging aids, not benchmark results.
+- Enter Docker at the top-level script boundary and run the rest of the workflow unchanged inside the container so one command remains ergonomic without mixing environments.
+- Mount the repository into the smoke service when live benchmark runs must write logs and outputs back to the working tree during iterative development.
+
+### Notebook-Driven Full Benchmark Campaign Standard
+- Keep benchmark notebooks as orchestration and analysis surfaces only; execute every expensive benchmark step through the repository's canonical Docker service rather than the host kernel.
+- Checkpoint long benchmark campaigns query by query with one per-query JSON plus an aggregate `runs.json` so partial progress survives notebook interruption or kernel restarts.
+- Separate generation and official scoring into two Docker steps that share the same mounted output directory; this keeps the final score reproducible while preserving intermediate artifacts for debugging.
+
+### Docker Python Entrypoint Standard
+- Any Docker-invoked repository script that may run as `python /app/scripts/<name>.py` should add `REPO_ROOT` to `sys.path` before importing local packages such as `core`, `adapters`, or `llm`.
+- Before launching a long benchmark campaign, validate the exact container entrypoint with one `--help` call and one cheap real invocation so import-path bugs surface immediately.
+- Treat identical per-query runtime failures as an orchestration-path issue first; inspect the first query log before changing prompts, models, or benchmark settings.

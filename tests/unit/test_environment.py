@@ -96,3 +96,33 @@ def test_environment_skips_lesson_marker_below_threshold(
     )
 
     assert store.get_marker("lesson::m-low") is None
+
+
+def test_environment_snapshot_applies_time_decay_without_mutating_store(
+    tmp_path,
+    config_dict: dict,
+    monkeypatch,
+) -> None:
+    config = dict(config_dict)
+    config["markers"] = dict(config_dict["markers"])
+    config["markers"]["time_decay"] = {
+        "enabled": True,
+        "decay_period_seconds": 60.0,
+    }
+    config["markers"]["decay_rate"] = 0.1
+    config["markers"]["default_decay_rate"] = 0.1
+
+    store = MarkerStore(db_path=tmp_path / "pheromones" / "markers.db")
+    marker = _marker("m-time", intensity=1.0)
+    marker.last_active_at = "2026-03-04T12:00:00+00:00"
+    store.upsert_marker(marker, agent_id="seed")
+    env = Environment(store=store, config=config)
+
+    monkeypatch.setattr("core.environment.utc_now_iso", lambda: "2026-03-04T12:02:00+00:00")
+
+    snapshot = env.snapshot(tick=1)
+    stored = store.get_marker("m-time")
+
+    assert snapshot.markers[0].intensity < 1.0
+    assert stored is not None
+    assert stored.intensity == 1.0

@@ -37,6 +37,30 @@ def penalize_on_failure(marker: Marker, penalty_rate: float) -> tuple[float, flo
     return new_intensity, new_inhibition
 
 
+def frequentation_boost(
+    read_count: int,
+    base_boost: float = 0.01,
+    max_boost: float = 0.1,
+    diminishing_factor: float = 0.5,
+) -> float:
+    """Return a bounded read-traffic reinforcement boost."""
+    count = max(0, int(read_count))
+    if count <= 0:
+        return 0.0
+
+    base = max(0.0, float(base_boost))
+    cap = max(0.0, float(max_boost))
+    diminishing = float(diminishing_factor)
+    if base <= 0.0 or cap <= 0.0:
+        return 0.0
+
+    if diminishing <= 0.0 or diminishing == 1.0:
+        boost = base * float(count)
+    else:
+        boost = base * (1.0 - (diminishing**count)) / (1.0 - diminishing)
+    return _clamp(boost, 0.0, cap)
+
+
 def propagate_backward(
     completed_marker_id: str,
     all_markers: list[Marker],
@@ -81,6 +105,7 @@ def propagate_backward(
 
     ordered = sorted(deltas.items(), key=lambda item: item[0])
     return ordered
+
 
 def _clamp(value: float, min_value: float, max_value: float) -> float:
     return max(min_value, min(max_value, float(value)))

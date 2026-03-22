@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import ast
+import math
+import re
 from pathlib import Path
 from typing import Any
 
@@ -18,6 +20,49 @@ class TravelPlannerWorkspace(Workspace):
     """TravelPlanner workspace backed by local CSV databases and HF queries."""
 
     _query_cache: dict[str, list[dict[str, Any]]] = {}
+    flight_columns = (
+        "Flight Number",
+        "Price",
+        "DepTime",
+        "ArrTime",
+        "ActualElapsedTime",
+        "FlightDate",
+        "OriginCityName",
+        "DestCityName",
+        "Distance",
+    )
+    hotel_columns = (
+        "NAME",
+        "price",
+        "room type",
+        "house_rules",
+        "minimum nights",
+        "maximum occupancy",
+        "review rate number",
+        "city",
+    )
+    restaurant_columns = (
+        "Name",
+        "Average Cost",
+        "Cuisines",
+        "Aggregate Rating",
+        "City",
+    )
+    attraction_columns = (
+        "Name",
+        "Latitude",
+        "Longitude",
+        "Address",
+        "Phone",
+        "Website",
+        "City",
+    )
+    distance_columns = (
+        "origin",
+        "destination",
+        "duration",
+        "distance",
+    )
 
     def __init__(
         self,
@@ -124,6 +169,64 @@ class TravelPlannerWorkspace(Workspace):
         )
         return frame.loc[mask].reset_index(drop=True)
 
+    def search_ground_transport(self, origin: str, dest: str) -> pd.DataFrame:
+        route = self.get_distances(origin, dest)
+        if route.empty:
+            return pd.DataFrame(
+                columns=[
+                    "mode",
+                    "origin",
+                    "destination",
+                    "duration",
+                    "distance",
+                    "cost",
+                    "transportation",
+                ]
+            )
+
+        options: list[dict[str, Any]] = []
+        for _, row in route.iterrows():
+            origin_name = self._normalize_city(str(row.get("origin", origin)))
+            dest_name = self._normalize_city(str(row.get("destination", dest)))
+            duration = str(row.get("duration", "")).strip()
+            distance = str(row.get("distance", "")).strip()
+            distance_km = self._parse_distance_km(distance)
+            if not duration or not distance or distance_km is None:
+                continue
+
+            driving_cost = int(distance_km * 0.05)
+            taxi_cost = int(distance_km)
+            options.extend(
+                [
+                    {
+                        "mode": "Self-driving",
+                        "origin": origin_name,
+                        "destination": dest_name,
+                        "duration": duration,
+                        "distance": distance,
+                        "cost": driving_cost,
+                        "transportation": (
+                            f"Self-driving, from {origin_name} to {dest_name}, "
+                            f"duration: {duration}, distance: {distance}, cost: {driving_cost}"
+                        ),
+                    },
+                    {
+                        "mode": "Taxi",
+                        "origin": origin_name,
+                        "destination": dest_name,
+                        "duration": duration,
+                        "distance": distance,
+                        "cost": taxi_cost,
+                        "transportation": (
+                            f"Taxi, from {origin_name} to {dest_name}, "
+                            f"duration: {duration}, distance: {distance}, cost: {taxi_cost}"
+                        ),
+                    },
+                ]
+            )
+
+        return pd.DataFrame(options)
+
     def get_query(self, idx: int) -> dict[str, Any]:
         query_rows = self._load_queries(split=self.dataset_split)
         index = int(idx)
@@ -201,6 +304,27 @@ class TravelPlannerWorkspace(Workspace):
             inplace=True,
         )
 
+        self.flights = self._prepare_inventory(
+            self.flights,
+            required_columns=self.flight_columns,
+        )
+        self.hotels = self._prepare_inventory(
+            self.hotels,
+            required_columns=self.hotel_columns,
+        )
+        self.restaurants = self._prepare_inventory(
+            self.restaurants,
+            required_columns=self.restaurant_columns,
+        )
+        self.attractions = self._prepare_inventory(
+            self.attractions,
+            required_columns=self.attraction_columns,
+        )
+        self.distances = self._prepare_inventory(
+            self.distances,
+            required_columns=self.distance_columns,
+        )
+
     def _load_queries(self, *, split: str) -> list[dict[str, Any]]:
         if self._query_rows_override is not None:
             return [dict(row) for row in self._query_rows_override]
@@ -272,3 +396,31 @@ class TravelPlannerWorkspace(Workspace):
         expected_key = self._normalize_city(expected).casefold()
         normalized = series.astype(str).map(self._normalize_city).str.casefold()
         return normalized.eq(expected_key)
+
+    def _prepare_inventory(
+        self,
+        frame: pd.DataFrame,
+        *,
+        required_columns: tuple[str, ...],
+    ) -> pd.DataFrame:
+        missing = [column for column in required_columns if column not in frame.columns]
+        if missing:
+            raise ValueError(
+                "TravelPlanner inventory is missing required columns: "
+                + ", ".join(missing)
+            )
+        prepared = frame.loc[:, list(required_columns)].copy()
+        prepared = prepared.dropna(subset=list(required_columns)).reset_index(drop=True)
+        return prepared
+
+    def _parse_distance_km(self, value: str) -> int | None:
+        text = str(value).strip()
+        if not text:
+            return None
+        match = re.search(r"([0-9][0-9,]*\.?[0-9]*)", text)
+        if match is None:
+            return None
+        try:
+            return int(math.floor(float(match.group(1).replace(",", ""))))
+        except ValueError:
+            return None

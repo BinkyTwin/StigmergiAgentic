@@ -1,9 +1,9 @@
 """Core primitives for the V3 generic stigmergic framework."""
 
-from .agent import StigmergicAgent
+from .agent import AgentAffinityProfile, StigmergicAgent
 from .audit import AuditEvent, AuditLog, utc_timestamp
 from .config import ConfigError, load_config, merge_config, validate_config
-from .decay import decay_inhibition, decay_intensity
+from .decay import decay_inhibition, decay_intensity, effective_intensity
 from .dependency import (
     build_dependency_graph,
     depends_on_ids,
@@ -11,7 +11,11 @@ from .dependency import (
     unblocked_markers,
     validate_dag,
 )
-from .emergence import EmergenceMetrics, compute_emergence_metrics
+from .emergence import (
+    EmergenceMetrics,
+    compute_adaptations,
+    compute_emergence_metrics,
+)
 from .environment import Environment, EnvironmentSnapshot
 from .guardrails import (
     BudgetExceededError,
@@ -31,6 +35,7 @@ from .marker_store import MarkerStore, MarkerStoreError
 from .orchestrator import Orchestrator, OrchestratorResult, TickRow
 from .pressure import compute_pressures, select_action
 from .reinforcement import (
+    frequentation_boost,
     penalize_on_failure,
     propagate_backward,
     reinforce_on_success,
@@ -46,6 +51,7 @@ from .tool_registry import ActionResult, Decision, Tool, ToolRegistry
 
 __all__ = [
     "ActionResult",
+    "AgentAffinityProfile",
     "AuditEvent",
     "AuditLog",
     "BudgetExceededError",
@@ -78,10 +84,13 @@ __all__ = [
     "TraceabilityError",
     "build_dependency_graph",
     "compute_emergence_metrics",
+    "compute_adaptations",
     "compute_pressures",
     "depends_on_ids",
     "decay_inhibition",
     "decay_intensity",
+    "effective_intensity",
+    "frequentation_boost",
     "load_config",
     "merge_config",
     "penalize_on_failure",

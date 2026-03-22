@@ -46,6 +46,7 @@ def write_sample_database(database_root: Path) -> Path:
     (database_root / "restaurants").mkdir(parents=True, exist_ok=True)
     (database_root / "attractions").mkdir(parents=True, exist_ok=True)
     (database_root / "googleDistanceMatrix").mkdir(parents=True, exist_ok=True)
+    (database_root / "background").mkdir(parents=True, exist_ok=True)
 
     flights = pd.DataFrame(
         [
@@ -94,6 +95,16 @@ def write_sample_database(database_root: Path) -> Path:
                 "minimum nights": 1,
                 "maximum occupancy": 2,
                 "review rate number": 4.1,
+                "city": "Myrtle Beach",
+            },
+            {
+                "NAME": "Filtered Hotel",
+                "price": 99.0,
+                "room type": "Private room",
+                "house_rules": None,
+                "minimum nights": 1,
+                "maximum occupancy": 2,
+                "review rate number": 4.0,
                 "city": "Myrtle Beach",
             },
         ]
@@ -186,6 +197,11 @@ def write_sample_database(database_root: Path) -> Path:
     restaurants.to_csv(database_root / "restaurants" / "clean_restaurant_2022.csv", index=False)
     attractions.to_csv(database_root / "attractions" / "attractions.csv", index=False)
     distances.to_csv(database_root / "googleDistanceMatrix" / "distance.csv", index=False)
+    (database_root / "background" / "citySet_with_states.txt").write_text(
+        "Washington\tDistrict of Columbia\n"
+        "Myrtle Beach\tSouth Carolina",
+        encoding="utf-8",
+    )
     return database_root
 
 

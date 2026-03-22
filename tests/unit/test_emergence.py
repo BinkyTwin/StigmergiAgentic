@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from core.emergence import compute_emergence_metrics
+from core.emergence import compute_adaptations, compute_emergence_metrics
 from core.orchestrator import TickRow
 
 
@@ -139,3 +139,29 @@ def test_pressure_entropy_computes_distribution_entropy() -> None:
     ]
     metrics = compute_emergence_metrics(rows, total_agents=1)
     assert metrics["pressure_entropy"] == pytest.approx(1.0)
+
+
+def test_compute_adaptations_adjusts_exploration_and_temperature(
+    config_dict: dict,
+) -> None:
+    config = {
+        **config_dict,
+        "emergence": {
+            **config_dict["emergence"],
+            "feedback_loop": {
+                "enabled": True,
+                "interval_ticks": 1,
+                "max_adaptation_delta": 0.2,
+            },
+        },
+    }
+    metrics = {
+        "colony_specialization": 0.1,
+        "lock_contention_rate": 0.0,
+        "parallel_utilization": 0.5,
+        "pressure_entropy": 0.1,
+    }
+
+    adaptations = compute_adaptations(metrics, config)
+    assert "agents.local_sensing.affinity_exploration_rate" in adaptations
+    assert "agents.selection_temperature" in adaptations

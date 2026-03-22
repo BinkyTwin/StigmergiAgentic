@@ -93,7 +93,7 @@ class LLMClient:
                 f"{self.api_env_var} environment variable is required for provider={self.provider}"
             )
 
-        self.model = str(llm_config.get("model", "qwen/qwen3-235b-a22b-2507"))
+        self.model = str(llm_config.get("model", "qwen/qwen3.5-9b"))
         self.temperature = float(llm_config.get("temperature", 0.2))
         async_cfg = dict(config.get("async", {}))
         self.max_concurrent_llm_calls = int(
@@ -103,14 +103,12 @@ class LLMClient:
             self.max_concurrent_llm_calls = 1
         raw_max_response_tokens = llm_config.get("max_response_tokens", 0)
         max_response_tokens = int(raw_max_response_tokens)
-        # Hard-disable explicit max_tokens: thinking-heavy migrations should never
-        # be truncated by a client-side completion cap.
-        self.max_response_tokens: int | None = None
-        if max_response_tokens > 0:
-            LOGGER.warning(
-                "llm.max_response_tokens=%s is ignored: client never sends max_tokens",
-                max_response_tokens,
-            )
+        self.max_response_tokens = (
+            max_response_tokens if max_response_tokens > 0 else None
+        )
+        self.reasoning = self._parse_reasoning_config(
+            llm_config.get("reasoning", {})
+        )
         self.estimated_completion_tokens = int(
             llm_config.get("estimated_completion_tokens", 4096)
         )
@@ -221,6 +219,12 @@ class LLMClient:
                     "messages": self._build_messages(prompt=prompt, system=system),
                     "temperature": self.temperature,
                 }
+                if self.provider == "openrouter" and self.reasoning is not None:
+                    request_payload["extra_body"] = {
+                        "reasoning": dict(self.reasoning)
+                    }
+                if self.max_response_tokens is not None:
+                    request_payload["max_tokens"] = self.max_response_tokens
                 if response_schema is not None:
                     request_payload["response_format"] = {"type": "json_object"}
 
@@ -310,6 +314,12 @@ class LLMClient:
                             "messages": self._build_messages(prompt=prompt, system=system),
                             "temperature": self.temperature,
                         }
+                        if self.provider == "openrouter" and self.reasoning is not None:
+                            request_payload["extra_body"] = {
+                                "reasoning": dict(self.reasoning)
+                            }
+                        if self.max_response_tokens is not None:
+                            request_payload["max_tokens"] = self.max_response_tokens
                         if response_schema is not None:
                             request_payload["response_format"] = {"type": "json_object"}
 
@@ -456,6 +466,31 @@ class LLMClient:
         if raw_cost is None:
             return None
         return self._safe_float(raw_cost)
+
+    def _parse_reasoning_config(
+        self,
+        raw_reasoning: Any,
+    ) -> dict[str, Any] | None:
+        if not isinstance(raw_reasoning, dict):
+            return None
+
+        parsed: dict[str, Any] = {}
+
+        effort = raw_reasoning.get("effort")
+        if effort is not None:
+            effort_text = str(effort).strip()
+            if effort_text:
+                parsed["effort"] = effort_text
+
+        exclude = raw_reasoning.get("exclude")
+        if isinstance(exclude, bool):
+            parsed["exclude"] = exclude
+
+        max_tokens = raw_reasoning.get("max_tokens")
+        if max_tokens is not None:
+            parsed["max_tokens"] = int(max_tokens)
+
+        return parsed or None
 
     def _init_model_pricing(self) -> ModelPricing | None:
         if self.max_budget_usd <= 0.0:

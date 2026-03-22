@@ -184,3 +184,146 @@
 - `alternatives_rejected`: Keep mixed V0.1/V3 runtime coexistence; perform LLM-based constraint evaluation; postpone cleanup to a later sprint.
 - `linked_adr`: `documentation/decisions/20260305-sprint6-travelplanner-adapter-and-fidelity-eval.md`
 
+## 2026-03-06 (OC1-OC5 Thesis Alignment Audit Method)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: Evaluate thesis alignment with a three-layer matrix (`literature intent -> V3 plan promise -> current V3 repo evidence`) and treat only current-runtime-backed evidence as valid proof.
+- `rationale`: This prevents mixing roadmap claims, legacy artifacts, and actual V3 capabilities, and makes DSR readiness gaps visible without overstating implementation maturity.
+- `alternatives_rejected`: Audit only the plan against the review, or count historical/non-V3 artifacts as current proof.
+- `linked_adr`: `documentation/v3_oc1_oc5_alignment_audit.md`
+
+## 2026-03-06 (Colab Qwen3-14B-AWQ Notebook Hardening)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: Rebuild the Colab Qwen benchmark notebook around auto-detected AWQ loading, conservative Tesla T4 vLLM settings, and file-backed startup diagnostics instead of forced backend/quantization overrides.
+- `rationale`: The previous notebook hid the root cause behind truncated logs and brittle T4-specific assumptions; a restart-aware install flow plus explicit log capture is more stable and debuggable across Colab images.
+- `alternatives_rejected`: Keep forcing `FLASHINFER` with `awq_marlin`, or keep the existing timeout path that only surfaces `Engine core initialization failed`.
+- `linked_adr`: `N/A (notebook/runbook hardening)`
+
+## 2026-03-06 (TravelPlanner Colab Benchmark Execution Path)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: Rebuild the TravelPlanner Sprint 6 notebook to run through a local Colab vLLM server plus a temporary runtime override config, with per-query checkpoints and official scorer evaluation kept inside the notebook flow.
+- `rationale`: This keeps the benchmark path reproducible on Colab without changing checked-in runtime defaults, while making long-running local inference resilient to restarts and preemption.
+- `alternatives_rejected`: Keep the previous notebook's hosted-LLM assumptions and coarse checkpoint cadence, or hardcode local Colab settings into repo YAML files.
+- `linked_adr`: `N/A (notebook/runbook hardening)`
+
+## 2026-03-06 (Colab Feasibility Verdict Protocol)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: Frame the root-level Colab Qwen notebook as a thesis-facing feasibility protocol with repeated stability checks and a three-level verdict (`GO`, `CONDITIONAL GO`, `NO-GO`) instead of a single-pass `works/does not work` check.
+- `rationale`: The thesis question is about benchmark credibility, not only local execution; repeated load, structured-output reliability, and provenance-aware interpretation are required before replacing or complementing the current backend.
+- `alternatives_rejected`: Keep a latency-only smoke notebook, or use a binary startup verdict without repeated benchmark-style requests.
+- `linked_adr`: `N/A (benchmark notebook protocol)`
+
+## 2026-03-22 (Sprint 6 V4 Stigmergic Corrections)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: Implement local sensing, temporal decay, frequentation reinforcement, emergent contention resolution, and emergence feedback as opt-in runtime features instead of replacing the default Sprint 6 behavior.
+- `rationale`: The thesis needed a stronger stigmergic interpretation, but replacing the existing runtime in-place would have broken compatibility, muddied benchmark comparisons, and increased rollout risk.
+- `alternatives_rejected`: Hard-switch the runtime to the new behavior by default, or implement only local sensing and leave the other audit findings unresolved.
+- `linked_adr`: `documentation/decisions/20260322-sprint6-v4-stigmergic-corrections.md`
+
+## 2026-03-12 (Repo-Local RunPod Operations Skill)
+
+## 2026-03-17 (TravelPlanner Failure-Triage Lens)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: Diagnose TravelPlanner benchmark quality primarily through scenario-shape buckets (`3 days/1 city`, `5 days/2 cities`, `7 days/3 cities`) before changing prompts or models.
+- `rationale`: The official run shows a regime break by itinerary shape, which is more informative than top-line pass rates and points directly to adapter/search-coverage limitations rather than generic model weakness.
+- `alternatives_rejected`: Tune prompts from aggregate scores only, or attribute the low final pass rate primarily to model quality without scenario-level decomposition.
+- `linked_adr`: `N/A (analysis decision for benchmark triage)`
+
+## 2026-03-17 (Controlled OpenRouter GPT-4o Framework Comparison Protocol)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: Standardize the next TravelPlanner framework comparison on OpenRouter-routed `openai/gpt-4o`, the validation split, and the shared official scorer, with SwarmAgentic adapted only at the provider/model-compatibility layer and result normalization layer.
+- `rationale`: This gives a materially stronger framework comparison than mixing published paper numbers and local Qwen runs, while keeping the remaining uncontrolled factor (SwarmAgentic PSO optimization before evaluation) explicit.
+- `alternatives_rejected`: Compare local Qwen scores directly to the published GPT-3.5/GPT-4o table, or reimplement SwarmAgentic behavior from scratch inside this repo.
+- `linked_adr`: `N/A (experiment protocol decision)`
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: Add a repo-local `runpod-ops` skill that prioritizes the installed `runpodctl` command shape over stale documentation examples, while bundling official RunPod product constraints and a StigmergiAgentic-specific Pod workflow.
+- `rationale`: RunPod became the likely replacement for Colab in long-running benchmark work, and successful operation depends on precise CLI syntax plus durable Pod/storage guidance; a local skill reduces repeated rediscovery and avoids using deprecated RunPod commands.
+- `alternatives_rejected`: Rely on ad-hoc web searches each turn, or write a doc-only note without a reusable skill structure.
+- `linked_adr`: `N/A (local skill and workflow enablement)`
+
+## 2026-03-12 (Autoresearch Integration Pattern)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: Integrate `karpathy/autoresearch` into V3 as a native research adapter with fixed evaluation and artifact iteration, not by embedding its single-repo training assumptions directly.
+- `rationale`: V3 already exposes the right extensibility points (`DomainAdapter`, `ToolRegistry`, evaluator-style scoring, reinforcement), while direct embedding would couple the runtime to `autoresearch`-specific artifacts such as `train.py`, `prepare.py`, and `results.tsv` and would not cover literature-grounding needs.
+- `alternatives_rejected`: Run `autoresearch` unchanged as an outer shell around this repo, or overload the generic assistant adapter with ad hoc research behavior.
+- `linked_adr`: `N/A (integration strategy note)`
+
+## 2026-03-13 (Repo-Local Objective Autoresearch Skill)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: Implement one hybrid repo-local skill, `objective-autoresearch`, instead of splitting framework self-improvement and sourced research into separate skills.
+- `rationale`: The user wants one shared mentality centered on objective retention, fixed evaluation, and keep/discard iteration; a single skill with explicit mode selection keeps invocation simple while still preventing drift through narrow trigger rules and mode-specific references.
+- `alternatives_rejected`: Create two separate skills, or keep the autoresearch mentality as an informal prompt pattern without reusable skill packaging.
+- `linked_adr`: `N/A (repo-local skill implementation)`
+
+## 2026-03-13 (Home AGENTS Simplification)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: Remove the `Knowledge Governance` section from `/Users/lotfi/.codex/AGENTS.md` and replace it with one lightweight repo-local skill preference under `Skill Hygiene`.
+- `rationale`: The heavier section added policy weight without improving day-to-day execution; a concise locality rule preserves the useful behavior while making the principal AGENTS file easier to read and maintain.
+- `alternatives_rejected`: Keep the section as-is, or delete it without preserving any guidance about repo-local vs home-level skills.
+- `linked_adr`: `N/A (home instruction cleanup)`
+
+## 2026-03-13 (RunPod TravelPlanner Pod Workflow)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: Standardize TravelPlanner remote execution around a branch-pinned RunPod workflow with one local creation script, one raw-fetched bootstrap script, and repo-resident smoke/package scripts.
+- `rationale`: The repository is too heavy and too dirty to mirror blindly, while the pod starts empty; a pushed-ref workflow keeps the execution source auditable and lets the pod bootstrap itself from GitHub before running `uv`-based TravelPlanner checks.
+- `alternatives_rejected`: Sync the whole local workspace to the pod with `runpodctl send`, clone an unspecified branch ad hoc on the pod, or rely on Docker Compose inside the pod for benchmark execution.
+- `linked_adr`: `N/A (ops workflow standardization)`
+
+## 2026-03-13 (OpenRouter Baseline Reset and Local Smoke Standard)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: Standardize the checked-in runtime baseline on OpenRouter `qwen/qwen3.5-9b`, expose LLM metadata in CLI JSON summaries, and use one local TravelPlanner smoke script as the default verification path while pruning notebook and pod-workflow detours from the main repo surface. For the stable TravelPlanner path, cap completions, disable OpenRouter reasoning on strict-JSON calls, and compact the itinerary prompt to workspace-backed records.
+- `rationale`: A single baseline reduces setup drift and decision fatigue, keeps fixtures aligned with real runtime defaults, and preserves scorer-backed validation without carrying Colab/Kaggle/RunPod workflow complexity in the everyday repository path. The live provider behavior showed that uncapped reasoning-heavy responses were the real blocker, so the runtime now treats strict JSON planning as a bounded, non-reasoning task.
+- `alternatives_rejected`: Keep `qwen/qwen3.5-flash-02-23` or older 235B defaults as the baseline, retain the pod-specific smoke flow as the standard path, leave benchmark notebooks and session artifacts in the primary repo surface, or keep reasoning enabled and rely on prompt wording alone to suppress long thought traces.
+- `linked_adr`: `N/A (baseline cleanup and workflow narrowing)`
+
+## 2026-03-17 (Docker as the Benchmark Validation Source of Truth)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: Run the TravelPlanner smoke workflow through Docker Compose by default and treat the containerized result as the only benchmark-valid evidence path.
+- `rationale`: The repository already defines Docker as its reproducible execution contract; validating benchmark runs from the host shell creates ambiguity about environment, dependency source, and artifact provenance. The containerized smoke reproduced the same `final_pass_rate=0.0`, so quality gaps now clearly belong to framework behavior rather than host drift.
+- `alternatives_rejected`: Keep using the host-local smoke script as the default benchmark path, or introduce query-specific scorer patches before first aligning execution provenance.
+- `linked_adr`: `documentation/decisions/20260212-sprint2.5-docker-infrastructure.md`
+
+## 2026-03-17 (TravelPlanner Scorer-Grounded Planning Standard)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: Improve TravelPlanner benchmark performance only through framework-level grounding changes: explicit route-search markers, scorer-aligned serialization, sandbox-aligned inventories, feasibility-aware hotel candidate selection, and replanning from official failure messages.
+- `rationale`: These changes preserve the philosophy of the framework by strengthening the adapter's contracts and planner loop instead of inserting query-specific shortcuts or evaluator-side hacks. The resulting Docker smoke reached `final_pass_rate=1.0` on `Query 0` while staying within the benchmark's official search space and scoring semantics.
+- `alternatives_rejected`: Hardcode `Query 0` templates, patch the official evaluator, inject post-hoc manual itinerary rows, or keep free-form planner outputs and hope the scorer infers intent from approximate strings.
+- `linked_adr`: `N/A (adapter and planning-loop standardization)`
+
+## 2026-03-17 (Notebook as the Dockerized Full-Eval Driver)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: Add a notebook driver for the full official TravelPlanner campaign, but keep all benchmark execution and official scoring inside Docker with resumable per-query checkpoints.
+- `rationale`: The user needs a convenient cockpit for launching and inspecting the full official benchmark, but moving execution into the host notebook kernel would weaken environment provenance and make results harder to compare with scripted Docker runs. A Docker-driven notebook preserves the benchmark contract while making long campaigns easier to start, resume, and analyze.
+- `alternatives_rejected`: Run the full benchmark directly in the notebook kernel, keep only shell scripts with no interactive inspection surface, or embed official evaluation logic directly into the notebook instead of reusing the repository scripts.
+- `linked_adr`: `N/A (benchmark notebook orchestration)`
+
+## 2026-03-17 (Explicit Repo Root for Docker Script Entry Points)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: Require Docker-invoked repository scripts to inject the repository root into `sys.path` before importing project modules, and apply that rule to `scripts/run_travelplanner_query_export.py`.
+- `rationale`: Container entrypoints executed by absolute script path do not reliably inherit the repository root on Python's import path, which can collapse an entire benchmark campaign into uniform runtime failures. Making the entrypoint self-sufficient keeps notebook, shell, and Docker execution paths aligned.
+- `alternatives_rejected`: Assume the container working directory will always rescue imports, switch every invocation to `python -m ...`, or debug runtime failures only after a full split has already been attempted.
+- `linked_adr`: `N/A (entrypoint robustness rule)`
+
+## 2026-03-22 (Controlled Same-Model Qwen Framework Comparison Protocol)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: Standardize TravelPlanner framework comparisons on a three-arm protocol that fixes OpenRouter as provider, `qwen/qwen3.5-9b` as routed model, the official validation split as dataset, and the local official scorer as the only scoring path, with evaluation arms for solo Qwen, SwarmAgentic, and StigmergiAgentic.
+- `rationale`: The earlier comparison mixed frameworks and model families, which made any scientific claim about orchestration strength too weak. Holding provider, model, split, and scorer constant while adding a solo-model arm isolates what the orchestration contributes relative to the same base model and makes cross-framework differences interpretable.
+- `alternatives_rejected`: Compare against published GPT-3.5 or GPT-4o table values directly, compare only SwarmAgentic versus StigmergiAgentic without a solo baseline, or score each framework through its own native evaluation path.
+- `linked_adr`: `N/A (controlled benchmark protocol)`

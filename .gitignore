@@ -43,10 +43,13 @@ pheromones/audit_log.jsonl
 pheromones/*.db
 pheromones/*.db-shm
 pheromones/*.db-wal
+pheromones/*/
 logs/
 
 # Metrics output
 metrics/output/
+output/travelplanner_smoke/
+output/travelplanner_official_full_eval/
 
 # Temporary files
 *.tmp
@@ -64,3 +67,5 @@ Thumbs.db
 
 # TravelPlanner database
 data/travelplanner/database/
+third_party/travelplanner_official/database
+third_party/travelplanner_official/database*

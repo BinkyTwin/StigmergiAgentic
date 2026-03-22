@@ -67,5 +67,14 @@ services:
     volumes:
       - ./pheromones:/app/pheromones
 
+  # ---- TravelPlanner live smoke ----
+  travelplanner-smoke:
+    build: .
+    command: [ "/bin/bash", "scripts/run_travelplanner_smoke.sh" ]
+    env_file:
+      - .env
+    volumes:
+      - .:/app
+
 volumes:
   target_repo_data:

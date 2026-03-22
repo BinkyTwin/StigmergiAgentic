@@ -61,6 +61,7 @@ def test_register_tools_exposes_domain_and_reasoning_actions(
     adapter.register_tools(registry)
     assert set(registry.action_types()) == {
         "search_flights",
+        "search_ground_transport",
         "search_hotels",
         "search_restaurants",
         "search_attractions",
@@ -97,8 +98,11 @@ def test_initial_markers_follow_dag_pattern(tmp_path: Path, config_dict: dict) -
     validate_marker = next(marker for marker in markers if marker.id.endswith("::validate_constraints"))
     finalize_marker = next(marker for marker in markers if marker.id.endswith("::finalize"))
 
-    assert len(markers) == 6
+    assert len(markers) == 10
     assert set(plan_marker.payload.get("depends_on", [])) <= ids
+    assert any(dep.endswith("::search_restaurants") for dep in plan_marker.payload.get("depends_on", []))
+    assert any(dep.endswith("::search_flights_return") for dep in plan_marker.payload.get("depends_on", []))
+    assert any(dep.endswith("::search_ground_transport_return") for dep in plan_marker.payload.get("depends_on", []))
     assert validate_marker.payload.get("depends_on") == [plan_marker.id]
     assert finalize_marker.payload.get("depends_on") == [validate_marker.id]
 

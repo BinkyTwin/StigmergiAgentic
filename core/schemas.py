@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class ThinkOutput(BaseModel):
@@ -75,6 +75,22 @@ class TravelDayPlan(BaseModel):
     lunch: str
     dinner: str
     accommodation: str
+
+    @field_validator(
+        "current_city",
+        "transportation",
+        "breakfast",
+        "attraction",
+        "lunch",
+        "dinner",
+        "accommodation",
+        mode="before",
+    )
+    @classmethod
+    def _coerce_null_string_fields(cls, value: Any) -> Any:
+        if value is None:
+            return "-"
+        return value
 
 
 class TravelItineraryOutput(BaseModel):

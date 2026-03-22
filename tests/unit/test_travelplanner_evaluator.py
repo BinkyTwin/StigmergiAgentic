@@ -110,6 +110,17 @@ def test_not_absent_fails_missing_required_field(tmp_path: Path) -> None:
     assert result.commonsense["not_absent"] is False
 
 
+def test_failure_feedback_includes_official_messages(tmp_path: Path) -> None:
+    evaluator, query = _build_evaluator(tmp_path)
+    plan = clone_plan(sample_valid_plan())
+    plan[0]["breakfast"] = "Unknown, Myrtle Beach"
+
+    result = evaluator.evaluate_plan(query_data=query, plan=plan)
+    feedback = evaluator.failure_feedback(result)
+
+    assert any("invalid in the sandbox" in item for item in feedback)
+
+
 def test_aggregate_metrics_include_final_pass_rate(tmp_path: Path) -> None:
     evaluator, query = _build_evaluator(tmp_path)
     good = evaluator.evaluate_plan(query_data=query, plan=sample_valid_plan())

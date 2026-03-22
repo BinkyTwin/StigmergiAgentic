@@ -42,6 +42,7 @@ def test_search_hotels_filters_city(workspace: TravelPlannerWorkspace) -> None:
     frame = workspace.search_hotels("Myrtle Beach")
     assert len(frame) == 2
     assert "Private Room A" in set(frame["NAME"].astype(str))
+    assert "Filtered Hotel" not in set(frame["NAME"].astype(str))
 
 
 def test_search_restaurants_filters_city(workspace: TravelPlannerWorkspace) -> None:
@@ -60,6 +61,17 @@ def test_get_distances_returns_directional_row(workspace: TravelPlannerWorkspace
     frame = workspace.get_distances("Washington", "Myrtle Beach")
     assert len(frame) == 1
     assert str(frame.iloc[0]["distance"]) == "693 km"
+
+
+def test_search_ground_transport_builds_canonical_options(
+    workspace: TravelPlannerWorkspace,
+) -> None:
+    frame = workspace.search_ground_transport("Washington", "Myrtle Beach")
+
+    assert len(frame) == 2
+    assert set(frame["mode"].astype(str)) == {"Self-driving", "Taxi"}
+    assert "from Washington to Myrtle Beach" in str(frame.iloc[0]["transportation"])
+    assert set(frame["cost"].astype(int)) == {34, 693}
 
 
 def test_get_query_parses_constraints_and_dates(workspace: TravelPlannerWorkspace) -> None:

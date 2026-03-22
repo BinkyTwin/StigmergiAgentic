@@ -5,23 +5,49 @@ travelplanner:
   database_path: "data/travelplanner/database"
   dataset_split: "validation"
   default_query_idx: 0
+  official_full_split_eval: false
 
 agents:
   num_agents: 3
   selection_temperature: 0.1
   memory_capacity: 20
   memory_decay_rate: 0.1
+  local_sensing:
+    enabled: false
+    intensity_threshold: 0.0
+    type_affinity_weight: 0.4
+    semantic_affinity_weight: 0.3
+    recency_weight: 0.3
+    max_candidates: 0
+    affinity_exploration_rate: 0.2
 
 orchestrator:
   max_ticks: 30
   idle_cycles_to_stop: 4
   parallel: true
+  emergent_resolution:
+    enabled: false
+    base_probability: 0.1
+
+llm:
+  max_response_tokens: 512
+  reasoning:
+    effort: "none"
+    exclude: true
+  request_timeout_seconds: 120
+  retry_attempts: 2
 
 reinforcement:
   enabled: true
   rate: 0.1
   propagation_factor: 0.5
   lesson_threshold: 0.6
+  frequentation:
+    enabled: false
+    read_boost: 0.01
+    completion_boost: 0.05
+    max_boost_per_tick: 0.1
+    diminishing_factor: 0.5
 
 markers:
   decay_type: "exponential"
@@ -45,6 +71,9 @@ markers:
   intensity_step_decompose: 0.1
   child_intensity_offset: 0.2
   intensity_floor: 0.1
+  time_decay:
+    enabled: false
+    decay_period_seconds: 60.0
 
 pressures:
   formula: "aco"
@@ -59,3 +88,9 @@ pressures:
     validate_constraints: 0.9
     think: 0.2
     decompose: 0.2
+
+emergence:
+  feedback_loop:
+    enabled: false
+    interval_ticks: 5
+    max_adaptation_delta: 0.2

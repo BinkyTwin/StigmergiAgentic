@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime
 import random
 import re
 from uuid import uuid4
-from typing import Any
+from typing import Any, Callable
 
 from .dependency import unblocked_markers
 from .environment import Environment, EnvironmentSnapshot
@@ -17,6 +18,7 @@ from .tool_registry import ActionResult, Decision, ToolRegistry
 
 
 TERMINAL_STATES = {"terminal", "skipped", "escalated"}
+OnPerceiveCallback = Callable[[str, list[Marker], int], None]
 
 
 @dataclass(slots=True)
@@ -29,6 +31,76 @@ class MemoryEntry:
     relevance: float
     tick: int
     entry_id: str
+
+
+@dataclass(slots=True)
+class AgentAffinityProfile:
+    """Lightweight local affinity profile built from successful actions."""
+
+    type_counts: dict[str, int]
+    target_keywords: dict[str, int]
+    total_actions: int = 0
+
+    def record_action(self, marker_type: str, target: str) -> None:
+        """Update local specialization traces after one successful action."""
+        normalized_type = str(marker_type).strip()
+        if normalized_type:
+            self.type_counts[normalized_type] = self.type_counts.get(normalized_type, 0) + 1
+
+        for keyword in self._tokenize(target):
+            self.target_keywords[keyword] = self.target_keywords.get(keyword, 0) + 1
+
+        self.total_actions += 1
+
+    def type_affinity(self, marker_type: str) -> float:
+        """Return relative affinity for one marker type."""
+        if self.total_actions <= 0:
+            return 0.5
+        count = self.type_counts.get(str(marker_type).strip(), 0)
+        return self._clamp(float(count) / float(self.total_actions))
+
+    def semantic_affinity(self, target: str) -> float:
+        """Return keyword-overlap affinity for one target."""
+        if self.total_actions <= 0:
+            return 0.5
+        keywords = self._tokenize(target)
+        if not keywords:
+            return 0.5
+        overlap = sum(1 for keyword in keywords if keyword in self.target_keywords)
+        return self._clamp(float(overlap) / float(len(keywords)))
+
+    def combined_affinity(
+        self,
+        marker_type: str,
+        target: str,
+        *,
+        type_weight: float = 0.5,
+        semantic_weight: float = 0.5,
+    ) -> float:
+        """Return weighted affinity across type and target semantics."""
+        if self.total_actions <= 0:
+            return 0.5
+
+        type_score = self.type_affinity(marker_type)
+        semantic_score = self.semantic_affinity(target)
+        type_value = max(0.0, float(type_weight))
+        semantic_value = max(0.0, float(semantic_weight))
+        weight_sum = type_value + semantic_value
+        if weight_sum <= 0.0:
+            return self._clamp((type_score + semantic_score) / 2.0)
+        return self._clamp(
+            ((type_score * type_value) + (semantic_score * semantic_value)) / weight_sum
+        )
+
+    def _tokenize(self, text: str) -> set[str]:
+        return {
+            token
+            for token in re.findall(r"[a-zA-Z0-9_]+", str(text).lower())
+            if token
+        }
+
+    def _clamp(self, value: float) -> float:
+        return max(0.0, min(1.0, float(value)))
 
 
 class AgentMemory:
@@ -157,16 +229,23 @@ class StigmergicAgent:
         tool_registry: ToolRegistry,
         config: dict[str, Any],
         rng: random.Random | None = None,
+        on_perceive: OnPerceiveCallback | None = None,
     ) -> None:
         self.agent_id = agent_id
         self.tool_registry = tool_registry
         self.config = config
         self.rng = rng or random.Random()
+        self.on_perceive = on_perceive
         agents_cfg = dict(config.get("agents", {}))
         self.memory = AgentMemory(
             capacity=int(agents_cfg.get("memory_capacity", 20)),
             decay_rate=float(agents_cfg.get("memory_decay_rate", 0.1)),
         )
+        self.affinity = AgentAffinityProfile(type_counts={}, target_keywords={})
+
+    def bind_on_perceive(self, callback: OnPerceiveCallback | None) -> None:
+        """Attach or replace the optional perception callback."""
+        self.on_perceive = callback
 
     async def perceive_and_decide(
         self,
@@ -190,6 +269,13 @@ class StigmergicAgent:
         inhibition_threshold = float(
             self.config.get("markers", {}).get("inhibition_threshold", 1.0)
         )
+        heuristic_fn = None
+        if bool(self._local_sensing_config().get("enabled", False)):
+            heuristic_fn = lambda marker, action: self._affinity_heuristic(
+                marker=marker,
+                action=action,
+                pressure_weights=pressure_weights,
+            )
         pressures = compute_pressures(
             markers=candidates,
             action_types=action_types,
@@ -198,6 +284,7 @@ class StigmergicAgent:
             formula=pressure_formula,
             alpha=pressure_alpha,
             beta=pressure_beta,
+            heuristic_fn=heuristic_fn,
         )
 
         temperature = float(
@@ -239,14 +326,17 @@ class StigmergicAgent:
             snapshot=snapshot,
             top_k=int(self.config.get("agents", {}).get("lesson_top_k", 3)),
         )
+        selection_affinity = self._marker_affinity(target)
 
         return Decision(
             agent_id=self.agent_id,
             action_type=action_type,
             marker_id=target.id,
+            marker_type=target.marker_type,
             target=target.target,
             pressures=pressures,
             selected_pressure=float(pressures.get(action_type, 0.0)),
+            selection_affinity=selection_affinity,
             tick=int(snapshot.tick),
             context=decision_context,
             recalled_memories=recalled_memories,
@@ -295,6 +385,11 @@ class StigmergicAgent:
                 llm_client=llm_client,
             )
             environment.apply_action_result(agent_id=self.agent_id, result=result)
+            if not bool(result.metadata.get("failed", False)):
+                self.affinity.record_action(
+                    marker_type=runtime_marker.marker_type,
+                    target=runtime_marker.target,
+                )
 
             remembered = self.memory.remember(
                 context=str(getattr(decision, "context", runtime_marker.target)),
@@ -353,7 +448,15 @@ class StigmergicAgent:
             candidate.payload["eligible_actions"] = list(eligible_actions)
             candidates.append(candidate)
 
-        return unblocked_markers(markers=candidates, terminal_ids=terminal_ids)
+        visible = self._apply_local_sensing(
+            unblocked_markers(markers=candidates, terminal_ids=terminal_ids)
+        )
+        if callable(self.on_perceive) and visible:
+            try:
+                self.on_perceive(self.agent_id, visible, int(snapshot.tick))
+            except Exception:  # noqa: BLE001
+                pass
+        return visible
 
     def _build_decision_context(self, *, action_type: str, marker: Marker) -> str:
         payload = dict(marker.payload)
@@ -450,3 +553,100 @@ class StigmergicAgent:
             return float(raw)
         except (TypeError, ValueError):
             return 1.0
+
+    def _apply_local_sensing(self, markers: list[Marker]) -> list[Marker]:
+        cfg = self._local_sensing_config()
+        if not bool(cfg.get("enabled", False)):
+            return markers
+
+        intensity_threshold = float(cfg.get("intensity_threshold", 0.0))
+        filtered = [
+            marker for marker in markers if float(marker.intensity) >= intensity_threshold
+        ]
+        if not filtered:
+            return []
+
+        exploration_rate = max(
+            0.0,
+            min(1.0, float(cfg.get("affinity_exploration_rate", 0.2))),
+        )
+        if exploration_rate >= 1.0 or self.rng.random() < exploration_rate:
+            return filtered
+
+        type_weight = float(cfg.get("type_affinity_weight", 0.4))
+        semantic_weight = float(cfg.get("semantic_affinity_weight", 0.3))
+        recency_weight = float(cfg.get("recency_weight", 0.3))
+        recency_scores = self._recency_scores(filtered)
+
+        scored: list[tuple[float, Marker]] = []
+        for marker in filtered:
+            score = (
+                (self.affinity.type_affinity(marker.marker_type) * type_weight)
+                + (self.affinity.semantic_affinity(marker.target) * semantic_weight)
+                + (recency_scores.get(marker.id, 0.5) * recency_weight)
+            )
+            scored.append((score, marker))
+
+        scored.sort(
+            key=lambda item: (
+                -item[0],
+                -item[1].intensity,
+                item[1].inhibition,
+                item[1].id,
+            )
+        )
+        limit = int(cfg.get("max_candidates", 0))
+        ordered = [marker for _, marker in scored]
+        if limit > 0:
+            return ordered[:limit]
+        return ordered
+
+    def _local_sensing_config(self) -> dict[str, Any]:
+        agents_cfg = dict(self.config.get("agents", {}))
+        return dict(agents_cfg.get("local_sensing", {}))
+
+    def _affinity_heuristic(
+        self,
+        *,
+        marker: Marker,
+        action: str,
+        pressure_weights: dict[str, float] | Any,
+    ) -> float:
+        base_weight = max(float(dict(pressure_weights).get(action, 1.0)), 0.0)
+        return base_weight * (1.0 + self._marker_affinity(marker))
+
+    def _marker_affinity(self, marker: Marker) -> float:
+        cfg = self._local_sensing_config()
+        return self.affinity.combined_affinity(
+            marker.marker_type,
+            marker.target,
+            type_weight=float(cfg.get("type_affinity_weight", 0.4)),
+            semantic_weight=float(cfg.get("semantic_affinity_weight", 0.3)),
+        )
+
+    def _recency_scores(self, markers: list[Marker]) -> dict[str, float]:
+        parsed: list[tuple[Marker, float]] = []
+        for marker in markers:
+            raw = str(marker.last_active_at or marker.updated_at).strip()
+            try:
+                parsed_dt = datetime.fromisoformat(raw)
+            except ValueError:
+                continue
+            parsed.append((marker, parsed_dt.timestamp()))
+
+        if not parsed:
+            return {marker.id: 0.5 for marker in markers}
+
+        timestamps = [value for _, value in parsed]
+        oldest = min(timestamps)
+        newest = max(timestamps)
+        if newest <= oldest:
+            return {marker.id: 0.5 for marker in markers}
+
+        scores = {
+            marker.id: (timestamp - oldest) / (newest - oldest)
+            for marker, timestamp in parsed
+        }
+        for marker in markers:
+            scores.setdefault(marker.id, 0.5)
+        return scores

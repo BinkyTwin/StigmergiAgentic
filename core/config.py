@@ -76,6 +76,22 @@ def validate_config(config: Mapping[str, Any]) -> None:
     agents.setdefault("memory_decay_rate", 0.1)
     _validate_int(agents, "memory_capacity", minimum=1)
     _validate_float(agents, "memory_decay_rate", minimum=0.0, maximum=1.0)
+    local_sensing = dict(agents.get("local_sensing", {}))
+    if local_sensing:
+        enabled = local_sensing.get("enabled", False)
+        if not isinstance(enabled, bool):
+            raise ConfigError("agents.local_sensing.enabled must be a boolean")
+        _validate_float(local_sensing, "intensity_threshold", minimum=0.0, maximum=1.0)
+        _validate_float(local_sensing, "type_affinity_weight", minimum=0.0)
+        _validate_float(local_sensing, "semantic_affinity_weight", minimum=0.0)
+        _validate_float(local_sensing, "recency_weight", minimum=0.0)
+        _validate_int(local_sensing, "max_candidates", minimum=0)
+        _validate_float(
+            local_sensing,
+            "affinity_exploration_rate",
+            minimum=0.0,
+            maximum=1.0,
+        )
 
     markers = config["markers"]
     decay_type = str(markers.get("decay_type", ""))
@@ -117,6 +133,12 @@ def validate_config(config: Mapping[str, Any]) -> None:
     clamp_max = float(clamp[1])
     if clamp_min < 0.0 or clamp_max > 1.0 or clamp_min > clamp_max:
         raise ConfigError("markers.intensity_clamp must satisfy 0 <= min <= max <= 1")
+    time_decay = dict(markers.get("time_decay", {}))
+    if time_decay:
+        enabled = time_decay.get("enabled", False)
+        if not isinstance(enabled, bool):
+            raise ConfigError("markers.time_decay.enabled must be a boolean")
+        _validate_float(time_decay, "decay_period_seconds", minimum=0.0)
 
     guardrails = config["guardrails"]
     _validate_int(guardrails, "max_retry_count", minimum=0)
@@ -125,6 +147,12 @@ def validate_config(config: Mapping[str, Any]) -> None:
     orchestrator = config["orchestrator"]
     _validate_int(orchestrator, "max_ticks", minimum=1)
     _validate_int(orchestrator, "idle_cycles_to_stop", minimum=0)
+    emergent_resolution = dict(orchestrator.get("emergent_resolution", {}))
+    if emergent_resolution:
+        enabled = emergent_resolution.get("enabled", False)
+        if not isinstance(enabled, bool):
+            raise ConfigError("orchestrator.emergent_resolution.enabled must be a boolean")
+        _validate_float(emergent_resolution, "base_probability", minimum=0.0)
 
     emergence = config["emergence"]
     enabled = emergence.get("enabled")
@@ -135,6 +163,18 @@ def validate_config(config: Mapping[str, Any]) -> None:
         raise ConfigError("emergence.metrics must be a non-empty list")
     if not all(isinstance(metric, str) and metric.strip() for metric in metrics):
         raise ConfigError("emergence.metrics entries must be non-empty strings")
+    feedback_loop = dict(emergence.get("feedback_loop", {}))
+    if feedback_loop:
+        enabled = feedback_loop.get("enabled", False)
+        if not isinstance(enabled, bool):
+            raise ConfigError("emergence.feedback_loop.enabled must be a boolean")
+        _validate_int(feedback_loop, "interval_ticks", minimum=1)
+        _validate_float(
+            feedback_loop,
+            "max_adaptation_delta",
+            minimum=0.0,
+            maximum=1.0,
+        )
 
     llm = config["llm"]
     _validate_int(llm, "max_tokens_total", minimum=1)
@@ -154,6 +194,15 @@ def validate_config(config: Mapping[str, Any]) -> None:
             minimum=0.0,
             maximum=1.0,
         )
+    frequentation = dict(reinforcement.get("frequentation", {}))
+    if frequentation:
+        enabled = frequentation.get("enabled", False)
+        if not isinstance(enabled, bool):
+            raise ConfigError("reinforcement.frequentation.enabled must be a boolean")
+        _validate_float(frequentation, "read_boost", minimum=0.0)
+        _validate_float(frequentation, "completion_boost", minimum=0.0)
+        _validate_float(frequentation, "max_boost_per_tick", minimum=0.0)
+        _validate_float(frequentation, "diminishing_factor", minimum=0.0)
 
     decompose = config["decompose"]
     _validate_int(decompose, "max_depth", minimum=1)

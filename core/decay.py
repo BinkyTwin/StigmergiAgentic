@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import datetime
 import math
 from typing import Mapping
 
@@ -63,3 +64,47 @@ def decay_inhibition(value: float, inhibition_decay_rate: float) -> float:
 
     current = _clamp(value, 0.0, 1.0)
     return _clamp(current * math.exp(-inhibition_decay_rate), 0.0, 1.0)
+
+
+def effective_intensity(
+    stored_intensity: float,
+    last_active_at: str,
+    now: str,
+    decay_type: str,
+    decay_rate: float,
+    decay_period_seconds: float,
+    clamp: tuple[float, float],
+) -> float:
+    """Return the time-adjusted intensity visible at read time."""
+    if decay_period_seconds <= 0.0:
+        return _clamp(stored_intensity, clamp[0], clamp[1])
+
+    last_active = _parse_iso8601(last_active_at)
+    current_time = _parse_iso8601(now)
+    if last_active is None or current_time is None:
+        return _clamp(stored_intensity, clamp[0], clamp[1])
+
+    elapsed_seconds = max(0.0, (current_time - last_active).total_seconds())
+    if elapsed_seconds <= 0.0:
+        return _clamp(stored_intensity, clamp[0], clamp[1])
+
+    periods = elapsed_seconds / float(decay_period_seconds)
+    if decay_type == "exponential":
+        updated = float(stored_intensity) * math.exp(-float(decay_rate) * periods)
+        return _clamp(updated, clamp[0], clamp[1])
+
+    if decay_type == "linear":
+        updated = float(stored_intensity) - (float(decay_rate) * periods)
+        return _clamp(updated, clamp[0], clamp[1])
+
+    raise ValueError(f"Unsupported decay_type: {decay_type}")
+
+
+def _parse_iso8601(value: str) -> datetime | None:
+    raw = str(value or "").strip()
+    if not raw:
+        return None
+    try:
+        return datetime.fromisoformat(raw)
+    except ValueError:
+        return None
