@@ -133,6 +133,7 @@ class PlanDayTool(Tool):
         "query",
         "org",
         "dest",
+        "city_sequence",
         "days",
         "visiting_city_number",
         "date",
@@ -420,11 +421,19 @@ class PlanDayTool(Tool):
             query_data=compact_query,
             search_payload=compact_search_payload,
         )
+        city_sequence = self._resolve_city_sequence(query_data)
         feedback_block = ""
         if validation_feedback:
             feedback_block = (
                 "Previous validation failures to fix exactly:\n"
                 f"{json.dumps(validation_feedback, ensure_ascii=True)}\n"
+            )
+        city_sequence_block = ""
+        if city_sequence:
+            city_sequence_block = (
+                "- Visit these cities in order: "
+                + " -> ".join(city_sequence)
+                + ".\n"
             )
 
         routing_block = ""
@@ -441,6 +450,7 @@ class PlanDayTool(Tool):
             '"attraction":"...","lunch":"...","dinner":"...","accommodation":"..."}]}\n'
             "Hard requirements:\n"
             f"- Return exactly {int(query_data.get('days', 0) or 0)} day objects in the plan.\n"
+            f"{city_sequence_block}"
             "- Keep city consistency with current_city and transportation.\n"
             "- Use '<name>, <city>' format for meals, attractions, and accommodation.\n"
             "- Never repeat the same restaurant across breakfast/lunch/dinner.\n"
@@ -525,37 +535,51 @@ class PlanDayTool(Tool):
         query_data: dict[str, Any],
         workspace: Any,
     ) -> None:
-        city = str(query_data.get("dest", "")).strip()
-        origin = str(query_data.get("org", "")).strip()
-        dates = query_data.get("date", [])
-        outbound_date = str(dates[0]) if isinstance(dates, list) and dates else ""
-        return_date = str(dates[-1]) if isinstance(dates, list) and dates else outbound_date
+        fallback_specs: list[tuple[str, str, dict[str, str]]] = []
+        for city_spec in self._build_city_search_specs(query_data):
+            city = city_spec["city"]
+            fallback_specs.extend(
+                [
+                    (
+                        city_spec["restaurant_key"],
+                        "search_restaurants",
+                        {"city": city},
+                    ),
+                    (
+                        city_spec["hotel_key"],
+                        "search_hotels",
+                        {"city": city},
+                    ),
+                    (
+                        city_spec["attraction_key"],
+                        "search_attractions",
+                        {"city": city},
+                    ),
+                ]
+            )
 
-        fallback_specs = (
-            ("search_restaurants", "search_restaurants", {"city": city}),
-            ("search_hotels", "search_hotels", {"city": city}),
-            ("search_attractions", "search_attractions", {"city": city}),
-            (
-                "search_flights_outbound",
-                "search_flights",
-                {"origin": origin, "dest": city, "date": outbound_date},
-            ),
-            (
-                "search_flights_return",
-                "search_flights",
-                {"origin": city, "dest": origin, "date": return_date},
-            ),
-            (
-                "search_ground_transport_outbound",
-                "search_ground_transport",
-                {"origin": origin, "dest": city},
-            ),
-            (
-                "search_ground_transport_return",
-                "search_ground_transport",
-                {"origin": city, "dest": origin},
-            ),
-        )
+        for route_spec in self._build_route_specs(query_data):
+            fallback_specs.extend(
+                [
+                    (
+                        route_spec["flight_key"],
+                        "search_flights",
+                        {
+                            "origin": route_spec["origin"],
+                            "dest": route_spec["dest"],
+                            "date": route_spec["date"],
+                        },
+                    ),
+                    (
+                        route_spec["ground_key"],
+                        "search_ground_transport",
+                        {
+                            "origin": route_spec["origin"],
+                            "dest": route_spec["dest"],
+                        },
+                    ),
+                ]
+            )
 
         for result_key, workspace_method, kwargs in fallback_specs:
             if result_key in results:
@@ -600,6 +624,12 @@ class PlanDayTool(Tool):
             name_field="NAME",
             city_field="city",
         )
+        city_sequence = self._resolve_city_sequence(query_data)
+        default_city = (
+            city_sequence[0]
+            if city_sequence
+            else str(query_data.get("dest", "")).strip()
+        )
 
         normalized_days: list[dict[str, Any]] = []
         for raw_day in itinerary:
@@ -639,7 +669,7 @@ class PlanDayTool(Tool):
             day["current_city"] = self._normalize_current_city_field(
                 raw_value=day["current_city"],
                 transportation=day["transportation"],
-                default_city=str(query_data.get("dest", "")).strip(),
+                default_city=default_city,
             )
             normalized_days.append(day)
 
@@ -662,13 +692,16 @@ class PlanDayTool(Tool):
         for search_type, raw_records in search_payload.items():
             if not isinstance(raw_records, list):
                 continue
-            fields = self.prompt_search_fields.get(search_type)
+            base_key = self._extract_base_search_key(search_type)
+            if base_key is None:
+                continue
+            fields = self.prompt_search_fields.get(base_key)
             if fields is None:
                 continue
-            limit = int(self.prompt_search_limits.get(search_type, 8))
+            limit = int(self.prompt_search_limits.get(base_key, 8))
             compact_records: list[dict[str, Any]] = []
             source_records = raw_records
-            if search_type == "search_hotels":
+            if base_key == "search_hotels":
                 source_records = self._filter_hotel_candidates(
                     raw_records=raw_records,
                     query_data=query_data,
@@ -700,12 +733,13 @@ class PlanDayTool(Tool):
             trip_days = int(query_data.get("days", 0))
         except Exception:  # noqa: BLE001
             trip_days = 0
+        city_count = max(len(self._resolve_city_sequence(query_data)), 1)
         try:
             people_number = int(query_data.get("people_number", 1))
         except Exception:  # noqa: BLE001
             people_number = 1
 
-        stay_nights = max(trip_days - 1, 1)
+        stay_nights = max(1, (max(trip_days - 1, 1) + city_count - 1) // city_count)
         local_constraint = query_data.get("local_constraint")
         constraints = local_constraint if isinstance(local_constraint, dict) else {}
         room_constraint = str(constraints.get("room type") or "").strip().casefold()
@@ -750,33 +784,16 @@ class PlanDayTool(Tool):
         query_data: dict[str, Any],
         search_payload: dict[str, list[dict[str, Any]]],
     ) -> list[dict[str, Any]]:
-        origin = str(query_data.get("org", "")).strip()
-        destination = str(query_data.get("dest", "")).strip()
-        dates = query_data.get("date", [])
-        outbound_date = str(dates[0]) if isinstance(dates, list) and dates else ""
-        return_date = str(dates[-1]) if isinstance(dates, list) and dates else outbound_date
-
-        route_specs = [
-            (
-                "outbound",
-                origin,
-                destination,
-                outbound_date,
-                search_payload.get("search_flights_outbound", search_payload.get("search_flights", [])),
-                search_payload.get("search_ground_transport_outbound", search_payload.get("search_ground_transport", [])),
-            ),
-            (
-                "return",
-                destination,
-                origin,
-                return_date,
-                search_payload.get("search_flights_return", []),
-                search_payload.get("search_ground_transport_return", []),
-            ),
-        ]
-
         routing_context: list[dict[str, Any]] = []
-        for label, route_origin, route_dest, date_value, flights, ground in route_specs:
+        for route_spec in self._build_route_specs(query_data):
+            flights = search_payload.get(
+                route_spec["flight_key"],
+                search_payload.get("search_flights", []),
+            )
+            ground = search_payload.get(
+                route_spec["ground_key"],
+                search_payload.get("search_ground_transport", []),
+            )
             transport_options = [
                 self._canonical_flight_option(record)
                 for record in flights
@@ -791,9 +808,9 @@ class PlanDayTool(Tool):
                 continue
             routing_context.append(
                 {
-                    "label": label,
-                    "current_city": f"from {route_origin} to {route_dest}",
-                    "date": date_value,
+                    "label": route_spec["label"],
+                    "current_city": f"from {route_spec['origin']} to {route_spec['dest']}",
+                    "date": route_spec["date"],
                     "transportation_options": transport_options,
                     "stay_day_transportation": "-",
                 }
@@ -810,13 +827,10 @@ class PlanDayTool(Tool):
             "ground_routes": {},
         }
 
-        flight_keys = (
-            "search_flights",
-            "search_flights_outbound",
-            "search_flights_return",
-        )
-        for key in flight_keys:
-            for record in search_payload.get(key, []):
+        for key, records in search_payload.items():
+            if not self._search_key_matches(key, "search_flights"):
+                continue
+            for record in records:
                 if not isinstance(record, dict):
                     continue
                 flight_number = str(record.get("Flight Number", "")).strip()
@@ -824,13 +838,10 @@ class PlanDayTool(Tool):
                     continue
                 catalog["flight_numbers"][flight_number.casefold()] = self._canonical_flight_option(record)
 
-        ground_keys = (
-            "search_ground_transport",
-            "search_ground_transport_outbound",
-            "search_ground_transport_return",
-        )
-        for key in ground_keys:
-            for record in search_payload.get(key, []):
+        for key, records in search_payload.items():
+            if not self._search_key_matches(key, "search_ground_transport"):
+                continue
+            for record in records:
                 if not isinstance(record, dict):
                     continue
                 mode = str(record.get("mode", "")).strip().casefold()
@@ -855,8 +866,10 @@ class PlanDayTool(Tool):
     ) -> list[dict[str, str]]:
         candidates: list[dict[str, str]] = []
         seen: set[tuple[str, str]] = set()
-        for key in keys:
-            for record in search_payload.get(key, []):
+        for key, records in search_payload.items():
+            if not any(self._search_key_matches(key, prefix) for prefix in keys):
+                continue
+            for record in records:
                 if not isinstance(record, dict):
                     continue
                 name = str(record.get(name_field, "")).strip()
@@ -1031,6 +1044,101 @@ class PlanDayTool(Tool):
         if not blocked_text:
             return False
         return blocked_text in house_rules
+
+    def _resolve_city_sequence(self, query_data: dict[str, Any]) -> list[str]:
+        raw = query_data.get("city_sequence")
+        if isinstance(raw, list):
+            sequence = [str(city).strip() for city in raw if str(city).strip()]
+            if sequence:
+                return sequence
+        destination = str(query_data.get("dest", "")).strip()
+        return [destination] if destination else []
+
+    def _resolve_leg_dates(self, query_data: dict[str, Any]) -> list[str]:
+        raw = query_data.get("leg_dates")
+        if isinstance(raw, list):
+            normalized = [str(value).strip() for value in raw if str(value).strip()]
+            if normalized:
+                return normalized
+
+        dates_raw = query_data.get("date", [])
+        dates = [str(value).strip() for value in dates_raw] if isinstance(dates_raw, list) else []
+        city_count = len(self._resolve_city_sequence(query_data))
+        leg_count = max(city_count + 1, 2)
+        if not dates:
+            return [""] * leg_count
+        return [
+            dates[min(index * 2, len(dates) - 1)]
+            for index in range(leg_count)
+        ]
+
+    def _build_city_search_specs(self, query_data: dict[str, Any]) -> list[dict[str, str]]:
+        city_sequence = self._resolve_city_sequence(query_data)
+        multi_city = len(city_sequence) > 1
+        specs: list[dict[str, str]] = []
+        for city in city_sequence:
+            slug = self._slugify_key(city)
+            if multi_city:
+                hotel_key = f"search_hotels_{slug}"
+                restaurant_key = f"search_restaurants_{slug}"
+                attraction_key = f"search_attractions_{slug}"
+            else:
+                hotel_key = "search_hotels"
+                restaurant_key = "search_restaurants"
+                attraction_key = "search_attractions"
+            specs.append(
+                {
+                    "city": city,
+                    "hotel_key": hotel_key,
+                    "restaurant_key": restaurant_key,
+                    "attraction_key": attraction_key,
+                }
+            )
+        return specs
+
+    def _build_route_specs(self, query_data: dict[str, Any]) -> list[dict[str, str]]:
+        origin = str(query_data.get("org", "")).strip()
+        city_sequence = self._resolve_city_sequence(query_data)
+        leg_dates = self._resolve_leg_dates(query_data)
+        route_cities = [origin, *city_sequence, origin]
+        specs: list[dict[str, str]] = []
+        for leg_index in range(len(route_cities) - 1):
+            if leg_index == 0:
+                label = "outbound"
+                flight_key = "search_flights_outbound"
+                ground_key = "search_ground_transport_outbound"
+            elif leg_index == len(route_cities) - 2:
+                label = "return"
+                flight_key = "search_flights_return"
+                ground_key = "search_ground_transport_return"
+            else:
+                label = f"leg_{leg_index}"
+                flight_key = f"search_flights_leg_{leg_index}"
+                ground_key = f"search_ground_transport_leg_{leg_index}"
+            specs.append(
+                {
+                    "label": label,
+                    "origin": route_cities[leg_index],
+                    "dest": route_cities[leg_index + 1],
+                    "date": leg_dates[min(leg_index, len(leg_dates) - 1)] if leg_dates else "",
+                    "flight_key": flight_key,
+                    "ground_key": ground_key,
+                }
+            )
+        return specs
+
+    def _extract_base_search_key(self, search_type: str) -> str | None:
+        for base_key in self.prompt_search_fields:
+            if self._search_key_matches(search_type, base_key):
+                return base_key
+        return None
+
+    def _search_key_matches(self, search_type: str, prefix: str) -> bool:
+        return search_type == prefix or search_type.startswith(f"{prefix}_")
+
+    def _slugify_key(self, value: str) -> str:
+        text = re.sub(r"[^a-z0-9]+", "_", str(value).strip().lower())
+        return text.strip("_") or "city"
 
 
 class ValidateConstraintsTool(Tool):

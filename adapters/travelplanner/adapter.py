@@ -70,6 +70,7 @@ class TravelPlannerAdapter(DomainAdapter):
                 "query_data": query_data,
                 "org": query_data.get("org"),
                 "dest": query_data.get("dest"),
+                "city_sequence": query_data.get("city_sequence", []),
                 "days": query_data.get("days"),
                 "people_number": query_data.get("people_number"),
                 "budget": query_data.get("budget"),
@@ -147,18 +148,12 @@ class TravelPlannerAdapter(DomainAdapter):
     def initial_markers(self, objective: Objective, agent_id: str) -> list[Marker]:
         now = utc_now_iso()
         query = dict(objective.payload.get("query_data", {}))
-        dates = query.get("date", [])
-        outbound_date = str(dates[0]) if isinstance(dates, list) and dates else ""
-        return_date = str(dates[-1]) if isinstance(dates, list) and dates else outbound_date
+        city_sequence = self._resolve_city_sequence(query)
+        query["city_sequence"] = city_sequence
+        leg_dates = self._resolve_leg_dates(query=query, city_sequence=city_sequence)
+        query["leg_dates"] = leg_dates
 
         objective_id = objective.objective_id
-        outbound_flights_id = f"{objective_id}::search_flights_outbound"
-        return_flights_id = f"{objective_id}::search_flights_return"
-        outbound_ground_id = f"{objective_id}::search_ground_transport_outbound"
-        return_ground_id = f"{objective_id}::search_ground_transport_return"
-        hotels_id = f"{objective_id}::search_hotels"
-        restaurants_id = f"{objective_id}::search_restaurants"
-        attractions_id = f"{objective_id}::search_attractions"
         plan_id = f"{objective_id}::plan_itinerary"
         validate_id = f"{objective_id}::validate_constraints"
         finalize_id = f"{objective_id}::finalize"
@@ -168,208 +163,166 @@ class TravelPlannerAdapter(DomainAdapter):
             "query_data": query,
             "query_idx": int(objective.payload.get("query_idx", 0)),
         }
+        city_specs = self._build_city_search_specs(
+            objective_id=objective_id,
+            city_sequence=city_sequence,
+        )
+        route_specs = self._build_route_specs(
+            objective_id=objective_id,
+            origin=str(query.get("org", "")).strip(),
+            city_sequence=city_sequence,
+            leg_dates=leg_dates,
+            city_specs=city_specs,
+        )
 
-        return [
-            Marker(
-                id=outbound_flights_id,
-                marker_type="task",
-                target=outbound_flights_id,
-                intensity=0.95,
-                state="pending",
-                payload={
-                    **base,
-                    "origin": str(query.get("org", "")),
-                    "dest": str(query.get("dest", "")),
-                    "date": outbound_date,
-                    "result_key": "search_flights_outbound",
-                    "eligible_actions": ["search_flights"],
-                    "stage": "search_flights_outbound",
-                },
-                created_by=agent_id,
-                created_at=now,
-                updated_by=agent_id,
-                updated_at=now,
-                history=["created"],
-            ),
-            Marker(
-                id=return_flights_id,
-                marker_type="task",
-                target=return_flights_id,
-                intensity=0.94,
-                state="pending",
-                payload={
-                    **base,
-                    "origin": str(query.get("dest", "")),
-                    "dest": str(query.get("org", "")),
-                    "date": return_date,
-                    "result_key": "search_flights_return",
-                    "eligible_actions": ["search_flights"],
-                    "stage": "search_flights_return",
-                },
-                created_by=agent_id,
-                created_at=now,
-                updated_by=agent_id,
-                updated_at=now,
-                history=["created"],
-            ),
-            Marker(
-                id=outbound_ground_id,
-                marker_type="task",
-                target=outbound_ground_id,
-                intensity=0.93,
-                state="pending",
-                payload={
-                    **base,
-                    "origin": str(query.get("org", "")),
-                    "dest": str(query.get("dest", "")),
-                    "result_key": "search_ground_transport_outbound",
-                    "eligible_actions": ["search_ground_transport"],
-                    "stage": "search_ground_transport_outbound",
-                },
-                created_by=agent_id,
-                created_at=now,
-                updated_by=agent_id,
-                updated_at=now,
-                history=["created"],
-            ),
-            Marker(
-                id=return_ground_id,
-                marker_type="task",
-                target=return_ground_id,
-                intensity=0.92,
-                state="pending",
-                payload={
-                    **base,
-                    "origin": str(query.get("dest", "")),
-                    "dest": str(query.get("org", "")),
-                    "result_key": "search_ground_transport_return",
-                    "eligible_actions": ["search_ground_transport"],
-                    "stage": "search_ground_transport_return",
-                },
-                created_by=agent_id,
-                created_at=now,
-                updated_by=agent_id,
-                updated_at=now,
-                history=["created"],
-            ),
-            Marker(
-                id=hotels_id,
-                marker_type="task",
-                target=hotels_id,
-                intensity=0.92,
-                state="pending",
-                payload={
-                    **base,
-                    "city": str(query.get("dest", "")),
-                    "eligible_actions": ["search_hotels"],
-                    "stage": "search_hotels",
-                },
-                created_by=agent_id,
-                created_at=now,
-                updated_by=agent_id,
-                updated_at=now,
-                history=["created"],
-            ),
-            Marker(
-                id=restaurants_id,
-                marker_type="task",
-                target=restaurants_id,
-                intensity=0.92,
-                state="pending",
-                payload={
-                    **base,
-                    "city": str(query.get("dest", "")),
-                    "result_key": "search_restaurants",
-                    "eligible_actions": ["search_restaurants"],
-                    "stage": "search_restaurants",
-                },
-                created_by=agent_id,
-                created_at=now,
-                updated_by=agent_id,
-                updated_at=now,
-                history=["created"],
-            ),
-            Marker(
-                id=attractions_id,
-                marker_type="task",
-                target=attractions_id,
-                intensity=0.92,
-                state="pending",
-                payload={
-                    **base,
-                    "city": str(query.get("dest", "")),
-                    "eligible_actions": ["search_attractions"],
-                    "stage": "search_attractions",
-                },
-                created_by=agent_id,
-                created_at=now,
-                updated_by=agent_id,
-                updated_at=now,
-                history=["created"],
-            ),
-            Marker(
-                id=plan_id,
-                marker_type="task",
-                target=plan_id,
-                intensity=1.0,
-                state="pending",
-                payload={
-                    **base,
-                    "depends_on": [
-                        outbound_flights_id,
-                        return_flights_id,
-                        outbound_ground_id,
-                        return_ground_id,
-                        hotels_id,
-                        restaurants_id,
-                        attractions_id,
-                    ],
-                    "eligible_actions": ["plan_itinerary"],
-                    "stage": "planning",
-                },
-                created_by=agent_id,
-                created_at=now,
-                updated_by=agent_id,
-                updated_at=now,
-                history=["created"],
-            ),
-            Marker(
-                id=validate_id,
-                marker_type="task",
-                target=validate_id,
-                intensity=0.9,
-                state="pending",
-                payload={
-                    **base,
-                    "depends_on": [plan_id],
-                    "eligible_actions": ["validate_constraints"],
-                    "stage": "validating",
-                },
-                created_by=agent_id,
-                created_at=now,
-                updated_by=agent_id,
-                updated_at=now,
-                history=["created"],
-            ),
-            Marker(
-                id=finalize_id,
-                marker_type="task",
-                target=finalize_id,
-                intensity=0.8,
-                state="pending",
-                payload={
-                    **base,
-                    "depends_on": [validate_id],
-                    "eligible_actions": ["validate_constraints"],
-                    "stage": "finalize",
-                },
-                created_by=agent_id,
-                created_at=now,
-                updated_by=agent_id,
-                updated_at=now,
-                history=["created"],
-            ),
+        markers: list[Marker] = []
+        for route_spec in route_specs:
+            markers.extend(
+                [
+                    Marker(
+                        id=route_spec["flight_id"],
+                        marker_type="task",
+                        target=route_spec["flight_id"],
+                        intensity=float(route_spec["flight_intensity"]),
+                        state="pending",
+                        payload={
+                            **base,
+                            "origin": route_spec["origin"],
+                            "dest": route_spec["dest"],
+                            "date": route_spec["date"],
+                            "result_key": route_spec["flight_result_key"],
+                            "depends_on": route_spec["depends_on"],
+                            "eligible_actions": ["search_flights"],
+                            "stage": route_spec["flight_result_key"],
+                            "leg_label": route_spec["label"],
+                        },
+                        created_by=agent_id,
+                        created_at=now,
+                        updated_by=agent_id,
+                        updated_at=now,
+                        history=["created"],
+                    ),
+                    Marker(
+                        id=route_spec["ground_id"],
+                        marker_type="task",
+                        target=route_spec["ground_id"],
+                        intensity=float(route_spec["ground_intensity"]),
+                        state="pending",
+                        payload={
+                            **base,
+                            "origin": route_spec["origin"],
+                            "dest": route_spec["dest"],
+                            "result_key": route_spec["ground_result_key"],
+                            "depends_on": route_spec["depends_on"],
+                            "eligible_actions": ["search_ground_transport"],
+                            "stage": route_spec["ground_result_key"],
+                            "leg_label": route_spec["label"],
+                        },
+                        created_by=agent_id,
+                        created_at=now,
+                        updated_by=agent_id,
+                        updated_at=now,
+                        history=["created"],
+                    ),
+                ]
+            )
+
+        multi_city = len(city_sequence) > 1
+        for index, city_spec in enumerate(city_specs):
+            city_depends_on = []
+            if multi_city and index < len(route_specs):
+                city_depends_on = [
+                    route_specs[index]["flight_id"],
+                    route_specs[index]["ground_id"],
+                ]
+            for task in city_spec["tasks"]:
+                markers.append(
+                    Marker(
+                        id=task["id"],
+                        marker_type="task",
+                        target=task["id"],
+                        intensity=0.92,
+                        state="pending",
+                        payload={
+                            **base,
+                            "city": city_spec["city"],
+                            "city_index": index,
+                            "result_key": task["result_key"],
+                            "depends_on": city_depends_on,
+                            "eligible_actions": [task["action"]],
+                            "stage": task["result_key"],
+                        },
+                        created_by=agent_id,
+                        created_at=now,
+                        updated_by=agent_id,
+                        updated_at=now,
+                        history=["created"],
+                    )
+                )
+
+        all_dependency_ids = [
+            marker.id
+            for marker in markers
         ]
+        markers.extend(
+            [
+                Marker(
+                    id=plan_id,
+                    marker_type="task",
+                    target=plan_id,
+                    intensity=1.0,
+                    state="pending",
+                    payload={
+                        **base,
+                        "depends_on": all_dependency_ids,
+                        "eligible_actions": ["plan_itinerary"],
+                        "stage": "planning",
+                    },
+                    created_by=agent_id,
+                    created_at=now,
+                    updated_by=agent_id,
+                    updated_at=now,
+                    history=["created"],
+                ),
+                Marker(
+                    id=validate_id,
+                    marker_type="task",
+                    target=validate_id,
+                    intensity=0.9,
+                    state="pending",
+                    payload={
+                        **base,
+                        "depends_on": [plan_id],
+                        "eligible_actions": ["validate_constraints"],
+                        "stage": "validating",
+                    },
+                    created_by=agent_id,
+                    created_at=now,
+                    updated_by=agent_id,
+                    updated_at=now,
+                    history=["created"],
+                ),
+                Marker(
+                    id=finalize_id,
+                    marker_type="task",
+                    target=finalize_id,
+                    intensity=0.8,
+                    state="pending",
+                    payload={
+                        **base,
+                        "depends_on": [validate_id],
+                        "eligible_actions": ["validate_constraints"],
+                        "stage": "finalize",
+                    },
+                    created_by=agent_id,
+                    created_at=now,
+                    updated_by=agent_id,
+                    updated_at=now,
+                    history=["created"],
+                ),
+            ]
+        )
+        return markers
 
     def evaluate_run(self, env_snapshot: dict[str, Any]) -> dict[str, Any]:
         if self._workspace is None:
@@ -436,3 +389,141 @@ class TravelPlannerAdapter(DomainAdapter):
 
         default_idx = int(self.config.get("travelplanner", {}).get("default_query_idx", 0))
         return max(0, default_idx)
+
+    def _resolve_city_sequence(self, query: dict[str, Any]) -> list[str]:
+        raw = query.get("city_sequence")
+        if isinstance(raw, list):
+            sequence = [str(city).strip() for city in raw if str(city).strip()]
+            if sequence:
+                return sequence
+        if self._workspace is not None:
+            sequence = self._workspace.build_city_sequence(query)
+            if sequence:
+                return sequence
+        destination = str(query.get("dest", "")).strip()
+        return [destination] if destination else []
+
+    def _resolve_leg_dates(
+        self,
+        *,
+        query: dict[str, Any],
+        city_sequence: list[str],
+    ) -> list[str]:
+        raw = query.get("leg_dates")
+        if isinstance(raw, list) and raw:
+            dates = [str(value).strip() for value in raw if str(value).strip()]
+            if len(dates) >= max(len(city_sequence) + 1, 2):
+                return dates
+
+        dates_raw = query.get("date", [])
+        dates = [str(value).strip() for value in dates_raw] if isinstance(dates_raw, list) else []
+        leg_count = max(len(city_sequence) + 1, 2)
+        if not dates:
+            return [""] * leg_count
+        return [
+            dates[min(index * 2, len(dates) - 1)]
+            for index in range(leg_count)
+        ]
+
+    def _build_city_search_specs(
+        self,
+        *,
+        objective_id: str,
+        city_sequence: list[str],
+    ) -> list[dict[str, Any]]:
+        multi_city = len(city_sequence) > 1
+        specs: list[dict[str, Any]] = []
+        for city in city_sequence:
+            slug = self._slugify_city(city)
+            if multi_city:
+                hotel_key = f"search_hotels_{slug}"
+                restaurant_key = f"search_restaurants_{slug}"
+                attraction_key = f"search_attractions_{slug}"
+            else:
+                hotel_key = "search_hotels"
+                restaurant_key = "search_restaurants"
+                attraction_key = "search_attractions"
+            specs.append(
+                {
+                    "city": city,
+                    "slug": slug,
+                    "tasks": [
+                        {
+                            "id": f"{objective_id}::{hotel_key}",
+                            "result_key": hotel_key,
+                            "action": "search_hotels",
+                        },
+                        {
+                            "id": f"{objective_id}::{restaurant_key}",
+                            "result_key": restaurant_key,
+                            "action": "search_restaurants",
+                        },
+                        {
+                            "id": f"{objective_id}::{attraction_key}",
+                            "result_key": attraction_key,
+                            "action": "search_attractions",
+                        },
+                    ],
+                }
+            )
+        return specs
+
+    def _build_route_specs(
+        self,
+        *,
+        objective_id: str,
+        origin: str,
+        city_sequence: list[str],
+        leg_dates: list[str],
+        city_specs: list[dict[str, Any]],
+    ) -> list[dict[str, Any]]:
+        route_cities = [origin, *city_sequence, origin]
+        specs: list[dict[str, Any]] = []
+        for leg_index in range(len(route_cities) - 1):
+            if leg_index == 0:
+                label = "outbound"
+                flight_key = "search_flights_outbound"
+                ground_key = "search_ground_transport_outbound"
+                flight_intensity = 0.95
+                ground_intensity = 0.93
+            elif leg_index == len(route_cities) - 2:
+                label = "return"
+                flight_key = "search_flights_return"
+                ground_key = "search_ground_transport_return"
+                flight_intensity = 0.94
+                ground_intensity = 0.92
+            else:
+                label = f"leg_{leg_index}"
+                flight_key = f"search_flights_leg_{leg_index}"
+                ground_key = f"search_ground_transport_leg_{leg_index}"
+                flight_intensity = max(0.84, 0.93 - (leg_index * 0.01))
+                ground_intensity = max(0.83, 0.91 - (leg_index * 0.01))
+
+            depends_on: list[str] = []
+            if leg_index > 0 and leg_index - 1 < len(city_specs):
+                depends_on = [
+                    task["id"]
+                    for task in city_specs[leg_index - 1]["tasks"]
+                ]
+
+            specs.append(
+                {
+                    "label": label,
+                    "origin": route_cities[leg_index],
+                    "dest": route_cities[leg_index + 1],
+                    "date": leg_dates[min(leg_index, len(leg_dates) - 1)] if leg_dates else "",
+                    "flight_id": f"{objective_id}::{flight_key}",
+                    "ground_id": f"{objective_id}::{ground_key}",
+                    "flight_result_key": flight_key,
+                    "ground_result_key": ground_key,
+                    "flight_intensity": flight_intensity,
+                    "ground_intensity": ground_intensity,
+                    "depends_on": depends_on,
+                }
+            )
+        return specs
+
+    def _slugify_city(self, city: str) -> str:
+        text = str(city).strip().lower()
+        text = re.sub(r"[^a-z0-9]+", "_", text)
+        return text.strip("_") or "city"

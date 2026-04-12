@@ -5,6 +5,31 @@
 
 ## Active Practices
 
+### Scientific-Plan Sanity Check Standard
+- Before executing a benchmark-improvement plan, check every proposed task against the current repo state so the plan does not duplicate already-implemented runtime fields, retries, or exports.
+- Separate `ablation`, `stability fixes`, and `performance optimization` into distinct experiment tracks; combining them in one preset weakens causal interpretation.
+- If the dominant benchmark failure is an adapter representation bottleneck, schedule adapter redesign ahead of pressure heuristics, prompt enrichment, or agent-count scaling.
+
+### TravelPlanner Failure-Regime Analysis Standard
+- Segment TravelPlanner results first by `(days, visiting_city_number)` and by `plan empty vs non-empty` before interpreting aggregate pass rates; this distinguishes synthesis collapse from constraint-level quality loss.
+- If `dest` is the only city bound into search markers, fallback payload injection, and routing context, classify the adapter as single-destination and expect structural failure on state-level multi-city queries until routing is upgraded.
+- Surface `empty_plan_after_max_attempts` and related planner-terminal reasons in exported `query_XXX.json` summaries; a `status=ok` wrapper around `final_plan=[]` is not scientifically diagnostic.
+
+### Structured Output Resilience Standard
+- In benchmark graphs, treat malformed JSON as a separate failure class from network/provider transport errors and retry schema parsing explicitly.
+- Remove explanatory fields from intermediate node contracts unless they are directly analyzed downstream; compact outputs reduce truncation risk on hosted models.
+- Add deterministic fallbacks for non-terminal orchestration nodes so one malformed structured response degrades quality locally instead of killing the whole benchmark batch.
+
+### Live Notebook Command Standard
+- In Jupyter benchmark notebooks, stream stdout/stderr live for long-running commands such as `docker compose build` and containerized batch runs; buffered capture makes healthy progress look like a hang.
+- Cache Docker image rebuild decisions on dependency-level inputs when the repo source is volume-mounted into the runtime container.
+- Fail early with a clear environment message when a required CLI like Docker is missing from the notebook kernel PATH.
+
+### Reproducible Baseline Replacement Standard
+- If a third-party benchmark baseline cannot be run reproducibly under the thesis protocol, replace it in the principal table with an in-repo baseline that preserves the controlled dimensions (`backbone`, `split`, `official scorer`, `output contract`).
+- Implement the replacement baseline behind the same `runs.json -> official_eval.json` pipeline as the existing methods so comparison tooling and notebooks stay unchanged downstream.
+- For benchmark-domain baselines, reuse existing domain prompt, normalization, and evaluator helpers instead of creating a second scoring dialect.
+
 ### Environment-First Guardrail Enforcement
 - Keep governance rules in `environment/guardrails.py` so every writer path is mediated by one policy layer.
 - Enforce lock ownership with status metadata (`lock_owner`, `lock_acquired_tick`) for scope safety.
@@ -222,3 +247,73 @@
 - Any Docker-invoked repository script that may run as `python /app/scripts/<name>.py` should add `REPO_ROOT` to `sys.path` before importing local packages such as `core`, `adapters`, or `llm`.
 - Before launching a long benchmark campaign, validate the exact container entrypoint with one `--help` call and one cheap real invocation so import-path bugs surface immediately.
 - Treat identical per-query runtime failures as an orchestration-path issue first; inspect the first query log before changing prompts, models, or benchmark settings.
+
+### External Optimizer Resilience Standard
+- When adapting third-party optimization loops to hosted LLM providers, checkpoint state after each completed iteration before any next-step mutation phase.
+- Convert transient provider/runtime failures into per-task degraded outputs and continue the run, instead of letting one failed structured-output call abort the full optimizer batch.
+- For notebook reruns against external repos, default to reusing the existing clone and virtualenv, and start with conservative worker counts on smaller routed models.
+
+### Benchmark Review Hygiene Standard
+- Before citing a notebook in thesis text, verify that every visible output cell belongs to the same run identifier; if multiple run tags appear, rerender or clear stale outputs first.
+- For same-model framework comparisons, report the paired query win/loss count, the official aggregate metrics, and the token/cost delta together so quality gains are not detached from budget.
+- If an external baseline needed behavior-changing patches beyond provider/model wiring, label it as a patched variant and scope the claim accordingly instead of presenting it as the untouched upstream method.
+
+### Mode-Based Baseline Benchmark Standard
+- For fragile third-party baselines, move benchmark control flow into a dedicated repository script and let the notebook only trigger modes such as `preflight`, `pilot`, and `full`.
+- Emit mode-specific `benchmark_status.json`, `reproducibility.md`, and `context.md` artifacts so provider outages, partial checkpoints, and paper-reference numbers remain visible outside notebook cell output.
+- If the repository `.venv` is unstable, prefer the healthy interpreter for local benchmark scripts and keep isolated virtualenv usage scoped to the external cloned baseline only.
+
+### Dedicated Baseline Notebook Standard
+- If one comparison arm is much more failure-prone than the others, create a baseline-specific notebook that reruns only that arm and reuses existing reference artifacts for the stable arms.
+- Store the reference `official_eval.json` and `runs.json` paths as overridable environment-backed defaults so the notebook stays strict by default but portable across future reruns.
+- Put the aggregate official table and the paired per-query comparison in the same notebook so a failed rerun cannot silently produce a table without comparative context.
+
+### Notebook Interpreter Selection Standard
+- Any notebook that shells out to repo scripts should resolve a concrete interpreter first and verify it can import the notebook's required modules before launching setup/eval commands.
+- Prefer the kernel interpreter when it satisfies the imports, but probe fallback interpreters explicitly instead of assuming bare `python` is valid.
+- Once selected, reuse that interpreter for all local repository scripts inside the notebook to avoid mixed-environment failures.
+
+### External Baseline Watchdog Standard
+- For long-running external baseline processes, emit heartbeat lines on a fixed interval and persist the same state to a file-backed `live_monitor.json` so notebook users and post-mortem debugging share the same truth source.
+- Trigger stall recovery from `no child output and no watched-artifact movement` rather than from raw wall-clock alone, then classify the outcome separately from model-quality scores.
+- Version local patches applied to external clones and refresh clones automatically when the patch revision changes, so reruns do not silently reuse stale reliability behavior.
+
+### Organization-Philosophy Benchmark Standard
+- When the research question targets coordination philosophy, define benchmark arms as organizational forms (`direct`, `CoT`, `self-refine`, `planner-executor`, `graph supervisor`, `stigmergic`) and treat concrete libraries only as implementation backends.
+- Run publication-grade studies through an explicit `preflight -> pilot -> full` matrix script that persists one registry row per `stage x arm x seed`, so failures and gating decisions remain auditable outside notebook output.
+- Generate a separate scientific pack from persisted `runs.json`, `official_eval.json`, and run summaries, including `mean ± sd` tables, paired canonical-seed statistics, reproducibility notes, and threats-to-validity text.
+
+### Vendored Evaluator Path Safety Standard
+- If vendored benchmark code accesses resources through relative paths, guard both module import and runtime evaluation calls with the expected working directory instead of assuming `subprocess cwd` is enough.
+- For repo-global symlinks consumed by third-party subprocesses, verify or recreate the target on every invocation so stale temp-directory links cannot poison later long runs.
+- Add at least one regression test that intentionally corrupts the vendored evaluator state before calling the bridge, then assert the bridge repairs it and returns a valid score.
+
+### Non-Invasive Benchmark Monitoring Standard
+- For active notebook benchmarks, inspect `run_registry.csv`, per-arm `official_eval.json`, and newest query artifact mtimes before reading logs or touching the running kernel.
+- Report partial results only for seeds with completed official scoring files; everything else should be labeled explicitly as `in progress`, `partial_success`, or `failed`.
+- When a study is multi-seed, avoid saying an arm is "finished" until all intended seeds are complete or invalidated.
+
+### Structured-Output Baseline Recovery Standard
+- For multi-step benchmark baselines, allow intermediate structured-output stages to degrade into deterministic local fallbacks when the final scored itinerary can still be produced.
+- Keep planner prompts output-minimal by requesting only non-empty day entries and reconstructing omitted defaults in post-processing.
+- If a planner blueprint fails to parse, prefer deriving a compact blueprint from a valid fallback itinerary rather than terminating the whole seed.
+
+### Scientific Plan Executability Standard
+- Before approving a benchmark-improvement plan, verify that each proposed hook or override matches an actual extension point in the current codebase.
+- Separate task-representation fixes from optimization work; if the adapter encodes the domain too narrowly, repair that representation before prompts, heuristics, or hyperparameter tuning.
+- When a runner already persists per-query artifacts, robustness improvements should add failure classification and resume semantics rather than a second parallel checkpoint mechanism.
+
+### Partial-Scoring Semantics Standard
+- For continue-on-error benchmark plans, verify whether the official scorer treats missing predictions as absent examples, subset evaluation, or empty failed outputs under the full denominator.
+- Do not call an official score "partial" unless the scorer is actually restricted to a reduced query index set.
+- Pair resilience-oriented runner summaries with scorer semantics explicitly, so `failed_queries` counts and official rates cannot be misread as different denominators.
+
+### Research Plan Wording Precision Standard
+- When a plan changes benchmark resilience behavior, update the acceptance criteria language to reflect the scorer's true denominator semantics.
+- Use `documented failures under full evaluation` rather than `partial official score` when missing predictions are still counted over the full query range.
+- Prefer small wording corrections early in plan review, because ambiguous measurement language can propagate into ADRs, notebooks, and thesis text.
+
+### TravelPlanner Multi-City Expansion Standard
+- Infer TravelPlanner `city_sequence` from local city/state data plus route feasibility, because multi-city queries often store a state-like `dest` rather than an ordered list of cities.
+- Keep single-city result keys stable, but make prompt-building and payload-compaction logic accept dynamic `search_<type>_<city-or-leg>` keys by prefix so adapter growth does not force a full downstream rewrite.
+- Encode multi-city routing as alternating route and city-search dependencies, which keeps the execution graph explicit, testable, and fully contained inside `adapters/travelplanner/`.

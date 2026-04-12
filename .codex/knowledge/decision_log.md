@@ -1,5 +1,45 @@
 # Decision Log
 
+## 2026-04-12 (V5 Plan Execution Policy)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: Treat the proposed V5 plan as a strong draft, but require a pre-execution rewrite that separates pure V4 ablation from tuned-performance work and inserts an explicit TravelPlanner adapter redesign track for multi-city support.
+- `rationale`: The current draft mixes causal questions (`what do V4 corrections contribute?`) with optimization changes (`heuristics`, `few-shots`, `max_ticks`, `num_agents`), while the dominant failure mode remains an adapter-level single-destination bottleneck that heuristics alone will not resolve.
+- `alternatives_rejected`: Execute the plan unchanged, or reduce V5 to only local tuning without addressing the adapter’s representational limitation.
+- `linked_adr`: `N/A (campaign planning rule)`
+
+## 2026-04-11 (TravelPlanner Failure Interpretation)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: Interpret the current TravelPlanner scientific comparison as a single-destination-capable benchmark slice, and treat the `5-day / 2-city` and `7-day / 3-city` collapse of `StigmergiAgentic` as a structural adapter limitation until multi-city routing and explicit empty-plan failure export are implemented.
+- `rationale`: The analysis of run `20260409_233919` showed that the adapter binds search and routing to one `dest`, while many failed queries terminate with `final_plan=[]` and `No travel plan generated.` under `status=ok`; reading these outcomes as random planner weakness would overstate the current generality of the framework.
+- `alternatives_rejected`: Continue discussing the failures as generic LLM instability, or interpret the current TravelPlanner table as evidence of multi-city capability without adapter-level routing support.
+- `linked_adr`: `N/A (post-run scientific interpretation rule)`
+
+## 2026-04-09 (LangGraph Robustness)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: Handle LangGraph TravelPlanner intermediate-node structured-output failures with parse retries and deterministic fallbacks instead of aborting the batch on the first malformed JSON response.
+- `rationale`: Hosted-model runs can return transport-successful but schema-invalid payloads; batch reproducibility is better served by bounded local degradation than by full campaign interruption.
+- `alternatives_rejected`: Keep single-shot schema parsing with hard failure, or silently ignore malformed fields without explicit retry/fallback behavior.
+- `linked_adr`: `N/A (benchmark runtime hardening)`
+
+## 2026-04-09
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: Make the principal TravelPlanner comparison notebook stream Docker command output live and skip redundant `travelplanner-smoke` rebuilds unless tracked build inputs change or a force flag is set.
+- `rationale`: The previous setup cell buffered `docker compose build` output entirely, which made legitimate work look frozen and forced unnecessary rebuild time on every notebook rerun.
+- `alternatives_rejected`: Keep buffered subprocess capture in the notebook, or remove the explicit build step entirely without any cache or diagnostic layer.
+- `linked_adr`: `N/A (notebook execution-path hardening)`
+
+## 2026-04-08
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: Retire SwarmAgentic from the principal TravelPlanner benchmark and adopt `LangGraph Supervisor` as the main centralized hierarchical baseline, executed through a Docker-first shared benchmark pipeline.
+- `rationale`: SwarmAgentic proved operationally non-reproducible in the controlled Qwen/OpenRouter protocol, while LangGraph enables an explicit, durable, in-repo state-graph baseline that can share the same scorer, split, and artifact contract as `Solo` and `StigmergiAgentic`.
+- `alternatives_rejected`: Keep SwarmAgentic in the main comparison table, compare only `Solo` vs `StigmergiAgentic`, or use a generic LangChain agent path without an explicit graph/state-machine baseline.
+- `linked_adr`: `N/A (benchmark methodology pivot)`
+
 ## 2026-02-10
 
 - `repo_slug`: `stigmergiagentic-33b989`
@@ -238,6 +278,14 @@
 
 - `repo_slug`: `stigmergiagentic-33b989`
 - `decision`: Standardize the next TravelPlanner framework comparison on OpenRouter-routed `openai/gpt-4o`, the validation split, and the shared official scorer, with SwarmAgentic adapted only at the provider/model-compatibility layer and result normalization layer.
+
+## 2026-04-01 (SwarmAgentic OpenRouter Fault Tolerance)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: Harden the SwarmAgentic OpenRouter adaptation with per-iteration PSO checkpoints, task-level degradation on transient provider failures, and conservative notebook rerun defaults for the Qwen3.5-9B comparison flow.
+- `rationale`: OpenRouter `504` responses and null structured outputs were causing full-run loss after long PSO executions; resumable checkpoints and non-fatal task failure handling preserve benchmark progress and reduce wasted wall-clock time.
+- `alternatives_rejected`: Keep end-of-run-only checkpointing, rely only on provider retries, or keep the notebook defaults at high concurrency with forced re-clone/reinstall on every rerun.
+- `linked_adr`: `N/A (benchmark workflow hardening)`
 - `rationale`: This gives a materially stronger framework comparison than mixing published paper numbers and local Qwen runs, while keeping the remaining uncontrolled factor (SwarmAgentic PSO optimization before evaluation) explicit.
 - `alternatives_rejected`: Compare local Qwen scores directly to the published GPT-3.5/GPT-4o table, or reimplement SwarmAgentic behavior from scratch inside this repo.
 - `linked_adr`: `N/A (experiment protocol decision)`
@@ -327,3 +375,107 @@
 - `rationale`: The earlier comparison mixed frameworks and model families, which made any scientific claim about orchestration strength too weak. Holding provider, model, split, and scorer constant while adding a solo-model arm isolates what the orchestration contributes relative to the same base model and makes cross-framework differences interpretable.
 - `alternatives_rejected`: Compare against published GPT-3.5 or GPT-4o table values directly, compare only SwarmAgentic versus StigmergiAgentic without a solo baseline, or score each framework through its own native evaluation path.
 - `linked_adr`: `N/A (controlled benchmark protocol)`
+
+## 2026-04-02 (TravelPlanner Comparison Reporting Gate)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: Treat the current notebook as valid internal evidence for the two completed arms (`solo` and `StigmergiAgentic`) but not yet as a publishable three-way benchmark artifact; require a clean single-run rerender, explicit budget reporting, and a clarified Swarm patch scope before thesis-grade reporting.
+- `rationale`: The persisted JSON artifacts support the reported two-arm scores, but the notebook surface currently mixes outputs from multiple run tags and the Swarm preparation layer changes execution behavior beyond simple provider wiring. Without cleaning those issues, a reader could overinterpret the notebook as a fully reproducible and methodologically matched framework comparison.
+- `alternatives_rejected`: Cite the notebook as-is in thesis text, hide the budget asymmetry behind aggregate pass rates only, or describe the patched Swarm baseline as an untouched upstream comparison.
+- `linked_adr`: `N/A (benchmark review gate)`
+
+## 2026-04-02 (Qwen Swarm Benchmark Modes and Failure Separation)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: Run the Qwen SwarmAgentic TravelPlanner baseline through explicit `preflight`, `pilot`, and `full` modes with mode-specific artifacts, classify provider `504` outages as `infra_failure` rather than score `0`, and keep the notebook on the healthy local interpreter for repo scripts while reserving isolated virtualenv use for the cloned Swarm baseline.
+- `rationale`: The thesis benchmark needs a fair same-backbone comparison, but the original notebook mixed orchestration, scoring, and baseline setup inside large cells and let provider failures surface as hard crashes. Separating modes and status artifacts makes the Swarm path resumable and auditable, while decoupling local notebook scripts from a broken project `.venv` keeps the experiment runnable without relaxing the isolation of the external baseline.
+- `alternatives_rejected`: Keep the monolithic notebook cell, treat `504` as benchmark score failures, or force every local script through the project `.venv` even when that environment is corrupted.
+- `linked_adr`: `N/A (benchmark orchestration rule)`
+
+## 2026-04-03 (Standalone Swarm Full Comparison Notebook)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: Add a dedicated notebook for the strict full SwarmAgentic Qwen comparison that reruns only SwarmAgentic and compares it against the previously completed Solo and StigmergiAgentic artifacts from a fixed reference run tag by default.
+- `rationale`: The unstable part of the thesis comparison is the Swarm baseline, not the already-scored Solo and StigmergiAgentic arms. A baseline-specific notebook shortens rerun cycles, reduces accidental churn on the stable arms, and makes it easier to enforce a scientific gate where the final table appears only if Swarm finishes successfully.
+- `alternatives_rejected`: Reuse the large three-arm notebook for every Swarm retry, manually copy paths into ad hoc cells, or compare only aggregate official scores without paired per-query final-pass analysis.
+- `linked_adr`: `N/A (dedicated baseline notebook rule)`
+
+## 2026-04-07 (Notebook-Level Python Auto-Resolution)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: Make the dedicated Swarm scientific notebook resolve a working interpreter dynamically and run all local repo scripts through that interpreter instead of calling bare `python`.
+- `rationale`: The benchmark notebook can execute under a kernel environment that differs from the shell's default `python`, which leads to immediate failures on imports such as `datasets`. Probing interpreters up front and standardizing on one verified interpreter is cheaper and safer than expecting users to manually reconcile environments before each rerun.
+- `alternatives_rejected`: Keep hardcoded `python` calls, instruct the user to repair environments manually before notebook use, or pin the notebook to a single absolute interpreter path.
+- `linked_adr`: `N/A (notebook runtime robustness rule)`
+
+## 2026-04-07 (SwarmAgentic Watchdog Observability)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: Wrap the SwarmAgentic benchmark subprocesses with heartbeat-based monitoring, watched-artifact inactivity timeouts, patch-revision clone refresh, and notebook-visible debug artifacts instead of trusting raw subprocess liveness.
+- `rationale`: The Qwen/OpenRouter Swarm baseline can enter long silent stalls where the Python process stays alive, no checkpoint is written, and the notebook appears to "run" for tens of minutes without progress. A watchdog keyed to real progress signals plus file-backed monitor artifacts reduces wasted wall-clock time and makes infra stalls auditable without conflating them with benchmark scores.
+- `alternatives_rejected`: Wait indefinitely on living subprocesses, rely only on provider SDK timeouts, or inspect hangs manually from external terminal tools after each failed run.
+- `linked_adr`: `N/A (baseline observability and recovery rule)`
+
+## 2026-04-09 (Organization-Philosophy TravelPlanner Benchmark)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: Promote the principal TravelPlanner benchmark from a small named-framework comparison to a publication-oriented organization-philosophy study with six controlled arms, three seeds, gated execution (`preflight/pilot/full`), and a generated paper pack of statistical and methodological artifacts.
+- `rationale`: The thesis claim is about stigmergic organization quality, not about outperforming one unstable external repo or one orchestration SDK. Reframing the benchmark around organizational forms preserves scientific fairness, aligns better with DSR/FEDS, and makes the comparison auditable and publishable through reproducibility artifacts rather than notebook screenshots.
+- `alternatives_rejected`: Keep the three-arm framework-branded comparison only, rely on SwarmAgentic as the main external baseline despite reproducibility failures, or compute publication tables manually outside the repository.
+- `linked_adr`: `N/A (scientific benchmark framing rule)`
+
+## 2026-04-09 (TravelPlanner Official Evaluator Runtime Path Repair)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: Harden the vendored TravelPlanner official runner by revalidating the repo-global database symlink on every invocation and executing evaluation-time file-IO calls inside the upstream `evaluation/` directory context.
+- `rationale`: The LangGraph benchmark failure after roughly 148 completed queries was not a model-quality issue but an integration fault: upstream OSU evaluation code opens `../database/...` paths relative to `evaluation/`, while the bridge subprocess was only importing from that directory and was also vulnerable to a stale symlink left behind by prior temp runs. Repairing both the symlink lifecycle and the runtime cwd removes a class of late-run crashes that can waste hours and invalidate otherwise successful query outputs.
+- `alternatives_rejected`: Keep the stale-link check best-effort only, patch each upstream module individually, or accept the late failure as an unavoidable external-benchmark limitation.
+- `linked_adr`: `N/A (vendored evaluator integration rule)`
+
+## 2026-04-10 (Artifact-Only Benchmark Status Reads)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: Use artifact-only inspection (`run_registry.csv`, `official_eval.json`, query file counts/mtimes) as the default way to answer progress questions on active TravelPlanner studies instead of interacting with the notebook kernel or benchmark subprocess.
+- `rationale`: The user often needs reassurance or provisional numbers while a multi-hour Docker benchmark is still running. Reading persisted study artifacts provides accurate status and partial results without risking notebook interruption, TTY side effects, or accidental reruns.
+- `alternatives_rejected`: Attach to the running container interactively, inspect notebook cell state only, or infer progress solely from provider dashboards.
+- `linked_adr`: `N/A (safe benchmark observability rule)`
+
+## 2026-04-11 (Scientific Baseline Intermediate Fallbacks)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: Make the TravelPlanner `Self-Refine` and `Planner-Executor` scientific baselines recover from truncated intermediate JSON by using compact prompts plus deterministic fallback objects instead of aborting the seed.
+- `rationale`: The failed study arms were not collapsing on the final scored itinerary schema but on intermediate reviewer/planner schemas that occasionally returned truncated JSON under the shared Qwen/OpenRouter setup. Treating those intermediate artifacts as recoverable preserves the intent of the baseline while turning a benchmark-stopping parse error into a lower-risk local repair path.
+- `alternatives_rejected`: Increase token budgets globally, accept those baselines as permanently invalid, or hand-edit partial outputs after the fact.
+- `linked_adr`: `N/A (scientific baseline robustness rule)`
+
+## 2026-04-12 (Executable Scientific Plan Gate)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: Treat benchmark-improvement plans as approved only after checking that every major task maps to current code extension points, existing runner behavior, and the actual domain representation used by the adapter.
+- `rationale`: The revised V5.1 plan is much closer to scientifically sound execution, but review against the live code still surfaced hidden implementation constraints: TravelPlanner currently stores a scalar `dest`, the agent layer does not yet expose an adapter-provided heuristic hook, and the benchmark runner already checkpoints per query. Requiring an executability gate avoids launching long campaigns from plans that are directionally right but still underspecified at the implementation boundary.
+- `alternatives_rejected`: Approve plans based on methodology text alone, defer all feasibility checks until implementation starts, or keep tuning and redesign work mixed inside one loosely specified execution plan.
+- `linked_adr`: `N/A (scientific plan review rule)`
+
+## 2026-04-12 (Official Scorer Denominator Rule)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: Treat missing query outputs in TravelPlanner benchmark runs as full-denominator failures unless the official scorer is explicitly restricted to a subset index range.
+- `rationale`: The continue-on-error runner can preserve a seed and write per-query failure artifacts, but the current official scorer iterates across the requested query range and evaluates missing predictions as empty plans. Labeling such outputs as a "partial official score" would blur the denominator and weaken the scientific interpretation of delivery and final-pass rates.
+- `alternatives_rejected`: Describe full-range scores with missing predictions as subset scores, hide failed-query counts behind aggregate metrics, or stop the entire seed on first failed query to preserve terminology.
+- `linked_adr`: `N/A (scorer semantics rule)`
+
+## 2026-04-12 (Plan Acceptance Criteria Must Match Scorer Semantics)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: When updating benchmark plans, rewrite acceptance criteria to match the actual official scorer behavior even if the underlying implementation idea is already correct.
+- `rationale`: The V5.1 T5 design was directionally right, but one sentence still implied subset official evaluation. Tightening that wording preserves methodological clarity without changing the technical plan and prevents later thesis text from overstating what a continue-on-error run means.
+- `alternatives_rejected`: Leave the ambiguous wording in place, rely on oral clarification later, or postpone the correction until ADR drafting.
+- `linked_adr`: `N/A (plan wording precision rule)`
+
+## 2026-04-12 (TravelPlanner T0 Multi-City Adapter Shape)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: Implement V5.1 T0 entirely inside `adapters/travelplanner/` by inferring `city_sequence` in the workspace, expanding the adapter DAG into per-city and per-leg markers, and teaching the planning toolchain to consume dynamic search keys by prefix while keeping single-city keys backward compatible.
+- `rationale`: The root bottleneck was not the core stigmergic runtime but the TravelPlanner adapter's single-scalar destination encoding. Keeping the redesign local to the adapter layer fixes the domain representation gap, preserves `core/` invariants, and avoids breaking existing single-city flows or tests that still expect legacy search keys.
+- `alternatives_rejected`: Parse `dest` as a list directly, move domain-specific sequencing into `core/`, or replace all legacy search keys with multi-city-only names in one breaking sweep.
+- `linked_adr`: `N/A (adapter-local multi-city routing rule)`

@@ -1,5 +1,118 @@
 # Project Captures
 
+## 2026-04-12 — V5 Plan Review for TravelPlanner Scientific Campaign
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `impact_score`: `8/10`
+- `confidence`: `high`
+- `scope`: `Review of the proposed V5 framework-improvement plan before execution`
+
+### Outcome
+Reviewed `documentation/redisgn_v2/plan_v5_framework_improvement.md` against the current codebase and benchmark evidence. The plan has strong scientific hygiene (train-only tuning, explicit anti-cheating constraints, ablation intent), but should not be executed unchanged because it mixes ablation with optimization, targets some already-implemented mechanisms (`stop_reason`, LLM retry/backoff), points one prompt task at the wrong file (`llm/prompts.py` instead of TravelPlanner tool prompts), and still underweights the main structural failure mode: the current TravelPlanner adapter is effectively single-destination and therefore collapses on multi-city queries.
+
+### Reusable Patterns (1-3)
+1. Before launching a new scientific campaign plan, verify each proposed task against the current codebase so the plan does not spend effort re-adding already-present observability or retry mechanisms.
+2. Keep pure ablation campaigns isolated from optimization campaigns; once heuristics, prompt tuning, or agent-count changes enter the same preset, the result no longer measures the ablated feature alone.
+3. When benchmark failures are dominated by representation mismatch in the adapter, prioritize adapter redesign before local heuristics or hyperparameter tuning; otherwise the plan optimizes around a structural bottleneck.
+
+### Evidence
+- `documentation/redisgn_v2/plan_v5_framework_improvement.md`
+- `core/orchestrator.py`
+- `main.py`
+- `llm/client.py`
+- `adapters/travelplanner/tools.py`
+- `adapters/travelplanner/scientific_baselines.py`
+
+## 2026-04-11 — TravelPlanner Framework Failure Regime Analysis (Run 20260409_233919)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `impact_score`: `9/10`
+- `confidence`: `high`
+- `scope`: `Post-hoc analysis of the scientific TravelPlanner framework comparison pack for StigmergiAgentic failure modes`
+
+### Outcome
+Analyzed the final scientific pack and raw per-query artifacts for `output/travelplanner_framework_compare/20260409_233919` and isolated a two-layer failure regime for `StigmergiAgentic`: first, all benchmark gains are confined to `3-day / 1-city` queries, while `5-day / 2-city` and `7-day / 3-city` requests collapse to zero final-pass; second, the TravelPlanner adapter is structurally single-destination because search markers, fallback search payloads, and routing context all bind to one `dest` value, so multi-city requests frequently end as `No travel plan generated.` with `status=ok`, `stop_reason=all_terminal`, and `final_plan=[]`.
+
+### Reusable Patterns (1-3)
+1. When analyzing TravelPlanner benchmark runs, separate failures into `empty-plan delivery collapse` and `non-empty but invalid itinerary`; aggregate `final_pass_rate` alone hides whether the planner failed to synthesize any route at all.
+2. If the adapter searches hotels, restaurants, attractions, and route legs only against a single `dest`, treat the implementation as single-destination even when prompts mention `visiting_city_number`; multi-city benchmark failure is then structural, not stochastic.
+3. Export `empty_plan_after_max_attempts` as an explicit query-level failure artifact instead of a nominally successful run with `final_plan=[]`, otherwise post-hoc scientific analysis loses the true cause of failure.
+
+### Evidence
+- `output/travelplanner_framework_compare/20260409_233919/scientific_pack/paper_table_main.md`
+- `output/travelplanner_framework_compare/20260409_233919/scientific_pack/pairwise_final_pass_stats.md`
+- `output/travelplanner_framework_compare/20260409_233919/runs/stigmergiagentic/seed_42/full/runs.json`
+- `output/travelplanner_framework_compare/20260409_233919/runs/stigmergiagentic/seed_42/full/queries/query_022.json`
+- `output/travelplanner_framework_compare/20260409_233919/runs/stigmergiagentic/seed_42/full/queries/query_040.json`
+- `adapters/travelplanner/adapter.py`
+- `adapters/travelplanner/tools.py`
+
+## 2026-04-09 — LangGraph Structured-Output Fallback Hardening
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `impact_score`: `8/10`
+- `confidence`: `high`
+- `scope`: `TravelPlanner LangGraph supervisor resilience against malformed provider JSON during batch benchmark execution`
+
+### Outcome
+Hardened the LangGraph TravelPlanner baseline so malformed or truncated provider JSON in intermediate supervisor nodes no longer aborts the full benchmark batch by default: intermediate prompts were compacted, structured-output calls now retry after schema-parse failures, and deterministic node-specific fallbacks keep the query export alive when parsing still fails.
+
+### Reusable Patterns (1-3)
+1. For graph-based LLM benchmarks, separate transport-level retries from schema-parse retries; provider success does not imply usable structured output.
+2. Keep intermediate supervisor node outputs minimal and explanation-free when the values are only used for downstream machine consumption.
+3. In long batch benchmarks, add deterministic node-level fallbacks for non-final planner stages so one malformed JSON blob does not invalidate the entire campaign.
+
+### Evidence
+- `adapters/travelplanner/langgraph_supervisor.py`
+- `scripts/run_travelplanner_framework_benchmark.py`
+- `output/travelplanner_framework_compare/20260409_144039/langgraph_supervisor/logs/query_006.log`
+- `pytest tests/unit/test_travelplanner_langgraph_supervisor.py -q`
+
+## 2026-04-09 — Notebook Docker Build Visibility and Cache Fix
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `impact_score`: `7/10`
+- `confidence`: `high`
+- `scope`: `TravelPlanner comparison notebook setup-cell reliability for Docker-based benchmark startup`
+
+### Outcome
+Fixed the principal TravelPlanner comparison notebook so Docker build and run commands stream output live in Jupyter, and repeated runs skip the `travelplanner-smoke` image rebuild when `Dockerfile`, `docker-compose.yml`, and `requirements.txt` are unchanged.
+
+### Reusable Patterns (1-3)
+1. In notebook orchestration cells, never hide long-running container build output behind `subprocess.run(capture_output=True)`; stream it live so users can distinguish progress from a hang.
+2. Cache Docker build readiness on dependency-level inputs when the runtime source code is bind-mounted into the container; rebuilding the image on every notebook run only wastes wall time.
+3. If a notebook depends on external CLIs such as Docker, fail early with a direct PATH/availability message instead of leaving the user at a silent command banner.
+
+### Evidence
+- `scripts/create_langgraph_travelplanner_comparison_notebook.py`
+- `output/jupyter-notebook/travelplanner-framework-comparison-openrouter-qwen35-9b.ipynb`
+- `/opt/miniconda3/bin/python -m py_compile scripts/create_langgraph_travelplanner_comparison_notebook.py`
+- `/opt/miniconda3/bin/python - <<'PY' ... compile notebook cells ... PY`
+
+## 2026-04-08 — LangGraph Supervisor TravelPlanner Benchmark Pivot
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `impact_score`: `9/10`
+- `confidence`: `high`
+- `scope`: `Replacement of the principal SwarmAgentic comparison path with a Docker-first LangGraph supervisor baseline for TravelPlanner`
+
+### Outcome
+Implemented a reproducible three-arm TravelPlanner comparison path centered on `Solo`, `LangGraph Supervisor`, and `StigmergiAgentic`, with a new LangGraph baseline, a shared Docker-first batch benchmark runner, a regenerated comparison notebook, and thesis-methodology updates that remove SwarmAgentic from the main experimental claim path.
+
+### Reusable Patterns (1-3)
+1. When an external baseline becomes operationally non-reproducible, replace it with an in-repo controlled baseline that matches backbone, scorer, split, and output contract before continuing the comparison campaign.
+2. Keep benchmark notebooks orchestration-only: route provider-facing execution through one Docker-first batch script and persist `query_XXX.json`, `runs.json`, and `official_eval.json` for resumability and post-hoc analysis.
+3. When adding a new orchestration baseline in an existing benchmark domain, reuse the canonical prompt construction, search-payload shaping, normalization, and evaluator paths to avoid scorer drift between methods.
+
+### Evidence
+- `adapters/travelplanner/langgraph_supervisor.py`
+- `scripts/run_travelplanner_langgraph_query_export.py`
+- `scripts/run_travelplanner_framework_benchmark.py`
+- `scripts/create_langgraph_travelplanner_comparison_notebook.py`
+- `output/jupyter-notebook/travelplanner-framework-comparison-openrouter-qwen35-9b.ipynb`
+- `consigne/revue_litterature_v2_DSR.tex`
+- `pytest tests/unit/test_travelplanner_langgraph_supervisor.py -q`
+
 ## 2026-03-17 — TravelPlanner Official Eval Failure Pattern Analysis
 
 - `repo_slug`: `stigmergiagentic-33b989`
@@ -41,6 +154,28 @@ Prepared a reproducible notebook workflow that compares StigmergiAgentic and Swa
 - `scripts/export_swarmagentic_save_jsonl.py`
 - `scripts/convert_swarmagentic_travelplanner_results.py`
 - `scripts/render_travelplanner_comparison_table.py`
+
+## 2026-04-01 — SwarmAgentic OpenRouter PSO Resilience Hardening
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `impact_score`: `8/10`
+- `confidence`: `high`
+- `scope`: `TravelPlanner SwarmAgentic OpenRouter adapter hardening for Qwen3.5-9B notebook runs`
+
+### Outcome
+Hardened the SwarmAgentic OpenRouter patch path and the Qwen comparison notebook so transient OpenRouter `504` and empty structured-output failures no longer abort the full PSO/evaluation workflow by default, checkpoints are written after each completed PSO iteration, and notebook reruns reuse the existing clone/venv with a lower default concurrency.
+
+### Reusable Patterns (1-3)
+1. For long-running third-party LLM optimizers, write resumable checkpoints immediately after each completed evaluation iteration instead of only at the very end of the run.
+2. When a hosted provider can return transient `5xx` or null structured outputs, degrade failing tasks to zero-score placeholders and continue the campaign rather than crashing the whole batch.
+3. In notebook-driven benchmark reruns, default clone/dependency steps to reuse existing artifacts and lower concurrency first on smaller routed models before increasing throughput.
+
+### Evidence
+- `scripts/prepare_swarmagentic_openrouter.py`
+- `output/jupyter-notebook/travelplanner-framework-comparison-openrouter-qwen35-9b.ipynb`
+- `python -m py_compile scripts/prepare_swarmagentic_openrouter.py`
+- `python -m py_compile output/travelplanner_framework_compare/20260401_115306/swarmagentic/repo/travelplanner/swarm/pso.py output/travelplanner_framework_compare/20260401_115306/swarmagentic/repo/travelplanner/swarm/test.py`
+- `python -m json.tool output/jupyter-notebook/travelplanner-framework-comparison-openrouter-qwen35-9b.ipynb`
 
 ## 2026-03-22 — Opt-In Stigmergic Corrections for V3 Runtime
 
@@ -896,3 +1031,305 @@ The repository now includes a controlled comparison notebook at `output/jupyter-
 - `scripts/render_travelplanner_comparison_table.py`
 - `python - <<'PY' ... compile(code_cell_source, ...) ... PY` -> all notebook code cells compiled successfully
 - `python -m py_compile scripts/run_travelplanner_solo_query_export.py scripts/prepare_swarmagentic_openrouter.py scripts/export_swarmagentic_save_jsonl.py scripts/convert_swarmagentic_travelplanner_results.py scripts/render_travelplanner_comparison_table.py`
+
+## 2026-04-02 — TravelPlanner Framework Comparison Review Hygiene
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `impact_score`: `7/10`
+- `confidence`: `high`
+- `scope`: `Audit the scientific validity of the solo-versus-StigmergiAgentic TravelPlanner comparison notebook before using it in thesis reporting`
+
+### Outcome
+The persisted run `output/travelplanner_framework_compare/20260326_132646` is internally consistent for the two completed arms and confirms that StigmergiAgentic improves `final_pass_rate` from `6/180` to `18/180` on the same validation queries with the same official scorer. The review also found three reporting risks that matter scientifically: the notebook output mixes multiple `RUN_TAG` values from different executions, the current evidence is single-run and therefore lacks variance estimates for a stochastic LLM setting, and the Swarm interoperability script changes more than provider compatibility, so any future three-way claim must either disclose a patched variant explicitly or narrow the comparison claim.
+
+### Reusable Patterns (1-3)
+1. Treat benchmark notebooks as publishable artifacts only after rerendering them from one clean run tag; mixed historical cell outputs break reproducibility even when the underlying JSON files are correct.
+2. For framework comparisons on stochastic LLM benchmarks, report paired per-query results plus cost/token deltas and at least one uncertainty estimate; aggregate pass rates alone are too weak for thesis-level claims.
+3. When adapting an external baseline, any patch that changes retries, exception handling, checkpointing, or optimizer control flow must be described as a behavioral fork, not as a pure compatibility shim.
+
+### Evidence
+- `output/jupyter-notebook/travelplanner-framework-comparison-openrouter-qwen35-9b.ipynb`
+- `output/travelplanner_framework_compare/20260326_132646/solo/official_eval.json`
+- `output/travelplanner_framework_compare/20260326_132646/stigmergiagentic/official_eval.json`
+- `output/travelplanner_framework_compare/20260326_132646/solo/runs.json`
+- `output/travelplanner_framework_compare/20260326_132646/stigmergiagentic/runs.json`
+- `python - <<'PY' ... paired comparison over runs.json ... PY` -> `final_pass` improved on 13 queries, degraded on 1, exact McNemar `p=0.0018310546875`
+- `python - <<'PY' ... aggregate tokens/cost from runs.json ... PY` -> StigmergiAgentic used about `4.03x` tokens and `4.14x` cost versus the solo arm
+
+## 2026-04-02 - Fair SwarmAgentic Qwen Benchmark Orchestration
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `type`: `implementation`
+- `area`: `benchmarking`
+- `summary`: `Refactored the Qwen TravelPlanner comparison notebook so SwarmAgentic runs through a dedicated orchestrator script with preflight/pilot/full modes, explicit infra-vs-framework failure statuses, mode-specific artifacts, and a separate non-comparable paper-context note.`
+- `impact_score`: `8/10`
+- `confidence`: `high`
+- `scope`: `Stabilize the thesis benchmark workflow around qwen/qwen3.5-9b without mixing provider outages into framework scores`
+
+### Outcome
+The notebook now delegates SwarmAgentic execution to `scripts/run_swarmagentic_benchmark.py`, which writes `benchmark_status.json`, `reproducibility.md`, `context.md`, mode-specific `runs.json`, and `official_eval.json` when available. The same change also extends `scripts/eval_travelplanner_official.py` with a subset-aware scorer for pilot runs, and switches notebook-local repo scripts from `uv run` to `python` so the benchmark no longer depends on a broken project `.venv` for solo/StigmergiAgentic/offline scoring steps.
+
+### Reusable Patterns (1-3)
+1. Keep benchmark notebooks as orchestration surfaces only; move fragile multi-phase baseline execution into versioned Python scripts that emit explicit status and artifact files.
+2. Separate `infra_failure` from `framework_failure` in LLM benchmark runs so provider outages do not get silently converted into model or framework score regressions.
+3. When a project `.venv` becomes unreliable, route notebook-local scripts through the known-good interpreter and reserve isolated virtualenvs only for external cloned baselines that genuinely need them.
+
+### Evidence
+- `scripts/run_swarmagentic_benchmark.py`
+- `scripts/eval_travelplanner_official.py`
+- `scripts/update_qwen35_benchmark_notebook.py`
+- `output/jupyter-notebook/travelplanner-framework-comparison-openrouter-qwen35-9b.ipynb`
+- `python -m py_compile scripts/run_swarmagentic_benchmark.py scripts/eval_travelplanner_official.py scripts/update_qwen35_benchmark_notebook.py scripts/prepare_swarmagentic_openrouter.py`
+- `python -m json.tool output/jupyter-notebook/travelplanner-framework-comparison-openrouter-qwen35-9b.ipynb >/dev/null`
+- `python - <<'PY' ... compile notebook cells 3,5,9,11,13,15 ... PY`
+- `python scripts/eval_travelplanner_official.py --runs-json <tmp> --database-root data/travelplanner/database --split validation --start-index 0 --end-index 1`
+
+## 2026-04-03 - Dedicated SwarmAgentic Full Scientific Notebook
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `type`: `implementation`
+- `area`: `benchmarking`
+- `summary`: `Created a standalone notebook dedicated to a strict full SwarmAgentic benchmark against the already-completed Solo and StigmergiAgentic reference runs, with official-score comparison and paired final-pass analysis.`
+- `impact_score`: `7/10`
+- `confidence`: `high`
+- `scope`: `Give thesis work a baseline-only notebook that runs Swarm full evaluation without reusing the heavier three-arm orchestration notebook`
+
+### Outcome
+The new notebook `travelplanner-swarmagentic-full-scientific-comparison-openrouter-qwen35-9b.ipynb` runs only the SwarmAgentic full benchmark, blocks the final scientific comparison when Swarm ends in infra/framework failure, loads the completed reference artifacts from run `20260326_132646` by default, and renders both the official aggregate table and paired final-pass comparisons against Solo and StigmergiAgentic.
+
+### Reusable Patterns (1-3)
+1. When one baseline is the unstable part of a comparison campaign, give it a dedicated notebook instead of forcing every rerun through a single all-arms orchestration notebook.
+2. Default strict comparison notebooks to known-good reference artifact paths, but keep those paths overridable by environment variable so the notebook stays reusable across runs.
+3. For thesis-grade reruns, combine official aggregate metrics with paired per-query final-pass comparisons in the same notebook so reproducibility and comparative significance are visible together.
+
+### Evidence
+- `scripts/create_swarmagentic_full_scientific_notebook.py`
+- `output/jupyter-notebook/travelplanner-swarmagentic-full-scientific-comparison-openrouter-qwen35-9b.ipynb`
+- `output/travelplanner_framework_compare/20260326_132646/solo/official_eval.json`
+- `output/travelplanner_framework_compare/20260326_132646/stigmergiagentic/official_eval.json`
+- `output/travelplanner_framework_compare/20260326_132646/solo/runs.json`
+- `output/travelplanner_framework_compare/20260326_132646/stigmergiagentic/runs.json`
+- `python -m py_compile scripts/create_swarmagentic_full_scientific_notebook.py`
+- `python -m json.tool output/jupyter-notebook/travelplanner-swarmagentic-full-scientific-comparison-openrouter-qwen35-9b.ipynb >/dev/null`
+- `python - <<'PY' ... compile notebook code cells 2-10 ... PY`
+
+## 2026-04-07 - Notebook Interpreter Auto-Selection
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `type`: `bugfix`
+- `area`: `benchmarking`
+- `summary`: `Hardened the dedicated SwarmAgentic scientific notebook so it auto-selects a Python interpreter that can import repo-required modules like datasets, instead of assuming bare shell python is usable.`
+- `impact_score`: `6/10`
+- `confidence`: `high`
+- `scope`: `Prevent setup failures when Jupyter/kernel python and shell python diverge`
+
+### Outcome
+The notebook generator now emits a helper that probes several Python candidates (`sys.executable`, repo `.venv`, Miniconda, `/usr/bin/python3`) and picks the first interpreter that can import `datasets`, `yaml`, and `pydantic`. The generated notebook then uses `REPO_PYTHON` for `setup_travelplanner.py`, dataset counting, Swarm benchmark orchestration, and comparison-table rendering.
+
+### Reusable Patterns (1-3)
+1. In notebooks that shell out to repository scripts, resolve the actual working interpreter explicitly instead of calling `python` by name.
+2. When the notebook depends on third-party data tooling, test the interpreter against required imports up front and fail early with a precise error.
+3. Use the selected interpreter consistently for every local script in the notebook to avoid mixed-environment drift across cells.
+
+### Evidence
+- `scripts/create_swarmagentic_full_scientific_notebook.py`
+- `output/jupyter-notebook/travelplanner-swarmagentic-full-scientific-comparison-openrouter-qwen35-9b.ipynb`
+- `python - <<'PY' ... import datasets,yaml,pydantic ... PY`
+- `python - <<'PY' ... inspect notebook cells 2,6,7,8 for REPO_PYTHON ... PY`
+
+## 2026-04-07 — SwarmAgentic Benchmark Watchdog and Live Monitoring
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `impact_score`: `8/10`
+- `confidence`: `high`
+- `scope`: `SwarmAgentic TravelPlanner benchmark observability hardening for Qwen/OpenRouter full scientific runs`
+
+### Outcome
+Added explicit runtime observability to the SwarmAgentic comparison path: the benchmark runner now emits heartbeats, snapshots watched artifact paths, writes a live monitor JSON, kills stalled train/eval phases after configurable inactivity, refreshes stale clones when the local patch revision changes, and the patched upstream `pso.py` / `test.py` now print step-level progress so notebook runs no longer appear silently frozen.
+
+### Reusable Patterns (1-3)
+1. For long-running third-party LLM baselines, pair provider retries with an outer watchdog based on `child output or artifact movement`, not only subprocess liveness.
+2. Version local patches to external benchmark clones with a small revision file and automatically refresh clones when the patch revision changes, so new reliability fixes are actually applied.
+3. Surface benchmark observability in two layers: live stdout heartbeats for notebook usability and file-backed monitor artifacts (`live_monitor.json`, `heartbeat.log`) for post-mortem debugging.
+
+### Evidence
+- `scripts/run_swarmagentic_benchmark.py`
+- `scripts/prepare_swarmagentic_openrouter.py`
+- `scripts/create_swarmagentic_full_scientific_notebook.py`
+- `output/jupyter-notebook/travelplanner-swarmagentic-full-scientific-comparison-openrouter-qwen35-9b.ipynb`
+- `python -m py_compile scripts/run_swarmagentic_benchmark.py scripts/prepare_swarmagentic_openrouter.py scripts/create_swarmagentic_full_scientific_notebook.py`
+- Fresh upstream smoke patch on `/private/tmp/swarmagentic_patch_test.TpvCDT/repo` with `python -m py_compile /tmp/swarmagentic_patch_test.TpvCDT/repo/travelplanner/swarm/pso.py /tmp/swarmagentic_patch_test.TpvCDT/repo/travelplanner/swarm/test.py`
+
+## 2026-04-09 — TravelPlanner Organization-Philosophy Scientific Pack
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `impact_score`: `9/10`
+- `confidence`: `high`
+- `scope`: `Replace named-framework comparison with a publication-oriented organization-philosophy benchmark on TravelPlanner`
+
+### Outcome
+Added a new scientific benchmarking path for TravelPlanner that evaluates six organization philosophies under the same provider/model/scorer contract, orchestrates preflight/pilot/full gates across three seeds, and produces a reusable paper pack with main tables, paired final-pass statistics, reproducibility reporting, threats to validity, and a DSR Episode 1 summary. The repo now includes controlled baselines for direct solo, CoT solo, self-refine solo, and centralized planner-executor, alongside the existing LangGraph supervisor and StigmergiAgentic arms.
+
+### Reusable Patterns (1-3)
+1. When the scientific claim targets coordination philosophy rather than vendor tooling, benchmark named implementations only as backends and keep the public protocol framed around organizational forms.
+2. Split large benchmark studies into two repository scripts: one for run-matrix orchestration with gating/status taxonomy and one for analysis-pack generation from persisted artifacts.
+3. Treat publishable notebooks as Markdown-first orchestration surfaces that trigger repo scripts and display generated artifacts, not as places where the core experimental logic lives inline.
+
+### Evidence
+- `adapters/travelplanner/scientific_baselines.py`
+- `scripts/run_travelplanner_scientific_study.py`
+- `scripts/build_travelplanner_scientific_pack.py`
+- `scripts/create_travelplanner_organization_scientific_notebook.py`
+- `output/jupyter-notebook/travelplanner-organization-philosophy-scientific-comparison-openrouter-qwen35-9b.ipynb`
+- `documentation/travelplanner_organization_scientific_protocol.md`
+- `pytest tests/unit/test_travelplanner_scientific_baselines.py -q`
+- `pytest tests/unit/test_travelplanner_langgraph_supervisor.py -q`
+
+## 2026-04-09 — TravelPlanner Official Evaluator Path Hardening
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `impact_score`: `7/10`
+- `confidence`: `high`
+- `scope`: `Fix LangGraph benchmark crashes caused by stale official-eval database symlinks and runtime relative-path lookups`
+
+### Outcome
+Hardened the subprocess bridge to the upstream TravelPlanner evaluator so query-level validation no longer crashes when the repo-global `third_party/travelplanner_official/database` symlink points to a stale location or when upstream modules open `../database/...` files at runtime outside the expected working directory. The runner now recreates stale symlinks safely, re-enters the `evaluation/` directory for the sensitive runtime calls, and is covered by a regression test that poisons the symlink before evaluation.
+
+### Reusable Patterns (1-3)
+1. When vendoring evaluation code that relies on relative paths, wrap every runtime entrypoint that performs file IO in a temporary working-directory context instead of fixing imports only.
+2. Treat repo-global symlinks used by subprocess bridges as mutable state: validate the target each invocation and recreate stale or broken links before executing third-party code.
+3. Add regression tests that deliberately corrupt integration state first, then assert the bridge repairs it automatically, so long-running benchmarks do not rediscover the same failure hours later.
+
+### Evidence
+- `third_party/travelplanner_official/runner.py`
+- `tests/unit/test_travelplanner_evaluator.py`
+- `python -m py_compile third_party/travelplanner_official/runner.py`
+- `pytest tests/unit/test_travelplanner_evaluator.py -q`
+- `pytest tests/unit/test_travelplanner_langgraph_supervisor.py -q`
+
+## 2026-04-10 — Non-Invasive Benchmark Progress Inspection
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `impact_score`: `4/10`
+- `confidence`: `high`
+- `scope`: `Read long-running TravelPlanner study progress and partial results without perturbing the active Docker benchmark`
+
+### Outcome
+Confirmed that the active scientific study can be monitored safely by reading `scientific_pack/run_registry.csv`, per-arm `official_eval.json`, and the newest `queries/query_XXX.json` timestamps instead of attaching to the subprocess or touching notebook state. This surfaced complete `solo_direct` results, partial/failed `planner_executor` status, and the live `langgraph_supervisor` seed progression while the study kept running.
+
+### Reusable Patterns (1-3)
+1. For long notebook-driven benchmarks, treat persisted registry rows and query artifact mtimes as the source of truth for progress rather than cell output.
+2. Only report aggregate metrics from arms that already have `official_eval.json`; classify everything else as in-progress or invalid rather than extrapolating.
+3. Distinguish a completed arm seed from a completed arm family, especially when the study averages across multiple seeds.
+
+### Evidence
+- `output/travelplanner_framework_compare/20260409_233919/scientific_pack/run_registry.csv`
+- `output/travelplanner_framework_compare/20260409_233919/runs/solo_direct/seed_42/full/official_eval.json`
+- `output/travelplanner_framework_compare/20260409_233919/runs/langgraph_supervisor/seed_42/full/official_eval.json`
+- `output/travelplanner_framework_compare/20260409_233919/runs/langgraph_supervisor/seed_44/full/queries/query_046.json`
+
+## 2026-04-11 — Scientific Baseline Fallback Hardening
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `impact_score`: `8/10`
+- `confidence`: `high`
+- `scope`: `Prevent TravelPlanner self-refine and planner-executor study arms from aborting on truncated JSON responses`
+
+### Outcome
+Hardened the scientific baseline runners so truncated structured outputs no longer abort entire benchmark seeds. `Self-Refine` now compacts evaluator feedback and falls back to a local critique object when the reviewer JSON is invalid, while `Planner-Executor` now requests a smaller planner blueprint and can recover by generating a fallback itinerary then converting it into a normalized blueprint when the planner JSON is truncated.
+
+### Reusable Patterns (1-3)
+1. When a benchmark baseline uses multiple structured-output substeps, treat non-essential intermediate JSON as recoverable and derive a deterministic local fallback instead of failing the whole query.
+2. Reduce structured-output failure rate by asking planner schemas to emit only non-empty day entries and reconstructing omitted defaults downstream.
+3. For planner-style baselines, a direct valid itinerary can serve as a reliable intermediate fallback artifact from which a smaller blueprint is reconstructed.
+
+### Evidence
+- `adapters/travelplanner/scientific_baselines.py`
+- `tests/unit/test_travelplanner_scientific_baselines.py`
+- `python -m py_compile adapters/travelplanner/scientific_baselines.py`
+- `pytest tests/unit/test_travelplanner_scientific_baselines.py -q`
+- `pytest tests/unit/test_travelplanner_langgraph_supervisor.py tests/unit/test_travelplanner_evaluator.py -q`
+
+## 2026-04-12 — V5.1 Plan Executability Review for TravelPlanner
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `impact_score`: `7/10`
+- `confidence`: `high`
+- `scope`: `Review the updated V5.1 scientific improvement plan against the current TravelPlanner codebase to confirm what is now sound and what is still underspecified`
+
+### Outcome
+Confirmed that V5.1 is materially stronger than V5 because it now targets the main structural bottleneck (single-destination TravelPlanner encoding), uses the correct statistical framing for binary `final_pass`, and separates ablation stages cleanly. The remaining gaps are operational rather than conceptual: the multi-city redesign cannot rely on parsing `dest` alone, the proposed ACO heuristic hook is not currently pluggable from the adapter layer, and campaign robustness work should extend the existing per-query checkpointing instead of reintroducing it.
+
+### Reusable Patterns (1-3)
+1. Treat a scientific improvement plan as executable only after every major task is checked against the current extension points in code, not just against the intended architecture.
+2. When a benchmark adapter compresses a structured task into a scalar field like `dest`, fix the task representation before tuning prompts or hyperparameters.
+3. If a benchmark runner already checkpoints per query, subsequent robustness tasks should focus on continue-on-error semantics, failure taxonomy, and clean resume behavior rather than duplicate checkpoint logic.
+
+### Evidence
+- `adapters/travelplanner/workspace.py`
+- `adapters/travelplanner/adapter.py`
+- `adapters/travelplanner/tools.py`
+- `core/agent.py`
+- `scripts/run_travelplanner_framework_benchmark.py`
+
+## 2026-04-12 — V5.1-Final Plan Review: Partial Scoring Caveat
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `impact_score`: `6/10`
+- `confidence`: `high`
+- `scope`: `Validate the final revised V5.1 benchmark-improvement plan against the scorer and runner behavior before approving it as executable`
+
+### Outcome
+Validated that the revised V5.1-final plan closes nearly all earlier methodological and implementation gaps. The remaining caveat is in T5 wording: the official TravelPlanner scorer does not produce a truly partial denominator when some queries fail. Missing predictions are evaluated as empty plans over the full query range, so the campaign can continue and still emit a full `official_eval.json`, but that file is not an `N-k` subset score unless the scorer is explicitly run on a reduced index range.
+
+### Reusable Patterns (1-3)
+1. When designing continue-on-error benchmark runners, distinguish `partial artifact availability` from `partial official scoring`; many scorers silently treat missing predictions as empty failures under the full denominator.
+2. Acceptance tests for resilience features should reference the exact scorer semantics, not the intended runner semantics.
+3. A scientific plan can be considered execution-ready even when one wording fix remains, provided the remaining issue is about measurement phrasing rather than architecture or validity.
+
+### Evidence
+- `scripts/run_travelplanner_framework_benchmark.py`
+- `scripts/eval_travelplanner_official.py`
+- `adapters/travelplanner/workspace.py`
+
+## 2026-04-12 — Official Scoring Wording Patch for V5.1 T5
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `impact_score`: `5/10`
+- `confidence`: `high`
+- `scope`: `Align the V5.1 benchmark-plan wording for continue-on-error with the actual denominator semantics of the official TravelPlanner scorer`
+
+### Outcome
+Updated the V5.1 plan so T5 no longer describes continue-on-error runs as producing a subset-scored `official_eval.json`. The plan now states the correct behavior: the campaign continues, failed queries are checkpointed and summarized, and the official scorer still evaluates the full requested range, treating missing predictions as empty failed plans.
+
+### Reusable Patterns (1-3)
+1. Distinguish `campaign continuity` from `subset official scoring` in benchmark plans; they are not the same behavior.
+2. Acceptance criteria for resilience work should describe both the runner artifact semantics and the scorer denominator semantics.
+3. Wording fixes in research plans matter when they change how future readers interpret benchmark validity.
+
+### Evidence
+- `documentation/redisgn_v2/plan_v5_framework_improvement.md`
+- `scripts/eval_travelplanner_official.py`
+- `scripts/run_travelplanner_framework_benchmark.py`
+
+## 2026-04-12 — TravelPlanner Multi-City Adapter T0
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `impact_score`: `8/10`
+- `confidence`: `high`
+- `scope`: `Implement V5.1 T0 by inferring a TravelPlanner city sequence from the local databases, expanding the adapter DAG to multi-city routing, and updating prompts/search payload handling without touching core/`
+
+### Outcome
+Implemented a TravelPlanner-side multi-city path that infers `city_sequence` from the local city/state inventory and route availability, injects that sequence into normalized queries and objectives, expands `initial_markers()` into alternating route and per-city search tasks, and teaches the planning toolchain to consume dynamic per-city/per-leg result keys while preserving the single-city keys for backward compatibility. Added a dedicated multi-city fixture and regression tests covering inferred city order, linear inter-city dependencies, and prompt/search payload expansion.
+
+### Reusable Patterns (1-3)
+1. When a benchmark query names a state or region but the runtime needs concrete cities, infer the city sequence from inventory coverage plus route feasibility instead of overloading one scalar destination field.
+2. Preserve legacy single-entity keys while introducing prefix-based dynamic keys for multi-entity expansion; then make downstream prompt and normalization code match by prefix rather than by exact key.
+3. Model multi-city workflows as alternating `route -> city search -> next route` dependencies so the final planning task can depend on one explicit, auditable DAG instead of hidden sequencing logic.
+
+### Evidence
+- `adapters/travelplanner/workspace.py`
+- `adapters/travelplanner/adapter.py`
+- `adapters/travelplanner/tools.py`
+- `tests/fixtures/travelplanner_data.py`
+- `tests/unit/test_travelplanner_multi_city.py`
