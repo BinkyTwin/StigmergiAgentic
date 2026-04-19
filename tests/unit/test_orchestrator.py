@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 import copy
+import json
 
 from core.agent import StigmergicAgent
 from core.environment import Environment
-from core.marker import Marker
+from core.marker import Marker, StateMachine
 from core.marker_store import MarkerStore
 from core.orchestrator import Orchestrator
 from core.tool_registry import ActionResult, Tool, ToolRegistry
@@ -29,6 +30,35 @@ class BudgetBurnTool(Tool):
             marker_updates=[updated],
             consumed_tokens=100,
         )
+
+
+class LongRunningTool(Tool):
+    """Tool that keeps work active to simulate stagnation with contention."""
+
+    action_type = "stall"
+
+    def is_eligible(self, marker: Marker) -> bool:
+        return marker.state in {"pending", "active"}
+
+    async def execute(self, *, agent_id, marker, environment, llm_client=None) -> ActionResult:
+        updated = Marker.from_dict(marker.to_dict())
+        updated.state = "active"
+        return ActionResult(action_type=self.action_type, marker_updates=[updated])
+
+
+class TerminalTool(Tool):
+    """Tool that makes immediate terminal progress."""
+
+    action_type = "finish"
+
+    def is_eligible(self, marker: Marker) -> bool:
+        return marker.state == "pending"
+
+    async def execute(self, *, agent_id, marker, environment, llm_client=None) -> ActionResult:
+        updated = Marker.from_dict(marker.to_dict())
+        updated.state = "terminal"
+        updated.intensity = 0.1
+        return ActionResult(action_type=self.action_type, marker_updates=[updated])
 
 
 def _build_runtime(tmp_path, config_dict: dict, user_input: dict | None = None):
@@ -200,3 +230,144 @@ def test_orchestrator_tick_emergence_payload_present(tmp_path, config_dict: dict
     tick_emergence = result.tick_rows[0].emergence
     assert "lock_contention_rate" in tick_emergence
     assert "parallel_utilization" in tick_emergence
+
+
+def test_orchestrator_activates_recovery_controller_on_stagnation(
+    tmp_path,
+    config_dict: dict,
+) -> None:
+    config = copy.deepcopy(config_dict)
+    config["agents"]["selection_temperature"] = 0.0
+    config["orchestrator"]["parallel"] = True
+    config["orchestrator"]["max_ticks"] = 4
+    config["orchestrator"]["idle_cycles_to_stop"] = 99
+    config["orchestrator"]["recovery_controller"] = {
+        "enabled": True,
+        "stagnation_ticks": 1,
+        "contention_threshold": 0.5,
+        "recovery_cooldown_ticks": 0,
+        "temperature_boost": 0.1,
+        "temperature_boost_duration": 2,
+        "inhibition_relief": 0.2,
+        "dynamic_idle": {
+            "enabled": False,
+            "node_per_idle_cycle": 6,
+            "max_extra_idle_cycles": 8,
+        },
+    }
+
+    store = MarkerStore(db_path=tmp_path / "pheromones" / "markers.db")
+    marker = Marker(
+        id="stalled",
+        marker_type="task",
+        target="stalled",
+        intensity=1.0,
+        state="pending",
+        payload={"eligible_actions": ["stall"]},
+        created_by="seed",
+        created_at="2026-04-18T10:00:00+00:00",
+        updated_by="seed",
+        updated_at="2026-04-18T10:00:00+00:00",
+        history=["created"],
+    )
+    store.upsert_marker(marker, agent_id="seed")
+
+    env = Environment(
+        store=store,
+        config=config,
+        state_machine=StateMachine(
+            transitions={
+                "pending": {"terminal"},
+                "terminal": {"terminal"},
+                "skipped": {"skipped"},
+                "escalated": {"escalated"},
+            }
+        ),
+    )
+    registry = ToolRegistry()
+    registry.register(LongRunningTool())
+    agents = [
+        StigmergicAgent(agent_id=f"agent-{idx}", tool_registry=registry, config=config)
+        for idx in range(3)
+    ]
+
+    result = Orchestrator(environment=env, agents=agents, config=config).run_sync()
+
+    assert any(
+        bool(row.control.get("recovery", {}).get("active", False))
+        for row in result.tick_rows[1:]
+    )
+
+    audit_actions = []
+    with env.store.audit_log.path.open("r", encoding="utf-8") as handle:
+        for line in handle:
+            audit_actions.append(json.loads(line).get("action"))
+    assert "recovery_activation" in audit_actions
+
+
+def test_orchestrator_skips_recovery_when_terminal_progress_is_recent(
+    tmp_path,
+    config_dict: dict,
+) -> None:
+    config = copy.deepcopy(config_dict)
+    config["agents"]["selection_temperature"] = 0.0
+    config["orchestrator"]["parallel"] = False
+    config["orchestrator"]["max_ticks"] = 4
+    config["orchestrator"]["idle_cycles_to_stop"] = 99
+    config["orchestrator"]["recovery_controller"] = {
+        "enabled": True,
+        "stagnation_ticks": 2,
+        "contention_threshold": 0.0,
+        "recovery_cooldown_ticks": 0,
+        "temperature_boost": 0.1,
+        "temperature_boost_duration": 2,
+        "inhibition_relief": 0.2,
+        "dynamic_idle": {
+            "enabled": False,
+            "node_per_idle_cycle": 6,
+            "max_extra_idle_cycles": 8,
+        },
+    }
+
+    store = MarkerStore(db_path=tmp_path / "pheromones" / "markers.db")
+    for marker_id in ("a", "b"):
+        store.upsert_marker(
+            Marker(
+                id=marker_id,
+                marker_type="task",
+                target=marker_id,
+                intensity=1.0,
+                state="pending",
+                payload={"eligible_actions": ["finish"]},
+                created_by="seed",
+                created_at="2026-04-18T10:00:00+00:00",
+                updated_by="seed",
+                updated_at="2026-04-18T10:00:00+00:00",
+                history=["created"],
+            ),
+            agent_id="seed",
+        )
+
+    env = Environment(
+        store=store,
+        config=config,
+        state_machine=StateMachine(
+            transitions={
+                "pending": {"terminal"},
+                "terminal": {"terminal"},
+                "skipped": {"skipped"},
+                "escalated": {"escalated"},
+            }
+        ),
+    )
+    registry = ToolRegistry()
+    registry.register(TerminalTool())
+    agents = [StigmergicAgent(agent_id="agent-1", tool_registry=registry, config=config)]
+
+    result = Orchestrator(environment=env, agents=agents, config=config).run_sync()
+
+    assert result.stop_reason == "all_terminal"
+    assert not any(
+        bool(row.control.get("recovery", {}).get("active", False))
+        for row in result.tick_rows
+    )

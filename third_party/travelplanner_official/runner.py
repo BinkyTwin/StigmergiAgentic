@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import ast
+import contextlib
 import json
 import os
 import sys
@@ -39,20 +40,37 @@ def ensure_database_link(database_root: Path) -> None:
     db_link = ROOT / "database"
     target = database_root.expanduser().resolve()
 
+    if db_link.exists() and not db_link.is_symlink():
+        normalize_city_state_file(db_link)
+        return
+
     if db_link.is_symlink():
         try:
             current_target = db_link.resolve(strict=True)
         except OSError:
             current_target = None
         if current_target == target:
+            normalize_city_state_file(db_link)
             return
         db_link.unlink(missing_ok=True)
 
-    if db_link.exists() and not db_link.is_symlink():
-        normalize_city_state_file(db_link)
-        return
+    try:
+        db_link.symlink_to(target, target_is_directory=True)
+    except FileExistsError:
+        if db_link.is_symlink():
+            try:
+                current_target = db_link.resolve(strict=True)
+            except OSError:
+                current_target = None
+            if current_target != target:
+                db_link.unlink(missing_ok=True)
+                db_link.symlink_to(target, target_is_directory=True)
+        elif db_link.exists():
+            normalize_city_state_file(db_link)
+            return
+        else:
+            raise
 
-    db_link.symlink_to(target, target_is_directory=True)
     normalize_city_state_file(db_link)
 
 
@@ -93,6 +111,16 @@ def import_official_modules() -> tuple[Any, Any, Any]:
         os.chdir(old_cwd)
 
     return commonsense_constraint, hard_constraint, eval_mod
+
+
+@contextlib.contextmanager
+def evaluation_cwd():
+    old_cwd = Path.cwd()
+    try:
+        os.chdir(EVAL_DIR)
+        yield
+    finally:
+        os.chdir(old_cwd)
 
 
 def normalize_query_data(query_data: dict[str, Any]) -> dict[str, Any]:
@@ -187,7 +215,8 @@ def run_query_mode(args: argparse.Namespace) -> dict[str, Any]:
             "estimated_cost": 0.0,
         }
 
-    commonsense_raw = commonsense_mod.evaluation(normalized_query, plan)
+    with evaluation_cwd():
+        commonsense_raw = commonsense_mod.evaluation(normalized_query, plan)
     commonsense_bool, commonsense_messages = extract_bool_and_messages(commonsense_raw)
     commonsense_macro = macro_pass(commonsense_raw)
 
@@ -207,14 +236,16 @@ def run_query_mode(args: argparse.Namespace) -> dict[str, Any]:
         and commonsense_raw.get("is_not_absent", (False, None))[0] is True
         and commonsense_raw.get("is_valid_information_in_sandbox", (False, None))[0] is True
     ):
-        hard_raw = hard_mod.evaluation(normalized_query, plan)
+        with evaluation_cwd():
+            hard_raw = hard_mod.evaluation(normalized_query, plan)
         hard_bool, hard_messages = extract_bool_and_messages(hard_raw)
         hard_macro = macro_pass(hard_raw)
 
     final_pass = bool(delivered and commonsense_macro and hard_raw is not None and hard_macro)
 
     try:
-        estimated_cost = float(hard_mod.get_total_cost(normalized_query, plan))
+        with evaluation_cwd():
+            estimated_cost = float(hard_mod.get_total_cost(normalized_query, plan))
     except Exception:  # noqa: BLE001
         estimated_cost = 0.0
 
@@ -248,7 +279,8 @@ def run_full_mode(args: argparse.Namespace) -> dict[str, Any]:
             tmp.write(json.dumps(line, ensure_ascii=True) + "\n")
 
     try:
-        scores, detailed_scores = eval_mod.eval_score(args.split, str(tmp_path))
+        with evaluation_cwd():
+            scores, detailed_scores = eval_mod.eval_score(args.split, str(tmp_path))
     finally:
         try:
             tmp_path.unlink(missing_ok=True)

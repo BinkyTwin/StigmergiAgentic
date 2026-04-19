@@ -1,5 +1,6 @@
 # LLM
 openai>=1.12.0
+langgraph>=1.0.0
 python-dotenv>=1.0.0
 
 # Testing

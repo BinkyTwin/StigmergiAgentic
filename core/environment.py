@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 from .decay import effective_intensity
@@ -11,7 +11,11 @@ from .guardrails import GuardrailEngine
 from .marker import Marker, StateMachine, utc_now_iso
 from .marker_store import MarkerStore
 from .reinforcement import propagate_backward, reinforce_on_success
-from .tool_registry import ActionResult
+from .tool_registry import (
+    ActionResult,
+    ValidationResult,
+    build_repair_marker_id,
+)
 
 
 @dataclass(slots=True)
@@ -21,6 +25,7 @@ class EnvironmentSnapshot:
     tick: int
     markers: list[Marker]
     by_type: dict[str, list[Marker]]
+    control: dict[str, Any] = field(default_factory=dict)
 
 
 class Environment:
@@ -47,9 +52,15 @@ class Environment:
         self.propagation_events = 0
         self.pruned_markers = 0
 
-    def snapshot(self, tick: int) -> EnvironmentSnapshot:
+    def snapshot(
+        self,
+        tick: int,
+        control: dict[str, Any] | None = None,
+    ) -> EnvironmentSnapshot:
         """Build one immutable-like snapshot from current store state."""
+        runtime_control = dict(control or {})
         grouped = self.store.snapshot()
+        lock_stats_by_marker = self.store.lock_stats_snapshot()
         copied_grouped: dict[str, list[Marker]] = {
             marker_type: [Marker.from_dict(marker.to_dict()) for marker in markers]
             for marker_type, markers in grouped.items()
@@ -83,13 +94,37 @@ class Environment:
                         decay_period_seconds=decay_period_seconds,
                         clamp=clamp,
                     )
+        recovery_cfg = dict(runtime_control.get("recovery", {}))
+        recovery_active = bool(recovery_cfg.get("active", False))
+        inhibition_relief = (
+            max(0.0, float(recovery_cfg.get("inhibition_relief", 0.0)))
+            if recovery_active
+            else 0.0
+        )
         flat_markers = [
             marker
             for markers in copied_grouped.values()
             for marker in markers
         ]
+        for marker in flat_markers:
+            payload = dict(marker.payload)
+            stats = dict(lock_stats_by_marker.get(marker.id, {}))
+            last_conflict_tick = stats.get("last_conflict_tick")
+            ticks_since_last_conflict = None
+            if isinstance(last_conflict_tick, int):
+                ticks_since_last_conflict = max(0, int(tick) - last_conflict_tick)
+            stats["ticks_since_last_conflict"] = ticks_since_last_conflict
+            payload["runtime_lock_stats"] = stats
+            marker.payload = payload
+            if inhibition_relief > 0.0:
+                marker.inhibition = max(0.0, float(marker.inhibition) - inhibition_relief)
         flat_markers.sort(key=lambda marker: marker.id)
-        return EnvironmentSnapshot(tick=tick, markers=flat_markers, by_type=copied_grouped)
+        return EnvironmentSnapshot(
+            tick=tick,
+            markers=flat_markers,
+            by_type=copied_grouped,
+            control=runtime_control,
+        )
 
     def acquire_lock(self, marker_id: str, agent_id: str, tick: int) -> bool:
         """Attempt to lock one marker for an agent."""
@@ -173,6 +208,13 @@ class Environment:
                     actor_id=agent_id,
                 )
                 self.propagation_events += len(updates)
+
+        persisted.extend(
+            self._apply_validation_result(
+                agent_id=agent_id,
+                validation=result.validation,
+            )
+        )
 
         self.tokens_used += int(result.consumed_tokens)
         self.cost_used += float(result.cost_usd)
@@ -336,3 +378,81 @@ class Environment:
             return f"Successful objective fragment: {objective}"
 
         return f"Transitioned successfully to {marker.state} on {marker.target}"
+
+    def _apply_validation_result(
+        self,
+        *,
+        agent_id: str,
+        validation: ValidationResult | None,
+    ) -> list[Marker]:
+        if validation is None:
+            return []
+
+        repair_cfg = dict(self.config.get("orchestrator", {}).get("targeted_repair", {}))
+        if not bool(repair_cfg.get("enabled", False)):
+            return []
+
+        repair = validation.repair
+        if repair is None or str(validation.status).strip().lower() != "failed":
+            return []
+
+        allowed_attempts = min(
+            max(1, int(repair.max_attempts)),
+            max(1, int(repair_cfg.get("max_cycles", 1))),
+        )
+        if int(repair.attempt) > allowed_attempts:
+            return []
+
+        target_marker = self.store.get_marker(repair.target_marker_id)
+        if target_marker is None:
+            return []
+
+        timestamp = utc_now_iso()
+        repair_id = build_repair_marker_id(
+            source_marker_id=validation.source_marker_id,
+            target_marker_id=repair.target_marker_id,
+            attempt=repair.attempt,
+        )
+        feedback = [
+            str(item).strip()
+            for item in (repair.feedback or validation.feedback)
+            if str(item).strip()
+        ]
+        payload = dict(target_marker.payload)
+        payload.update(dict(repair.payload_updates))
+        payload["repair_target_id"] = target_marker.id
+        payload["repair_source_id"] = str(validation.source_marker_id).strip()
+        payload["repair_attempt"] = int(repair.attempt)
+        payload["repair_targets"] = [
+            str(item).strip() for item in validation.targets if str(item).strip()
+        ]
+        payload["validation_feedback"] = feedback
+        payload["repair_feedback"] = feedback
+        if repair.eligible_actions:
+            payload["eligible_actions"] = list(repair.eligible_actions)
+
+        repair_marker = Marker(
+            id=repair_id,
+            marker_type=str(repair.marker_type or "repair"),
+            target=target_marker.target,
+            intensity=min(
+                1.0,
+                max(
+                    0.0,
+                    float(
+                        repair.intensity
+                        if repair.intensity is not None
+                        else repair_cfg.get("repair_marker_intensity", 0.95)
+                    ),
+                ),
+            ),
+            state="pending",
+            payload=payload,
+            created_by=agent_id,
+            created_at=timestamp,
+            updated_by=agent_id,
+            updated_at=timestamp,
+            last_active_at=timestamp,
+            history=["created", "repair_requested"],
+        )
+        return [self.store.upsert_marker(marker=repair_marker, agent_id=agent_id)]

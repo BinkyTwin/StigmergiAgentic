@@ -8,6 +8,7 @@ from core.marker import Marker
 from travelplanner_data import clone_plan, sample_query_rows, sample_valid_plan, write_sample_database
 
 from adapters.travelplanner.evaluator import TravelPlannerEvaluator
+from adapters.travelplanner.official_eval import OFFICIAL_ROOT, OfficialTravelPlannerEvaluator
 from adapters.travelplanner.workspace import TravelPlannerWorkspace
 
 
@@ -151,3 +152,31 @@ def test_evaluate_snapshot_reads_marker_payloads(tmp_path: Path) -> None:
     metrics = evaluator.evaluate_snapshot([marker])
     assert metrics["evaluated_queries"] == 1
     assert "delivery_rate" in metrics
+
+
+def test_official_evaluator_recovers_from_stale_database_symlink(tmp_path: Path) -> None:
+    database_root = write_sample_database(tmp_path / "database")
+    query = sample_query_rows()[0]
+    link = OFFICIAL_ROOT / "database"
+
+    if link.exists() and not link.is_symlink():
+        raise AssertionError("Expected official database path to be a symlink or absent during tests")
+
+    original_target = link.readlink() if link.is_symlink() else None
+
+    try:
+        link.unlink(missing_ok=True)
+        link.symlink_to(tmp_path / "stale-database", target_is_directory=True)
+
+        evaluator = OfficialTravelPlannerEvaluator(database_root=database_root, dataset_split="validation")
+        result = evaluator.evaluate_plan(query_data=query, plan=sample_valid_plan())
+
+        assert result.delivered is True
+        assert result.final_pass is True
+        assert link.is_symlink()
+        assert link.resolve() == database_root.resolve()
+    finally:
+        if link.is_symlink():
+            link.unlink(missing_ok=True)
+        if original_target is not None:
+            link.symlink_to(original_target, target_is_directory=True)

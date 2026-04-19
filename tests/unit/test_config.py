@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 import copy
+from pathlib import Path
 
 import pytest
 
-from core.config import ConfigError, validate_config
+from core.config import ConfigError, load_config, validate_config
 
 
 def test_validate_config_accepts_fixture(config_dict: dict) -> None:
@@ -80,3 +81,43 @@ def test_validate_config_rejects_invalid_feedback_loop_interval(
     config["emergence"]["feedback_loop"]["interval_ticks"] = 0
     with pytest.raises(ConfigError):
         validate_config(config)
+
+
+def test_validate_config_rejects_invalid_recovery_threshold(
+    config_dict: dict,
+) -> None:
+    config = copy.deepcopy(config_dict)
+    config["orchestrator"]["recovery_controller"]["contention_threshold"] = 1.5
+    with pytest.raises(ConfigError):
+        validate_config(config)
+
+
+def test_load_config_accepts_travelplanner_v4_only_preset() -> None:
+    config = load_config(Path("config/travelplanner_v4_only.yaml"))
+
+    assert config["agents"]["local_sensing"]["enabled"] is True
+    assert config["markers"]["time_decay"]["enabled"] is True
+    assert config["reinforcement"]["frequentation"]["enabled"] is True
+    assert config["orchestrator"]["emergent_resolution"]["enabled"] is True
+    assert config["emergence"]["feedback_loop"]["enabled"] is True
+    assert config["markers"]["session_isolation"] is True
+
+
+def test_load_config_accepts_v5_full_preset() -> None:
+    config = load_config(Path("config/ablation/v5_full.yaml"))
+
+    assert config["agents"]["num_agents"] == 6
+    assert config["orchestrator"]["max_ticks"] == 80
+    assert config["markers"]["session_isolation"] is True
+    assert config["agents"]["local_sensing"]["enabled"] is True
+    assert config["markers"]["time_decay"]["enabled"] is True
+
+
+def test_load_config_accepts_v6_presets() -> None:
+    v6_a = load_config(Path("config/ablation/v6_A.yaml"))
+    v6_c = load_config(Path("config/ablation/v6_C.yaml"))
+
+    assert v6_a["orchestrator"]["idle_cycles_to_stop"] == 16
+    assert v6_a["orchestrator"]["recovery_controller"]["enabled"] is True
+    assert v6_a["agents"]["stickiness"]["enabled"] is False
+    assert v6_c["orchestrator"]["targeted_repair"]["enabled"] is True

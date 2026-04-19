@@ -109,7 +109,12 @@ def main(argv: list[str] | None = None) -> int:
     )
     result = orchestrator.run_sync()
 
-    evaluation = adapter.evaluate_run({"markers": result.final_snapshot.markers})
+    evaluation = adapter.evaluate_run(
+        {
+            "markers": result.final_snapshot.markers,
+            "stop_reason": result.stop_reason,
+        }
+    )
     dag_info = _dag_info(result.final_snapshot.markers)
     if args.adapter == "assistant":
         assistant_response = _build_assistant_response(

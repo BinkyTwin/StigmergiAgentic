@@ -5,7 +5,7 @@ from __future__ import annotations
 from core.environment import Environment
 from core.marker import Marker
 from core.marker_store import MarkerStore
-from core.tool_registry import ActionResult
+from core.tool_registry import ActionResult, RepairRequest, ValidationResult
 
 
 def _marker(marker_id: str, intensity: float) -> Marker:
@@ -126,3 +126,60 @@ def test_environment_snapshot_applies_time_decay_without_mutating_store(
     assert snapshot.markers[0].intensity < 1.0
     assert stored is not None
     assert stored.intensity == 1.0
+
+
+def test_environment_deposits_targeted_repair_marker_when_enabled(
+    tmp_path,
+    config_dict: dict,
+) -> None:
+    config = dict(config_dict)
+    config["orchestrator"] = dict(config_dict["orchestrator"])
+    config["orchestrator"]["targeted_repair"] = {
+        "enabled": True,
+        "max_cycles": 2,
+        "repair_marker_intensity": 0.95,
+    }
+
+    store = MarkerStore(db_path=tmp_path / "pheromones" / "markers.db")
+    plan_marker = _marker("plan", intensity=0.7)
+    plan_marker.payload = {
+        "query_data": {"days": 3},
+        "plan": [],
+        "eligible_actions": ["plan_itinerary"],
+    }
+    validate_marker = _marker("validate", intensity=0.8)
+    validate_marker.payload = {"depends_on": ["plan"]}
+    store.upsert_marker(plan_marker, agent_id="seed")
+    store.upsert_marker(validate_marker, agent_id="seed")
+    env = Environment(store=store, config=config)
+
+    updated_validate = Marker.from_dict(validate_marker.to_dict())
+
+    env.apply_action_result(
+        agent_id="agent-1",
+        result=ActionResult(
+            action_type="validate_constraints",
+            marker_updates=[updated_validate],
+            validation=ValidationResult(
+                status="failed",
+                source_marker_id="validate",
+                targets=["plan"],
+                feedback=["Fix the invalid breakfast venue."],
+                repair=RepairRequest(
+                    target_marker_id="plan",
+                    attempt=1,
+                    max_attempts=2,
+                    eligible_actions=["plan_itinerary"],
+                ),
+            ),
+        ),
+    )
+
+    repair_marker = store.get_marker("repair::validate::plan::attempt::1")
+    assert repair_marker is not None
+    assert repair_marker.marker_type == "repair"
+    assert repair_marker.state == "pending"
+    assert repair_marker.payload["repair_target_id"] == "plan"
+    assert repair_marker.payload["validation_feedback"] == [
+        "Fix the invalid breakfast venue."
+    ]

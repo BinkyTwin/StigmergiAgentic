@@ -1,5 +1,53 @@
 # Decision Log
 
+## 2026-04-19 (Prioritize Targeted Repair After the V6-A Readout)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: Prioritize `v6_C` targeted-repair benchmarking before a full `v6_B` stickiness campaign, because the paired-seed V6 readout shows that the dominant residual failure regime has shifted from premature `idle_cycles` collapse toward `all_terminal` but scorer-invalid plans.
+- `rationale`: `v6_base` already proved that extending continuation control reduces early stagnation and improves delivery, while `v6_A` improved the quality-efficiency balance of that regime; the clearest remaining gap is not more raw continuity, but the ability to repair terminal-invalid outputs into official-pass plans.
+- `alternatives_rejected`: Run stickiness first as the primary next ablation, or keep extending continuation/search behavior without introducing an explicit repair-oriented mechanism.
+- `linked_adr`: `documentation/decisions/20260418-sprint8-v6-general-runtime-controls.md`
+
+## 2026-04-17 (V6 Planning Boundary: Improve the Framework, Freeze the Benchmark)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: Frame the next improvement cycle as a framework-general V6 plan with a frozen benchmark/scorer boundary, and keep TravelPlanner-specific optimizations explicitly downstream from the framework ablation.
+- `rationale`: The latest V5-full validation analysis around the ~21% regime exposed real framework bottlenecks, but article credibility would be weakened immediately if the next cycle mixed core improvements with benchmark or scorer modifications.
+- `alternatives_rejected`: Tune the benchmark harness together with the framework, or bundle framework-general and TravelPlanner-specific changes into one opaque improvement preset.
+- `linked_adr`: `N/A (review-planning rule for benchmark credibility)`
+
+## 2026-04-17 (Type-Specific Improvement Priority for V5-Full)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: Prioritize the next TravelPlanner framework improvements by query regime: strengthen validator-guided repair and constraint-aware candidate filtering for `3-day / 1-city` hard queries, and prioritize anti-stagnation decomposition and multi-city execution continuity for `5-day / 2-city` and `7-day / 3-city` queries.
+- `rationale`: The latest ~21% validation runs show that single-city hard queries usually fail with non-empty plans, while multi-city queries mostly fail as empty-plan `idle_cycles` collapses; a single generic optimization pass would blur these distinct bottlenecks.
+- `alternatives_rejected`: Optimize only global emergence metrics without query-type stratification, or focus exclusively on multi-city structure while ignoring hard single-city constraint failures.
+- `linked_adr`: `N/A (benchmark improvement prioritization rule)`
+
+## 2026-04-17 (Interpretation of V5-Full Emergence Metrics)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: Treat `pressure_entropy` and `parallel_utilization` as the main success-side emergence indicators for the current TravelPlanner `v5_full` validation preset, and interpret late `convergence_tick` primarily as stagnation risk unless accompanied by strong parallel utilization.
+- `rationale`: Across the latest full validation seeds (`42`, `43`), successful queries consistently showed higher pressure entropy and higher parallel utilization, while failed queries were more often associated with delayed convergence and `idle_cycles`; `collaboration_density` and `colony_specialization` were comparatively weak discriminators.
+- `alternatives_rejected`: Use collaboration density as the primary emergence readout, or treat later convergence as automatically beneficial exploration without checking runtime utilization.
+- `linked_adr`: `N/A (post-hoc benchmark interpretation rule)`
+
+## 2026-04-13 (Self-Refine Seed Stability)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: Fix the `solo_self_refine` seed-stability issue in `scientific_baselines.py` by adding node-local retry and Self-Refine-specific fallbacks for provider failures, instead of modifying the shared `LLMClient` or changing the baseline’s draft-critique-revise structure.
+- `rationale`: Historical evidence showed the failing seed died on a query-local `APIConnectionError` during `self_refine_draft`; the shared client already performs transport retries, so the missing piece was query-local containment inside the baseline orchestration layer.
+- `alternatives_rejected`: Add another generic retry policy in `llm/client.py`, or let provider exceptions continue to abort the entire seed.
+- `linked_adr`: `N/A (baseline resilience refinement)`
+
+## 2026-04-13 (TravelPlanner T1/T2 Observability and Ablation Surface)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: Implement T1 as a dedicated `travelplanner_v4_only.yaml` preset and implement T2 through marker-persisted failure reasons plus adapter/export promotion, while leaving `core/orchestrator.py` unchanged.
+- `rationale`: The V5 plan explicitly required a pure V4 ablation surface and query-level failure taxonomy, and the existing core already exposed `stop_reason`; the missing piece was durable query-local observability that survives tool execution and can be logged in benchmark artifacts.
+- `alternatives_rejected`: Fold the V4-only switches into the main `travelplanner.yaml`, or try to derive all query failures only from `stop_reason` and `final_plan=[]` without persisting tool-level causes.
+- `linked_adr`: `N/A (benchmark observability + ablation hygiene)`
+
 ## 2026-04-12 (V5 Plan Execution Policy)
 
 - `repo_slug`: `stigmergiagentic-33b989`
@@ -479,3 +527,43 @@
 - `rationale`: The root bottleneck was not the core stigmergic runtime but the TravelPlanner adapter's single-scalar destination encoding. Keeping the redesign local to the adapter layer fixes the domain representation gap, preserves `core/` invariants, and avoids breaking existing single-city flows or tests that still expect legacy search keys.
 - `alternatives_rejected`: Parse `dest` as a list directly, move domain-specific sequencing into `core/`, or replace all legacy search keys with multi-city-only names in one breaking sweep.
 - `linked_adr`: `N/A (adapter-local multi-city routing rule)`
+
+## 2026-04-14 (TravelPlanner T5 Continue-on-Error Benchmark Runner)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: Implement benchmark-runner resilience as per-query failed checkpoints plus unchanged full-denominator official scoring, instead of aborting the seed or introducing a separate partial-scoring mode.
+- `rationale`: T5 is about campaign continuity, not changing how TravelPlanner official evaluation is computed. Writing explicit failed query payloads preserves resume semantics, keeps `runs.json` structurally complete, and lets the official scorer continue to treat failed or missing predictions as empty unsuccessful plans under the original denominator.
+- `alternatives_rejected`: Stop the seed on the first exporter failure, drop failed queries from `runs.json`, or define an ad hoc partial official score for resilience runs.
+- `linked_adr`: `N/A (campaign continue-on-error rule)`
+
+## 2026-04-16 (TravelPlanner V5-Full Adapter-Local Execution Hardening)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: Implement V5-full execution improvements entirely in the TravelPlanner adapter/config/script layer, using train-only prompt/tuning data and extending the existing benchmark runner with subset-aware aliases instead of modifying `core/`.
+- `rationale`: The execution plan explicitly forbids changes to the generic runtime and to the vendored official evaluator. Adapter-local marker shaping, train-only prompt enrichment, a temporary-config tuning workflow, and lightweight runner aliases satisfy the plan while preserving runtime invariants and benchmark validity.
+- `alternatives_rejected`: Move shaping into `core.pressure` or `core.orchestrator`, tune directly against the validation preset, or fork a separate V5-only benchmark runner.
+- `linked_adr`: `documentation/decisions/20260416-sprint7-v5-full-execution-hardening.md`
+
+## 2026-04-17 (V6 Should Start With a Paired-Seed, Single-Control-Plane Framework Pass)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: Treat the proposed V6 roadmap as strategically valid, but execute it in a stricter order: first establish a paired-seed `v6_base` baseline and isolate anti-stagnation inside the existing emergence/orchestrator control plane before attempting persistent subgoal or validator-contract redesigns.
+- `rationale`: The current runtime already mutates inhibition and temperature through the emergence feedback loop, so adding separate T1/T5 controllers would blur attribution unless they are unified. The evidence for `idle=16` is promising but currently compared across mixed seeds, and T2/T3 are materially larger design changes than the plan wording suggests because they alter task-representation and repair contracts rather than just tuning scheduling behavior.
+- `alternatives_rejected`: Execute T1-T5 as one broad ladder without paired-seed cleanup, introduce a second adaptive controller next to the existing feedback loop, or treat T2 persistent decomposition as a lightweight early ablation.
+- `linked_adr`: `N/A (framework plan review rule)`
+
+## 2026-04-18 (V6 Phase 1 Uses Three Branching Arms, Not a Long Additive Ladder)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: Rewrite V6 phase 1 around a paired-seed `v6_base` plus three branching framework arms (`V6-A`, `V6-B`, `V6-C`), while deferring persistent subgoal coverage to a separate `V6.2` plan.
+- `rationale`: A short branching ablation preserves attribution far better than a five-step additive ladder, especially when one shared controller change already dominates the design. Keeping the first wave limited to unified recovery, short-horizon stability, and targeted repair lets the project test genuinely runtime-general levers before opening a heavier redesign of task representation.
+- `alternatives_rejected`: Keep the original long `V6-A` to `V6-E` additive chain, fold persistent decomposition into the first wave anyway, or combine every promising lever before measuring them independently.
+- `linked_adr`: `N/A (three-arm V6 planning rule)`
+
+## 2026-04-18 (V6 Phase 1 Ships as Opt-In Runtime Controls With a Frozen V5 Reference)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: Implement V6 phase 1 as three opt-in generic runtime surfaces (`recovery_controller`, `stickiness`, `targeted_repair`) plus dedicated V6 presets, while keeping `config/ablation/v5_full.yaml` unchanged.
+- `rationale`: The V6 plan needs experimentally attributable framework changes without polluting the frozen V5 benchmark reference. Explicit config gates and new presets allow the runtime to gain real control-plane leverage while preserving a stable comparison anchor and keeping adapter-specific repair semantics outside `core/`.
+- `alternatives_rejected`: Mutate `v5_full.yaml` directly into the V6 baseline, infer contention only from `marker_reads`, or keep targeted repair fully adapter-local without a framework-level contract.
+- `linked_adr`: `documentation/decisions/20260418-sprint8-v6-general-runtime-controls.md`

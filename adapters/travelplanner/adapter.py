@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections import Counter, defaultdict
 import re
 from typing import Any
 from uuid import uuid4
@@ -27,6 +28,8 @@ from .workspace import TravelPlannerWorkspace
 
 class TravelPlannerAdapter(DomainAdapter):
     """Domain adapter implementing TravelPlanner workflow on top of V3 runtime."""
+
+    STOP_FAILURE_REASONS = {"budget_exhausted", "idle_cycles", "max_ticks"}
 
     def __init__(self, *, config: dict[str, Any] | None = None) -> None:
         self.config = config or {}
@@ -329,7 +332,21 @@ class TravelPlannerAdapter(DomainAdapter):
             raise ValueError("workspace must be created before evaluation")
         evaluator = TravelPlannerEvaluator(workspace=self._workspace)
         markers = env_snapshot.get("markers", [])
+        stop_reason = str(env_snapshot.get("stop_reason", "")).strip()
         result = evaluator.evaluate_snapshot(markers)
+        query_results = self._summarize_query_results(
+            markers=markers,
+            stop_reason=stop_reason,
+        )
+        if query_results:
+            result["query_results"] = query_results
+            failure_reasons = Counter(
+                str(item.get("failure_reason", "")).strip() or "ok"
+                for item in query_results
+            )
+            result["failure_reasons"] = dict(sorted(failure_reasons.items()))
+            if len(query_results) == 1:
+                result["failure_reason"] = str(query_results[0].get("failure_reason", "ok"))
 
         domain_cfg = dict(self.config.get("travelplanner", {}))
         include_full_split = bool(domain_cfg.get("official_full_split_eval", False))
@@ -340,6 +357,246 @@ class TravelPlannerAdapter(DomainAdapter):
             )
 
         return result
+
+    def _summarize_query_results(
+        self,
+        *,
+        markers: list[Any],
+        stop_reason: str,
+    ) -> list[dict[str, Any]]:
+        typed_markers = [
+            marker if isinstance(marker, Marker) else Marker.from_dict(marker)
+            for marker in markers
+            if isinstance(marker, (Marker, dict))
+        ]
+        grouped = self._group_markers_by_query_idx(typed_markers)
+        summaries: list[dict[str, Any]] = []
+        for query_idx in sorted(grouped):
+            summaries.append(
+                self._summarize_single_query(
+                    query_idx=query_idx,
+                    markers=grouped[query_idx],
+                    stop_reason=stop_reason,
+                )
+            )
+        return summaries
+
+    def _group_markers_by_query_idx(
+        self,
+        markers: list[Marker],
+    ) -> dict[int, list[Marker]]:
+        grouped: dict[int, list[Marker]] = defaultdict(list)
+        for marker in markers:
+            query_idx = self._query_idx_from_marker(marker)
+            if query_idx is None:
+                continue
+            grouped[query_idx].append(marker)
+        return grouped
+
+    def _query_idx_from_marker(self, marker: Marker) -> int | None:
+        payload = dict(marker.payload)
+        if "query_idx" in payload:
+            try:
+                return int(payload["query_idx"])
+            except Exception:  # noqa: BLE001
+                return None
+        query_data = payload.get("query_data")
+        if isinstance(query_data, dict):
+            try:
+                return int(query_data.get("query_idx"))
+            except Exception:  # noqa: BLE001
+                return None
+        return None
+
+    def _summarize_single_query(
+        self,
+        *,
+        query_idx: int,
+        markers: list[Marker],
+        stop_reason: str,
+    ) -> dict[str, Any]:
+        by_id = {marker.id: marker for marker in markers}
+        plan_marker = self._find_stage_marker(markers, suffix="::plan_itinerary")
+        validate_marker = self._find_stage_marker(markers, suffix="::validate_constraints")
+        final_marker = self._find_stage_marker(markers, suffix="::finalize")
+
+        query_data = self._extract_query_data(final_marker, validate_marker, plan_marker, markers)
+        final_plan = self._extract_final_plan(final_marker, validate_marker, plan_marker)
+        evaluation = self._extract_evaluation(final_marker, validate_marker)
+        failure_reason = self._infer_query_failure_reason(
+            query_data=query_data,
+            by_id=by_id,
+            plan_marker=plan_marker,
+            validate_marker=validate_marker,
+            final_marker=final_marker,
+            final_plan=final_plan,
+            stop_reason=stop_reason,
+        )
+
+        return {
+            "query_idx": query_idx,
+            "failure_reason": failure_reason,
+            "final_pass": bool(evaluation.get("final_pass", False)),
+            "delivered": bool(evaluation.get("delivery_rate", 0.0)),
+            "plan_days": len(final_plan),
+            "stop_reason": stop_reason,
+        }
+
+    def _infer_query_failure_reason(
+        self,
+        *,
+        query_data: dict[str, Any],
+        by_id: dict[str, Marker],
+        plan_marker: Marker | None,
+        validate_marker: Marker | None,
+        final_marker: Marker | None,
+        final_plan: list[dict[str, Any]],
+        stop_reason: str,
+    ) -> str:
+        if final_plan:
+            return "ok"
+        if self._is_multi_city_unsupported(query_data):
+            return "multi_city_unsupported"
+        if self._has_unresolved_search_dependencies(plan_marker=plan_marker, by_id=by_id):
+            return "missing_search_results"
+
+        plan_reasons = self._collect_failure_reasons(plan_marker)
+        if "empty_plan_after_max_attempts" in plan_reasons:
+            return "empty_plan_after_max_attempts"
+        if "schema_parse_failed" in plan_reasons:
+            return "schema_parse_failed"
+        if "empty_plan_from_llm" in plan_reasons:
+            return "empty_plan_from_llm"
+
+        terminal_reasons = self._collect_failure_reasons(validate_marker) + self._collect_failure_reasons(final_marker)
+        if "validator_replan_exhausted" in terminal_reasons or self._is_validator_replan_exhausted(validate_marker):
+            return "validator_replan_exhausted"
+        if stop_reason in self.STOP_FAILURE_REASONS:
+            return stop_reason
+        if final_marker is not None:
+            return str(final_marker.payload.get("failure_reason", "empty_plan_from_llm") or "empty_plan_from_llm")
+        return "empty_plan_from_llm"
+
+    def _is_multi_city_unsupported(self, query_data: dict[str, Any]) -> bool:
+        requested = max(0, int(query_data.get("visiting_city_number", 0) or 0))
+        raw_sequence = query_data.get("city_sequence", [])
+        sequence = (
+            [str(city).strip() for city in raw_sequence if str(city).strip()]
+            if isinstance(raw_sequence, list)
+            else []
+        )
+        return requested > 1 and len(sequence) < requested
+
+    def _has_unresolved_search_dependencies(
+        self,
+        *,
+        plan_marker: Marker | None,
+        by_id: dict[str, Marker],
+    ) -> bool:
+        if plan_marker is None:
+            return False
+        depends_on = plan_marker.payload.get("depends_on", [])
+        if not isinstance(depends_on, list):
+            return False
+        for dep_id in depends_on:
+            dependency = by_id.get(str(dep_id))
+            if dependency is None:
+                return True
+            if not self._is_search_marker(dependency):
+                continue
+            if dependency.state != "terminal":
+                return True
+            if not isinstance(dependency.payload.get("results"), list):
+                return True
+        return False
+
+    def _is_search_marker(self, marker: Marker) -> bool:
+        payload = dict(marker.payload)
+        eligible = payload.get("eligible_actions", [])
+        eligible_actions = (
+            {str(item).strip() for item in eligible if str(item).strip()}
+            if isinstance(eligible, list)
+            else set()
+        )
+        search_type = str(payload.get("search_type", "")).strip()
+        result_key = str(payload.get("result_key", "")).strip()
+        return (
+            any(action.startswith("search_") for action in eligible_actions)
+            or search_type.startswith("search_")
+            or result_key.startswith("search_")
+        )
+
+    def _collect_failure_reasons(self, marker: Marker | None) -> list[str]:
+        if marker is None:
+            return []
+        payload = dict(marker.payload)
+        reasons: list[str] = []
+        for key in ("failure_reason", "last_failure_reason"):
+            value = str(payload.get(key, "")).strip()
+            if value and value not in reasons:
+                reasons.append(value)
+        history = payload.get("failure_history", [])
+        if isinstance(history, list):
+            for value in history:
+                text = str(value).strip()
+                if text and text not in reasons:
+                    reasons.append(text)
+        return reasons
+
+    def _is_validator_replan_exhausted(self, marker: Marker | None) -> bool:
+        if marker is None:
+            return False
+        max_retries = int(self.config.get("travelplanner", {}).get("max_validation_retries", 2))
+        return marker.state == "terminal" and int(marker.retry_count) > max_retries
+
+    def _find_stage_marker(self, markers: list[Marker], *, suffix: str) -> Marker | None:
+        return next((marker for marker in markers if marker.id.endswith(suffix)), None)
+
+    def _extract_query_data(
+        self,
+        final_marker: Marker | None,
+        validate_marker: Marker | None,
+        plan_marker: Marker | None,
+        markers: list[Marker],
+    ) -> dict[str, Any]:
+        for marker in [final_marker, validate_marker, plan_marker, *markers]:
+            if marker is None:
+                continue
+            query_data = marker.payload.get("query_data")
+            if isinstance(query_data, dict):
+                return query_data
+        return {}
+
+    def _extract_final_plan(
+        self,
+        final_marker: Marker | None,
+        validate_marker: Marker | None,
+        plan_marker: Marker | None,
+    ) -> list[dict[str, Any]]:
+        for marker, key in (
+            (final_marker, "final_plan"),
+            (validate_marker, "plan"),
+            (plan_marker, "plan"),
+        ):
+            if marker is None:
+                continue
+            candidate = marker.payload.get(key)
+            if isinstance(candidate, list):
+                return candidate
+        return []
+
+    def _extract_evaluation(
+        self,
+        final_marker: Marker | None,
+        validate_marker: Marker | None,
+    ) -> dict[str, Any]:
+        for marker in (final_marker, validate_marker):
+            if marker is None:
+                continue
+            payload = marker.payload.get("evaluation")
+            if isinstance(payload, dict):
+                return payload
+        return {}
 
     def _collect_predictions_by_query_idx(
         self,

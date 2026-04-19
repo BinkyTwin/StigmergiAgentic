@@ -5,11 +5,14 @@ from __future__ import annotations
 import asyncio
 import copy
 from pathlib import Path
+import sys
+from types import SimpleNamespace
 
 from core.environment import Environment
 from core.marker import Marker
 from core.marker_store import MarkerStore
 
+from adapters.travelplanner.adapter import TravelPlannerAdapter
 from adapters.travelplanner.tools import (
     PlanDayTool,
     SearchFlightsTool,
@@ -23,6 +26,24 @@ from travelplanner_data import (
     sample_valid_plan,
     write_sample_database,
 )
+
+
+class MalformedPlannerLLM:
+    """LLM fixture that returns malformed JSON for itinerary generation."""
+
+    total_tokens_used = 17
+    total_cost_usd = 0.0017
+
+    def call(self, prompt: str, response_schema=None):
+        del prompt, response_schema
+        return SimpleNamespace(
+            content='{"plan":[{"current_city":"Myrtle Beach"',
+            tokens_used=17,
+            cost_usd=0.0017,
+            model="fake-malformed-planner",
+            parsed=None,
+            parsed_response=None,
+        )
 
 
 def _build_env(
@@ -168,6 +189,41 @@ def test_plan_tool_without_llm_keeps_empty_plan(
     assert third.marker_updates[0].state == "terminal"
     assert third.metadata.get("failed") is True
     assert third.metadata.get("reason") == "empty_plan_after_max_attempts"
+    assert third.marker_updates[0].payload["failure_reason"] == "empty_plan_after_max_attempts"
+    assert "empty_plan_from_llm" in third.marker_updates[0].payload["failure_history"]
+
+
+def test_plan_tool_records_schema_parse_failure_history(
+    tmp_path: Path,
+    config_dict: dict,
+) -> None:
+    env, config, workspace = _build_env(tmp_path, config_dict)
+    query = workspace.get_query(0)
+    tool = PlanDayTool(config=config)
+    marker = _marker(
+        "plan",
+        "pending",
+        {
+            "query_data": query,
+            "eligible_actions": ["plan_itinerary"],
+            "depends_on": [],
+        },
+    )
+
+    result = asyncio.run(
+        tool.execute(
+            agent_id="a",
+            marker=marker,
+            environment=env,
+            llm_client=MalformedPlannerLLM(),
+        )
+    )
+
+    update = result.marker_updates[0]
+    assert result.metadata.get("reason") == "empty_plan_from_llm"
+    assert update.payload["failure_reason"] == "empty_plan_from_llm"
+    assert update.payload["last_failure_reason"] == "schema_parse_failed"
+    assert "schema_parse_failed" in update.payload["failure_history"]
 
 
 def test_plan_prompt_omits_reference_information_and_compacts_payload(
@@ -237,6 +293,76 @@ def test_plan_prompt_includes_routing_data_with_canonical_transport_strings(
     assert "RoutingData" in prompt
     assert "Flight Number: F3792603, from Washington to Myrtle Beach" in prompt
     assert "Self-driving, from Washington to Myrtle Beach" in prompt
+
+
+def test_plan_prompt_includes_train_few_shot_examples_for_multi_city_queries(
+    tmp_path: Path, config_dict: dict, monkeypatch
+) -> None:
+    _, config, workspace = _build_env(tmp_path, config_dict)
+    query = workspace.get_query(2)
+    monkeypatch.setattr(
+        PlanDayTool,
+        "_few_shot_examples_loaded",
+        True,
+        raising=False,
+    )
+    monkeypatch.setattr(
+        PlanDayTool,
+        "_few_shot_examples_cache",
+        [
+            {
+                "query": {"query": "Simple training example", "visiting_city_number": 1},
+                "plan": [{"current_city": "A", "transportation": "-", "breakfast": "-", "attraction": "-", "lunch": "-", "dinner": "-", "accommodation": "-"}],
+            },
+            {
+                "query": {"query": "Multi-city training example", "visiting_city_number": 2},
+                "plan": [{"current_city": "from A to B", "transportation": "Flight Number: F1, from A to B", "breakfast": "-", "attraction": "-", "lunch": "-", "dinner": "-", "accommodation": "-"}],
+            },
+        ],
+        raising=False,
+    )
+
+    tool = PlanDayTool(config=config)
+    prompt = tool._build_prompt(
+        query_data=query,
+        search_payload={},
+        validation_feedback=[],
+    )
+
+    assert "Examples (from training split only):" in prompt
+    assert "Multi-city training example" in prompt
+    assert "IMPORTANT for multi-city trips" in prompt
+
+
+def test_load_few_shot_examples_warns_and_falls_back_when_dataset_unavailable(
+    monkeypatch, caplog
+) -> None:
+    def fail_load_dataset(*args, **kwargs):  # type: ignore[no-untyped-def]
+        del args, kwargs
+        raise RuntimeError("dataset unavailable")
+
+    monkeypatch.setattr(
+        PlanDayTool,
+        "_few_shot_examples_loaded",
+        False,
+        raising=False,
+    )
+    monkeypatch.setattr(
+        PlanDayTool,
+        "_few_shot_examples_cache",
+        None,
+        raising=False,
+    )
+    monkeypatch.setitem(
+        sys.modules,
+        "datasets",
+        SimpleNamespace(load_dataset=fail_load_dataset),
+    )
+
+    examples = PlanDayTool._load_few_shot_examples()
+
+    assert examples == []
+    assert "Unable to load TravelPlanner train few-shot examples" in caplog.text
 
 
 def test_collect_search_payloads_injects_restaurants_from_workspace(
@@ -443,6 +569,70 @@ def test_validate_constraints_triggers_replan_on_failure(
     assert any("invalid in the sandbox" in item for item in feedback)
 
 
+def test_validate_constraints_targeted_repair_flow(
+    tmp_path: Path,
+    config_dict: dict,
+) -> None:
+    env, config, workspace = _build_env(tmp_path, config_dict)
+    env.state_machine = TravelPlannerAdapter(config=config).define_state_machine()
+    config["orchestrator"]["targeted_repair"] = {
+        "enabled": True,
+        "max_cycles": 2,
+        "repair_marker_intensity": 0.95,
+    }
+    query = workspace.get_query(0)
+    bad_plan = sample_valid_plan()
+    bad_plan[0]["breakfast"] = "Unknown, Myrtle Beach"
+
+    plan_marker = _marker(
+        "plan",
+        "terminal",
+        {
+            "query_data": query,
+            "plan": bad_plan,
+            "eligible_actions": ["plan_itinerary"],
+        },
+    )
+    env.store.upsert_marker(plan_marker, agent_id="seed")
+
+    validate_marker = _marker(
+        "validate",
+        "pending",
+        {
+            "depends_on": ["plan"],
+            "eligible_actions": ["validate_constraints"],
+        },
+    )
+    env.store.upsert_marker(validate_marker, agent_id="seed")
+
+    tool = ValidateConstraintsTool(config=config, max_retries=2)
+    first = asyncio.run(
+        tool.execute(agent_id="a", marker=validate_marker, environment=env)
+    )
+    env.apply_action_result(agent_id="a", result=first)
+
+    stored_validate = env.store.get_marker("validate")
+    repair_marker = env.store.get_marker("repair::validate::plan::attempt::1")
+    assert stored_validate is not None
+    assert repair_marker is not None
+    assert stored_validate.payload["depends_on"] == [
+        "repair::validate::plan::attempt::1",
+        "plan",
+    ]
+    assert repair_marker.payload["repair_target_id"] == "plan"
+
+    repaired = Marker.from_dict(repair_marker.to_dict())
+    repaired.state = "terminal"
+    repaired.payload["plan"] = sample_valid_plan()
+    env.store.upsert_marker(repaired, agent_id="seed")
+
+    second = asyncio.run(
+        tool.execute(agent_id="a", marker=stored_validate, environment=env)
+    )
+    assert second.metadata.get("final_pass") is True
+    assert second.marker_updates[0].state == "terminal"
+
+
 def test_validate_constraints_retry_bound_to_terminal(
     tmp_path: Path, config_dict: dict
 ) -> None:
@@ -478,6 +668,7 @@ def test_validate_constraints_retry_bound_to_terminal(
     )
     assert final_marker.state == "terminal"
     assert second.metadata.get("replan") is False
+    assert final_marker.payload["failure_reason"] == "validator_replan_exhausted"
 
 
 def test_finalize_stage_copies_evaluation(tmp_path: Path, config_dict: dict) -> None:
@@ -510,4 +701,5 @@ def test_finalize_stage_copies_evaluation(tmp_path: Path, config_dict: dict) -> 
 
     assert update.state == "terminal"
     assert update.payload["final_pass"] is True
+    assert update.payload["failure_reason"] == "ok"
     assert isinstance(update.payload.get("final_plan"), list)

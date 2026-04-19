@@ -17,6 +17,11 @@ agents:
     recency_weight: 0.3
     max_candidates: 0
     affinity_exploration_rate: 0.2
+  stickiness:
+    enabled: false
+    recent_progress_window: 3
+    continuity_bonus: 0.08
+    max_consecutive_reuse: 2
 
 markers:
   decay_type: "exponential"
@@ -70,6 +75,22 @@ orchestrator:
   emergent_resolution:
     enabled: false
     base_probability: 0.1
+  recovery_controller:
+    enabled: false
+    stagnation_ticks: 5
+    contention_threshold: 0.6
+    recovery_cooldown_ticks: 8
+    temperature_boost: 0.1
+    temperature_boost_duration: 3
+    inhibition_relief: 0.2
+    dynamic_idle:
+      enabled: false
+      node_per_idle_cycle: 6
+      max_extra_idle_cycles: 8
+  targeted_repair:
+    enabled: false
+    max_cycles: 2
+    repair_marker_intensity: 0.95
 
 emergence:
   enabled: true

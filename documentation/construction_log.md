@@ -37,6 +37,78 @@ Chaque entrée suit ce format :
 
 ## Log des Sessions
 
+### 2026-04-18 18:10 — Sprint 8 V6 General Runtime Controls and Targeted Repair
+
+**Assistant IA utilisé** : Codex (GPT-5)
+
+**Objectif** : Réaliser la première vague exécutable du plan `documentation/redisgn_v2/plan_v6_framework_general_improvement.md` sans dériver du benchmark ni déplacer la logique métier TravelPlanner dans `core/`.
+
+**Actions effectuées** :
+- Ajout d’une instrumentation explicite des tentatives de lock dans `core/marker_store.py` (`marker_lock_events`, `lock_stats`, `lock_stats_snapshot`)
+- Extension des contrats d’outil avec `ValidationResult`, `RepairRequest` et `build_repair_marker_id` dans `core/tool_registry.py`
+- Enrichissement de `Environment.snapshot()` avec des overlays de contrôle runtime et dépôt générique de repair markers dans `Environment.apply_action_result()`
+- Implémentation dans `core/orchestrator.py` d’un contrôleur unifié de récupération de stagnation avec audit, dynamique d’idle, et télémétrie de contrôle par tick
+- Ajout dans `core/agent.py` d’une stickiness à horizon court et d’une préférence de cible moins contestée pendant le recovery
+- Ajout des presets `config/ablation/v6_base.yaml`, `v6_A.yaml`, `v6_B.yaml`, `v6_C.yaml` en gardant `v5_full.yaml` intact
+- Branchement opt-in du contrat de repair générique dans `adapters/travelplanner/tools.py`
+- Ajout/extension des tests unitaires et d’intégration ciblés pour ces nouveaux comportements
+
+**Décisions prises** :
+- Garder toutes les nouvelles capacités V6 derrière des flags/configs explicites pour préserver la baseline V5 et la lisibilité de l’ablation
+- Mesurer la contention à partir d’événements de lock réels plutôt qu’à partir de `marker_reads`
+- Laisser TravelPlanner produire le diagnostic de validation et déléguer seulement la matérialisation du repair marker au runtime générique
+
+**Problèmes rencontrés** :
+- La première version du calcul de fenêtre de contention regardait le tick courant au lieu des ticks déjà écoulés → correction de la fenêtre dans `_recent_contention_rate()`
+- Un test de progression récente utilisait une transition `pending -> terminal` non valide pour la machine d’état par défaut → ajout d’une machine d’état de test explicite
+
+**Résultat** : Succès contrôlé — la phase 1 V6 est implémentée et validée localement; la campagne benchmark pairée `v5_full` / `v6_base` puis l’ablation `V6-A/B/C` restent à exécuter séparément.
+
+**Fichiers modifiés** :
+- `core/tool_registry.py` / `core/marker_store.py` / `core/environment.py` / `core/agent.py` / `core/orchestrator.py` / `core/config.py` — nouvelles surfaces runtime V6
+- `adapters/travelplanner/tools.py` — pont TravelPlanner vers le targeted repair générique
+- `config/default.yaml` / `config/ablation/v6_*.yaml` — validation + presets d’ablation V6
+- `tests/unit/test_config.py` / `tests/unit/test_marker_store.py` / `tests/unit/test_environment.py` / `tests/unit/test_agent.py` / `tests/unit/test_orchestrator.py` / `tests/unit/test_travelplanner_tools.py` / `tests/integration/test_travelplanner.py` — validation ciblée V6
+- `AGENTS.md` / `CLAUDE.md` / `documentation/decisions/20260418-sprint8-v6-general-runtime-controls.md` / `documentation/redisgn_v2/sprint_08_artifact.md` — synchronisation documentaire
+
+---
+
+### 2026-04-16 18:20 — Sprint 7 V5-Full Execution Hardening
+
+**Assistant IA utilisé** : Codex (GPT-5)
+
+**Objectif** : Implémenter le plan `documentation/redisgn_v2/plan_v5_agent_execution.md` côté TravelPlanner sans modifier `core/`, puis revalider la base avant les benchmarks longs.
+
+**Actions effectuées** :
+- Création du preset `config/ablation/v5_full.yaml` à partir de `config/travelplanner_v4_only.yaml` avec `max_ticks=80` et `num_agents=6`
+- Ajout du marker shaping T7 dans `adapters/travelplanner/tools.py` pour la recherche vide, les plans vides, et les validations échouées avec inhibition du chemin fautif
+- Ajout du prompt enrichment T9 dans `PlanDayTool` avec few-shots chargés depuis le split `train` uniquement, consigne multi-city explicite, et fallback non bloquant si le dataset n'est pas disponible
+- Création du script `scripts/tune_aco_travelplanner.py` pour tuner `alpha`, `beta`, et `selection_temperature` sur `train` uniquement, avec génération de configs temporaires et application ciblée sur `v5_full.yaml`
+- Mise à jour du benchmark runner pour accepter l'alias `stigmergic`, des bornes inclusives `--start/--end`, et propager le sous-ensemble évalué au scorer officiel
+- Ajout des tests unitaires ciblés (`test_travelplanner_marker_shaping.py`, `test_tune_aco_travelplanner.py`) et extension des tests existants
+- Validation ciblée (`43 passed`) puis validation complète (`275 passed`) via `uv run --with 'langgraph>=1.0.0' pytest tests/ -q`
+
+**Décisions prises** :
+- Garder toutes les améliorations V5-full dans l'adapter TravelPlanner, les configs et les scripts, afin de respecter l'interdiction de modifier `core/`
+- Utiliser des few-shots strictement `train` et faire porter au script de tuning la responsabilité de générer des configs `train` temporaires, pour préserver `v5_full.yaml` comme preset de benchmark `validation`
+- Préserver les commentaires du preset `v5_full.yaml` lors du `--apply` du tuner via une mise à jour textuelle ciblée au lieu d'un rewrite YAML complet
+
+**Problèmes rencontrés** :
+- `uv run pytest tests/ -q` échouait en collecte sur `langgraph` absent malgré la dépendance déclarée → revalidation complète faite avec `uv run --with 'langgraph>=1.0.0' pytest tests/ -q`
+- La structure réelle du dataset TravelPlanner n'était pas sûre pour les few-shots → inspection ciblée du split `train`, puis extraction depuis `annotated_plan` avec validation Pydantic et fallback warning-only
+
+**Résultat** : Succès partiel contrôlé — T7, T8, T9 et T10 sont implémentés et validés localement; les benchmarks longs (tuning live et campagne finale 3 seeds) restent à lancer manuellement pour maîtriser le temps d'exécution et le coût API.
+
+**Fichiers modifiés** :
+- `adapters/travelplanner/tools.py` — marker shaping T7 + few-shots train-only T9
+- `config/ablation/v5_full.yaml` — preset V5-full
+- `scripts/run_travelplanner_framework_benchmark.py` — alias `stigmergic` + subset scoring alignment
+- `scripts/tune_aco_travelplanner.py` — tuner ACO train-only
+- `tests/unit/test_travelplanner_tools.py` / `tests/unit/test_travelplanner_marker_shaping.py` / `tests/unit/test_travelplanner_benchmark_runner.py` / `tests/unit/test_tune_aco_travelplanner.py` / `tests/unit/test_config.py` — validation ciblée du contrat V5-full
+- `AGENTS.md` / `CLAUDE.md` / `documentation/redisgn_v2/sprint_07_artifact.md` / `documentation/decisions/20260416-sprint7-v5-full-execution-hardening.md` — synchronisation documentaire
+
+---
+
 ### 2026-03-22 15:45 — Sprint 6 V4 Stigmergic Corrections Implementation
 
 **Assistant IA utilisé** : Codex (GPT-5)

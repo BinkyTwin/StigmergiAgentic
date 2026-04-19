@@ -6,9 +6,9 @@ This file provides guidance to Claude Code when working in this repository.
 
 Stigmergic orchestration framework V3 for thesis research (EMLV).
 
-The codebase is currently at **Sprint 6 V3** (Sprint 5 runtime + TravelPlanner domain adapter + legacy V0.1 cleanup + V4 stigmergic-correction features).
+The codebase is currently at **Sprint 8 V6 general runtime controls** (Sprint 7 V5-full baseline + V6 recovery/stickiness/targeted-repair runtime surfaces + frozen V6 ablation presets).
 
-## Sprint 6 V3 Status (2026-03-22)
+## Sprint 8 V6 Runtime Status (2026-04-18)
 
 Implemented modules:
 - `core/marker.py`
@@ -35,6 +35,7 @@ Implemented modules:
 - `adapters/travelplanner/workspace.py`
 - `adapters/travelplanner/tools.py`
 - `adapters/travelplanner/evaluator.py`
+- `adapters/travelplanner/langgraph_supervisor.py`
 - `tools/__init__.py`
 - `tools/file_read.py`
 - `tools/file_write.py`
@@ -47,13 +48,21 @@ Implemented modules:
 - `config/default.yaml`
 - `config/assistant.yaml`
 - `config/travelplanner.yaml`
+- `config/travelplanner_v4_only.yaml`
+- `config/ablation/v5_full.yaml`
+- `config/ablation/v6_base.yaml`
+- `config/ablation/v6_A.yaml`
+- `config/ablation/v6_B.yaml`
+- `config/ablation/v6_C.yaml`
 - `main.py`
 - `scripts/setup_travelplanner.py`
-- `tests/unit/*` + `tests/integration/*` (235 tests)
+- `scripts/run_travelplanner_framework_benchmark.py`
+- `scripts/tune_aco_travelplanner.py`
+- `tests/unit/*` + `tests/integration/*` (targeted V6 validation in this task: 77 unit tests + 5 TravelPlanner integration tests)
 
 Validated gate:
-- `uv run pytest tests/unit tests/integration -q` -> 235 passed
-- `uv run pytest tests/ -q` -> 235 passed
+- `uv run pytest tests/unit/test_config.py tests/unit/test_marker_store.py tests/unit/test_environment.py tests/unit/test_agent.py tests/unit/test_orchestrator.py tests/unit/test_travelplanner_tools.py -q` -> 77 passed
+- `uv run pytest tests/integration/test_travelplanner.py -q` -> 5 passed
 
 ## Design Principles
 
@@ -97,6 +106,7 @@ The state machine remains configurable and validated through `StateMachine`.
 - Transaction model: `BEGIN IMMEDIATE` on all mutations
 - Audit stream: `pheromones/audit_log.jsonl`
 - Optional read-tracking table: `marker_reads`
+- Optional lock-attempt table: `marker_lock_events`
 
 ## Current Public API Surface
 
@@ -110,6 +120,11 @@ The state machine remains configurable and validated through `StateMachine`.
 - `MarkerStore`
 - `MarkerStoreError`
 
+Important V6 additions:
+- `record_lock_attempt`
+- `lock_stats`
+- `lock_stats_snapshot`
+
 ### `core.guardrails`
 - `GuardrailEngine`
 - `BudgetExceededError`
@@ -119,6 +134,9 @@ The state machine remains configurable and validated through `StateMachine`.
 ### `core.tool_registry`
 - `Decision`
 - `ActionResult`
+- `RepairRequest`
+- `ValidationResult`
+- `build_repair_marker_id`
 - `Tool`
 - `ToolRegistry`
 
@@ -144,6 +162,7 @@ The state machine remains configurable and validated through `StateMachine`.
 - `OrchestratorResult`
 
 `OrchestratorResult` now includes `emergence_summary`, and the runtime can optionally use emergent contention resolution plus in-memory emergence feedback adaptation.
+It can also use the V6 `recovery_controller`, dynamic idle, and per-tick `TickRow.control` telemetry.
 
 ### `llm.client`
 - `LLMClient`
@@ -178,15 +197,12 @@ uv venv --python 3.11 .venv
 uv pip install -r requirements.txt
 ```
 
-### Test (Sprint 6)
+### Test (Sprint 8)
 
 ```bash
-uv run pytest tests/unit -v
-uv run pytest tests/integration/test_assistant_run.py tests/integration/test_travelplanner.py -v
-uv run pytest tests/ -v
-uv run python main.py --adapter assistant --objective "Create a short plan"
-uv run python scripts/setup_travelplanner.py
-uv run python main.py --adapter travelplanner --objective "Query 0"
+uv run pytest tests/unit/test_config.py tests/unit/test_marker_store.py tests/unit/test_environment.py tests/unit/test_agent.py tests/unit/test_orchestrator.py tests/unit/test_travelplanner_tools.py -q
+uv run pytest tests/integration/test_travelplanner.py -q
+uv run python main.py --adapter travelplanner --config config/ablation/v6_A.yaml --objective "Query 0"
 ```
 
 ## Coding Rules

@@ -113,7 +113,12 @@ def main() -> int:
     )
     result = orchestrator.run_sync()
 
-    evaluation = adapter.evaluate_run({"markers": result.final_snapshot.markers})
+    evaluation = adapter.evaluate_run(
+        {
+            "markers": result.final_snapshot.markers,
+            "stop_reason": result.stop_reason,
+        }
+    )
     dag_info = _dag_info(result.final_snapshot.markers)
     assistant_response = _build_travelplanner_response(result.final_snapshot.markers)
     summary = _build_run_summary(
@@ -151,6 +156,7 @@ def main() -> int:
         "summary": summary,
         "assistant_response": assistant_response,
         "evaluation": evaluation,
+        "failure_reason": str(evaluation.get("failure_reason", "ok")),
         "final_pass": final_pass,
         "final_plan": final_plan,
         "plan": final_plan,

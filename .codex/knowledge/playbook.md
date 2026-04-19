@@ -5,6 +5,41 @@
 
 ## Active Practices
 
+### Anti-Stagnation Outcome Readout Standard
+- After any anti-stagnation or recovery-controller experiment, report the trio `{idle stop rate, all_terminal pass rate, final_pass_given_delivery}` before interpreting the aggregate pass-rate delta.
+- If failures move from `idle_cycles` to `all_terminal` without proportional pass gains, treat the new frontier as `repair quality` rather than `search continuation`.
+- In TravelPlanner stigmergic runs, use `action_switching_rate`, `parallel_utilization`, and `coordination_overhead` as the primary indicators of coordination quality; higher collaboration density alone is not evidence of better emergence.
+
+### Benchmark-Freeze Planning Standard
+- Before proposing a new benchmark-driven improvement cycle, freeze the scorer, benchmark runner semantics, validation split, and comparison baseline in the plan itself.
+- Separate `framework-general` workstreams from `adapter-specific` workstreams explicitly; otherwise review feedback will correctly question whether gains come from the system or from task-fitting.
+- Require an ablation ladder from the frozen baseline for every major improvement plan so the eventual article can attribute gains causally.
+
+### Query-Type Failure-Regime Readout Standard
+- For TravelPlanner benchmark analysis, stratify results at least by `(days, visiting_city_number, level)` before interpreting emergence, because `3/1`, `5/2`, and `7/3` queries fail through different mechanisms.
+- Treat `3-day / 1-city` hard-query failures as `constraint-repair` problems when plans are still delivered, but treat `5-day / 2-city` and `7-day / 3-city` empty-plan + `idle_cycles` patterns as `search/decomposition` problems.
+- Check explicit constraint families separately: `no self-driving`, `private room`, `pets`, and `4 cuisines` are useful stress buckets because they expose planner weaknesses that are not visible in aggregate pass rate alone.
+
+### Emergence-First Validation Readout Standard
+- When a benchmark export already contains `summary.emergence`, analyze emergence directly from `runs.json` before adding any new logging or instrumentation.
+- Prioritize `pressure_entropy`, `parallel_utilization`, `convergence_tick`, and `action_switching_rate` in post-hoc readouts; in the current TravelPlanner V5-full preset these metrics explain pass/fail separation better than raw collaboration density alone.
+- Read `idle_cycles` together with emergence: a late `convergence_tick` plus weak `parallel_utilization` is a stagnation signature, not productive exploration.
+
+### Scientific Baseline Transport-Fallback Standard
+- When a scientific baseline already relies on the shared `LLMClient` retries, add any extra resilience at the baseline node boundary rather than forking provider logic into the client.
+- For Self-Refine, allow `critic` to fall back to compact validator feedback and allow `reviser` to fall back to the last successful draft when provider calls fail after retries.
+- If the initial `draft` still cannot be produced, return a scorer-compatible empty-plan payload with explicit step-trace fallback instead of crashing the whole seed.
+
+### Query-Level Failure Taxonomy Standard
+- Persist TravelPlanner operational failure causes on markers themselves (`failure_reason`, `last_failure_reason`, `failure_history`) so adapters can recover per-query outcomes after the run without core-runtime changes.
+- Promote adapter-level `failure_reason` to the top level of single-query benchmark artifacts (`query_XXX.json` / `runs.json`) instead of forcing post-hoc reconstruction from empty plans and stop reasons alone.
+- Treat `non-empty plan evaluated normally` as `ok` in runtime taxonomy even when the official scorer returns `final_pass=false`; reserve failure labels for workflow or synthesis breakdowns.
+
+### Pure V4 Ablation Preset Standard
+- Keep the TravelPlanner V4-only ablation preset in a dedicated config file that flips only the five V4 gates (`local_sensing`, `time_decay`, `frequentation`, `emergent_resolution`, `feedback_loop`).
+- Preserve `alpha`, `beta`, `selection_temperature`, `num_agents`, `max_ticks`, and `session_isolation` when preparing a pure correction-only preset.
+- Validate the preset at config-load level and treat live LLM smoke runs as optional environment-dependent confirmation, not as the only correctness check.
+
 ### Scientific-Plan Sanity Check Standard
 - Before executing a benchmark-improvement plan, check every proposed task against the current repo state so the plan does not duplicate already-implemented runtime fields, retries, or exports.
 - Separate `ablation`, `stability fixes`, and `performance optimization` into distinct experiment tracks; combining them in one preset weakens causal interpretation.
@@ -317,3 +352,28 @@
 - Infer TravelPlanner `city_sequence` from local city/state data plus route feasibility, because multi-city queries often store a state-like `dest` rather than an ordered list of cities.
 - Keep single-city result keys stable, but make prompt-building and payload-compaction logic accept dynamic `search_<type>_<city-or-leg>` keys by prefix so adapter growth does not force a full downstream rewrite.
 - Encode multi-city routing as alternating route and city-search dependencies, which keeps the execution graph explicit, testable, and fully contained inside `adapters/travelplanner/`.
+
+### Batch Benchmark Continue-on-Error Standard
+- When one query export can fail without invalidating the whole benchmark seed, persist a failed per-query artifact with `query_idx`, empty-plan outputs, and a machine-readable `failure_reason` instead of aborting the batch.
+- Keep `runs.json` complete for the requested query range so downstream official scoring preserves its original denominator semantics while the runner remains resumable.
+- Store failure tolerance metadata and scorer semantics directly in `benchmark_summary.json` so campaign resilience cannot be misread as a denominator change or a custom scoring mode.
+
+### Adapter-Local Benchmark Hardening Standard
+- When an experiment plan forbids runtime-core edits, implement execution steering through adapter-local marker updates, prompt shaping, and benchmark-script coordination instead of leaking benchmark-specific behavior into generic orchestration code.
+- For train-only optimization of a validation-facing preset, run the optimizer against generated temporary configs that flip only the split and tuned scalars, then write back just the winning scalar values to the reusable preset.
+- If the scorer supports subset bounds, forward the exact requested index window from the runner so official metrics and requested query ranges stay aligned even when the runner CLI uses inclusive `--start/--end` semantics.
+
+### Framework Plan Executability and Attribution Standard
+- Before endorsing a framework-level improvement plan, trace each proposed intervention to the current runtime surfaces so "simple tweaks" do not hide schema or control-plane redesign work.
+- If the runtime already adapts exploration, inhibition, or temperature, extend that single feedback mechanism first instead of adding a second overlapping controller in parallel.
+- Treat mixed-seed benchmark tables as directional only; promote them to decision-driving evidence only after rerunning the compared configs on the same seed set.
+
+### Short Branching Ablation Standard
+- When a roadmap starts turning into a long additive ladder, collapse phase 1 into a shared baseline plus a small number of branching arms so attribution stays readable.
+- Put lightweight control-plane improvements in the first ablation wave, and defer representation-contract redesigns to a second scoped plan.
+- Allow confirmatory combination runs only after one or more individual branches have already shown a clear positive signal.
+
+### Opt-In Runtime Control-Plane Standard
+- When a benchmark baseline must stay frozen, ship new runtime steering mechanisms behind explicit config gates and new ablation presets rather than mutating the incumbent reference preset.
+- Measure contention from explicit lock-attempt events, then inject the aggregated signal back into snapshots so both controllers and agents consume the same source of truth.
+- Keep generic targeted repair split across two layers: adapters generate validation feedback and target choice, while the runtime materializes repair markers and execution bookkeeping.

@@ -91,6 +91,12 @@ def test_acquire_lock_success_and_conflict(marker_store: MarkerStore) -> None:
     acquired_other = marker_store.acquire_lock("m-1", agent_id="agent-2", tick=4)
     assert acquired_other is False
 
+    stats = marker_store.lock_stats("m-1")
+    assert stats["attempts"] == 2
+    assert stats["conflicts"] == 1
+    assert stats["last_conflict_tick"] == 4
+    assert stats["last_success_tick"] == 3
+
 
 def test_release_lock_owner_only(marker_store: MarkerStore) -> None:
     marker_store.upsert_marker(_make_marker(), "agent-1")

@@ -28,6 +28,46 @@ class Decision:
     context: str = ""
     recalled_memories: list[dict[str, Any]] = field(default_factory=list)
     lesson_markers: list[dict[str, Any]] = field(default_factory=list)
+    stickiness_applied: bool = False
+    recovery_preference_applied: bool = False
+
+
+@dataclass(slots=True)
+class RepairRequest:
+    """Generic targeted-repair request emitted by a validation-capable tool."""
+
+    target_marker_id: str
+    attempt: int = 1
+    max_attempts: int = 1
+    feedback: list[str] = field(default_factory=list)
+    eligible_actions: list[str] = field(default_factory=list)
+    intensity: float | None = None
+    marker_type: str = "repair"
+    payload_updates: dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass(slots=True)
+class ValidationResult:
+    """Structured validation outcome optionally coupled with a repair request."""
+
+    status: str
+    source_marker_id: str
+    targets: list[str] = field(default_factory=list)
+    feedback: list[str] = field(default_factory=list)
+    repair: RepairRequest | None = None
+
+
+def build_repair_marker_id(
+    *,
+    source_marker_id: str,
+    target_marker_id: str,
+    attempt: int,
+) -> str:
+    """Return a deterministic repair marker ID shared by tools and runtime."""
+    return (
+        f"repair::{str(source_marker_id).strip()}::"
+        f"{str(target_marker_id).strip()}::attempt::{max(1, int(attempt))}"
+    )
 
 
 @dataclass(slots=True)
@@ -39,6 +79,7 @@ class ActionResult:
     consumed_tokens: int = 0
     cost_usd: float = 0.0
     metadata: dict[str, Any] = field(default_factory=dict)
+    validation: ValidationResult | None = None
 
 
 class Tool(ABC):

@@ -120,6 +120,83 @@ def test_perceive_chooses_action_from_pressure_distribution(tmp_path, config_dic
     assert decision.action_type == "increment"
 
 
+def test_perceive_prefers_recent_productive_action_when_stickiness_enabled(
+    tmp_path,
+    config_dict: dict,
+) -> None:
+    config_dict["agents"]["selection_temperature"] = 0.0
+    config_dict["agents"]["stickiness"]["enabled"] = True
+    config_dict["agents"]["stickiness"]["continuity_bonus"] = 0.2
+
+    registry = ToolRegistry()
+    registry.register(StubTool(action_type="alpha", eligible_states={"pending"}, next_state="active"))
+    registry.register(StubTool(action_type="beta", eligible_states={"pending"}, next_state="active"))
+
+    env = _build_environment(tmp_path, config_dict)
+    env.store.upsert_marker(
+        _make_marker(payload={"eligible_actions": ["alpha", "beta"]}),
+        agent_id="seed",
+    )
+
+    agent = StigmergicAgent(
+        agent_id="agent-1",
+        tool_registry=registry,
+        config=config_dict,
+        rng=random.Random(1),
+    )
+    agent._productive_line = {
+        "marker_id": "m-1",
+        "target": "file.py",
+        "action_type": "beta",
+        "tick": 0,
+        "streak": 1,
+    }
+
+    decision = asyncio.run(agent.perceive_and_decide(env.snapshot(tick=1)))
+    assert decision is not None
+    assert decision.action_type == "beta"
+    assert decision.stickiness_applied is True
+
+
+def test_perceive_disables_stickiness_when_recovery_is_active(
+    tmp_path,
+    config_dict: dict,
+) -> None:
+    config_dict["agents"]["selection_temperature"] = 0.0
+    config_dict["agents"]["stickiness"]["enabled"] = True
+    config_dict["agents"]["stickiness"]["continuity_bonus"] = 0.2
+
+    registry = ToolRegistry()
+    registry.register(StubTool(action_type="alpha", eligible_states={"pending"}, next_state="active"))
+    registry.register(StubTool(action_type="beta", eligible_states={"pending"}, next_state="active"))
+
+    env = _build_environment(tmp_path, config_dict)
+    env.store.upsert_marker(
+        _make_marker(payload={"eligible_actions": ["alpha", "beta"]}),
+        agent_id="seed",
+    )
+
+    agent = StigmergicAgent(
+        agent_id="agent-1",
+        tool_registry=registry,
+        config=config_dict,
+        rng=random.Random(1),
+    )
+    agent._productive_line = {
+        "marker_id": "m-1",
+        "target": "file.py",
+        "action_type": "beta",
+        "tick": 0,
+        "streak": 1,
+    }
+
+    snapshot = env.snapshot(tick=1, control={"recovery": {"active": True}})
+    decision = asyncio.run(agent.perceive_and_decide(snapshot))
+    assert decision is not None
+    assert decision.action_type == "alpha"
+    assert decision.stickiness_applied is False
+
+
 def test_perceive_ignores_marker_locked_by_other_agent(tmp_path, config_dict: dict) -> None:
     registry = ToolRegistry()
     registry.register(StubTool(action_type="increment", eligible_states={"pending"}, next_state="active"))

@@ -242,6 +242,13 @@ class StigmergicAgent:
             decay_rate=float(agents_cfg.get("memory_decay_rate", 0.1)),
         )
         self.affinity = AgentAffinityProfile(type_counts={}, target_keywords={})
+        self._productive_line: dict[str, Any] = {
+            "marker_id": "",
+            "target": "",
+            "action_type": "",
+            "tick": -1,
+            "streak": 0,
+        }
 
     def bind_on_perceive(self, callback: OnPerceiveCallback | None) -> None:
         """Attach or replace the optional perception callback."""
@@ -286,10 +293,12 @@ class StigmergicAgent:
             beta=pressure_beta,
             heuristic_fn=heuristic_fn,
         )
-
-        temperature = float(
-            self.config.get("agents", {}).get("selection_temperature", 0.1)
+        pressures, stickiness_applied = self._apply_stickiness_to_pressures(
+            pressures=pressures,
+            snapshot=snapshot,
         )
+
+        temperature = self._selection_temperature(snapshot)
         action_type = select_action(
             pressures=pressures, temperature=temperature, rng=self.rng
         )
@@ -304,10 +313,10 @@ class StigmergicAgent:
         if not eligible:
             return None
 
-        target = sorted(
-            eligible,
-            key=lambda marker: (-marker.intensity, marker.inhibition, marker.id),
-        )[0]
+        target, recovery_preference_applied = self._select_target_marker(
+            eligible=eligible,
+            snapshot=snapshot,
+        )
         decision_context = self._build_decision_context(
             action_type=action_type,
             marker=target,
@@ -341,6 +350,8 @@ class StigmergicAgent:
             context=decision_context,
             recalled_memories=recalled_memories,
             lesson_markers=lesson_markers,
+            stickiness_applied=stickiness_applied,
+            recovery_preference_applied=recovery_preference_applied,
         )
 
     async def execute(
@@ -390,6 +401,7 @@ class StigmergicAgent:
                     marker_type=runtime_marker.marker_type,
                     target=runtime_marker.target,
                 )
+                self._record_productive_line(decision=decision)
 
             remembered = self.memory.remember(
                 context=str(getattr(decision, "context", runtime_marker.target)),
@@ -553,6 +565,142 @@ class StigmergicAgent:
             return float(raw)
         except (TypeError, ValueError):
             return 1.0
+
+    def _selection_temperature(self, snapshot: EnvironmentSnapshot) -> float:
+        base_temperature = float(
+            self.config.get("agents", {}).get("selection_temperature", 0.1)
+        )
+        override = snapshot.control.get("selection_temperature_override")
+        if override is None:
+            return base_temperature
+        return max(0.0, float(override))
+
+    def _apply_stickiness_to_pressures(
+        self,
+        *,
+        pressures: dict[str, float],
+        snapshot: EnvironmentSnapshot,
+    ) -> tuple[dict[str, float], bool]:
+        line = self._active_stickiness_line(snapshot)
+        if not pressures or line is None:
+            return pressures, False
+
+        action_type = str(line.get("action_type", "")).strip()
+        if action_type not in pressures:
+            return pressures, False
+
+        boosted = dict(pressures)
+        boosted[action_type] = float(boosted.get(action_type, 0.0)) + float(
+            self._stickiness_config().get("continuity_bonus", 0.08)
+        )
+        total = sum(max(0.0, float(value)) for value in boosted.values())
+        if total <= 0.0:
+            return pressures, False
+
+        normalized = {
+            key: max(0.0, float(value)) / float(total)
+            for key, value in boosted.items()
+        }
+        return normalized, True
+
+    def _select_target_marker(
+        self,
+        *,
+        eligible: list[Marker],
+        snapshot: EnvironmentSnapshot,
+    ) -> tuple[Marker, bool]:
+        recovery_active = self._recovery_active(snapshot)
+        stickiness_line = self._active_stickiness_line(snapshot)
+        continuity_bonus = float(
+            self._stickiness_config().get("continuity_bonus", 0.08)
+        )
+
+        scored: list[tuple[float, float, float, str, Marker]] = []
+        for marker in eligible:
+            score = float(marker.intensity) - float(marker.inhibition)
+            conflict_penalty = self._marker_conflict_penalty(marker)
+            if recovery_active:
+                score -= conflict_penalty
+
+            if stickiness_line is not None:
+                if marker.id == str(stickiness_line.get("marker_id", "")).strip():
+                    score += continuity_bonus
+                elif marker.target == str(stickiness_line.get("target", "")).strip():
+                    score += continuity_bonus / 2.0
+
+            scored.append(
+                (
+                    -score,
+                    conflict_penalty,
+                    marker.inhibition,
+                    marker.id,
+                    marker,
+                )
+            )
+
+        scored.sort()
+        recovery_preference_applied = recovery_active and len(scored) > 1
+        return scored[0][4], recovery_preference_applied
+
+    def _marker_conflict_penalty(self, marker: Marker) -> float:
+        stats = marker.payload.get("runtime_lock_stats", {})
+        if not isinstance(stats, dict):
+            return 0.0
+
+        conflict_rate = max(0.0, min(1.0, float(stats.get("conflict_rate", 0.0))))
+        ticks_since = stats.get("ticks_since_last_conflict")
+        recency_penalty = 0.0
+        if isinstance(ticks_since, int):
+            recency_penalty = 1.0 / float(1 + max(0, ticks_since))
+        return max(conflict_rate, recency_penalty)
+
+    def _record_productive_line(self, *, decision: Decision) -> None:
+        previous_marker_id = str(self._productive_line.get("marker_id", "")).strip()
+        previous_action = str(self._productive_line.get("action_type", "")).strip()
+        same_line = (
+            previous_marker_id == str(decision.marker_id).strip()
+            and previous_action == str(decision.action_type).strip()
+        )
+        streak = int(self._productive_line.get("streak", 0)) + 1 if same_line else 1
+        self._productive_line = {
+            "marker_id": str(decision.marker_id).strip(),
+            "target": str(decision.target).strip(),
+            "action_type": str(decision.action_type).strip(),
+            "tick": int(getattr(decision, "tick", 0)),
+            "streak": streak,
+        }
+
+    def _active_stickiness_line(
+        self,
+        snapshot: EnvironmentSnapshot,
+    ) -> dict[str, Any] | None:
+        cfg = self._stickiness_config()
+        if not bool(cfg.get("enabled", False)) or self._recovery_active(snapshot):
+            return None
+
+        last_tick = int(self._productive_line.get("tick", -1))
+        if last_tick < 0:
+            return None
+
+        window = max(1, int(cfg.get("recent_progress_window", 3)))
+        if int(snapshot.tick) - last_tick > window:
+            return None
+
+        streak = int(self._productive_line.get("streak", 0))
+        max_reuse = max(1, int(cfg.get("max_consecutive_reuse", 2)))
+        if streak > max_reuse:
+            return None
+        return dict(self._productive_line)
+
+    def _stickiness_config(self) -> dict[str, Any]:
+        agents_cfg = dict(self.config.get("agents", {}))
+        return dict(agents_cfg.get("stickiness", {}))
+
+    def _recovery_active(self, snapshot: EnvironmentSnapshot) -> bool:
+        recovery_cfg = snapshot.control.get("recovery", {})
+        if not isinstance(recovery_cfg, dict):
+            return False
+        return bool(recovery_cfg.get("active", False))
 
     def _apply_local_sensing(self, markers: list[Marker]) -> list[Marker]:
         cfg = self._local_sensing_config()

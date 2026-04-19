@@ -6,13 +6,13 @@ This file provides guidance to GitHub Copilot / Codex when working in this repos
 
 Stigmergic orchestration framework V3 (runtime overhaul on top of V2 foundations) for a Master's thesis (EMLV).
 
-Current repository state is **Sprint 6 V3**: Sprint 5 runtime + TravelPlanner domain adapter (workspace/tools/evaluator), legacy V0.1 cleanup, TravelPlanner validation tests, and V4 stigmergic-correction features (local sensing, time decay, frequentation, emergent conflict resolution, emergence feedback).
+Current repository state is **Sprint 8 V6 general runtime controls**: Sprint 7 V5-full baseline + paired-seed-ready V6 presets + explicit lock telemetry + unified stagnation recovery controller + short-horizon stickiness + generic targeted repair contract.
 
-## Current Scope (Sprint 6 V3)
+## Current Scope (Sprint 8 V6 General Runtime Controls)
 
 Implemented:
 - `core/marker.py` — generic marker model + configurable state machine + `last_active_at`
-- `core/marker_store.py` — SQLite (WAL) transactional marker store + locks + differential decay + read tracking/frequentation + pruning + SQL queries + optional session isolation
+- `core/marker_store.py` — SQLite (WAL) transactional marker store + locks + lock-attempt telemetry + differential decay + read tracking/frequentation + pruning + SQL queries + optional session isolation
 - `core/decay.py` — intensity/inhibition decay + per-marker-type decay + read-time effective intensity
 - `core/schemas.py` — Pydantic schemas for structured LLM/tool outputs
 - `core/dependency.py` — DAG validation, topological ordering, unblocked filtering
@@ -20,27 +20,34 @@ Implemented:
 - `core/emergence.py` — 8-run emergence metrics from tick rows + audit collaboration parsing + feedback adaptations
 - `core/guardrails.py` — deep norms (budget, retry limit, lock TTL, traceability)
 - `core/audit.py` — append-only JSONL audit trail
-- `core/config.py` + `config/default.yaml` — V3 config sections (`reinforcement`, `decompose`, `async`, marker decay map/pruning/session)
-- `core/tool_registry.py` — tool contracts + action registry
+- `core/config.py` + `config/default.yaml` — V3 config sections + V6 recovery/stickiness/targeted-repair validation
+- `core/tool_registry.py` — tool contracts + action registry + generic validation/repair contract
 - `core/pressure.py` — pressure computation + softmax action selection + optional ACO `heuristic_fn`
-- `core/environment.py` — runtime wrapper with reinforcement + propagation + time-decayed snapshots + maintenance metrics + lesson marker deposit
-- `core/agent.py` — dependency-aware candidate selection (`unblocked_markers`) + episodic memory recall/reinforcement + local-sensing affinity profile
-- `core/orchestrator.py` — parallel tick loop + async execution + session_id + emergence summary + emergent conflict resolution + feedback loop
+- `core/environment.py` — runtime wrapper with reinforcement + propagation + time-decayed snapshots + control overlays + targeted repair-marker deposit
+- `core/agent.py` — dependency-aware candidate selection (`unblocked_markers`) + episodic memory recall/reinforcement + local-sensing affinity profile + V6 stickiness/recovery-aware targeting
+- `core/orchestrator.py` — parallel tick loop + async execution + session_id + emergence summary + emergent conflict resolution + feedback loop + V6 recovery controller/dynamic idle
 - `adapters/base.py` — domain adapter/objective/workspace contracts
 - `adapters/assistant/*` — generic assistant adapter + local workspace context summarization
 - `adapters/travelplanner/*` — TravelPlanner workspace + domain tools + adapter + evaluator
+- `adapters/travelplanner/langgraph_supervisor.py` — LangGraph supervisor scientific baseline
 - `tools/*` — infrastructure tools (`file_read`, `file_write`, async `bash_exec`, `web_search`, typed `think`, bounded DAG-aware `decompose`)
 - `llm/client.py` + `llm/prompts.py` — provider-aware sync+async client with structured response validation, memory/lesson prompt contexts
 - `main.py` — multi-adapter CLI (`assistant`, `travelplanner`) with per-run session_id, session DB path, DAG/reinforcement metadata + emergence dashboard
 - `config/assistant.yaml` — assistant mode overrides
 - `config/travelplanner.yaml` — TravelPlanner mode overrides
+- `config/travelplanner_v4_only.yaml` — V4-only ablation preset
+- `config/ablation/v5_full.yaml` — V5-full execution preset (`max_ticks=80`, `num_agents=6`)
+- `config/ablation/v6_base.yaml` / `v6_A.yaml` / `v6_B.yaml` / `v6_C.yaml` — V6 phase-1 ablation presets
 - `scripts/setup_travelplanner.py` — dataset/database setup helper
-- `tests/unit/*` + `tests/integration/*` — 235 tests passed (TravelPlanner + V4 stigmergic corrections included)
+- `scripts/run_travelplanner_framework_benchmark.py` — framework benchmark runner with inclusive `--start/--end` aliases and subset-aware official scoring
+- `scripts/tune_aco_travelplanner.py` — train-only ACO grid tuner that updates `config/ablation/v5_full.yaml`
+- `tests/unit/*` + `tests/integration/*` — V6 runtime tests added; targeted validation in this task: `77 passed` unit + `5 passed` TravelPlanner integration
 
 Not implemented yet:
 - CodeMigration adapter (V2)
 - SWE-bench adapter
-- baseline runners aligned with V2 runtime
+- live train tuning execution and 3-seed V5-full validation benchmark campaign are still operator-run, not executed automatically in this task
+- paired-seed `v5_full` vs `v6_base` replay and the comparative `V6-A/B/C` benchmark campaign are still operator-run, not executed automatically in this task
 - Pareto instrumentation aligned with V2 runtime
 
 ## Architecture Baseline
@@ -70,11 +77,14 @@ Public methods:
 - `query_markers`
 - `acquire_lock`
 - `release_lock`
+- `record_lock_attempt`
 - `apply_decay`
 - `apply_frequentation`
 - `maintain_locks`
 - `record_read`
 - `read_count`
+- `lock_stats`
+- `lock_stats_snapshot`
 - `snapshot`
 
 ### Agent Runtime
@@ -83,10 +93,12 @@ Public methods:
 1. environment maintenance (TTL + decay)
    - optional frequentation reinforcement during maintenance
 2. snapshot
+   - optional recovery-control overlay on top of the persisted marker field
 3. parallel `perceive_and_decide`
 4. lock arbitration (sequential or emergent weighted contention resolution)
 5. parallel `execute`
 6. sequential deposit via `Environment.apply_action_result`
+   - optional targeted repair-marker materialization
 7. optional emergence feedback adaptation
 8. stop-condition checks (`all_terminal`, `idle_cycles`, `budget_exhausted`, `max_ticks`)
 
@@ -151,9 +163,14 @@ config/
   default.yaml
   assistant.yaml
   travelplanner.yaml
+  travelplanner_v4_only.yaml
+  ablation/
+    v5_full.yaml
 
 scripts/
   setup_travelplanner.py
+  run_travelplanner_framework_benchmark.py
+  tune_aco_travelplanner.py
 
 tests/
   conftest.py
@@ -194,15 +211,12 @@ uv venv --python 3.11 .venv
 uv pip install -r requirements.txt
 ```
 
-### Sprint 6 validation
+### Sprint 8 validation
 
 ```bash
-uv run pytest tests/unit -v
-uv run pytest tests/integration/test_assistant_run.py tests/integration/test_travelplanner.py -v
-uv run pytest tests/ -v
-uv run python main.py --adapter assistant --objective "Summarize workspace status"
-uv run python scripts/setup_travelplanner.py
-uv run python main.py --adapter travelplanner --objective "Query 0"
+uv run pytest tests/unit/test_config.py tests/unit/test_marker_store.py tests/unit/test_environment.py tests/unit/test_agent.py tests/unit/test_orchestrator.py tests/unit/test_travelplanner_tools.py -q
+uv run pytest tests/integration/test_travelplanner.py -q
+uv run python main.py --adapter travelplanner --config config/ablation/v6_A.yaml --objective "Query 0"
 ```
 
 ## Code Style Guidelines

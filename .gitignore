@@ -1,5 +1,6 @@
 # Environment
 .env
+.env.*
 .env.local
 .venv/
 
@@ -50,6 +51,9 @@ logs/
 metrics/output/
 output/travelplanner_smoke/
 output/travelplanner_official_full_eval/
+output/travelplanner_framework_compare/
+output/docker_cache/
+seed*.log
 
 # Temporary files
 *.tmp

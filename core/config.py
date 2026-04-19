@@ -92,6 +92,14 @@ def validate_config(config: Mapping[str, Any]) -> None:
             minimum=0.0,
             maximum=1.0,
         )
+    stickiness = dict(agents.get("stickiness", {}))
+    if stickiness:
+        enabled = stickiness.get("enabled", False)
+        if not isinstance(enabled, bool):
+            raise ConfigError("agents.stickiness.enabled must be a boolean")
+        _validate_int(stickiness, "recent_progress_window", minimum=1)
+        _validate_float(stickiness, "continuity_bonus", minimum=0.0)
+        _validate_int(stickiness, "max_consecutive_reuse", minimum=1)
 
     markers = config["markers"]
     decay_type = str(markers.get("decay_type", ""))
@@ -153,6 +161,50 @@ def validate_config(config: Mapping[str, Any]) -> None:
         if not isinstance(enabled, bool):
             raise ConfigError("orchestrator.emergent_resolution.enabled must be a boolean")
         _validate_float(emergent_resolution, "base_probability", minimum=0.0)
+    recovery_controller = dict(orchestrator.get("recovery_controller", {}))
+    if recovery_controller:
+        enabled = recovery_controller.get("enabled", False)
+        if not isinstance(enabled, bool):
+            raise ConfigError(
+                "orchestrator.recovery_controller.enabled must be a boolean"
+            )
+        _validate_int(recovery_controller, "stagnation_ticks", minimum=1)
+        _validate_float(
+            recovery_controller,
+            "contention_threshold",
+            minimum=0.0,
+            maximum=1.0,
+        )
+        _validate_int(recovery_controller, "recovery_cooldown_ticks", minimum=0)
+        _validate_float(recovery_controller, "temperature_boost", minimum=0.0)
+        _validate_int(recovery_controller, "temperature_boost_duration", minimum=1)
+        _validate_float(
+            recovery_controller,
+            "inhibition_relief",
+            minimum=0.0,
+            maximum=1.0,
+        )
+        dynamic_idle = dict(recovery_controller.get("dynamic_idle", {}))
+        if dynamic_idle:
+            idle_enabled = dynamic_idle.get("enabled", False)
+            if not isinstance(idle_enabled, bool):
+                raise ConfigError(
+                    "orchestrator.recovery_controller.dynamic_idle.enabled must be a boolean"
+                )
+            _validate_int(dynamic_idle, "node_per_idle_cycle", minimum=1)
+            _validate_int(dynamic_idle, "max_extra_idle_cycles", minimum=0)
+    targeted_repair = dict(orchestrator.get("targeted_repair", {}))
+    if targeted_repair:
+        enabled = targeted_repair.get("enabled", False)
+        if not isinstance(enabled, bool):
+            raise ConfigError("orchestrator.targeted_repair.enabled must be a boolean")
+        _validate_int(targeted_repair, "max_cycles", minimum=1)
+        _validate_float(
+            targeted_repair,
+            "repair_marker_intensity",
+            minimum=0.0,
+            maximum=1.0,
+        )
 
     emergence = config["emergence"]
     enabled = emergence.get("enabled")

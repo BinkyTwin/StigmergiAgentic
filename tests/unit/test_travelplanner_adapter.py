@@ -137,6 +137,127 @@ def test_evaluate_run_returns_travelplanner_metrics(tmp_path: Path, config_dict:
     assert "delivery_rate" in metrics
 
 
+def test_evaluate_run_exposes_query_failure_reason(
+    tmp_path: Path,
+    config_dict: dict,
+) -> None:
+    config = _build_config(tmp_path, config_dict)
+    adapter = TravelPlannerAdapter(config=config)
+    workspace = adapter.create_workspace(config)
+    query = workspace.get_query(0)
+
+    metrics = adapter.evaluate_run(
+        {
+            "markers": [
+                {
+                    "id": "query::plan_itinerary",
+                    "marker_type": "task",
+                    "target": "query::plan_itinerary",
+                    "intensity": 0.2,
+                    "state": "terminal",
+                    "payload": {
+                        "query_idx": 0,
+                        "query_data": query,
+                        "plan": [],
+                        "failure_reason": "empty_plan_after_max_attempts",
+                        "failure_history": [
+                            "schema_parse_failed",
+                            "empty_plan_from_llm",
+                            "empty_plan_after_max_attempts",
+                        ],
+                    },
+                    "created_by": "seed",
+                    "created_at": "2026-04-13T00:00:00+00:00",
+                    "updated_by": "seed",
+                    "updated_at": "2026-04-13T00:00:00+00:00",
+                    "history": ["created"],
+                },
+                {
+                    "id": "query::validate_constraints",
+                    "marker_type": "task",
+                    "target": "query::validate_constraints",
+                    "intensity": 0.2,
+                    "state": "terminal",
+                    "retry_count": 3,
+                    "payload": {
+                        "query_idx": 0,
+                        "query_data": query,
+                        "plan": [],
+                        "evaluation": {"delivery_rate": 0.0, "final_pass": False},
+                        "failure_reason": "validator_replan_exhausted",
+                    },
+                    "created_by": "seed",
+                    "created_at": "2026-04-13T00:00:00+00:00",
+                    "updated_by": "seed",
+                    "updated_at": "2026-04-13T00:00:00+00:00",
+                    "history": ["created"],
+                },
+                {
+                    "id": "query::finalize",
+                    "marker_type": "task",
+                    "target": "query::finalize",
+                    "intensity": 0.2,
+                    "state": "terminal",
+                    "payload": {
+                        "query_idx": 0,
+                        "query_data": query,
+                        "final_plan": [],
+                        "evaluation": {"delivery_rate": 0.0, "final_pass": False},
+                        "failure_reason": "validator_replan_exhausted",
+                    },
+                    "created_by": "seed",
+                    "created_at": "2026-04-13T00:00:00+00:00",
+                    "updated_by": "seed",
+                    "updated_at": "2026-04-13T00:00:00+00:00",
+                    "history": ["created"],
+                },
+            ],
+            "stop_reason": "all_terminal",
+        }
+    )
+
+    assert metrics["failure_reason"] == "empty_plan_after_max_attempts"
+    assert metrics["query_results"][0]["failure_reason"] == "empty_plan_after_max_attempts"
+
+
+def test_evaluate_run_falls_back_to_orchestrator_stop_reason(
+    tmp_path: Path,
+    config_dict: dict,
+) -> None:
+    config = _build_config(tmp_path, config_dict)
+    adapter = TravelPlannerAdapter(config=config)
+    workspace = adapter.create_workspace(config)
+    query = workspace.get_query(0)
+
+    metrics = adapter.evaluate_run(
+        {
+            "markers": [
+                {
+                    "id": "query::search_flights_outbound",
+                    "marker_type": "task",
+                    "target": "query::search_flights_outbound",
+                    "intensity": 0.8,
+                    "state": "pending",
+                    "payload": {
+                        "query_idx": 0,
+                        "query_data": query,
+                        "eligible_actions": ["search_flights"],
+                    },
+                    "created_by": "seed",
+                    "created_at": "2026-04-13T00:00:00+00:00",
+                    "updated_by": "seed",
+                    "updated_at": "2026-04-13T00:00:00+00:00",
+                    "history": ["created"],
+                }
+            ],
+            "stop_reason": "max_ticks",
+        }
+    )
+
+    assert metrics["failure_reason"] == "max_ticks"
+    assert metrics["query_results"][0]["failure_reason"] == "max_ticks"
+
+
 def test_default_query_idx_used_when_objective_not_parseable(
     tmp_path: Path,
     config_dict: dict,

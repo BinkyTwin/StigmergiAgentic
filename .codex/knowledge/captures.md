@@ -1,5 +1,182 @@
 # Project Captures
 
+## 2026-04-19 — Paired-Seed V6 Readout: Stagnation Relief Shifted the Residual Failure Mass Toward Terminal-Invalid Plans
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `impact_score`: `9/10`
+- `confidence`: `high`
+- `scope`: `Post-hoc analysis of the paired-seed TravelPlanner campaign v5_full vs v6_base vs v6_A over the 2026-04-18 overnight run set`
+
+### Outcome
+
+Analyzed the paired-seed benchmark artifacts in `output/travelplanner_framework_compare/v6_overnight_20260418/` and established a clear V6 progression. `v6_base` confirms the anti-stagnation hypothesis by cutting `idle_cycles` failures and raising delivery plus hard-constraint adherence, but it often converts early collapse into `all_terminal` yet still invalid plans rather than directly into passes. `v6_A` is the best current balance: it raises `final_pass_rate` to `23.6%`, restores delivered-plan quality close to `v5_full`, and reduces runtime plus coordination overhead relative to `v6_base`. The key insight is that the frontier has moved: the main residual problem is no longer only search continuation, but repair of terminal-invalid outputs, which makes `v6_C` the highest-value next ablation.
+
+### Reusable Patterns (1-3)
+
+1. **When an anti-stagnation change reduces `idle_cycles`, always track where the rescued failures migrate next.** If they mostly become `all_terminal` failures instead of passes, the next lever should be repair quality rather than more exploration time.
+2. **Read `final_pass_given_delivery` together with `delivery_rate`.** A preset can look better on coverage while quietly degrading the quality of delivered plans; this distinction was essential to separate `v6_base` from `v6_A`.
+3. **In this TravelPlanner stigmergic regime, better emergence looks like lower switching and higher realized parallelism, not higher collaboration density.** Successful runs consistently used fewer ticks, switched actions less, and realized more parallel work.
+
+### Evidence
+
+- `analysis/travelplanner_v6_benchmark_report_20260419.md`
+- `output/travelplanner_framework_compare/v6_overnight_20260418/v5_full/seed42/runs.json`
+- `output/travelplanner_framework_compare/v6_overnight_20260418/v5_full/seed43/runs.json`
+- `output/travelplanner_framework_compare/v6_overnight_20260418/v6_base/seed42/runs.json`
+- `output/travelplanner_framework_compare/v6_overnight_20260418/v6_base/seed43/runs.json`
+- `output/travelplanner_framework_compare/v6_overnight_20260418/v6_A/seed42/runs.json`
+- `output/travelplanner_framework_compare/v6_overnight_20260418/v6_A/seed43/runs.json`
+
+## 2026-04-17 — Expériences idle_cycles 8/16 et découvertes sur la stagnation différentielle
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `impact_score`: `9/10`
+- `confidence`: `high`
+- `scope`: `Expériences contrôlées idle_cycles_to_stop={4,8,16} sur seed44, même benchmark validation 180 queries, backbone qwen3.5-9b`
+
+### Outcome
+
+Trois découvertes empiriques majeures issues des expériences idle_cycles sur le même seed (seed44) :
+
+**Découverte 1 — Le bénéfice d'idle_cycles est non-uniforme selon la complexité de la query.**
+idle=16 améliore fortement les 7j (+8pp, 11.7% → 20.0%) mais dégrade légèrement les 5j (20.0% → 16.7%) et est neutre sur les 3j. Cela confirme que la stagnation a deux causes distinctes : pour les 7j, le swarm a besoin de temps pour résoudre les dépendances inter-city via decay et réactivation ; pour les 5j, le problème est structurel (sous-objectifs perdus dans le DAG) et plus de temps ne suffit pas.
+
+**Découverte 2 — Le seuil idle_cycles a un effet de palier, pas continu.**
+Entre idle=4 et idle=8 : aucun gain net (20.6% vs 21.7% — variance seed). Entre idle=8 et idle=16 : gain net sur 7j. Il existe un seuil minimal à franchir pour que le mécanisme de decay+réactivation ait le temps d'agir. idle=8 est en dessous du seuil pour les 7j.
+
+**Découverte 3 — `num_agents: 6` est sur-dimensionné pour le DAG TravelPlanner.**
+Avec 6 agents, seulement ~1.5 travaillent simultanément (`parallel_utilization ≈ 0.22`, soit 1.49/6). `lock_contention_rate ≈ 0.75` indique que 75% des tentatives de lock sont bloquées. Cause structurelle : le DAG TravelPlanner est principalement séquentiel (search → plan → validate → finalize). Ajouter des agents n'augmente pas le parallélisme réel — cela augmente seulement la contention. Le levier est la largeur du DAG (T2), pas le nombre d'agents.
+
+### Chiffres de référence
+
+| Config | 3j | 5j | 7j | Global | Ticks moy | Idle% |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| v5_full idle=4 (seed42) | 33.3% | 20.0% | 11.7% | 21.7% | 19.4 | 50.0% |
+| v5_idle8 idle=8 (seed44) | 33.3% | 20.0% | 8.3% | 20.6% | 24.6 | 52.8% |
+| v5_idle16 idle=16 (seed44) | 31.7% | 16.7% | **20.0%** | **22.8%** | 34.9 | 42.8% |
+
+### Reusable Patterns (1-3)
+
+1. **Toujours stratifier par complexité avant de tuner `idle_cycles_to_stop`.** Un paramètre global unique est sous-optimal : l'optimum pour les 7j est différent de celui pour les 3j. Implémenter un `idle_cycles` dynamique basé sur la taille du DAG (nombre de nodes pending) est la direction correcte.
+2. **`lock_contention_rate > 0.7` + `parallel_utilization < 0.25` est un signal de goulot DAG, pas un signal d'insuffisance d'agents.** Ne pas répondre à ce signal en augmentant `num_agents` — répondre en élargissant le DAG (décomposition plus riche, sous-objectifs persistants).
+3. **Pour les systèmes stigmergiques multi-tâches, l'effet de temps supplémentaire (idle cycles) est utile uniquement si le mécanisme de decay et réactivation a des markers à réactiver.** Si le DAG est épuisé (sous-objectifs perdus), plus de temps ne fait que retarder l'échec.
+
+### Evidence
+- `output/travelplanner_framework_compare/v5_idle8/seed44/official_eval.json`
+- `output/travelplanner_framework_compare/v5_idle16/seed44/official_eval.json`
+- `scripts/analyze_emergence.py`
+- `documentation/redisgn_v2/plan_v6_framework_general_improvement.md`
+
+## 2026-04-17 — Review-Ready V6 Plan for General Framework Improvement Without Benchmark Drift
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `impact_score`: `8/10`
+- `confidence`: `high`
+- `scope`: `Planning document for the next framework-improvement cycle after the ~21% TravelPlanner V5-full validation regime`
+
+### Outcome
+Produced a review-ready plan in `documentation/redisgn_v2/plan_v6_framework_general_improvement.md` that converts the latest emergence analysis into a methodology-safe improvement roadmap. The plan explicitly freezes the benchmark and official scorer, separates framework-general workstreams (anti-stagnation, persistent decomposition, validator-guided repair, anti-thrashing, richer emergence adaptation) from TravelPlanner-only follow-ups, and proposes a clean V6 ablation ladder over the same benchmark conditions.
+
+### Reusable Patterns (1-3)
+1. When benchmark analysis reveals multiple failure regimes, write the next improvement plan around `general framework mechanisms` first and quarantine `adapter-specific heuristics` into a separate section.
+2. For article-grade benchmark work, freeze the scorer, runner semantics, validation split, and baseline config before proposing implementation tasks; review confidence depends on preserving the thermometer.
+3. If the goal is scientific credibility, require every proposed improvement cycle to include its own ablation ladder from the frozen baseline rather than bundling several changes into one un-attributable preset.
+
+### Evidence
+- `documentation/redisgn_v2/plan_v6_framework_general_improvement.md`
+- `output/travelplanner_framework_compare/v5_full/seed42/runs.json`
+- `output/travelplanner_framework_compare/v5_full/seed43/runs.json`
+
+## 2026-04-17 — Query-Type Emergence Failure Regimes in V5-Full Validation
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `impact_score`: `8/10`
+- `confidence`: `high`
+- `scope`: `Type-stratified post-hoc analysis of the latest TravelPlanner V5-full validation seeds around the 21% pass-rate regime`
+
+### Outcome
+Stratified the latest `v5_full` validation results (`seed42`, `seed43`) by TravelPlanner query type using the dataset’s structured fields (`days`, `visiting_city_number`, `level`, `local_constraint`). The analysis shows two distinct failure regimes. `3-day / 1-city` queries mostly produce non-empty plans and fail on constraint satisfaction, especially for hard cases such as `no self-driving`, `private room`, `pets`, or `4 cuisines`. By contrast, `5-day / 2-city` and especially `7-day / 3-city` queries fail primarily through empty-plan collapse and `idle_cycles`, with much later convergence (`14` then `19` ticks on average) and weaker success rates even when the colony remains collaborative. This indicates that the next framework gains should come from type-specific control: constraint-repair hardening for single-city hard queries, and anti-stagnation / stronger decomposition for multi-city queries.
+
+### Reusable Patterns (1-3)
+1. When TravelPlanner pass rate is around the low-20% range, always separate `single-city constraint failure` from `multi-city empty-plan collapse`; the aggregate score mixes two different bottlenecks that require different fixes.
+2. Use `empty_plan_rate ~= idle_cycle_rate` as a practical signature of coordination exhaustion in multi-city runs; if those ratios rise together, the issue is search/decomposition rather than final-plan validation.
+3. Hard constraints can either overload the planner or provide useful scaffolding depending on query topology: in `3/1` they mostly expose weak constraint handling, while in `7/3` they can outperform easier prompts by giving the colony a more explicit search structure.
+
+### Evidence
+- `output/travelplanner_framework_compare/v5_full/seed42/runs.json`
+- `output/travelplanner_framework_compare/v5_full/seed43/runs.json`
+- `config/ablation/v5_full.yaml`
+- `adapters/travelplanner/workspace.py`
+
+## 2026-04-17 — V5-Full Emergence Signal Analysis on Validation Seeds 42 and 43
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `impact_score`: `7/10`
+- `confidence`: `high`
+- `scope`: `Post-hoc analysis of TravelPlanner V5-full validation run emergence metrics for the latest stigmergic benchmark seeds`
+
+### Outcome
+Analyzed `summary.emergence` for all 180 queries in the latest `v5_full` validation runs (`seed42`, `seed43`) and compared the emergent metrics against `final_pass`, `stop_reason`, and seed-to-seed flips. The strongest positive signals for query success were high `pressure_entropy` and high `parallel_utilization`, while late `convergence_tick` consistently tracked worse outcomes. `action_switching_rate` behaved differently across seeds but was clearly harmful in `seed42` when it became too high, suggesting that useful emergence in this preset looks more like sustained diversified pressure with actual parallel work than like rapid role thrashing or maximal collaboration density.
+
+### Reusable Patterns (1-3)
+1. For TravelPlanner post-hoc analysis, treat `pressure_entropy` and `parallel_utilization` as the primary positive emergence indicators; they separated pass/fail far more clearly than `collaboration_density` or `colony_specialization` in the latest validation seeds.
+2. Interpret a high `convergence_tick` as delayed colony stabilization rather than automatically as “more exploration”; in `v5_full`, later convergence coincided with more `idle_cycles` failures and lower final pass.
+3. When two seeds disagree on a query outcome, inspect the joint profile `{convergence_tick, pressure_entropy, parallel_utilization, action_switching_rate}` before reading the difference as random variance; the flip cases often show a coherent shift in those signals.
+
+### Evidence
+- `output/travelplanner_framework_compare/v5_full/seed42/runs.json`
+- `output/travelplanner_framework_compare/v5_full/seed43/runs.json`
+- `output/travelplanner_framework_compare/v5_full/seed42/queries/query_063.json`
+- `output/travelplanner_framework_compare/v5_full/seed43/queries/query_063.json`
+- `output/travelplanner_framework_compare/v5_full/seed42/queries/query_170.json`
+- `output/travelplanner_framework_compare/v5_full/seed43/queries/query_170.json`
+
+## 2026-04-13 — Self-Refine Baseline Transport-Failure Hardening
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `impact_score`: `8/10`
+- `confidence`: `high`
+- `scope`: `Implementation of T3 for the TravelPlanner solo_self_refine scientific baseline`
+
+### Outcome
+Confirmed from the historical run artifacts that `solo_self_refine` seed 43 failed on `query_idx=139` because `self_refine_draft` propagated an `openai.APIConnectionError` out of `scientific_baselines.py:_call_llm`. Hardened the baseline by adding one extra node-level retry in `TravelPlannerScientificBaselineRunner`, broadening critique fallback from parse-only failures to all provider exceptions, and adding explicit Self-Refine fallbacks so a draft failure returns an empty query payload and a reviser failure reuses the draft instead of aborting the full seed.
+
+### Reusable Patterns (1-3)
+1. In long scientific baseline batches, treat provider transport failures as query-local degradations whenever the method can still emit a scorer-compatible payload; otherwise one network blip invalidates the whole seed.
+2. For Self-Refine specifically, `critic` can fall back to validator-derived repair instructions and `reviser` can fall back to the last valid draft without violating the method’s overall draft-critique-revise structure.
+3. Add resilience first at the orchestration-node boundary (`_call_llm` wrapper + stage-specific fallback) rather than changing the shared LLM client when the client already handles transport retries generically.
+
+### Evidence
+- `output/travelplanner_framework_compare/20260409_233919/scientific_pack/run_registry.csv`
+- `output/travelplanner_framework_compare/20260409_233919/runs/solo_self_refine/seed_43/full/logs/query_139.log`
+- `adapters/travelplanner/scientific_baselines.py`
+- `tests/unit/test_travelplanner_scientific_baselines.py`
+- `uv run pytest tests/unit/test_travelplanner_scientific_baselines.py -q`
+
+## 2026-04-13 — TravelPlanner V4-Only Preset and Query-Level Failure Taxonomy
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `impact_score`: `8/10`
+- `confidence`: `high`
+- `scope`: `Implementation of T1/T2 from the V5 framework-improvement plan for TravelPlanner`
+
+### Outcome
+Implemented a clean `config/travelplanner_v4_only.yaml` preset that activates only the five opt-in V4 stigmergic corrections, and added query-level runtime failure taxonomy for TravelPlanner by persisting planning/validation failure reasons on markers, surfacing `failure_reason` in adapter evaluation and single-query exports, and propagating the same field into benchmark `runs.json` plus failure-reason summaries.
+
+### Reusable Patterns (1-3)
+1. Persist operational failure causes on workflow markers (`failure_reason`, `last_failure_reason`, `failure_history`) rather than only in transient tool metadata; adapter-level post-processing can then reconstruct query outcomes without touching the core orchestrator.
+2. In benchmark domains, distinguish `operational failure taxonomy` from `quality scoring`: a non-empty evaluated plan can remain `ok` operationally even when `final_pass` is false, while empty-plan and control-flow breakdowns get explicit machine-readable reasons.
+3. Keep pure ablation presets as dedicated config files that only flip the intended feature gates and preserve agent count, pressure parameters, and tick budget unchanged.
+
+### Evidence
+- `config/travelplanner_v4_only.yaml`
+- `adapters/travelplanner/tools.py`
+- `adapters/travelplanner/adapter.py`
+- `scripts/run_travelplanner_query_export.py`
+- `scripts/run_travelplanner_framework_benchmark.py`
+- `uv run pytest tests/unit/test_config.py tests/unit/test_travelplanner_tools.py tests/unit/test_travelplanner_adapter.py tests/unit/test_travelplanner_benchmark_runner.py -q`
+- `uv run pytest tests/integration/test_travelplanner.py -q`
+
 ## 2026-04-12 — V5 Plan Review for TravelPlanner Scientific Campaign
 
 - `repo_slug`: `stigmergiagentic-33b989`
@@ -1333,3 +1510,115 @@ Implemented a TravelPlanner-side multi-city path that infers `city_sequence` fro
 - `adapters/travelplanner/tools.py`
 - `tests/fixtures/travelplanner_data.py`
 - `tests/unit/test_travelplanner_multi_city.py`
+
+## 2026-04-14 — TravelPlanner T5 Continue-on-Error Runner
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `impact_score`: `8/10`
+- `confidence`: `high`
+- `scope`: `Implement T5 end-to-end in the TravelPlanner framework benchmark runner with per-query failure checkpoints, failure taxonomy, and explicit full-denominator scorer semantics`
+
+### Outcome
+Implemented T5 in the TravelPlanner batch benchmark runner so a single failing query no longer aborts the whole seed. The runner now persists failed query artifacts with empty-plan outputs and machine-readable failure reasons, continues to the next query, writes an enriched `benchmark_summary.json` with success/failure ratios and tolerance status, and keeps the official scorer contract explicit: campaign resilience improves resumability and traceability without changing the official evaluation denominator.
+
+### Reusable Patterns (1-3)
+1. In batch benchmark runners, convert per-item subprocess failures into checkpointable result payloads so resumed runs stay deterministic and auditable.
+2. Keep failed query artifacts structurally compatible with downstream scorers by emitting explicit empty-plan outputs rather than omitting the query from the run ledger.
+3. When resilience changes runner behavior but not scorer behavior, encode the denominator semantics directly in the machine-readable summary to prevent later misinterpretation.
+
+### Evidence
+- `scripts/run_travelplanner_framework_benchmark.py`
+- `tests/unit/test_travelplanner_benchmark_runner.py`
+- `scripts/eval_travelplanner_official.py`
+
+## 2026-04-16 — TravelPlanner V5-Full Execution Hardening
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `impact_score`: `9/10`
+- `confidence`: `high`
+- `scope`: `Implement TravelPlanner-side V5-full execution upgrades (preset, marker shaping, train-only few-shots, train-only tuning script, and benchmark-runner subset alignment) without modifying core/`
+
+### Outcome
+Implemented the V5-full execution layer entirely outside `core/`: a new `config/ablation/v5_full.yaml` preset, marker shaping in TravelPlanner tools, train-only few-shot prompt enrichment with warning-only fallback, and a train-only ACO tuning script that writes temporary train configs and can apply the winning values back to the V5 preset. The existing framework benchmark runner was extended to accept the planned `stigmergic` CLI alias plus inclusive `--start/--end`, and to propagate the evaluated subset bounds to the official scorer. Local validation finished with `275 passed` once the declared `langgraph` dependency was made available for the run.
+
+### Reusable Patterns (1-3)
+1. When a benchmark improvement plan forbids `core/` changes, concentrate steering logic in adapter-local tool state updates plus benchmark-script alignment rather than pushing experiment-specific behavior into the generic runtime.
+2. For train-only tuning against a validation preset, generate temporary split-overridden configs for the tuning runs and only write the winning scalar hyperparameters back to the reusable base preset.
+3. If a benchmark runner already emits per-query artifacts, make subset official scoring explicit by forwarding the requested index bounds to the scorer instead of inferring subset semantics from the partial run ledger.
+
+### Evidence
+- `config/ablation/v5_full.yaml`
+- `adapters/travelplanner/tools.py`
+- `scripts/run_travelplanner_framework_benchmark.py`
+- `scripts/tune_aco_travelplanner.py`
+- `tests/unit/test_travelplanner_marker_shaping.py`
+
+## 2026-04-17 — V6 Framework Plan Review for Executability and Attribution
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `impact_score`: `7/10`
+- `confidence`: `high`
+- `scope`: `Review the proposed V6 framework-improvement plan against the current runtime extension points, benchmark methodology, and existing TravelPlanner repair loop`
+
+### Outcome
+Reviewed `documentation/redisgn_v2/plan_v6_framework_general_improvement.md` against the live codebase and found the overall direction methodologically strong: benchmark freeze, framework-vs-adapter separation, and stratified metrics are all sound. The main caveats are executional: the idle-cycle evidence currently mixes seeds across configs, T1 and T5 overlap with the existing emergence feedback control plane, `marker_reads` are not a reliable proxy for lock contention, T2 is a representation-contract redesign rather than a light runtime tweak, and T3 partly duplicates an adapter-local repair loop that already exists in TravelPlanner.
+
+### Reusable Patterns (1-3)
+1. Before accepting a framework-improvement plan, verify that every proposed hook maps to an existing runtime extension point rather than assuming the current architecture already exposes the needed control surface.
+2. If a runtime already has one adaptive control loop, route new anti-stagnation and temperature logic through that same control plane unless you explicitly want competing controllers.
+3. When comparing benchmark configs, keep seed pairing consistent across variants before drawing causal conclusions from pass-rate deltas.
+
+### Evidence
+- `documentation/redisgn_v2/plan_v6_framework_general_improvement.md`
+- `core/orchestrator.py`
+- `core/emergence.py`
+- `core/agent.py`
+- `core/marker_store.py`
+- `tools/decompose.py`
+- `adapters/travelplanner/tools.py`
+
+## 2026-04-18 — V6 Plan Rewritten Into a Three-Arm, Executable Framework Ablation
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `impact_score`: `8/10`
+- `confidence`: `high`
+- `scope`: `Rewrite the V6 framework-improvement plan into a more executable roadmap with paired-seed baseline discipline, a unified control plane, and three attributable ablation arms`
+
+### Outcome
+Rewrote `documentation/redisgn_v2/plan_v6_framework_general_improvement.md` into a tighter V6 roadmap. The new version keeps the original scientific boundary conditions, explicitly downgrades mixed-seed `idle=16` evidence to directional status until rerun on paired seeds, merges anti-stagnation and dynamic adaptation into one runtime control plane, reduces the first ablation cycle to `V6-A`, `V6-B`, and `V6-C`, and defers persistent subgoal coverage to a separate `V6.2` track because it changes task representation rather than lightly tuning the runtime.
+
+### Reusable Patterns (1-3)
+1. When an improvement plan has too many additive steps, convert it into a short branching ablation around one shared core change so each gain remains attributable.
+2. If benchmark evidence mixes seeds across configs, preserve the insight but mark it as directional until a paired-seed replay confirms the effect.
+3. Separate runtime control-plane upgrades from task-representation redesigns; the former fit first-pass ablations, the latter deserve their own scoped plan.
+
+### Evidence
+- `documentation/redisgn_v2/plan_v6_framework_general_improvement.md`
+
+## 2026-04-18 — V6 Phase-1 Runtime Controls, Lock Telemetry, and Generic Targeted Repair
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `impact_score`: `9/10`
+- `confidence`: `high`
+- `scope`: `Implement the first executable V6 framework wave in core runtime + TravelPlanner bridge, with frozen V5 reference and dedicated V6 ablation presets`
+
+### Outcome
+Implemented the executable phase-1 V6 framework surface in the generic runtime. `core.marker_store` now records explicit lock-attempt telemetry through `marker_lock_events` and exposes aggregated `lock_stats`; `core.orchestrator` now owns a bounded recovery controller with dynamic idle and activation audit; `core.agent` now supports short-horizon stickiness plus recovery-aware target choice; and `core.tool_registry` / `core.environment` now expose a generic validation/repair contract that can materialize repair markers when enabled. TravelPlanner was bridged to that contract behind an opt-in flag, and new ablation presets (`v6_base`, `v6_A`, `v6_B`, `v6_C`) were added while leaving `v5_full.yaml` untouched.
+
+### Reusable Patterns (1-3)
+1. For benchmark-sensitive runtime upgrades, preserve the old reference preset and express new behavior through explicit config gates plus dedicated ablation presets.
+2. If a coordination controller needs contention awareness, instrument real lock attempts and conflicts directly, then expose the aggregated signal both to the controller and to agent snapshots.
+3. A generic repair contract stays clean when the adapter owns `what to repair` and `why`, while the runtime owns `how to materialize and track the repair execution surface`.
+
+### Evidence
+- `core/marker_store.py`
+- `core/orchestrator.py`
+- `core/agent.py`
+- `core/environment.py`
+- `core/tool_registry.py`
+- `adapters/travelplanner/tools.py`
+- `config/ablation/v6_base.yaml`
+- `config/ablation/v6_A.yaml`
+- `config/ablation/v6_B.yaml`
+- `config/ablation/v6_C.yaml`
+- `documentation/decisions/20260418-sprint8-v6-general-runtime-controls.md`

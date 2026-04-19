@@ -23,6 +23,8 @@ Les ADRs suivent le format : `YYYYMMDD-titre-court.md`
 | 011 | 2026-03-04 | [Sprint 5 V3 Memory, Emergence, and Lesson Markers](20260304-sprint5-v3-memory-emergence-lessons.md) | Accepté | Mémoire agentique, métriques d’émergence, markers lesson, pressure heuristique, dashboard CLI, 168 tests |
 | 012 | 2026-03-05 | [Sprint 6 V3 TravelPlanner Adapter and Programmatic Fidelity Evaluation](20260305-sprint6-travelplanner-adapter-and-fidelity-eval.md) | Accepté | Nettoyage legacy V0.1 + adaptateur TravelPlanner complet (workspace/tools/evaluator) + métriques paper-facing + intégration CLI + 209 tests |
 | 013 | 2026-03-22 | [Sprint 6 V4 Stigmergic Corrections and Opt-In Runtime Adaptivity](20260322-sprint6-v4-stigmergic-corrections.md) | Accepté | Local sensing, temporal decay, frequentation, emergent contention resolution, and feedback adaptation added as opt-in runtime features with 235 tests |
+| 014 | 2026-04-16 | [Sprint 7 V5-Full Execution Hardening](20260416-sprint7-v5-full-execution-hardening.md) | Accepté | TravelPlanner-side V5 execution improvements: marker shaping, train-only few-shots/tuning, V5 preset, and benchmark-runner subset alignment |
+| 015 | 2026-04-18 | [Sprint 8 V6 General Runtime Controls and Targeted Repair](20260418-sprint8-v6-general-runtime-controls.md) | Accepté | Generic V6 phase-1 runtime controls: lock telemetry, unified recovery controller, stickiness, targeted repair contract, and frozen V6 ablation presets |
 
 ---
 
@@ -42,4 +44,4 @@ Quand NE PAS créer un ADR :
 
 ---
 
-**Dernière mise à jour** : 2026-03-22
+**Dernière mise à jour** : 2026-04-18

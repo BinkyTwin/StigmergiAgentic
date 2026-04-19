@@ -180,8 +180,9 @@ Ce constat motive la problématique suivante :
 \begin{quote}
 Comment concevoir un framework d\textquotesingle orchestration
 multi-agents à coordination stigmergique, généraliste et gouvernable,
-capable de surpasser les architectures hiérarchiques sur des tâches
-complexes de coordination sous contraintes ?
+capable d\textquotesingle être comparé rigoureusement à des baselines
+hiérarchiques reproductibles sur des tâches complexes de coordination
+sous contraintes ?
 La transformation de code constitue le domaine
 d\textquotesingle application principal pour la validation empirique de
 ces principes de conception.
@@ -204,9 +205,11 @@ conformément à la méthodologie Design Science Research adoptée
   sans assignation explicite de rôles, conformément aux principes
   des systèmes adaptatifs complexes.
 \item
-  OC3, Supériorité sur la planification sous contraintes : Surpasser
-  les frameworks centralisés sur le benchmark TravelPlanner (Xie et al.,
-  2024) en score final et en satisfaction des contraintes dures.
+  OC3, Comparaison contrôlée sur la planification sous contraintes :
+  Comparer le framework à des baselines centralisées reproductibles sur
+  le benchmark TravelPlanner (Xie et al., 2024) avec le même backbone,
+  le même protocole d\textquotesingle évaluation et les mêmes
+  contraintes dures.
 \item
   OC4, Spécialisation à la transformation de code : Adapter le
   framework aux tâches de migration et de modernisation logicielle, et
@@ -1968,8 +1971,9 @@ cinq objectifs de conception : (O1) proposer une architecture
 généraliste de coordination stigmergique applicable à des tâches variées ;
 (O2) démontrer l\textquotesingle émergence d\textquotesingle une
 spécialisation des agents sans assignation explicite de rôles ;
-(O3) surpasser les frameworks centralisés sur le benchmark TravelPlanner
-en score final et satisfaction des contraintes dures ;
+(O3) comparer le framework à des baselines centralisées reproductibles
+sur le benchmark TravelPlanner avec le même backbone, le même scorer
+officiel et le même split d\textquotesingle évaluation ;
 (O4) adapter le framework à la transformation de code et atteindre des
 résultats compétitifs sur PolyMigration et SWE-bench ;
 (O5) produire une trace d\textquotesingle audit complète satisfaisant
@@ -2002,8 +2006,17 @@ L\textquotesingle évaluation suit le framework FEDS (Venable, Pries-Heje
 techniques et l\textquotesingle efficacité, en trois épisodes :
 (1) Benchmarks techniques (TravelPlanner pour la validation généraliste,
 PolyMigration et SWE-bench pour la validation spécialisée) comparant
-stigmergique vs. single-agent vs. hiérarchique sur les métriques de
-précision, coût, temps et \emph{overhead} de coordination ;
+StigmergiAgentic à un panel de baselines organisationnelles
+reproductibles partageant le même backbone et le même protocole
+d\textquotesingle évaluation : baseline single-agent directe, baseline
+single-agent avec raisonnement guidé, baseline \emph{self-refine},
+baseline centralisée \emph{planner-executor}, et baseline
+hiérarchique explicite implémentée en LangGraph Supervisor, sur les
+métriques de précision officielle, coût, temps et \emph{overhead} de
+coordination ; une tentative exploratoire de reproduction de
+SwarmAgentic est conservée en annexe technique mais n\textquotesingle entre
+pas dans le tableau principal en raison de sa non-reproductibilité dans
+le protocole contrôlé ;
 (2) Étude de cas sur un projet open source réaliste documentant les
 comportements émergents et les patterns de coordination ;
 (3) Évaluation par experts (5-8 professionnels, architectes logiciels,

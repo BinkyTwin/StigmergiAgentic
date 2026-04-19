@@ -168,6 +168,13 @@ class MarkerStore:
                 return False
 
             if before.lock_owner not in {None, agent_id}:
+                self._record_lock_event_in_tx(
+                    conn=conn,
+                    marker_id=marker_id,
+                    agent_id=agent_id,
+                    tick=tick,
+                    acquired=False,
+                )
                 conn.execute("COMMIT")
                 return False
 
@@ -178,6 +185,13 @@ class MarkerStore:
             after.updated_at = timestamp
 
             self._upsert_in_tx(conn, after)
+            self._record_lock_event_in_tx(
+                conn=conn,
+                marker_id=marker_id,
+                agent_id=agent_id,
+                tick=tick,
+                acquired=True,
+            )
             conn.execute("COMMIT")
 
         self._append_audit(
@@ -458,6 +472,26 @@ class MarkerStore:
                 ),
             )
 
+    def record_lock_attempt(
+        self,
+        *,
+        marker_id: str,
+        agent_id: str,
+        tick: int,
+        acquired: bool,
+    ) -> None:
+        """Persist one explicit lock-attempt outcome for a marker."""
+        with self._connect() as conn:
+            conn.execute("BEGIN IMMEDIATE")
+            self._record_lock_event_in_tx(
+                conn=conn,
+                marker_id=marker_id,
+                agent_id=agent_id,
+                tick=tick,
+                acquired=acquired,
+            )
+            conn.execute("COMMIT")
+
     def read_count(self, marker_id: str, since_tick: int = 0) -> int:
         """Return the number of recorded reads for one marker."""
         with self._connect() as conn:
@@ -472,6 +506,65 @@ class MarkerStore:
         if row is None:
             return 0
         return int(row["total"])
+
+    def lock_stats_snapshot(self, since_tick: int = 0) -> dict[str, dict[str, Any]]:
+        """Return aggregated lock-attempt telemetry per marker."""
+        with self._connect() as conn:
+            rows = conn.execute(
+                """
+                SELECT
+                    marker_id,
+                    COUNT(*) AS attempts,
+                    SUM(CASE WHEN acquired = 0 THEN 1 ELSE 0 END) AS conflicts,
+                    MAX(CASE WHEN acquired = 0 THEN tick END) AS last_conflict_tick,
+                    MAX(CASE WHEN acquired = 1 THEN tick END) AS last_success_tick
+                FROM marker_lock_events
+                WHERE tick >= ?
+                GROUP BY marker_id
+                """,
+                (int(since_tick),),
+            ).fetchall()
+
+        stats: dict[str, dict[str, Any]] = {}
+        for row in rows:
+            attempts = int(row["attempts"] or 0)
+            conflicts = int(row["conflicts"] or 0)
+            conflict_rate = (
+                float(conflicts) / float(attempts)
+                if attempts > 0
+                else 0.0
+            )
+            stats[str(row["marker_id"])] = {
+                "attempts": attempts,
+                "conflicts": conflicts,
+                "conflict_rate": conflict_rate,
+                "last_conflict_tick": (
+                    None
+                    if row["last_conflict_tick"] is None
+                    else int(row["last_conflict_tick"])
+                ),
+                "last_success_tick": (
+                    None
+                    if row["last_success_tick"] is None
+                    else int(row["last_success_tick"])
+                ),
+            }
+        return stats
+
+    def lock_stats(self, marker_id: str, since_tick: int = 0) -> dict[str, Any]:
+        """Return aggregated lock-attempt telemetry for one marker."""
+        return dict(
+            self.lock_stats_snapshot(since_tick=since_tick).get(
+                str(marker_id),
+                {
+                    "attempts": 0,
+                    "conflicts": 0,
+                    "conflict_rate": 0.0,
+                    "last_conflict_tick": None,
+                    "last_success_tick": None,
+                },
+            )
+        )
 
     def prune_markers(self, threshold: float) -> int:
         """Delete markers whose intensity is strictly below threshold."""
@@ -543,6 +636,24 @@ class MarkerStore:
             )
             conn.execute(
                 "CREATE INDEX IF NOT EXISTS idx_marker_reads_tick ON marker_reads(tick)"
+            )
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS marker_lock_events (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    marker_id TEXT NOT NULL,
+                    agent_id TEXT NOT NULL,
+                    tick INTEGER NOT NULL,
+                    acquired INTEGER NOT NULL,
+                    recorded_at TEXT NOT NULL
+                )
+                """
+            )
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_marker_lock_events_tick ON marker_lock_events(tick)"
+            )
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_marker_lock_events_marker ON marker_lock_events(marker_id)"
             )
 
     def _connect(self) -> sqlite3.Connection:
@@ -778,4 +889,28 @@ class MarkerStore:
             return
         conn.execute(
             f"ALTER TABLE {table_name} ADD COLUMN {column_name} {definition}"
+        )
+
+    def _record_lock_event_in_tx(
+        self,
+        *,
+        conn: sqlite3.Connection,
+        marker_id: str,
+        agent_id: str,
+        tick: int,
+        acquired: bool,
+    ) -> None:
+        conn.execute(
+            """
+            INSERT INTO marker_lock_events (
+                marker_id, agent_id, tick, acquired, recorded_at
+            ) VALUES (?, ?, ?, ?, ?)
+            """,
+            (
+                str(marker_id),
+                str(agent_id),
+                int(tick),
+                1 if acquired else 0,
+                utc_timestamp(),
+            ),
         )

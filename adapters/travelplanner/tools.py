@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import ast
 import json
+import logging
 import re
 from typing import Any
 
@@ -11,9 +13,19 @@ from pydantic import ValidationError
 
 from core.marker import Marker
 from core.schemas import TravelItineraryOutput
-from core.tool_registry import ActionResult, Tool
+from core.tool_registry import (
+    ActionResult,
+    RepairRequest,
+    Tool,
+    ValidationResult,
+    build_repair_marker_id,
+)
 
 from .evaluator import TravelPlannerEvaluator
+from .workspace import QUERY_DATASET_ID
+
+
+logger = logging.getLogger(__name__)
 
 
 class _BaseTravelSearchTool(Tool):
@@ -86,10 +98,11 @@ class _BaseTravelSearchTool(Tool):
         payload["search_params"] = call_kwargs
         updated.payload = payload
         updated.state = "searching" if updated.state == "pending" else "terminal"
-        updated.intensity = max(
-            self.intensity_floor,
-            float(updated.intensity) - self.intensity_step,
-        )
+        if records:
+            updated.intensity = max(
+                self.intensity_floor,
+                float(updated.intensity) - self.intensity_step,
+            )
 
         return ActionResult(action_type=self.action_type, marker_updates=[updated])
 
@@ -128,6 +141,8 @@ class PlanDayTool(Tool):
     """LLM-backed itinerary construction with JSON schema validation."""
 
     action_type = "plan_itinerary"
+    _few_shot_examples_cache: list[dict[str, Any]] | None = None
+    _few_shot_examples_loaded = False
     prompt_query_fields = (
         "query_idx",
         "query",
@@ -245,6 +260,7 @@ class PlanDayTool(Tool):
         markers_cfg = dict(config.get("markers", {}))
         self.intensity_step = float(markers_cfg.get("intensity_step_tool", 0.05))
         self.intensity_floor = float(markers_cfg.get("intensity_floor", 0.1))
+        self.few_shot_examples = self._load_few_shot_examples()
 
     def is_eligible(self, marker: Marker) -> bool:
         raw = marker.payload.get("eligible_actions")
@@ -287,6 +303,7 @@ class PlanDayTool(Tool):
         consumed_tokens = 0
         cost_usd = 0.0
         planner_model = "none"
+        planning_failure_reason = ""
 
         itinerary: list[dict[str, Any]] = []
 
@@ -311,22 +328,25 @@ class PlanDayTool(Tool):
                     )
 
                 if response is not None:
+                    planner_model = str(getattr(response, "model", "unknown"))
+                    consumed_tokens = int(getattr(response, "tokens_used", 0))
+                    cost_usd = float(getattr(response, "cost_usd", 0.0))
                     parsed = getattr(response, "parsed", None)
                     if isinstance(parsed, TravelItineraryOutput):
                         itinerary = [day.model_dump() for day in parsed.plan]
                     else:
+                        raw_content = str(getattr(response, "content", ""))
                         itinerary = self._parse_itinerary(
-                            raw_content=str(getattr(response, "content", "")),
+                            raw_content=raw_content,
                             llm_client=llm_client,
                         )
+                        if raw_content.strip() and not itinerary:
+                            planning_failure_reason = "schema_parse_failed"
                     itinerary = self._normalize_itinerary(
                         itinerary=itinerary,
                         query_data=query_data,
                         search_payload=search_payload,
                     )
-                    consumed_tokens = int(getattr(response, "tokens_used", 0))
-                    cost_usd = float(getattr(response, "cost_usd", 0.0))
-                    planner_model = str(getattr(response, "model", "unknown"))
             except Exception:  # noqa: BLE001
                 itinerary = []
 
@@ -340,12 +360,14 @@ class PlanDayTool(Tool):
             payload["planning_attempts"] = planning_attempts
             payload["needs_replan"] = False
             payload["planner_model"] = planner_model
+            self._record_failure_reason(
+                payload=payload,
+                reason="empty_plan_after_max_attempts",
+                previous_reason=planning_failure_reason,
+            )
             updated.payload = payload
             updated.state = "terminal"
-            updated.intensity = max(
-                self.intensity_floor,
-                float(updated.intensity) - self.intensity_step,
-            )
+            updated.intensity = 0.8
             return ActionResult(
                 action_type=self.action_type,
                 marker_updates=[updated],
@@ -363,13 +385,15 @@ class PlanDayTool(Tool):
             payload["needs_replan"] = True
             payload["planner_model"] = planner_model
             payload["validation_feedback"] = validation_feedback
+            self._record_failure_reason(
+                payload=payload,
+                reason="empty_plan_from_llm",
+                previous_reason=planning_failure_reason,
+            )
             updated.payload = payload
             # Keep state as planning to allow retry, but signal failure
             updated.state = "planning"
-            updated.intensity = max(
-                self.intensity_floor,
-                float(updated.intensity) - self.intensity_step,
-            )
+            updated.intensity = 0.8
             return ActionResult(
                 action_type=self.action_type,
                 marker_updates=[updated],
@@ -386,6 +410,8 @@ class PlanDayTool(Tool):
         payload["planning_attempts"] = planning_attempts
         payload["needs_replan"] = False
         payload["validation_feedback"] = validation_feedback
+        payload["failure_reason"] = "ok"
+        payload["last_failure_reason"] = "ok"
         updated.payload = payload
 
         if marker.state == "pending":
@@ -404,6 +430,171 @@ class PlanDayTool(Tool):
             consumed_tokens=consumed_tokens,
             cost_usd=cost_usd,
         )
+
+    def _record_failure_reason(
+        self,
+        *,
+        payload: dict[str, Any],
+        reason: str,
+        previous_reason: str = "",
+    ) -> None:
+        history_raw = payload.get("failure_history", [])
+        history = (
+            [str(item).strip() for item in history_raw if str(item).strip()]
+            if isinstance(history_raw, list)
+            else []
+        )
+        if previous_reason and previous_reason not in history:
+            history.append(previous_reason)
+        if reason and reason not in history:
+            history.append(reason)
+        payload["failure_history"] = history[-5:]
+        payload["last_failure_reason"] = previous_reason or reason
+        payload["failure_reason"] = reason
+
+    @classmethod
+    def _load_few_shot_examples(cls) -> list[dict[str, Any]]:
+        if cls._few_shot_examples_loaded:
+            return list(cls._few_shot_examples_cache or [])
+
+        cls._few_shot_examples_loaded = True
+        cls._few_shot_examples_cache = []
+
+        try:
+            from datasets import load_dataset
+
+            dataset = load_dataset(QUERY_DATASET_ID, "train")
+            cls._few_shot_examples_cache = cls._select_few_shot_examples(
+                dataset["train"]
+            )
+        except Exception as exc:  # noqa: BLE001
+            logger.warning(
+                "Unable to load TravelPlanner train few-shot examples: %s",
+                exc,
+            )
+            cls._few_shot_examples_cache = []
+
+        return list(cls._few_shot_examples_cache)
+
+    @classmethod
+    def _select_few_shot_examples(cls, rows: Any) -> list[dict[str, Any]]:
+        examples: list[dict[str, Any]] = []
+        predicates = (
+            lambda visiting_count: visiting_count == 1,
+            lambda visiting_count: visiting_count >= 2,
+        )
+
+        for predicate in predicates:
+            selected: dict[str, Any] | None = None
+            for raw_row in rows:
+                example = cls._extract_few_shot_example(raw_row)
+                if example is None:
+                    continue
+                visiting_count = int(
+                    example["query"].get("visiting_city_number", 0) or 0
+                )
+                if predicate(visiting_count):
+                    selected = example
+                    break
+            if selected is not None:
+                examples.append(selected)
+
+        return examples
+
+    @classmethod
+    def _extract_few_shot_example(
+        cls, raw_row: Any
+    ) -> dict[str, Any] | None:
+        if not isinstance(raw_row, dict):
+            return None
+
+        annotated_plan = cls._safe_literal_value(
+            raw_row.get("annotated_plan"),
+            default=[],
+        )
+        if (
+            not isinstance(annotated_plan, list)
+            or len(annotated_plan) < 2
+            or not isinstance(annotated_plan[1], list)
+        ):
+            return None
+
+        query_payload = cls._compact_few_shot_query(raw_row)
+        plan_rows = cls._compact_few_shot_plan_rows(annotated_plan[1])
+        if not plan_rows:
+            return None
+
+        try:
+            parsed = TravelItineraryOutput.model_validate({"plan": plan_rows})
+        except ValidationError:
+            return None
+
+        return {
+            "query": query_payload,
+            "plan": [day.model_dump() for day in parsed.plan],
+        }
+
+    @classmethod
+    def _compact_few_shot_query(cls, raw_row: dict[str, Any]) -> dict[str, Any]:
+        compact: dict[str, Any] = {}
+        for field in cls.prompt_query_fields:
+            if field not in raw_row:
+                continue
+            value = raw_row[field]
+            if field == "date":
+                compact[field] = cls._safe_literal_value(value, default=[])
+                continue
+            if field == "local_constraint":
+                compact[field] = cls._safe_literal_value(value, default={})
+                continue
+            compact[field] = value
+        return compact
+
+    @classmethod
+    def _compact_few_shot_plan_rows(
+        cls, raw_plan_rows: list[Any]
+    ) -> list[dict[str, Any]]:
+        fields = (
+            "current_city",
+            "transportation",
+            "breakfast",
+            "attraction",
+            "lunch",
+            "dinner",
+            "accommodation",
+        )
+        compact_rows: list[dict[str, Any]] = []
+        for raw_row in raw_plan_rows:
+            if not isinstance(raw_row, dict):
+                continue
+            if not any(str(raw_row.get(field, "")).strip() for field in fields):
+                continue
+            compact_rows.append(
+                {
+                    field: cls._stringify_few_shot_value(raw_row.get(field))
+                    for field in fields
+                }
+            )
+        return compact_rows
+
+    @staticmethod
+    def _safe_literal_value(value: Any, *, default: Any) -> Any:
+        if isinstance(value, (dict, list, tuple, int, float, bool)):
+            return value
+        if value is None:
+            return default
+        text = str(value).strip()
+        if not text:
+            return default
+        try:
+            return ast.literal_eval(text)
+        except (ValueError, SyntaxError):
+            return default
+
+    @staticmethod
+    def _stringify_few_shot_value(value: Any) -> str:
+        text = str(value).strip() if value is not None else ""
+        return text or "-"
 
     def _build_prompt(
         self,
@@ -435,12 +626,36 @@ class PlanDayTool(Tool):
                 + " -> ".join(city_sequence)
                 + ".\n"
             )
+        multi_city_block = ""
+        if len(city_sequence) > 1:
+            multi_city_block = (
+                "IMPORTANT for multi-city trips: You MUST include one day per city transition "
+                "(transportation day)\n"
+                "and at least one stay day per intermediate city.\n"
+            )
 
         routing_block = ""
         if routing_context:
             routing_block = (
                 "RoutingData:\n"
                 f"{json.dumps(routing_context, ensure_ascii=True)}\n"
+            )
+        # Few-shot examples loaded from osunlp/TravelPlanner split="train" ONLY.
+        # Never use split="validation" here — would contaminate the benchmark.
+        few_shot_block = ""
+        if self.few_shot_examples:
+            rendered_examples = []
+            for index, example in enumerate(self.few_shot_examples, start=1):
+                rendered_examples.append(
+                    f"Example {index}: "
+                    f"{json.dumps(example['query'], ensure_ascii=True)}"
+                    " -> "
+                    f"{json.dumps({'plan': example['plan']}, ensure_ascii=True)}"
+                )
+            few_shot_block = (
+                "Examples (from training split only):\n"
+                + "\n".join(rendered_examples)
+                + "\n"
             )
 
         return (
@@ -451,6 +666,7 @@ class PlanDayTool(Tool):
             "Hard requirements:\n"
             f"- Return exactly {int(query_data.get('days', 0) or 0)} day objects in the plan.\n"
             f"{city_sequence_block}"
+            f"{multi_city_block}"
             "- Keep city consistency with current_city and transportation.\n"
             "- Use '<name>, <city>' format for meals, attractions, and accommodation.\n"
             "- Never repeat the same restaurant across breakfast/lunch/dinner.\n"
@@ -467,6 +683,7 @@ class PlanDayTool(Tool):
             "- Attractions may be '-' or one or more '<name>, <city>' values separated by '; '.\n"
             "- Meals or attractions that are not scheduled should be '-'.\n"
             f"{feedback_block}"
+            f"{few_shot_block}"
             "Use only plausible values from provided search data.\n"
             f"Query: {json.dumps(compact_query, ensure_ascii=True)}\n"
             f"{routing_block}"
@@ -1227,6 +1444,7 @@ class ValidateConstraintsTool(Tool):
         )
 
         if evaluation.final_pass:
+            payload["failure_reason"] = "ok"
             updated.state = "terminal"
             return ActionResult(
                 action_type=self.action_type,
@@ -1234,25 +1452,78 @@ class ValidateConstraintsTool(Tool):
                 metadata={"final_pass": True},
             )
 
+        if failed_constraints:
+            updated.intensity = 0.9
+            updated.inhibition = 0.0
+
+        shaped_plan: Marker | None = None
+        if not evaluation.commonsense_macro_pass:
+            shaped_plan = Marker.from_dict(plan_marker.to_dict())
+            shaped_plan.inhibition = min(1.0, float(shaped_plan.inhibition) + 0.3)
+
         updated.retry_count = int(updated.retry_count) + 1
         if updated.retry_count <= self.max_retries:
+            payload["failure_reason"] = "validation_failed"
             updated.state = "planning"
-            replanning_marker = Marker.from_dict(plan_marker.to_dict())
+            repair_feedback = failed_feedback or failed_constraints
+            if self._targeted_repair_enabled():
+                repair_marker_id = build_repair_marker_id(
+                    source_marker_id=marker.id,
+                    target_marker_id=plan_marker.id,
+                    attempt=updated.retry_count,
+                )
+                payload["depends_on"] = [repair_marker_id, plan_marker.id]
+                payload["repair_marker_id"] = repair_marker_id
+                payload["repair_feedback"] = list(repair_feedback)
+                updated.payload = payload
+                marker_updates = [updated]
+                if shaped_plan is not None:
+                    marker_updates.append(shaped_plan)
+                return ActionResult(
+                    action_type=self.action_type,
+                    marker_updates=marker_updates,
+                    metadata={"final_pass": False, "replan": True},
+                    validation=ValidationResult(
+                        status="failed",
+                        source_marker_id=marker.id,
+                        targets=[plan_marker.id],
+                        feedback=list(repair_feedback),
+                        repair=RepairRequest(
+                            target_marker_id=plan_marker.id,
+                            attempt=updated.retry_count,
+                            max_attempts=self.max_retries,
+                            eligible_actions=list(
+                                plan_marker.payload.get("eligible_actions", [])
+                            ),
+                        ),
+                    ),
+                )
+
+            replanning_marker = (
+                shaped_plan
+                if shaped_plan is not None
+                else Marker.from_dict(plan_marker.to_dict())
+            )
             replanning_payload = dict(replanning_marker.payload)
             replanning_payload["needs_replan"] = True
-            replanning_payload["validation_feedback"] = failed_feedback or failed_constraints
+            replanning_payload["validation_feedback"] = repair_feedback
             replanning_marker.payload = replanning_payload
             replanning_marker.state = "planning"
+            updated.payload = payload
             return ActionResult(
                 action_type=self.action_type,
                 marker_updates=[updated, replanning_marker],
                 metadata={"final_pass": False, "replan": True},
             )
 
+        payload["failure_reason"] = "validator_replan_exhausted"
         updated.state = "terminal"
+        marker_updates = [updated]
+        if shaped_plan is not None:
+            marker_updates.append(shaped_plan)
         return ActionResult(
             action_type=self.action_type,
-            marker_updates=[updated],
+            marker_updates=marker_updates,
             metadata={"final_pass": False, "replan": False},
         )
 
@@ -1293,6 +1564,7 @@ class ValidateConstraintsTool(Tool):
         payload["final_plan"] = validate_marker.payload.get("plan", [])
         payload["evaluation"] = eval_payload
         payload["final_pass"] = bool(eval_payload.get("final_pass", False))
+        payload["failure_reason"] = str(validate_marker.payload.get("failure_reason", "ok"))
         updated.payload = payload
         updated.state = "terminal"
         updated.intensity = max(
@@ -1301,3 +1573,8 @@ class ValidateConstraintsTool(Tool):
         )
 
         return ActionResult(action_type=self.action_type, marker_updates=[updated])
+
+    def _targeted_repair_enabled(self) -> bool:
+        orchestrator_cfg = dict(self.config.get("orchestrator", {}))
+        targeted_repair_cfg = dict(orchestrator_cfg.get("targeted_repair", {}))
+        return bool(targeted_repair_cfg.get("enabled", False))
