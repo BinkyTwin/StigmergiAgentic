@@ -1,0 +1,33 @@
+{
+  "framework": "stigmergic",
+  "output_root": "/Users/lotfi/Documents/EMLV/Memoire/StigmergiAgentic/output/travelplanner_framework_compare/v6_overnight_20260418/v6_A/seed43",
+  "queries": 180,
+  "queries_requested": 180,
+  "queries_recorded": 180,
+  "queries_succeeded": 180,
+  "final_passes": 42,
+  "failed_queries": 0,
+  "failure_reasons": {
+    "ok": 180
+  },
+  "final_pass_rate_raw": 0.23333333333333334,
+  "success_rate": 1.0,
+  "tokens_total": 4529347,
+  "cost_total_usd": 0.469254,
+  "runtime_total_seconds": 11353.0154,
+  "runtime_wall_seconds": 12452.0539,
+  "avg_tokens_per_query": 25163.04,
+  "avg_cost_per_query_usd": 0.002607,
+  "avg_runtime_per_query_seconds": 63.0723,
+  "avg_coordination_overhead": 29.39,
+  "failure_tolerance_ratio": 0.3,
+  "failure_tolerance_exceeded": false,
+  "official_eval_semantics": {
+    "evaluates_requested_range": true,
+    "missing_query_prediction": "treated_as_empty_plan",
+    "missing_query_plan_value": [],
+    "denominator_note": "Campaign robustness improves resumability and failure traceability without changing the official evaluation denominator."
+  },
+  "runs_json": "/Users/lotfi/Documents/EMLV/Memoire/StigmergiAgentic/output/travelplanner_framework_compare/v6_overnight_20260418/v6_A/seed43/runs.json",
+  "official_eval_json": "/Users/lotfi/Documents/EMLV/Memoire/StigmergiAgentic/output/travelplanner_framework_compare/v6_overnight_20260418/v6_A/seed43/official_eval.json"
+}
