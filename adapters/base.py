@@ -54,6 +54,19 @@ class DomainAdapter(ABC):
     def initial_markers(self, objective: Objective, agent_id: str) -> list[Marker]:
         """Produce initial marker set for objective."""
 
+    def compile_protocol(
+        self,
+        objective: Objective,
+        config: dict[str, Any],
+        llm_client: Any | None = None,
+    ) -> list[Marker] | None:
+        """Optionally compile a coordination protocol from the objective.
+
+        Returning ``None`` signals that the runtime must fall back to
+        :meth:`initial_markers`.
+        """
+        return None
+
     @abstractmethod
     def evaluate_run(self, env_snapshot: dict[str, Any]) -> dict[str, Any]:
         """Compute domain-level evaluation result."""

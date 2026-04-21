@@ -25,6 +25,7 @@ Les ADRs suivent le format : `YYYYMMDD-titre-court.md`
 | 013 | 2026-03-22 | [Sprint 6 V4 Stigmergic Corrections and Opt-In Runtime Adaptivity](20260322-sprint6-v4-stigmergic-corrections.md) | Accepté | Local sensing, temporal decay, frequentation, emergent contention resolution, and feedback adaptation added as opt-in runtime features with 235 tests |
 | 014 | 2026-04-16 | [Sprint 7 V5-Full Execution Hardening](20260416-sprint7-v5-full-execution-hardening.md) | Accepté | TravelPlanner-side V5 execution improvements: marker shaping, train-only few-shots/tuning, V5 preset, and benchmark-runner subset alignment |
 | 015 | 2026-04-18 | [Sprint 8 V6 General Runtime Controls and Targeted Repair](20260418-sprint8-v6-general-runtime-controls.md) | Accepté | Generic V6 phase-1 runtime controls: lock telemetry, unified recovery controller, stickiness, targeted repair contract, and frozen V6 ablation presets |
+| 016 | 2026-04-21 | [Sprint 9 Groundwork for Persistent Skills, Protocol Artifacts, and Objective-Conditioned Protocol Compilation](20260421-sprint9-groundwork-persistent-skills-protocols-and-compiler.md) | Accepté | Add opt-in config/schema/prompt/runtime seams for Sprint 9 while preserving Sprint 8 behavior by default |
 
 ---
 
@@ -44,4 +45,4 @@ Quand NE PAS créer un ADR :
 
 ---
 
-**Dernière mise à jour** : 2026-04-18
+**Dernière mise à jour** : 2026-04-21

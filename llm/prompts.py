@@ -4,11 +4,20 @@ from __future__ import annotations
 
 from typing import Any
 
+from core.marker import StateMachine
+
 
 SYSTEM_STIGMERGIC_AGENT_PROMPT = (
     "You are a domain-agnostic stigmergic worker. "
     "Read marker context, perform the requested action, and return concrete outputs. "
     "Do not describe hypothetical plans when action execution context is available."
+)
+
+SYSTEM_PROTOCOL_COMPILER = (
+    "You compile executable stigmergic coordination protocols from objectives.\n"
+    "Return strict JSON matching the provided schema.\n"
+    "Use only listed actions, keep the marker graph acyclic, and produce a protocol "
+    "that is directly executable on the existing substrate."
 )
 
 SYSTEM_PROMPT_V3 = (
@@ -111,6 +120,41 @@ def build_action_prompt(
     if lesson_context:
         prompt = f"{prompt}\nReusable lessons:\n{lesson_context}"
     return prompt
+
+
+def build_protocol_compiler_prompt(
+    *,
+    objective: str,
+    available_actions: list[str],
+    state_machine: StateMachine,
+) -> str:
+    """Build a structured prompt for objective-conditioned protocol generation."""
+    actions = ", ".join(sorted({action for action in available_actions if action})) or "none"
+    transitions = []
+    for state, next_states in sorted(state_machine._transitions.items()):  # noqa: SLF001
+        transitions.append(f"- {state}: {', '.join(sorted(next_states))}")
+    transition_text = "\n".join(transitions) or "- (default state machine unavailable)"
+
+    return (
+        f"Objective: {objective.strip() or '(empty objective)'}\n\n"
+        f"Available actions: {actions}\n\n"
+        "State machine constraints:\n"
+        f"{transition_text}\n\n"
+        "Return strict JSON with the shape:\n"
+        '{'
+        '"markers": ['
+        '{"id":"...","target":"...","eligible_actions":["..."],'
+        '"intensity":0.8,"depends_on":["optional"],"priority":"optional",'
+        '"marker_type":"task","payload":{"optional":"fields"}}'
+        "]"
+        "}\n"
+        "Rules:\n"
+        "- Every marker must have at least one eligible action.\n"
+        "- Every eligible action must come from the available action list.\n"
+        "- Keep dependencies acyclic.\n"
+        "- Use intensity values between 0.1 and 1.0.\n"
+        "- Prefer a compact executable DAG over verbose decomposition."
+    )
 
 
 def _build_tool_fields(tools: list[str]) -> str:

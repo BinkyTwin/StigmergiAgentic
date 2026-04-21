@@ -33,6 +33,50 @@ Chaque entrée suit ce format :
 - `chemin/fichier2.py` — Description de la modification
 
 ---
+
+**Date** : 2026-04-21
+
+**Actions effectuées** :
+
+Sprint 9 groundwork:
+- ajout des surfaces de configuration opt-in `skill_library`, `protocol`, `emergence.cross_run`, `reinforcement.promotion_min_uses`, `agents.protocol_compiler`
+- ajout des primitives de compilation de protocole : `ProtocolSpec`, prompt `SYSTEM_PROTOCOL_COMPILER`, `DomainAdapter.compile_protocol()`
+- implémentation d’un premier `compile_protocol()` sur `AssistantAdapter` avec validation d’actions autorisées et DAG acyclique
+- ajout d’un chemin de fallback dans `main.py` : protocole compilé si valide, sinon `initial_markers()`
+- ajout des helpers `compute_protocol_score()` et `clamp_cross_run_adaptations()` pour préparer la persistance cross-run des protocoles
+- passage de `llm/__init__.py` et `adapters/__init__.py` en lazy imports pour alléger les chemins prompt/schema-only et stabiliser les tests ciblés
+
+**Décisions prises** :
+- garder tout Sprint 9 désactivé par défaut pour préserver le comportement Sprint 8
+- préparer d’abord les contrats (`config`, `schema`, `prompt`, `adapter seam`, `runtime seam`) avant le câblage complet des stores persistants
+- traiter l’AssistantAdapter comme premier domaine de validation pour C1, sans toucher encore au seeding TravelPlanner hard-codé
+
+**Validation** :
+- `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 .venv/bin/python -m pytest tests/unit/test_config.py tests/unit/test_emergence.py tests/unit/test_protocol_compiler.py -q` → `32 passed`
+
+**Fichiers créés** :
+- `config/travelplanner_adapt.yaml`
+- `config/travelplanner_eval.yaml`
+- `tests/unit/test_protocol_compiler.py`
+- `documentation/decisions/20260421-sprint9-groundwork-persistent-skills-protocols-and-compiler.md`
+
+**Fichiers modifiés** :
+- `adapters/base.py`
+- `adapters/assistant/adapter.py`
+- `adapters/__init__.py`
+- `core/config.py`
+- `core/emergence.py`
+- `core/schemas.py`
+- `core/tool_registry.py`
+- `llm/prompts.py`
+- `llm/__init__.py`
+- `main.py`
+- `config/default.yaml`
+- `tests/conftest.py`
+- `tests/unit/test_config.py`
+- `tests/unit/test_emergence.py`
+- `AGENTS.md`, `CLAUDE.md`
+- `documentation/decisions/INDEX.md`
 ```
 
 ## Log des Sessions

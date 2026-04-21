@@ -14,6 +14,8 @@ REQUIRED_TOP_LEVEL_SECTIONS = {
     "agents",
     "markers",
     "reinforcement",
+    "skill_library",
+    "protocol",
     "guardrails",
     "orchestrator",
     "emergence",
@@ -100,6 +102,11 @@ def validate_config(config: Mapping[str, Any]) -> None:
         _validate_int(stickiness, "recent_progress_window", minimum=1)
         _validate_float(stickiness, "continuity_bonus", minimum=0.0)
         _validate_int(stickiness, "max_consecutive_reuse", minimum=1)
+    protocol_compiler = dict(agents.get("protocol_compiler", {}))
+    if protocol_compiler:
+        enabled = protocol_compiler.get("enabled", False)
+        if not isinstance(enabled, bool):
+            raise ConfigError("agents.protocol_compiler.enabled must be a boolean")
 
     markers = config["markers"]
     decay_type = str(markers.get("decay_type", ""))
@@ -227,6 +234,15 @@ def validate_config(config: Mapping[str, Any]) -> None:
             minimum=0.0,
             maximum=1.0,
         )
+    cross_run = dict(emergence.get("cross_run", {}))
+    if cross_run:
+        enabled = cross_run.get("enabled", False)
+        if not isinstance(enabled, bool):
+            raise ConfigError("emergence.cross_run.enabled must be a boolean")
+        read_only = cross_run.get("read_only", False)
+        if not isinstance(read_only, bool):
+            raise ConfigError("emergence.cross_run.read_only must be a boolean")
+        _validate_float(cross_run, "max_total_delta", minimum=0.0, maximum=1.0)
 
     llm = config["llm"]
     _validate_int(llm, "max_tokens_total", minimum=1)
@@ -246,6 +262,8 @@ def validate_config(config: Mapping[str, Any]) -> None:
             minimum=0.0,
             maximum=1.0,
         )
+    if "promotion_min_uses" in reinforcement:
+        _validate_int(reinforcement, "promotion_min_uses", minimum=1)
     frequentation = dict(reinforcement.get("frequentation", {}))
     if frequentation:
         enabled = frequentation.get("enabled", False)
@@ -255,6 +273,28 @@ def validate_config(config: Mapping[str, Any]) -> None:
         _validate_float(frequentation, "completion_boost", minimum=0.0)
         _validate_float(frequentation, "max_boost_per_tick", minimum=0.0)
         _validate_float(frequentation, "diminishing_factor", minimum=0.0)
+
+    skill_library = dict(config["skill_library"])
+    skill_enabled = skill_library.get("enabled")
+    if not isinstance(skill_enabled, bool):
+        raise ConfigError("skill_library.enabled must be a boolean")
+    skill_read_only = skill_library.get("read_only")
+    if not isinstance(skill_read_only, bool):
+        raise ConfigError("skill_library.read_only must be a boolean")
+    skill_db_path = str(skill_library.get("db_path", "")).strip()
+    if not skill_db_path:
+        raise ConfigError("skill_library.db_path cannot be empty")
+
+    protocol = dict(config["protocol"])
+    protocol_enabled = protocol.get("enabled")
+    if not isinstance(protocol_enabled, bool):
+        raise ConfigError("protocol.enabled must be a boolean")
+    protocol_read_only = protocol.get("read_only")
+    if not isinstance(protocol_read_only, bool):
+        raise ConfigError("protocol.read_only must be a boolean")
+    protocol_db_path = str(protocol.get("db_path", "")).strip()
+    if not protocol_db_path:
+        raise ConfigError("protocol.db_path cannot be empty")
 
     decompose = config["decompose"]
     _validate_int(decompose, "max_depth", minimum=1)

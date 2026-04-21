@@ -88,8 +88,14 @@ def main(argv: list[str] | None = None) -> int:
 
     registry = ToolRegistry()
     adapter.register_tools(registry)
+    llm_client = _maybe_create_llm_client(config=config)
 
-    for marker in adapter.initial_markers(objective=objective, agent_id="system_seed"):
+    for marker in _select_initial_markers(
+        adapter=adapter,
+        objective=objective,
+        config=config,
+        llm_client=llm_client,
+    ):
         seeded = Marker.from_dict(marker.to_dict())
         payload = dict(seeded.payload)
         if workspace_context:
@@ -97,7 +103,6 @@ def main(argv: list[str] | None = None) -> int:
         seeded.payload = payload
         store.upsert_marker(marker=seeded, agent_id="system_seed")
 
-    llm_client = _maybe_create_llm_client(config=config)
     agents = _build_agents(config=config, registry=registry, seed=args.seed)
 
     orchestrator = Orchestrator(
@@ -224,6 +229,28 @@ def _maybe_create_llm_client(config: dict[str, Any]) -> LLMClient | None:
             file=sys.stderr,
         )
         return None
+
+
+def _select_initial_markers(
+    *,
+    adapter: DomainAdapter,
+    objective: Any,
+    config: dict[str, Any],
+    llm_client: LLMClient | None,
+) -> list[Marker]:
+    compiler_cfg = dict(config.get("agents", {}).get("protocol_compiler", {}))
+    compiler_enabled = bool(compiler_cfg.get("enabled", False))
+    if not compiler_enabled:
+        return adapter.initial_markers(objective=objective, agent_id="system_seed")
+
+    compiled = adapter.compile_protocol(
+        objective=objective,
+        config=config,
+        llm_client=llm_client,
+    )
+    if compiled and validate_dag(compiled):
+        return compiled
+    return adapter.initial_markers(objective=objective, agent_id="system_seed")
 
 
 def _build_agents(

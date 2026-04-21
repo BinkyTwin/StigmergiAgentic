@@ -1,5 +1,29 @@
 # Decision Log
 
+## 2026-04-21 (Prepare Sprint 9 Through Contracts Before Persistence Wiring)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: Prepare Sprint 9 by landing opt-in config/schema/prompt/runtime seams for persistent skills, protocol artifacts, and objective-conditioned protocol compilation before wiring the dedicated stores and cross-run write paths.
+- `rationale`: The current runtime already provides the necessary substrate primitives, but introducing persistence, protocol learning, and benchmark methodology in one step would make regressions harder to isolate; a contract-first layer keeps Sprint 8 stable while giving Sprint 9 a concrete, testable implementation boundary.
+- `alternatives_rejected`: Delay all Sprint 9 work until the full persistence loop is ready, or wire stores/promotions/protocol application immediately without first stabilizing the config and compiler contracts.
+- `linked_adr`: `documentation/decisions/20260421-sprint9-groundwork-persistent-skills-protocols-and-compiler.md`
+
+## 2026-04-20 (Approve Revised Sprint 9 Direction with a Narrower C1 Claim)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: Treat the revised Sprint 9 direction as architecturally sound and philosophically aligned, provided C1 is defended as objective-conditioned protocol generation over a fixed substrate, while T1 and T2 become the primary mechanisms for validating C2 and C3.
+- `rationale`: The revised plan moves self-optimization into persistent stigmergic artifacts, introduces a necessary adapt-vs-eval separation, and avoids the earlier drift toward manual specialist roles; the main residual risk is overclaiming C1 beyond what a fixed tool/evaluator substrate can support.
+- `alternatives_rejected`: Keep the previous manual specialist-seeding approach, or postpone cross-run adaptation entirely until a later sprint.
+- `linked_adr`: `documentation/decisions/20260418-sprint8-v6-general-runtime-controls.md`
+
+## 2026-04-20 (Constrain Sprint 9 to Protocol Adaptation, Not Manual Specialist Roles)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: Treat Sprint 9 as a bounded auto-organization cycle centered on persistent agent state and cross-run coordination feedback, but reject manual domain-specialist seed templates as the main mechanism for validating "from-scratch agent generation".
+- `rationale`: Persistent memory and feedback can extend the current stigmergic philosophy without breaking role-freeness if they remain environment-mediated and auditable, while hard-coded transport/accommodation/planning templates in the adapter would weaken both the philosophical claim and the scientific interpretation of C1.
+- `alternatives_rejected`: Implement Sprint 9 exactly as proposed with manual specialist templates in the domain adapter, or enable cross-run adaptation directly in the primary evaluation preset without a separate adaptation/frozen-eval protocol.
+- `linked_adr`: `documentation/decisions/20260418-sprint8-v6-general-runtime-controls.md`
+
 ## 2026-04-19 (Prioritize Targeted Repair After the V6-A Readout)
 
 - `repo_slug`: `stigmergiagentic-33b989`

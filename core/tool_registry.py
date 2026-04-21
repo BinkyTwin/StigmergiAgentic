@@ -72,7 +72,11 @@ def build_repair_marker_id(
 
 @dataclass(slots=True)
 class ActionResult:
-    """Execution output returned by tools."""
+    """Execution output returned by tools.
+
+    ``metadata`` may include ``credited_lesson_ids`` to report which recalled
+    lesson markers materially contributed to a successful execution.
+    """
 
     action_type: str
     marker_updates: list[Marker] = field(default_factory=list)
@@ -126,7 +130,7 @@ class ToolRegistry:
 
     def action_types(self) -> list[str]:
         """List registered action types."""
-        return list(self._tools.keys())
+        return sorted(self._tools.keys())
 
     def eligible_actions_for(self, marker: Marker) -> list[str]:
         """Return action types eligible for a marker."""

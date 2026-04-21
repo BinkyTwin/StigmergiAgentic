@@ -123,6 +123,51 @@ def compute_adaptations(
     return adaptations
 
 
+def compute_protocol_score(evaluation: Mapping[str, Any]) -> float:
+    """Compute a stable scalar score for comparing protocol artifacts."""
+    pass_rate = float(evaluation.get("final_pass_rate", 0.0) or 0.0)
+    hard_constraint = float(evaluation.get("hard_constraint_micro", 0.0) or 0.0)
+    delivery_rate = float(evaluation.get("delivery_rate", 0.0) or 0.0)
+    convergence_tick = float(evaluation.get("convergence_tick") or 999.0)
+    return (
+        (pass_rate * 1_000_000.0)
+        + (hard_constraint * 1_000.0)
+        + (delivery_rate * 10.0)
+        - (convergence_tick * 0.01)
+    )
+
+
+def clamp_cross_run_adaptations(
+    adaptations: Mapping[str, float],
+    baseline_config: Mapping[str, Any],
+    *,
+    max_total_delta: float = 0.15,
+) -> dict[str, float]:
+    """Clamp adapted runtime values against a fixed campaign baseline."""
+    delta = max(0.0, float(max_total_delta))
+    clamped: dict[str, float] = {}
+
+    for path, candidate in adaptations.items():
+        baseline_value = _lookup_path(baseline_config, path)
+        if baseline_value is None:
+            clamped[str(path)] = float(candidate)
+            continue
+        try:
+            baseline_float = float(baseline_value)
+        except (TypeError, ValueError):
+            clamped[str(path)] = float(candidate)
+            continue
+
+        lower = baseline_float - delta
+        upper = baseline_float + delta
+        if 0.0 <= baseline_float <= 1.0:
+            lower = max(0.0, lower)
+            upper = min(1.0, upper)
+        clamped[str(path)] = min(upper, max(lower, float(candidate)))
+
+    return clamped
+
+
 def _agent_action_sequences(rows: list[Any]) -> dict[str, list[str]]:
     sequences: dict[str, list[str]] = {}
     for row in rows:
@@ -334,6 +379,15 @@ def _metric_float(metrics: Mapping[str, Any], key: str) -> float:
         return float(metrics.get(key, 0.0))
     except (TypeError, ValueError):
         return 0.0
+
+
+def _lookup_path(mapping: Mapping[str, Any], dotted_path: str) -> Any | None:
+    current: Any = mapping
+    for segment in str(dotted_path).split("."):
+        if not isinstance(current, Mapping) or segment not in current:
+            return None
+        current = current[segment]
+    return current
 
 
 def _adaptive_step(current: float, max_delta: float) -> float:

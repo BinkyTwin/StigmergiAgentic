@@ -5,6 +5,21 @@
 
 ## Active Practices
 
+### Stigmergic Self-Optimization Design Standard
+- Persist self-improvement as medium-level artifacts (`skill`, `coordination_protocol`, similar markers) instead of manual specialist templates whenever the goal is to preserve role-free stigmergic philosophy.
+- Split `adaptation` and `evaluation` into separate configs or run modes when persistent memory or cross-run feedback is enabled.
+- Frame automatic generation claims at the right abstraction level: protocol generation over a fixed substrate is often defensible where full system generation is not.
+
+### Sprint 9 Groundwork Standard
+- When introducing cross-run stigmergic learning, land the contract layer first: config keys, schemas, prompts, adapter/runtime seams, and fallback paths before wiring persistence.
+- Keep every Sprint 9 surface opt-in by default so Sprint 8 benchmark behavior remains reproducible while new capabilities are developed behind explicit flags.
+- If a new prompt/schema path only needs lightweight utilities, avoid package-level imports that pull the full LLM client stack; use lazy exports to keep targeted tests and local tooling responsive.
+
+### Cross-Run Adaptation Evaluation Standard
+- Never enable persistent agent memory or cross-run emergence feedback in the main benchmark-evaluation preset unless the protocol explicitly separates adaptation/training runs from frozen held-out evaluation runs.
+- When proposing objective-based specialization, verify that the seeded signal matches the runtime’s real decision features; in the current codebase `AgentAffinityProfile` acts on `marker_type` and target semantics, not directly on action names.
+- Prefer bounded protocol adaptation over manual role templates when the thesis claim concerns stigmergic self-organization; otherwise the implementation quietly shifts toward hand-designed specialization.
+
 ### Anti-Stagnation Outcome Readout Standard
 - After any anti-stagnation or recovery-controller experiment, report the trio `{idle stop rate, all_terminal pass rate, final_pass_given_delivery}` before interpreting the aggregate pass-rate delta.
 - If failures move from `idle_cycles` to `all_terminal` without proportional pass gains, treat the new frontier as `repair quality` rather than `search continuation`.

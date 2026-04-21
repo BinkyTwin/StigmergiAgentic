@@ -7,7 +7,12 @@ from pathlib import Path
 
 import pytest
 
-from core.emergence import compute_adaptations, compute_emergence_metrics
+from core.emergence import (
+    clamp_cross_run_adaptations,
+    compute_adaptations,
+    compute_emergence_metrics,
+    compute_protocol_score,
+)
 from core.orchestrator import TickRow
 
 
@@ -165,3 +170,48 @@ def test_compute_adaptations_adjusts_exploration_and_temperature(
     adaptations = compute_adaptations(metrics, config)
     assert "agents.local_sensing.affinity_exploration_rate" in adaptations
     assert "agents.selection_temperature" in adaptations
+
+
+def test_clamp_cross_run_adaptations_uses_fixed_baseline() -> None:
+    baseline = {
+        "agents": {"selection_temperature": 0.1},
+        "markers": {"inhibition_increment": 0.5},
+    }
+    derived = {
+        "agents": {"selection_temperature": 0.24},
+        "markers": {"inhibition_increment": 0.62},
+    }
+
+    clamped = clamp_cross_run_adaptations(
+        {
+            "agents.selection_temperature": 0.35,
+            "markers.inhibition_increment": 0.8,
+        },
+        baseline,
+        max_total_delta=0.15,
+    )
+
+    assert clamped["agents.selection_temperature"] == pytest.approx(0.25)
+    assert clamped["markers.inhibition_increment"] == pytest.approx(0.65)
+    assert derived["agents"]["selection_temperature"] == pytest.approx(0.24)
+
+
+def test_compute_protocol_score_prioritizes_pass_rate() -> None:
+    lower_pass = compute_protocol_score(
+        {
+            "final_pass_rate": 0.70,
+            "hard_constraint_micro": 1.0,
+            "delivery_rate": 1.0,
+            "convergence_tick": 1,
+        }
+    )
+    higher_pass = compute_protocol_score(
+        {
+            "final_pass_rate": 0.71,
+            "hard_constraint_micro": 0.0,
+            "delivery_rate": 0.0,
+            "convergence_tick": 999,
+        }
+    )
+
+    assert higher_pass > lower_pass

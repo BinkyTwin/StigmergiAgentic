@@ -1,5 +1,57 @@
 # Project Captures
 
+## 2026-04-20 — Revised Sprint 9 Plan: Strong Thesis Alignment Once Adaptation Is Split from Evaluation and C1 Is Framed as Protocol Generation
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `impact_score`: `9/10`
+- `confidence`: `high`
+- `scope`: `Review of the revised Sprint 9 architecture for skill persistence, coordination protocols, and objective-conditioned protocol generation`
+
+### Outcome
+
+The revised Sprint 9 plan is substantially stronger than the initial draft. It fixes the main methodological flaw by separating `travelplanner_adapt.yaml` from `travelplanner_eval.yaml`, which keeps persistent self-optimization compatible with benchmark credibility. It also replaces manual specialist seeding with a much more defensible `objective-conditioned protocol generation` concept, and moves both functional improvement and collaboration improvement into the stigmergic medium through persistent `skill` and `coordination_protocol` artifacts. The main remaining caution is that C1 should still be defended as automatic protocol generation over a fixed tool substrate, not as unrestricted from-scratch generation of arbitrary agent systems.
+
+### Reusable Patterns (1-3)
+
+1. **When adding cross-run self-optimization to a thesis benchmark, always split adaptation mode from frozen evaluation mode at the config level.** This keeps learning visible without making the reported benchmark path-dependent.
+2. **If a thesis claim concerns stigmergic self-organization, prefer persistent medium-level artifacts (`skill`, `coordination_protocol`) over manual specialist templates or direct code self-modification.**
+3. **For "from-scratch" claims in agentic systems, the defensible unit is often protocol generation over a fixed substrate, not total generation of agents, tools, and evaluators.**
+
+### Evidence
+
+- `config/default.yaml`
+- `config/travelplanner.yaml`
+- `core/agent.py`
+- `core/emergence.py`
+- `core/orchestrator.py`
+- `main.py`
+
+## 2026-04-20 — Sprint 9 Auto-Organization Plan: Strong Direction, but C1 Is Too Manual and Cross-Run Adaptation Needs Strict Evaluation Hygiene
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `impact_score`: `8/10`
+- `confidence`: `high`
+- `scope`: `Architectural review of the proposed Sprint 9 plan for from-scratch agent generation, inter-run agent persistence, and cross-run emergence feedback`
+
+### Outcome
+
+Reviewed the proposed Sprint 9 auto-organization plan against the current runtime. The overall direction is strong and philosophically aligned if adaptation stays environment-mediated and bounded, but the plan should not be implemented unchanged. Two diagnostic claims are overstated: lesson markers are already recalled by agents in-run through `StigmergicAgent._recall_lessons`, and the emergence feedback loop already exists and is enabled in ablation presets even if disabled in the default TravelPlanner config. The largest design issue is C1: manual `transport/accommodation/planning` seed templates do not validate "from-scratch agent generation" and partially reintroduce hidden roles. The largest scientific issue is C3: persistent cross-run adaptation must not be enabled in the main benchmark path without a train/adaptation vs frozen-eval protocol, otherwise evaluation becomes path-dependent and methodologically fragile.
+
+### Reusable Patterns (1-3)
+
+1. **Do not claim from-scratch agent generation when the domain adapter manually provides specialist templates.** That is seeded specialization, not agent-system generation from objective.
+2. **Separate adaptive-training runs from frozen evaluation runs whenever cross-run memory or feedback is introduced.** Persistent adaptation across validation runs otherwise creates hidden state and weakens benchmark credibility.
+3. **When seeding specialization in this runtime, distinguish `marker_type` from `action_type`.** Current local affinity is marker-type plus target-based, so seeding with action labels like `search_flights` does not shape behavior unless the affinity model itself is extended.
+
+### Evidence
+
+- `core/agent.py`
+- `core/emergence.py`
+- `core/orchestrator.py`
+- `config/default.yaml`
+- `config/travelplanner.yaml`
+- `config/ablation/v5_full.yaml`
+
 ## 2026-04-19 — Paired-Seed V6 Readout: Stagnation Relief Shifted the Residual Failure Mass Toward Terminal-Invalid Plans
 
 - `repo_slug`: `stigmergiagentic-33b989`
@@ -1622,3 +1674,30 @@ Implemented the executable phase-1 V6 framework surface in the generic runtime. 
 - `config/ablation/v6_B.yaml`
 - `config/ablation/v6_C.yaml`
 - `documentation/decisions/20260418-sprint8-v6-general-runtime-controls.md`
+
+## 2026-04-21 — Sprint 9 Groundwork Contracts for Persistent Skills and Protocol Compilation
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `impact_score`: `8/10`
+- `confidence`: `high`
+- `scope`: `Prepare the runtime and project docs for Sprint 9 with opt-in config surfaces, protocol-compilation seams, cross-run protocol helpers, and targeted unit coverage`
+
+### Outcome
+Prepared a non-breaking Sprint 9 groundwork layer on top of the Sprint 8 runtime. The repo now exposes explicit config sections for `skill_library`, `protocol`, `emergence.cross_run`, `reinforcement.promotion_min_uses`, and `agents.protocol_compiler`; the assistant domain has an opt-in `compile_protocol()` path backed by `ProtocolSpec` and a dedicated compiler prompt; `main.py` can now prefer compiled marker DAGs while gracefully falling back to `initial_markers()`; and the new cross-run helpers `compute_protocol_score()` plus `clamp_cross_run_adaptations()` define the first stable contract for future persistent coordination artifacts. I also switched `llm/__init__.py` and `adapters/__init__.py` to lazy imports so prompt/schema-only code paths and unit tests no longer pull the full heavy dependency graph by default.
+
+### Reusable Patterns (1-3)
+1. Before wiring persistent runtime features, land the smallest stable contract surface first: config keys, schemas, prompts, adapter seam, and runtime fallback.
+2. When a package-level `__init__` drags heavy optional dependencies into lightweight paths, convert exports to lazy imports so unit tests and prompt-only workflows stay fast and isolated.
+3. For thesis-facing adaptation features, keep train/adapt and frozen-eval presets separate from day one, even before the persistence loop is fully implemented.
+
+### Evidence
+- `config/default.yaml`
+- `config/travelplanner_adapt.yaml`
+- `config/travelplanner_eval.yaml`
+- `core/schemas.py`
+- `core/emergence.py`
+- `adapters/base.py`
+- `adapters/assistant/adapter.py`
+- `main.py`
+- `tests/unit/test_protocol_compiler.py`
+- `documentation/decisions/20260421-sprint9-groundwork-persistent-skills-protocols-and-compiler.md`

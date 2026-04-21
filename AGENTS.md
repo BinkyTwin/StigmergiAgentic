@@ -6,44 +6,49 @@ This file provides guidance to GitHub Copilot / Codex when working in this repos
 
 Stigmergic orchestration framework V3 (runtime overhaul on top of V2 foundations) for a Master's thesis (EMLV).
 
-Current repository state is **Sprint 8 V6 general runtime controls**: Sprint 7 V5-full baseline + paired-seed-ready V6 presets + explicit lock telemetry + unified stagnation recovery controller + short-horizon stickiness + generic targeted repair contract.
+Current repository state is **Sprint 8 V6 baseline + Sprint 9 groundwork**: Sprint 7 V5-full baseline + paired-seed-ready V6 presets + explicit lock telemetry + unified stagnation recovery controller + short-horizon stickiness + generic targeted repair contract, plus the first opt-in scaffolding for persistent skills, protocol artifacts, and objective-conditioned protocol compilation.
 
-## Current Scope (Sprint 8 V6 General Runtime Controls)
+## Current Scope (Sprint 8 V6 Baseline + Sprint 9 Groundwork)
 
 Implemented:
 - `core/marker.py` — generic marker model + configurable state machine + `last_active_at`
 - `core/marker_store.py` — SQLite (WAL) transactional marker store + locks + lock-attempt telemetry + differential decay + read tracking/frequentation + pruning + SQL queries + optional session isolation
 - `core/decay.py` — intensity/inhibition decay + per-marker-type decay + read-time effective intensity
-- `core/schemas.py` — Pydantic schemas for structured LLM/tool outputs
+- `core/schemas.py` — Pydantic schemas for structured LLM/tool outputs + `ProtocolSpec`
 - `core/dependency.py` — DAG validation, topological ordering, unblocked filtering
 - `core/reinforcement.py` — success reinforcement + backward propagation + frequentation boost
-- `core/emergence.py` — 8-run emergence metrics from tick rows + audit collaboration parsing + feedback adaptations
+- `core/emergence.py` — 8-run emergence metrics from tick rows + audit collaboration parsing + feedback adaptations + cross-run protocol score/clamp helpers
 - `core/guardrails.py` — deep norms (budget, retry limit, lock TTL, traceability)
 - `core/audit.py` — append-only JSONL audit trail
-- `core/config.py` + `config/default.yaml` — V3 config sections + V6 recovery/stickiness/targeted-repair validation
+- `core/config.py` + `config/default.yaml` — V3 config sections + V6 recovery/stickiness/targeted-repair validation + Sprint 9 opt-in sections (`skill_library`, `protocol`, `cross_run`, `protocol_compiler`)
 - `core/tool_registry.py` — tool contracts + action registry + generic validation/repair contract
 - `core/pressure.py` — pressure computation + softmax action selection + optional ACO `heuristic_fn`
 - `core/environment.py` — runtime wrapper with reinforcement + propagation + time-decayed snapshots + control overlays + targeted repair-marker deposit
 - `core/agent.py` — dependency-aware candidate selection (`unblocked_markers`) + episodic memory recall/reinforcement + local-sensing affinity profile + V6 stickiness/recovery-aware targeting
 - `core/orchestrator.py` — parallel tick loop + async execution + session_id + emergence summary + emergent conflict resolution + feedback loop + V6 recovery controller/dynamic idle
-- `adapters/base.py` — domain adapter/objective/workspace contracts
-- `adapters/assistant/*` — generic assistant adapter + local workspace context summarization
+- `adapters/base.py` — domain adapter/objective/workspace contracts + optional `compile_protocol()`
+- `adapters/assistant/*` — generic assistant adapter + local workspace context summarization + objective-conditioned protocol compiler
 - `adapters/travelplanner/*` — TravelPlanner workspace + domain tools + adapter + evaluator
 - `adapters/travelplanner/langgraph_supervisor.py` — LangGraph supervisor scientific baseline
 - `tools/*` — infrastructure tools (`file_read`, `file_write`, async `bash_exec`, `web_search`, typed `think`, bounded DAG-aware `decompose`)
-- `llm/client.py` + `llm/prompts.py` — provider-aware sync+async client with structured response validation, memory/lesson prompt contexts
-- `main.py` — multi-adapter CLI (`assistant`, `travelplanner`) with per-run session_id, session DB path, DAG/reinforcement metadata + emergence dashboard
+- `llm/client.py` + `llm/prompts.py` — provider-aware sync+async client with structured response validation, memory/lesson prompt contexts, and protocol-compiler prompt
+- `main.py` — multi-adapter CLI (`assistant`, `travelplanner`) with per-run session_id, session DB path, DAG/reinforcement metadata + emergence dashboard + compile/fallback seeding path
 - `config/assistant.yaml` — assistant mode overrides
 - `config/travelplanner.yaml` — TravelPlanner mode overrides
+- `config/travelplanner_adapt.yaml` — Sprint 9 adaptation/train preset scaffold
+- `config/travelplanner_eval.yaml` — Sprint 9 frozen-eval preset scaffold
 - `config/travelplanner_v4_only.yaml` — V4-only ablation preset
 - `config/ablation/v5_full.yaml` — V5-full execution preset (`max_ticks=80`, `num_agents=6`)
 - `config/ablation/v6_base.yaml` / `v6_A.yaml` / `v6_B.yaml` / `v6_C.yaml` — V6 phase-1 ablation presets
 - `scripts/setup_travelplanner.py` — dataset/database setup helper
 - `scripts/run_travelplanner_framework_benchmark.py` — framework benchmark runner with inclusive `--start/--end` aliases and subset-aware official scoring
 - `scripts/tune_aco_travelplanner.py` — train-only ACO grid tuner that updates `config/ablation/v5_full.yaml`
-- `tests/unit/*` + `tests/integration/*` — V6 runtime tests added; targeted validation in this task: `77 passed` unit + `5 passed` TravelPlanner integration
+- `tests/unit/*` + `tests/integration/*` — V6 runtime tests added; Sprint 9 groundwork adds targeted config/emergence/compiler unit coverage
 
 Not implemented yet:
+- `SkillStore` / `ProtocolStore` dedicated persistence wiring in the runtime
+- `lesson -> skill` promotion flow and cross-run protocol persistence/application
+- TravelPlanner adaptation/evaluation campaign execution for Sprint 9 hypotheses
 - CodeMigration adapter (V2)
 - SWE-bench adapter
 - live train tuning execution and 3-seed V5-full validation benchmark campaign are still operator-run, not executed automatically in this task
@@ -163,6 +168,8 @@ config/
   default.yaml
   assistant.yaml
   travelplanner.yaml
+  travelplanner_adapt.yaml
+  travelplanner_eval.yaml
   travelplanner_v4_only.yaml
   ablation/
     v5_full.yaml
@@ -196,6 +203,7 @@ tests/
     test_agent_memory.py
     test_emergence.py
     test_config.py
+    test_protocol_compiler.py
   integration/
     test_assistant_run.py
     test_travelplanner.py

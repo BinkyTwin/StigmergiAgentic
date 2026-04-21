@@ -6,9 +6,9 @@ This file provides guidance to Claude Code when working in this repository.
 
 Stigmergic orchestration framework V3 for thesis research (EMLV).
 
-The codebase is currently at **Sprint 8 V6 general runtime controls** (Sprint 7 V5-full baseline + V6 recovery/stickiness/targeted-repair runtime surfaces + frozen V6 ablation presets).
+The codebase is currently at **Sprint 8 V6 baseline + Sprint 9 groundwork** (Sprint 7 V5-full baseline + V6 recovery/stickiness/targeted-repair runtime surfaces + frozen V6 ablation presets + opt-in scaffolding for persistent skills, protocol artifacts, and protocol compilation).
 
-## Sprint 8 V6 Runtime Status (2026-04-18)
+## Sprint 8 V6 Baseline + Sprint 9 Groundwork Status (2026-04-21)
 
 Implemented modules:
 - `core/marker.py`
@@ -48,6 +48,8 @@ Implemented modules:
 - `config/default.yaml`
 - `config/assistant.yaml`
 - `config/travelplanner.yaml`
+- `config/travelplanner_adapt.yaml`
+- `config/travelplanner_eval.yaml`
 - `config/travelplanner_v4_only.yaml`
 - `config/ablation/v5_full.yaml`
 - `config/ablation/v6_base.yaml`
@@ -59,6 +61,7 @@ Implemented modules:
 - `scripts/run_travelplanner_framework_benchmark.py`
 - `scripts/tune_aco_travelplanner.py`
 - `tests/unit/*` + `tests/integration/*` (targeted V6 validation in this task: 77 unit tests + 5 TravelPlanner integration tests)
+- `tests/unit/test_protocol_compiler.py` (Sprint 9 groundwork)
 
 Validated gate:
 - `uv run pytest tests/unit/test_config.py tests/unit/test_marker_store.py tests/unit/test_environment.py tests/unit/test_agent.py tests/unit/test_orchestrator.py tests/unit/test_travelplanner_tools.py -q` -> 77 passed
@@ -72,6 +75,7 @@ Validated gate:
 - Auditability by default: append-only JSONL events with before/after payloads.
 - Role-free agents: same agent logic, specialization through pressures, local sensing, and marker availability.
 - Backward compatibility first: stigmergic-correction features are opt-in via config.
+- Extend the medium, not the agent source: Sprint 9 groundwork keeps self-improvement in persistent artifacts and optional protocol compilation paths.
 
 ## Runtime Model
 
@@ -140,6 +144,8 @@ Important V6 additions:
 - `Tool`
 - `ToolRegistry`
 
+`ActionResult.metadata` may now document `credited_lesson_ids` for future lesson-to-skill promotion.
+
 ### `core.pressure`
 - `compute_pressures`
 - `select_action`
@@ -181,6 +187,8 @@ It can also use the V6 `recovery_controller`, dynamic idle, and per-tick `TickRo
 ### `adapters.assistant`
 - `AssistantAdapter`
 - `LocalWorkspace`
+
+`AssistantAdapter` now exposes an opt-in `compile_protocol()` path that can transform objectives into executable task DAGs when enabled and backed by an LLM.
 
 ### `adapters.travelplanner`
 - `TravelPlannerAdapter`

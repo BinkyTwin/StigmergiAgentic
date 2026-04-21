@@ -6,8 +6,11 @@ from typing import Any
 from uuid import uuid4
 
 from adapters.base import DomainAdapter, Objective, Workspace
+from core.dependency import validate_dag
 from core.marker import Marker, StateMachine, utc_now_iso
+from core.schemas import ProtocolSpec
 from core.tool_registry import ToolRegistry
+from llm.prompts import SYSTEM_PROTOCOL_COMPILER, build_protocol_compiler_prompt
 from tools import register_infrastructure_tools
 
 from .workspace import LocalWorkspace
@@ -122,6 +125,84 @@ class AssistantAdapter(DomainAdapter):
                 history=["created"],
             )
         ]
+
+    def compile_protocol(
+        self,
+        objective: Objective,
+        config: dict[str, Any],
+        llm_client: Any | None = None,
+    ) -> list[Marker] | None:
+        compiler_cfg = dict(config.get("agents", {}).get("protocol_compiler", {}))
+        if not bool(compiler_cfg.get("enabled", False)) or llm_client is None:
+            return None
+
+        registry = ToolRegistry()
+        self.register_tools(registry)
+        available_actions = registry.action_types()
+        if not available_actions:
+            return None
+
+        try:
+            response = llm_client.call(
+                prompt=build_protocol_compiler_prompt(
+                    objective=objective.description,
+                    available_actions=available_actions,
+                    state_machine=self.define_state_machine(),
+                ),
+                system=SYSTEM_PROTOCOL_COMPILER,
+                response_schema=ProtocolSpec,
+            )
+        except Exception:  # noqa: BLE001
+            return None
+
+        parsed = getattr(response, "parsed", None)
+        if not isinstance(parsed, ProtocolSpec) or not parsed.markers:
+            return None
+
+        seen_ids: set[str] = set()
+        compiled: list[Marker] = []
+        now = utc_now_iso()
+        for spec in parsed.markers:
+            if spec.id in seen_ids:
+                return None
+            seen_ids.add(spec.id)
+
+            allowed_actions = [
+                action for action in spec.eligible_actions if action in available_actions
+            ]
+            if not allowed_actions:
+                return None
+
+            payload = {
+                "objective": objective.description,
+                "eligible_actions": allowed_actions,
+                **dict(spec.payload),
+            }
+            if spec.depends_on:
+                payload["depends_on"] = list(spec.depends_on)
+            if spec.priority:
+                payload["priority"] = spec.priority
+
+            compiled.append(
+                Marker(
+                    id=spec.id,
+                    marker_type=spec.marker_type,
+                    target=spec.target,
+                    intensity=spec.intensity,
+                    state="pending",
+                    payload=payload,
+                    created_by="system_compiler",
+                    created_at=now,
+                    updated_by="system_compiler",
+                    updated_at=now,
+                    last_active_at=now,
+                    history=["compiled"],
+                )
+            )
+
+        if not validate_dag(compiled):
+            return None
+        return compiled
 
     def evaluate_run(self, env_snapshot: dict[str, Any]) -> dict[str, Any]:
         markers = env_snapshot.get("markers", [])

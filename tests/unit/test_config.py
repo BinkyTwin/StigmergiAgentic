@@ -121,3 +121,39 @@ def test_load_config_accepts_v6_presets() -> None:
     assert v6_a["orchestrator"]["recovery_controller"]["enabled"] is True
     assert v6_a["agents"]["stickiness"]["enabled"] is False
     assert v6_c["orchestrator"]["targeted_repair"]["enabled"] is True
+
+
+def test_validate_config_rejects_invalid_promotion_min_uses(
+    config_dict: dict,
+) -> None:
+    config = copy.deepcopy(config_dict)
+    config["reinforcement"]["promotion_min_uses"] = 0
+    with pytest.raises(ConfigError):
+        validate_config(config)
+
+
+def test_validate_config_rejects_invalid_cross_run_flag(config_dict: dict) -> None:
+    config = copy.deepcopy(config_dict)
+    config["emergence"]["cross_run"]["enabled"] = "yes"
+    with pytest.raises(ConfigError):
+        validate_config(config)
+
+
+def test_validate_config_requires_non_empty_skill_library_db_path(
+    config_dict: dict,
+) -> None:
+    config = copy.deepcopy(config_dict)
+    config["skill_library"]["db_path"] = ""
+    with pytest.raises(ConfigError):
+        validate_config(config)
+
+
+def test_load_config_accepts_sprint9_train_eval_presets() -> None:
+    adapt = load_config(Path("config/travelplanner_adapt.yaml"))
+    evaluation = load_config(Path("config/travelplanner_eval.yaml"))
+
+    assert adapt["skill_library"]["enabled"] is True
+    assert adapt["protocol"]["enabled"] is True
+    assert adapt["emergence"]["cross_run"]["enabled"] is True
+    assert evaluation["skill_library"]["read_only"] is True
+    assert evaluation["protocol"]["read_only"] is True

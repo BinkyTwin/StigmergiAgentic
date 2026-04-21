@@ -44,6 +44,9 @@ def config_dict() -> dict:
                 "continuity_bonus": 0.08,
                 "max_consecutive_reuse": 2,
             },
+            "protocol_compiler": {
+                "enabled": False,
+            },
         },
         "markers": {
             "decay_type": "exponential",
@@ -54,6 +57,8 @@ def config_dict() -> dict:
                 "dependency": 0.01,
                 "anticipatory": 0.15,
                 "lesson": 0.01,
+                "skill": 0.005,
+                "coordination_protocol": 0.01,
             },
             "inhibition_decay_rate": 0.08,
             "inhibition_increment": 0.5,
@@ -72,6 +77,7 @@ def config_dict() -> dict:
             "propagation_factor": 0.5,
             "max_intensity": 1.0,
             "lesson_threshold": 0.7,
+            "promotion_min_uses": 2,
             "frequentation": {
                 "enabled": False,
                 "read_boost": 0.01,
@@ -79,6 +85,16 @@ def config_dict() -> dict:
                 "max_boost_per_tick": 0.1,
                 "diminishing_factor": 0.5,
             },
+        },
+        "skill_library": {
+            "enabled": False,
+            "read_only": False,
+            "db_path": "pheromones/skills.db",
+        },
+        "protocol": {
+            "enabled": False,
+            "read_only": False,
+            "db_path": "pheromones/protocols.db",
         },
         "guardrails": {
             "max_retry_count": 3,
@@ -130,6 +146,11 @@ def config_dict() -> dict:
                 "enabled": False,
                 "interval_ticks": 5,
                 "max_adaptation_delta": 0.2,
+            },
+            "cross_run": {
+                "enabled": False,
+                "read_only": False,
+                "max_total_delta": 0.15,
             },
         },
         "llm": {

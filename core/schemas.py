@@ -39,6 +39,54 @@ class DecomposeOutput(BaseModel):
     subtasks: list[SubtaskSpec] = Field(default_factory=list)
 
 
+class ProtocolMarkerSpec(BaseModel):
+    """One compiled protocol marker proposal."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    id: str
+    target: str
+    eligible_actions: list[str] = Field(default_factory=list)
+    intensity: float = 0.8
+    depends_on: list[str] = Field(default_factory=list)
+    priority: str | None = None
+    marker_type: str = "task"
+    payload: dict[str, Any] = Field(default_factory=dict)
+
+    @field_validator("id", "target", "marker_type", mode="before")
+    @classmethod
+    def _require_non_empty_text(cls, value: Any) -> str:
+        text = str(value or "").strip()
+        if not text:
+            raise ValueError("value cannot be empty")
+        return text
+
+    @field_validator("eligible_actions", "depends_on", mode="before")
+    @classmethod
+    def _normalize_string_list(cls, value: Any) -> list[str]:
+        if value is None:
+            return []
+        if not isinstance(value, list):
+            raise ValueError("value must be a list")
+        return [str(item).strip() for item in value if str(item).strip()]
+
+    @field_validator("intensity", mode="before")
+    @classmethod
+    def _validate_intensity(cls, value: Any) -> float:
+        intensity = float(value)
+        if intensity < 0.1 or intensity > 1.0:
+            raise ValueError("intensity must be in [0.1, 1.0]")
+        return intensity
+
+
+class ProtocolSpec(BaseModel):
+    """Structured protocol topology emitted by the protocol compiler."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    markers: list[ProtocolMarkerSpec] = Field(default_factory=list)
+
+
 class ToolResult(BaseModel):
     """Generic structured output contract for tool-like responses."""
 
