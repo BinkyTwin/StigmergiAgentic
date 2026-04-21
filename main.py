@@ -43,7 +43,9 @@ PROTOCOLS_DB_PATH = Path("pheromones/protocols.db")
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     """Parse CLI arguments for assistant execution."""
     parser = argparse.ArgumentParser(description="Stigmergic V3 runtime")
-    parser.add_argument("--adapter", choices=["assistant", "travelplanner"], default="assistant")
+    parser.add_argument(
+        "--adapter", choices=["assistant", "travelplanner"], default="assistant"
+    )
     parser.add_argument("--objective", type=str, required=True)
     parser.add_argument("--workspace", type=str, default=".")
     parser.add_argument("--data-dir", type=str, default=None)
@@ -152,7 +154,9 @@ def main(argv: list[str] | None = None) -> int:
             markers=result.final_snapshot.markers,
         )
     else:
-        assistant_response = _build_travelplanner_response(result.final_snapshot.markers)
+        assistant_response = _build_travelplanner_response(
+            result.final_snapshot.markers
+        )
 
     print(f"Session ID: {session_id}")
     print("Assistant response:")
@@ -402,7 +406,9 @@ def _build_travelplanner_response(markers: list[Any]) -> str:
     if not final_markers:
         return "No travel plan generated."
 
-    final_marker = sorted(final_markers, key=lambda marker: str(getattr(marker, "id", "")))[0]
+    final_marker = sorted(
+        final_markers, key=lambda marker: str(getattr(marker, "id", ""))
+    )[0]
     payload = dict(getattr(final_marker, "payload", {}))
     plan = payload.get("final_plan", [])
     if not isinstance(plan, list) or not plan:
@@ -699,15 +705,22 @@ def _build_protocol_namespace(config: dict[str, Any], adapter_name: str) -> str:
 
     llm_cfg = dict(config.get("llm", {}))
     pressures_cfg = dict(config.get("pressures", {}))
+    skill_cfg = dict(config.get("skill_library", {}))
+    proto_cfg = dict(config.get("protocol", {}))
+    emergence_cfg = dict(config.get("emergence", {}))
+    feedback_cfg = dict(emergence_cfg.get("feedback_loop", {}))
     key = {
         "adapter": str(adapter_name).strip(),
         "model": str(llm_cfg.get("model", "")).strip(),
         "alpha": float(pressures_cfg.get("alpha", 1.0)),
         "beta": float(pressures_cfg.get("beta", 1.0)),
+        "skill_library": bool(skill_cfg.get("enabled", False)),
+        "protocol": bool(proto_cfg.get("enabled", False)),
+        "feedback_loop": bool(feedback_cfg.get("enabled", False)),
     }
-    digest = hashlib.md5(
-        json.dumps(key, sort_keys=True).encode("utf-8")
-    ).hexdigest()[:8]
+    digest = hashlib.md5(json.dumps(key, sort_keys=True).encode("utf-8")).hexdigest()[
+        :8
+    ]
     return f"coordination_protocol::{adapter_name}::{digest}"
 
 
@@ -738,9 +751,7 @@ def _maybe_apply_cross_run_protocol(
     if protocol_store is None:
         return False
 
-    baseline = protocol_store.load_protocol_marker(
-        slot="baseline", namespace=namespace
-    )
+    baseline = protocol_store.load_protocol_marker(slot="baseline", namespace=namespace)
     best = protocol_store.load_protocol_marker(slot="best", namespace=namespace)
     if not baseline or not best:
         return False
@@ -795,9 +806,10 @@ def _persist_protocol(
         payload=payload_latest,
     )
 
-    if protocol_store.load_protocol_marker(
-        slot="baseline", namespace=namespace
-    ) is None:
+    if (
+        protocol_store.load_protocol_marker(slot="baseline", namespace=namespace)
+        is None
+    ):
         protocol_store.save_protocol_marker(
             slot="baseline",
             namespace=namespace,
@@ -807,9 +819,7 @@ def _persist_protocol(
             },
         )
 
-    current_best = protocol_store.load_protocol_marker(
-        slot="best", namespace=namespace
-    )
+    current_best = protocol_store.load_protocol_marker(slot="best", namespace=namespace)
     if current_best is None or score > float(current_best.get("score", -1e9)):
         protocol_store.save_protocol_marker(
             slot="best",

@@ -154,8 +154,11 @@ def test_promotes_skill_at_threshold(tmp_path, config_dict: dict) -> None:
         ),
     )
 
-    promoted = skills_store.get_marker("skill::assistant::lesson::task::alpha")
-    assert promoted is not None
+    # With meta-skill grouping, skill_id is based on context fingerprint.
+    # Find any promoted skill (should be exactly 1)
+    all_skills = skills_store.query_markers(marker_type="skill")
+    assert len(all_skills) == 1
+    promoted = all_skills[0]
     assert promoted.marker_type == "skill"
     assert promoted.state == "terminal"
     assert promoted.payload["domain"] == "assistant"

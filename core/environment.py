@@ -76,7 +76,9 @@ class Environment:
         if bool(time_decay_cfg.get("enabled", False)):
             decay_type = str(markers_cfg.get("decay_type", "exponential"))
             default_decay_rate = float(
-                markers_cfg.get("default_decay_rate", markers_cfg.get("decay_rate", 0.05))
+                markers_cfg.get(
+                    "default_decay_rate", markers_cfg.get("decay_rate", 0.05)
+                )
             )
             decay_rates_by_type = dict(markers_cfg.get("decay_rates_by_type", {}))
             clamp_raw = markers_cfg.get("intensity_clamp", [0.1, 1.0])
@@ -108,9 +110,7 @@ class Environment:
             else 0.0
         )
         flat_markers = [
-            marker
-            for markers in copied_grouped.values()
-            for marker in markers
+            marker for markers in copied_grouped.values() for marker in markers
         ]
         for marker in flat_markers:
             payload = dict(marker.payload)
@@ -123,7 +123,9 @@ class Environment:
             payload["runtime_lock_stats"] = stats
             marker.payload = payload
             if inhibition_relief > 0.0:
-                marker.inhibition = max(0.0, float(marker.inhibition) - inhibition_relief)
+                marker.inhibition = max(
+                    0.0, float(marker.inhibition) - inhibition_relief
+                )
         flat_markers.sort(key=lambda marker: marker.id)
         skill_markers = self._load_skill_markers()
         return EnvironmentSnapshot(
@@ -149,7 +151,9 @@ class Environment:
 
     def acquire_lock(self, marker_id: str, agent_id: str, tick: int) -> bool:
         """Attempt to lock one marker for an agent."""
-        return self.store.acquire_lock(marker_id=marker_id, agent_id=agent_id, tick=tick)
+        return self.store.acquire_lock(
+            marker_id=marker_id, agent_id=agent_id, tick=tick
+        )
 
     def release_lock(self, marker_id: str, agent_id: str) -> bool:
         """Release one marker lock."""
@@ -171,7 +175,9 @@ class Environment:
 
             if existing is not None:
                 if existing.state != marker_to_save.state:
-                    self.state_machine.validate_transition(existing.state, marker_to_save.state)
+                    self.state_machine.validate_transition(
+                        existing.state, marker_to_save.state
+                    )
                     transition = f"{existing.state}->{marker_to_save.state}"
                     history = list(existing.history)
                     history.append(transition)
@@ -252,7 +258,9 @@ class Environment:
         """Apply lock maintenance and marker decay for one tick."""
         ttl = int(self.config.get("guardrails", {}).get("scope_lock_ttl", 3))
         released_locks = self.store.maintain_locks(current_tick=current_tick, ttl=ttl)
-        decayed_markers = self.store.apply_decay(current_tick=current_tick, config=self.config)
+        decayed_markers = self.store.apply_decay(
+            current_tick=current_tick, config=self.config
+        )
         frequentation_boosted_markers = self.store.apply_frequentation(
             current_tick=current_tick,
             config=self.config,
@@ -421,7 +429,9 @@ class Environment:
         if validation is None:
             return []
 
-        repair_cfg = dict(self.config.get("orchestrator", {}).get("targeted_repair", {}))
+        repair_cfg = dict(
+            self.config.get("orchestrator", {}).get("targeted_repair", {})
+        )
         if not bool(repair_cfg.get("enabled", False)):
             return []
 
@@ -497,7 +507,7 @@ class Environment:
         result: ActionResult,
         quality_score: float,
     ) -> None:
-        """Promote credited lesson markers to persistent skill markers."""
+        """Promote credited lesson markers to persistent meta-skill markers."""
         if self.skills_store is None:
             return
         skill_cfg = dict(self.config.get("skill_library", {}))
@@ -539,16 +549,20 @@ class Environment:
             if usage_count < promotion_min_uses:
                 continue
 
-            skill_id = f"skill::{self.adapter_name}::{lesson_id}"
-            skill_intensity = max(0.0, min(1.0, float(quality_score)))
             skill_text = str(lesson_payload.get("lesson", "")).strip()
             context_fingerprint = self._build_skill_context_fingerprint(lesson)
+            skill_id = f"skill::{self.adapter_name}::{context_fingerprint}"
+            skill_intensity = max(0.0, min(1.0, float(quality_score)))
 
             existing_skill = self.skills_store.get_marker(skill_id)
             if existing_skill is not None:
                 new_payload = dict(existing_skill.payload)
-                new_payload["skill_text"] = skill_text or str(
-                    new_payload.get("skill_text", "")
+                # Merge skill text heuristics (keep longer/more detailed)
+                existing_text = str(new_payload.get("skill_text", "")).strip()
+                new_payload["skill_text"] = (
+                    skill_text
+                    if len(skill_text) > len(existing_text)
+                    else existing_text
                 )
                 new_payload["context_fingerprint"] = context_fingerprint
                 new_payload["quality_score"] = max(
@@ -556,7 +570,9 @@ class Environment:
                     float(quality_score),
                 )
                 new_payload["usage_count"] = int(new_payload.get("usage_count", 0)) + 1
-                new_payload["source_lesson_id"] = lesson_id
+                new_payload["source_lesson_ids"] = list(
+                    set(list(new_payload.get("source_lesson_ids", [])) + [lesson_id])
+                )
                 new_payload["domain"] = self.adapter_name
 
                 updated_skill = Marker.from_dict(existing_skill.to_dict())
@@ -579,7 +595,7 @@ class Environment:
                         "context_fingerprint": context_fingerprint,
                         "quality_score": float(quality_score),
                         "usage_count": usage_count,
-                        "source_lesson_id": lesson_id,
+                        "source_lesson_ids": [lesson_id],
                         "domain": self.adapter_name,
                     },
                     created_by=agent_id,
@@ -593,6 +609,45 @@ class Environment:
             self.skills_promoted += 1
 
     def _build_skill_context_fingerprint(self, lesson: Marker) -> str:
-        target = str(lesson.target).strip()
+        """Extract a generic action-pattern fingerprint for meta-skill grouping.
+
+        Groups lessons by the *type* of action pattern rather than the specific
+        query, enabling cross-query skill reuse.
+        """
+        # Extract action pattern from source marker or lesson content
         source_marker = str(lesson.payload.get("source_marker", "")).strip()
-        return f"{self.adapter_name}::{target}::{source_marker}"
+        lesson_text = str(lesson.payload.get("lesson", "")).strip().lower()
+
+        # Derive action category from marker type or lesson keywords
+        action_category = "general"
+        if "flight" in lesson_text or "flight" in source_marker:
+            action_category = "flight_search"
+        elif "hotel" in lesson_text or "hotel" in source_marker:
+            action_category = "hotel_search"
+        elif "restaurant" in lesson_text or "restaurant" in source_marker:
+            action_category = "restaurant_search"
+        elif "attraction" in lesson_text or "attraction" in source_marker:
+            action_category = "attraction_search"
+        elif "plan" in lesson_text or "itinerary" in source_marker:
+            action_category = "planning"
+        elif "constraint" in lesson_text or "validate" in source_marker:
+            action_category = "validation"
+        elif "decompose" in lesson_text or "break" in lesson_text:
+            action_category = "decomposition"
+        elif "search" in lesson_text:
+            action_category = "search_strategy"
+
+        # Also extract failure/success pattern
+        pattern_type = "success"
+        if "fail" in lesson_text or "error" in lesson_text or "timeout" in lesson_text:
+            pattern_type = "failure_recovery"
+        elif "retry" in lesson_text or "retry" in source_marker:
+            pattern_type = "retry_strategy"
+        elif (
+            "order" in lesson_text
+            or "sequence" in lesson_text
+            or "first" in lesson_text
+        ):
+            pattern_type = "execution_order"
+
+        return f"{action_category}::{pattern_type}"
