@@ -1,0 +1,24 @@
+framework:
+  mode: "travelplanner_eval"
+
+skill_library:
+  enabled: true
+  read_only: true
+  db_path: "pheromones/skills.db"
+
+protocol:
+  enabled: true
+  read_only: true
+  db_path: "pheromones/protocols.db"
+
+emergence:
+  feedback_loop:
+    enabled: false
+  cross_run:
+    enabled: true
+    read_only: true
+    max_total_delta: 0.15
+
+agents:
+  protocol_compiler:
+    enabled: false
