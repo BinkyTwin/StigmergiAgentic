@@ -28,6 +28,7 @@ class Decision:
     context: str = ""
     recalled_memories: list[dict[str, Any]] = field(default_factory=list)
     lesson_markers: list[dict[str, Any]] = field(default_factory=list)
+    skill_markers: list[dict[str, Any]] = field(default_factory=list)
     stickiness_applied: bool = False
     recovery_preference_applied: bool = False
 

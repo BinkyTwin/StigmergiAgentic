@@ -335,6 +335,10 @@ class StigmergicAgent:
             snapshot=snapshot,
             top_k=int(self.config.get("agents", {}).get("lesson_top_k", 3)),
         )
+        skill_markers = self._recall_skills(
+            snapshot=snapshot,
+            top_k=int(self.config.get("agents", {}).get("skill_top_k", 3)),
+        )
         selection_affinity = self._marker_affinity(target)
 
         return Decision(
@@ -350,6 +354,7 @@ class StigmergicAgent:
             context=decision_context,
             recalled_memories=recalled_memories,
             lesson_markers=lesson_markers,
+            skill_markers=skill_markers,
             stickiness_applied=stickiness_applied,
             recovery_preference_applied=recovery_preference_applied,
         )
@@ -383,10 +388,13 @@ class StigmergicAgent:
             runtime_payload = dict(runtime_marker.payload)
             recalled = getattr(decision, "recalled_memories", [])
             lessons = getattr(decision, "lesson_markers", [])
+            skills = getattr(decision, "skill_markers", [])
             if isinstance(recalled, list) and recalled:
                 runtime_payload["recalled_memories"] = list(recalled)
             if isinstance(lessons, list) and lessons:
                 runtime_payload["lesson_markers"] = list(lessons)
+            if isinstance(skills, list) and skills:
+                runtime_payload["skill_markers"] = list(skills)
             runtime_marker.payload = runtime_payload
 
             result = await tool.execute(
@@ -527,6 +535,43 @@ class StigmergicAgent:
                 "source_marker": str(marker.payload.get("source_marker", "")).strip(),
                 "source_agent": str(marker.payload.get("source_agent", "")).strip(),
                 "updated_at": marker.updated_at,
+            }
+            for marker in selected
+        ]
+
+    def _recall_skills(
+        self,
+        *,
+        snapshot: EnvironmentSnapshot,
+        top_k: int,
+    ) -> list[dict[str, Any]]:
+        """Return top-k persistent skill markers loaded from the cross-run store."""
+        skill_cfg = dict(self.config.get("skill_library", {}))
+        if not bool(skill_cfg.get("enabled", False)):
+            return []
+        skills = list(getattr(snapshot, "skills", []) or [])
+        if not skills:
+            return []
+        skills.sort(
+            key=lambda marker: (
+                -float(marker.intensity),
+                -int(marker.payload.get("usage_count", 0) or 0),
+                marker.id,
+            )
+        )
+        selected = skills[: max(1, int(top_k))]
+        return [
+            {
+                "id": marker.id,
+                "target": marker.target,
+                "skill_text": str(marker.payload.get("skill_text", "")).strip(),
+                "context_fingerprint": str(
+                    marker.payload.get("context_fingerprint", "")
+                ).strip(),
+                "quality_score": float(marker.payload.get("quality_score", 0.0)),
+                "usage_count": int(marker.payload.get("usage_count", 0) or 0),
+                "domain": str(marker.payload.get("domain", "")).strip(),
+                "intensity": float(marker.intensity),
             }
             for marker in selected
         ]

@@ -20,6 +20,11 @@ from adapters.travelplanner import TravelPlannerAdapter
 from core.agent import StigmergicAgent
 from core.config import load_config, merge_config, validate_config
 from core.dependency import validate_dag
+from core.emergence import (
+    clamp_cross_run_adaptations,
+    compute_adaptations,
+    compute_protocol_score,
+)
 from core.environment import Environment
 from core.marker import Marker
 from core.marker_store import MarkerStore
@@ -31,6 +36,8 @@ from llm.client import LLMClient
 ASSISTANT_CONFIG_PATH = Path("config/assistant.yaml")
 TRAVELPLANNER_CONFIG_PATH = Path("config/travelplanner.yaml")
 DEFAULT_DB_PATH = Path("pheromones/markers.db")
+SKILLS_DB_PATH = Path("pheromones/skills.db")
+PROTOCOLS_DB_PATH = Path("pheromones/protocols.db")
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
@@ -79,11 +86,21 @@ def main(argv: list[str] | None = None) -> int:
         session_id=session_id,
         session_isolation=session_isolation,
     )
+    skills_store = _maybe_build_skills_store(config)
+    protocol_store = _maybe_build_protocol_store(config)
+    protocol_namespace = _build_protocol_namespace(config, args.adapter)
+    cross_run_applied = _maybe_apply_cross_run_protocol(
+        config=config,
+        protocol_store=protocol_store,
+        namespace=protocol_namespace,
+    )
     environment = Environment(
         store=store,
         config=config,
         workspace=workspace,
         state_machine=adapter.define_state_machine(),
+        skills_store=skills_store,
+        adapter_name=str(args.adapter),
     )
 
     registry = ToolRegistry()
@@ -120,6 +137,14 @@ def main(argv: list[str] | None = None) -> int:
             "stop_reason": result.stop_reason,
         }
     )
+    _persist_protocol(
+        result=result,
+        evaluation=evaluation,
+        config=config,
+        protocol_store=protocol_store,
+        namespace=protocol_namespace,
+        session_id=session_id,
+    )
     dag_info = _dag_info(result.final_snapshot.markers)
     if args.adapter == "assistant":
         assistant_response = _build_assistant_response(
@@ -148,6 +173,7 @@ def main(argv: list[str] | None = None) -> int:
         dag_info=dag_info,
         assistant_response=assistant_response,
         config=config,
+        cross_run_applied=cross_run_applied,
     )
     print(json.dumps(summary, indent=2, sort_keys=True))
 
@@ -289,6 +315,7 @@ def _build_run_summary(
     dag_info: dict[str, Any],
     assistant_response: str,
     config: dict[str, Any],
+    cross_run_applied: bool = False,
 ) -> dict[str, Any]:
     llm_config = dict(config.get("llm", {}))
     return {
@@ -311,6 +338,13 @@ def _build_run_summary(
         "maintenance": {
             "pruned_markers": int(environment.pruned_markers),
         },
+        "skill_library": {
+            "enabled": bool(
+                dict(config.get("skill_library", {})).get("enabled", False)
+            ),
+            "skills_promoted": int(getattr(environment, "skills_promoted", 0)),
+        },
+        "coordination_protocol_applied": bool(cross_run_applied),
         "emergence": dict(result.emergence_summary),
         "dag": dag_info,
         "evaluation": evaluation,
@@ -629,6 +663,159 @@ def _dag_info(markers: list[Any]) -> dict[str, Any]:
         "nodes": len(cast_markers),
         "edges": dependency_edges,
     }
+
+
+def _maybe_build_skills_store(config: dict[str, Any]) -> MarkerStore | None:
+    """Build cross-run skills marker store when the skill library is enabled."""
+    skill_cfg = dict(config.get("skill_library", {}))
+    if not bool(skill_cfg.get("enabled", False)):
+        return None
+    db_path = Path(str(skill_cfg.get("db_path", SKILLS_DB_PATH)))
+    db_path.parent.mkdir(parents=True, exist_ok=True)
+    return MarkerStore(
+        db_path=db_path,
+        traceability=False,
+        session_isolation=False,
+    )
+
+
+def _maybe_build_protocol_store(config: dict[str, Any]) -> MarkerStore | None:
+    """Build cross-run protocol marker store when the protocol artifact is enabled."""
+    proto_cfg = dict(config.get("protocol", {}))
+    if not bool(proto_cfg.get("enabled", False)):
+        return None
+    db_path = Path(str(proto_cfg.get("db_path", PROTOCOLS_DB_PATH)))
+    db_path.parent.mkdir(parents=True, exist_ok=True)
+    return MarkerStore(
+        db_path=db_path,
+        traceability=False,
+        session_isolation=False,
+    )
+
+
+def _build_protocol_namespace(config: dict[str, Any], adapter_name: str) -> str:
+    """Return a stable namespace key for this (adapter, config) combination."""
+    import hashlib
+
+    llm_cfg = dict(config.get("llm", {}))
+    pressures_cfg = dict(config.get("pressures", {}))
+    key = {
+        "adapter": str(adapter_name).strip(),
+        "model": str(llm_cfg.get("model", "")).strip(),
+        "alpha": float(pressures_cfg.get("alpha", 1.0)),
+        "beta": float(pressures_cfg.get("beta", 1.0)),
+    }
+    digest = hashlib.md5(
+        json.dumps(key, sort_keys=True).encode("utf-8")
+    ).hexdigest()[:8]
+    return f"coordination_protocol::{adapter_name}::{digest}"
+
+
+def _set_config_path(config: dict[str, Any], path: str, value: Any) -> None:
+    """Apply a dotted-path assignment to an existing nested dict."""
+    keys = [key for key in str(path).split(".") if key]
+    if not keys:
+        return
+    cursor: Any = config
+    for key in keys[:-1]:
+        if not isinstance(cursor, dict) or key not in cursor:
+            return
+        cursor = cursor[key]
+    if isinstance(cursor, dict):
+        cursor[keys[-1]] = value
+
+
+def _maybe_apply_cross_run_protocol(
+    *,
+    config: dict[str, Any],
+    protocol_store: MarkerStore | None,
+    namespace: str,
+) -> bool:
+    """Apply clamped best-protocol adaptations to config before the run starts."""
+    cross_run_cfg = dict(config.get("emergence", {}).get("cross_run", {}))
+    if not bool(cross_run_cfg.get("enabled", False)):
+        return False
+    if protocol_store is None:
+        return False
+
+    baseline = protocol_store.load_protocol_marker(
+        slot="baseline", namespace=namespace
+    )
+    best = protocol_store.load_protocol_marker(slot="best", namespace=namespace)
+    if not baseline or not best:
+        return False
+
+    adaptations = dict(best.get("adaptations", {}) or {})
+    if not adaptations:
+        return False
+
+    max_delta = float(cross_run_cfg.get("max_total_delta", 0.15))
+    baseline_config = dict(baseline.get("config", {}) or {})
+    clamped = clamp_cross_run_adaptations(
+        adaptations,
+        baseline_config,
+        max_total_delta=max_delta,
+    )
+    for path, value in clamped.items():
+        _set_config_path(config, str(path), value)
+    return bool(clamped)
+
+
+def _persist_protocol(
+    *,
+    result: Any,
+    evaluation: dict[str, Any],
+    config: dict[str, Any],
+    protocol_store: MarkerStore | None,
+    namespace: str,
+    session_id: str,
+) -> None:
+    """Persist coordination protocol artifacts after one run completes."""
+    cross_run_cfg = dict(config.get("emergence", {}).get("cross_run", {}))
+    if not bool(cross_run_cfg.get("enabled", False)):
+        return
+    if protocol_store is None:
+        return
+    if bool(cross_run_cfg.get("read_only", False)):
+        return
+
+    metrics = dict(result.emergence_summary or {})
+    adaptations = dict(compute_adaptations(metrics, config))
+    score = float(compute_protocol_score(evaluation or {}))
+
+    payload_latest: dict[str, Any] = {
+        "metrics": metrics,
+        "adaptations": adaptations,
+        "score": score,
+        "session_id": session_id,
+    }
+    protocol_store.save_protocol_marker(
+        slot="latest",
+        namespace=namespace,
+        payload=payload_latest,
+    )
+
+    if protocol_store.load_protocol_marker(
+        slot="baseline", namespace=namespace
+    ) is None:
+        protocol_store.save_protocol_marker(
+            slot="baseline",
+            namespace=namespace,
+            payload={
+                "config": dict(config),
+                "session_id": session_id,
+            },
+        )
+
+    current_best = protocol_store.load_protocol_marker(
+        slot="best", namespace=namespace
+    )
+    if current_best is None or score > float(current_best.get("score", -1e9)):
+        protocol_store.save_protocol_marker(
+            slot="best",
+            namespace=namespace,
+            payload=payload_latest,
+        )
 
 
 if __name__ == "__main__":

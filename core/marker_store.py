@@ -566,6 +566,70 @@ class MarkerStore:
             )
         )
 
+    def save_protocol_marker(
+        self,
+        *,
+        slot: str,
+        namespace: str,
+        payload: dict[str, Any],
+        agent_id: str = "system_protocol",
+    ) -> Marker:
+        """Upsert one coordination protocol artifact into the persistent store."""
+        slot_value = str(slot).strip()
+        if not slot_value:
+            raise MarkerStoreError("protocol slot cannot be empty")
+        namespace_value = str(namespace).strip()
+        if not namespace_value:
+            raise MarkerStoreError("protocol namespace cannot be empty")
+
+        marker_id = f"{namespace_value}::{slot_value}"
+        timestamp = utc_timestamp()
+        enriched_payload = dict(payload or {})
+        enriched_payload["slot"] = slot_value
+        enriched_payload["namespace"] = namespace_value
+
+        existing = self.get_marker(marker_id)
+        intensity_raw = enriched_payload.get("score")
+        try:
+            intensity_value = float(intensity_raw)
+        except (TypeError, ValueError):
+            intensity_value = float(existing.intensity) if existing else 0.5
+        intensity_value = max(0.0, min(1.0, intensity_value / 1_000_000.0))
+        marker = Marker(
+            id=marker_id,
+            marker_type="coordination_protocol",
+            target=namespace_value,
+            intensity=intensity_value,
+            state="terminal",
+            payload=enriched_payload,
+            created_by=existing.created_by if existing else agent_id,
+            created_at=existing.created_at if existing else timestamp,
+            updated_by=agent_id,
+            updated_at=timestamp,
+            last_active_at=timestamp,
+            history=list(existing.history) + ["updated"]
+            if existing
+            else ["created"],
+        )
+        return self.upsert_marker(marker=marker, agent_id=agent_id)
+
+    def load_protocol_marker(
+        self,
+        *,
+        slot: str,
+        namespace: str,
+    ) -> dict[str, Any] | None:
+        """Return the payload of one protocol slot or None when absent."""
+        slot_value = str(slot).strip()
+        namespace_value = str(namespace).strip()
+        if not slot_value or not namespace_value:
+            return None
+        marker_id = f"{namespace_value}::{slot_value}"
+        marker = self.get_marker(marker_id)
+        if marker is None:
+            return None
+        return dict(marker.payload)
+
     def prune_markers(self, threshold: float) -> int:
         """Delete markers whose intensity is strictly below threshold."""
         cutoff = float(threshold)

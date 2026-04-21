@@ -79,6 +79,54 @@ Sprint 9 groundwork:
 - `documentation/decisions/INDEX.md`
 ```
 
+---
+
+**Date** : 2026-04-21
+
+**Actions effectuées** :
+
+Sprint 9 completion (C1/C2/C3):
+- implémentation de `_maybe_promote_to_skill()` dans `core/environment.py` avec promotion sur `usage_count >= promotion_min_uses` et `quality_score >= lesson_threshold`
+- ajout de `_recall_skills()` dans `core/agent.py` et inclusion des skills dans `Decision.lesson_markers`
+- ajout de `save_protocol_marker()` / `load_protocol_marker()` dans `core/marker_store.py` avec slots `baseline`/`latest`/`best`
+- câblage dans `main.py` : `_maybe_build_skills_store()`, `_maybe_build_protocol_store()`, `_build_protocol_namespace()`, `_maybe_apply_cross_run_protocol()`, `_persist_protocol()`, `_set_config_path()`
+- implémentation de `TravelPlannerAdapter.compile_protocol()` pour valider C1 sur le domaine TravelPlanner
+- ajout des tests unitaires : `test_environment_skill_promotion.py`, `test_protocol_persistence.py`
+- ajout des tests d'intégration : `test_skill_persistence.py`, `test_protocol_cross_run.py`, `test_protocol_compiler_integration.py`
+- mise à jour de `AGENTS.md`, `CLAUDE.md`, `sprint_09_artifact.md`, ADR 017, et knowledge loop
+
+**Décisions prises** :
+- garder toutes les surfaces Sprint 9 opt-in et désactivées par défaut pour préserver le comportement Sprint 8
+- utiliser `session_isolation=False` pour `skills_store` et `protocol_store` afin de garantir la visibilité cross-run
+- rendre le slot `baseline` immuable après création pour stabiliser le clamp des adaptations
+
+**Validation** :
+- non-régression Sprint 8 : `81 passed`
+- tests Sprint 9 existants : `14 passed`
+- tests Sprint 9 nouveaux (unit + integration) : `31 passed`
+- suite complète (hors langgraph optionnel) : `307 passed`
+
+**Fichiers créés** :
+- `tests/unit/test_environment_skill_promotion.py`
+- `tests/unit/test_protocol_persistence.py`
+- `tests/integration/test_skill_persistence.py`
+- `tests/integration/test_protocol_cross_run.py`
+- `tests/integration/test_protocol_compiler_integration.py`
+- `documentation/redisgn_v2/sprint_09_artifact.md`
+- `documentation/decisions/20260421-sprint9-full-implementation-persistent-skills-protocols-and-cross-run-coordination.md`
+
+**Fichiers modifiés** :
+- `core/tool_registry.py`
+- `core/environment.py`
+- `core/agent.py`
+- `core/marker_store.py`
+- `adapters/travelplanner/adapter.py`
+- `main.py`
+- `AGENTS.md`, `CLAUDE.md`
+- `documentation/decisions/INDEX.md`
+- `.codex/knowledge/captures.md`, `playbook.md`, `decision_log.md`
+```
+
 ## Log des Sessions
 
 ### 2026-04-18 18:10 — Sprint 8 V6 General Runtime Controls and Targeted Repair

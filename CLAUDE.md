@@ -6,9 +6,9 @@ This file provides guidance to Claude Code when working in this repository.
 
 Stigmergic orchestration framework V3 for thesis research (EMLV).
 
-The codebase is currently at **Sprint 8 V6 baseline + Sprint 9 groundwork** (Sprint 7 V5-full baseline + V6 recovery/stickiness/targeted-repair runtime surfaces + frozen V6 ablation presets + opt-in scaffolding for persistent skills, protocol artifacts, and protocol compilation).
+The codebase is currently at **Sprint 9 complete** (C1/C2/C3 fully implemented on top of Sprint 8 V6 baseline).
 
-## Sprint 8 V6 Baseline + Sprint 9 Groundwork Status (2026-04-21)
+## Sprint 9 Complete Status (2026-04-21)
 
 Implemented modules:
 - `core/marker.py`
@@ -60,12 +60,14 @@ Implemented modules:
 - `scripts/setup_travelplanner.py`
 - `scripts/run_travelplanner_framework_benchmark.py`
 - `scripts/tune_aco_travelplanner.py`
-- `tests/unit/*` + `tests/integration/*` (targeted V6 validation in this task: 77 unit tests + 5 TravelPlanner integration tests)
-- `tests/unit/test_protocol_compiler.py` (Sprint 9 groundwork)
+- `tests/unit/*` + `tests/integration/*` (307 passed total, including Sprint 9 skill promotion, protocol persistence, and protocol compiler integration tests)
 
 Validated gate:
-- `uv run pytest tests/unit/test_config.py tests/unit/test_marker_store.py tests/unit/test_environment.py tests/unit/test_agent.py tests/unit/test_orchestrator.py tests/unit/test_travelplanner_tools.py -q` -> 77 passed
-- `uv run pytest tests/integration/test_travelplanner.py -q` -> 5 passed
+- Sprint 8 non-regression: `uv run pytest tests/unit/test_config.py tests/unit/test_marker_store.py tests/unit/test_environment.py tests/unit/test_agent.py tests/unit/test_orchestrator.py tests/unit/test_travelplanner_tools.py -q` -> 81 passed
+- Sprint 9 existing: `uv run pytest tests/unit/test_emergence.py tests/unit/test_protocol_compiler.py -q` -> 14 passed
+- Sprint 9 new unit: `uv run pytest tests/unit/test_environment_skill_promotion.py tests/unit/test_protocol_persistence.py -q` -> 13 passed
+- Sprint 9 integration: `uv run pytest tests/integration/test_skill_persistence.py tests/integration/test_protocol_cross_run.py tests/integration/test_protocol_compiler_integration.py -q` -> 18 passed
+- Full suite (excluding optional langgraph): 307 passed
 
 ## Design Principles
 
@@ -144,7 +146,7 @@ Important V6 additions:
 - `Tool`
 - `ToolRegistry`
 
-`ActionResult.metadata` may now document `credited_lesson_ids` for future lesson-to-skill promotion.
+`ActionResult.metadata` may contain `credited_lesson_ids` for lesson-to-skill promotion.
 
 ### `core.pressure`
 - `compute_pressures`
@@ -188,7 +190,7 @@ It can also use the V6 `recovery_controller`, dynamic idle, and per-tick `TickRo
 - `AssistantAdapter`
 - `LocalWorkspace`
 
-`AssistantAdapter` now exposes an opt-in `compile_protocol()` path that can transform objectives into executable task DAGs when enabled and backed by an LLM.
+`AssistantAdapter` and `TravelPlannerAdapter` both expose an opt-in `compile_protocol()` path that transforms objectives into executable task DAGs when enabled and backed by an LLM.
 
 ### `adapters.travelplanner`
 - `TravelPlannerAdapter`
@@ -205,12 +207,21 @@ uv venv --python 3.11 .venv
 uv pip install -r requirements.txt
 ```
 
-### Test (Sprint 8)
+### Test (Sprint 9)
 
 ```bash
+# Non-regression Sprint 8
 uv run pytest tests/unit/test_config.py tests/unit/test_marker_store.py tests/unit/test_environment.py tests/unit/test_agent.py tests/unit/test_orchestrator.py tests/unit/test_travelplanner_tools.py -q
-uv run pytest tests/integration/test_travelplanner.py -q
-uv run python main.py --adapter travelplanner --config config/ablation/v6_A.yaml --objective "Query 0"
+
+# Sprint 9 existing
+uv run pytest tests/unit/test_emergence.py tests/unit/test_protocol_compiler.py -q
+
+# Sprint 9 new
+uv run pytest tests/unit/test_environment_skill_promotion.py tests/unit/test_protocol_persistence.py -q
+uv run pytest tests/integration/test_skill_persistence.py tests/integration/test_protocol_cross_run.py tests/integration/test_protocol_compiler_integration.py -q
+
+# Smoke test
+uv run python main.py --adapter travelplanner --config config/travelplanner_adapt.yaml --objective "Query 0"
 ```
 
 ## Coding Rules

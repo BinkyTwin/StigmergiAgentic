@@ -1,5 +1,13 @@
 # Decision Log
 
+## 2026-04-21 (Complete Sprint 9 by Wiring Persistence and Promotion into the Runtime)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: Wire the Sprint 9 persistence layer (`skills_store`, `protocol_store`), skill promotion (`_maybe_promote_to_skill`), protocol save/load (`save_protocol_marker`, `load_protocol_marker`), and cross-run adaptation (`_maybe_apply_cross_run_protocol`, `_persist_protocol`) into the existing runtime while preserving Sprint 8 defaults.
+- `rationale`: The groundwork (config, schema, prompt, adapter seams) was already landed in ADR 016; the remaining work was the functional core of Sprint 9. Completing it now gives end-to-end test coverage for C1/C2/C3 before the benchmark campaign.
+- `alternatives_rejected`: Stop at groundwork and defer persistence wiring to a later sprint, which would leave the thesis claims without executable validation.
+- `linked_adr`: `documentation/decisions/20260421-sprint9-full-implementation-persistent-skills-protocols-and-cross-run-coordination.md`
+
 ## 2026-04-21 (Prepare Sprint 9 Through Contracts Before Persistence Wiring)
 
 - `repo_slug`: `stigmergiagentic-33b989`

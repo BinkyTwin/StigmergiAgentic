@@ -6,13 +6,13 @@ This file provides guidance to GitHub Copilot / Codex when working in this repos
 
 Stigmergic orchestration framework V3 (runtime overhaul on top of V2 foundations) for a Master's thesis (EMLV).
 
-Current repository state is **Sprint 8 V6 baseline + Sprint 9 groundwork**: Sprint 7 V5-full baseline + paired-seed-ready V6 presets + explicit lock telemetry + unified stagnation recovery controller + short-horizon stickiness + generic targeted repair contract, plus the first opt-in scaffolding for persistent skills, protocol artifacts, and objective-conditioned protocol compilation.
+Current repository state is **Sprint 9 complete** (C1/C2/C3 fully implemented): Sprint 8 V6 baseline + objective-conditioned protocol compilation (T3), cross-run skill accumulation (T1), and cross-run coordination protocol persistence (T2).
 
-## Current Scope (Sprint 8 V6 Baseline + Sprint 9 Groundwork)
+## Current Scope (Sprint 9 Complete — C1/C2/C3)
 
 Implemented:
 - `core/marker.py` — generic marker model + configurable state machine + `last_active_at`
-- `core/marker_store.py` — SQLite (WAL) transactional marker store + locks + lock-attempt telemetry + differential decay + read tracking/frequentation + pruning + SQL queries + optional session isolation
+- `core/marker_store.py` — SQLite (WAL) transactional marker store + locks + lock-attempt telemetry + differential decay + read tracking/frequentation + pruning + SQL queries + optional session isolation + `save_protocol_marker` / `load_protocol_marker`
 - `core/decay.py` — intensity/inhibition decay + per-marker-type decay + read-time effective intensity
 - `core/schemas.py` — Pydantic schemas for structured LLM/tool outputs + `ProtocolSpec`
 - `core/dependency.py` — DAG validation, topological ordering, unblocked filtering
@@ -23,12 +23,12 @@ Implemented:
 - `core/config.py` + `config/default.yaml` — V3 config sections + V6 recovery/stickiness/targeted-repair validation + Sprint 9 opt-in sections (`skill_library`, `protocol`, `cross_run`, `protocol_compiler`)
 - `core/tool_registry.py` — tool contracts + action registry + generic validation/repair contract
 - `core/pressure.py` — pressure computation + softmax action selection + optional ACO `heuristic_fn`
-- `core/environment.py` — runtime wrapper with reinforcement + propagation + time-decayed snapshots + control overlays + targeted repair-marker deposit
-- `core/agent.py` — dependency-aware candidate selection (`unblocked_markers`) + episodic memory recall/reinforcement + local-sensing affinity profile + V6 stickiness/recovery-aware targeting
+- `core/environment.py` — runtime wrapper with reinforcement + propagation + time-decayed snapshots + control overlays + targeted repair-marker deposit + `_maybe_promote_to_skill`
+- `core/agent.py` — dependency-aware candidate selection (`unblocked_markers`) + episodic memory recall/reinforcement + local-sensing affinity profile + V6 stickiness/recovery-aware targeting + `_recall_skills` from cross-run store
 - `core/orchestrator.py` — parallel tick loop + async execution + session_id + emergence summary + emergent conflict resolution + feedback loop + V6 recovery controller/dynamic idle
 - `adapters/base.py` — domain adapter/objective/workspace contracts + optional `compile_protocol()`
 - `adapters/assistant/*` — generic assistant adapter + local workspace context summarization + objective-conditioned protocol compiler
-- `adapters/travelplanner/*` — TravelPlanner workspace + domain tools + adapter + evaluator
+- `adapters/travelplanner/*` — TravelPlanner workspace + domain tools + adapter + evaluator + `compile_protocol()`
 - `adapters/travelplanner/langgraph_supervisor.py` — LangGraph supervisor scientific baseline
 - `tools/*` — infrastructure tools (`file_read`, `file_write`, async `bash_exec`, `web_search`, typed `think`, bounded DAG-aware `decompose`)
 - `llm/client.py` + `llm/prompts.py` — provider-aware sync+async client with structured response validation, memory/lesson prompt contexts, and protocol-compiler prompt
@@ -43,16 +43,14 @@ Implemented:
 - `scripts/setup_travelplanner.py` — dataset/database setup helper
 - `scripts/run_travelplanner_framework_benchmark.py` — framework benchmark runner with inclusive `--start/--end` aliases and subset-aware official scoring
 - `scripts/tune_aco_travelplanner.py` — train-only ACO grid tuner that updates `config/ablation/v5_full.yaml`
-- `tests/unit/*` + `tests/integration/*` — V6 runtime tests added; Sprint 9 groundwork adds targeted config/emergence/compiler unit coverage
+- `tests/unit/*` + `tests/integration/*` — V6 runtime tests + Sprint 9 skill promotion, protocol persistence, and protocol compiler integration tests (307 passed total)
 
 Not implemented yet:
-- `SkillStore` / `ProtocolStore` dedicated persistence wiring in the runtime
-- `lesson -> skill` promotion flow and cross-run protocol persistence/application
-- TravelPlanner adaptation/evaluation campaign execution for Sprint 9 hypotheses
+- TravelPlanner adaptation/evaluation campaign execution for Sprint 9 hypotheses (operator-run next step)
 - CodeMigration adapter (V2)
 - SWE-bench adapter
-- live train tuning execution and 3-seed V5-full validation benchmark campaign are still operator-run, not executed automatically in this task
-- paired-seed `v5_full` vs `v6_base` replay and the comparative `V6-A/B/C` benchmark campaign are still operator-run, not executed automatically in this task
+- live train tuning execution and 3-seed V5-full validation benchmark campaign are still operator-run
+- paired-seed `v5_full` vs `v6_base` replay and the comparative `V6-A/B/C` benchmark campaign are still operator-run
 - Pareto instrumentation aligned with V2 runtime
 
 ## Architecture Baseline

@@ -15,6 +15,11 @@
 - Keep every Sprint 9 surface opt-in by default so Sprint 8 benchmark behavior remains reproducible while new capabilities are developed behind explicit flags.
 - If a new prompt/schema path only needs lightweight utilities, avoid package-level imports that pull the full LLM client stack; use lazy exports to keep targeted tests and local tooling responsive.
 
+### Sprint 9 Completion Standard
+- Use separate `MarkerStore` instances with `session_isolation=False` for cross-run artifacts (`skills.db`, `protocols.db`) instead of mixing scopes in the session-isolated run store.
+- Enforce immutable `baseline` protocol slots so clamped adaptations always have a stable reference point.
+- Place promotion side-effects in `Environment.apply_action_result()` rather than in agents to keep the policy global and role-free.
+
 ### Cross-Run Adaptation Evaluation Standard
 - Never enable persistent agent memory or cross-run emergence feedback in the main benchmark-evaluation preset unless the protocol explicitly separates adaptation/training runs from frozen held-out evaluation runs.
 - When proposing objective-based specialization, verify that the seeded signal matches the runtime’s real decision features; in the current codebase `AgentAffinityProfile` acts on `marker_type` and target semantics, not directly on action names.

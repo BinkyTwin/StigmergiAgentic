@@ -1,5 +1,39 @@
 # Project Captures
 
+## 2026-04-21 — Sprint 9 Complete: Persistent Skills, Protocol Artifacts, and Protocol Compiler Are Wired and Tested
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `impact_score`: `9/10`
+- `confidence`: `high`
+- `scope`: `Implementation completion of Sprint 9 C1/C2/C3: skill promotion, protocol persistence, and objective-conditioned protocol compilation`
+
+### Outcome
+
+All three thesis claims now have end-to-end code paths:
+- C2 (skill accumulation): lesson markers are promoted to `skill` markers in `skills.db` after `usage_count >= promotion_min_uses` and `quality_score >= lesson_threshold`; agents recall them cross-run via `EnvironmentSnapshot.skills`.
+- C3 (coordination improvement): emergence metrics are persisted as `coordination_protocol` markers in `protocols.db` with `baseline`/`latest`/`best` slots; the best protocol is loaded and clamped before the next run.
+- C1 (protocol compilation): both `AssistantAdapter` and `TravelPlannerAdapter` implement `compile_protocol()`, with fallback to `initial_markers()` on failure.
+
+### Reusable Patterns (1-3)
+
+1. **When wiring cross-run persistence into an existing session-isolated store, create separate `MarkerStore` instances with `session_isolation=False` rather than mixing scopes in one database.** This avoids schema changes and keeps per-run audit semantics intact.
+2. **Keep a `baseline` slot immutable when persisting adaptive protocol artifacts.** It provides a stable reference for clamping and prevents runaway config drift across long campaigns.
+3. **Implement promotion side-effects in the environment (`apply_action_result`) rather than in agents.** This makes promotion policy a global guardrail, not an agent heuristic, preserving role-freeness.
+
+### Evidence
+
+- `core/environment.py` (`_maybe_promote_to_skill`)
+- `core/agent.py` (`_recall_skills`)
+- `core/marker_store.py` (`save_protocol_marker`, `load_protocol_marker`)
+- `main.py` (`_maybe_build_skills_store`, `_maybe_build_protocol_store`, `_maybe_apply_cross_run_protocol`, `_persist_protocol`)
+- `tests/unit/test_environment_skill_promotion.py`
+- `tests/unit/test_protocol_persistence.py`
+- `tests/integration/test_skill_persistence.py`
+- `tests/integration/test_protocol_cross_run.py`
+- `tests/integration/test_protocol_compiler_integration.py`
+
+---
+
 ## 2026-04-20 — Revised Sprint 9 Plan: Strong Thesis Alignment Once Adaptation Is Split from Evaluation and C1 Is Framed as Protocol Generation
 
 - `repo_slug`: `stigmergiagentic-33b989`

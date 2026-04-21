@@ -26,6 +26,7 @@ class EnvironmentSnapshot:
     markers: list[Marker]
     by_type: dict[str, list[Marker]]
     control: dict[str, Any] = field(default_factory=dict)
+    skills: list[Marker] = field(default_factory=list)
 
 
 class Environment:
@@ -39,18 +40,23 @@ class Environment:
         workspace: Any | None = None,
         guardrails: GuardrailEngine | None = None,
         state_machine: StateMachine | None = None,
+        skills_store: MarkerStore | None = None,
+        adapter_name: str = "generic",
     ) -> None:
         self.store = store
         self.config = config
         self.workspace = workspace
         self.guardrails = guardrails or store.guardrails
         self.state_machine = state_machine or StateMachine()
+        self.skills_store = skills_store
+        self.adapter_name = str(adapter_name).strip() or "generic"
 
         self.tokens_used = 0
         self.cost_used = 0.0
         self.reinforcement_events = 0
         self.propagation_events = 0
         self.pruned_markers = 0
+        self.skills_promoted = 0
 
     def snapshot(
         self,
@@ -119,12 +125,27 @@ class Environment:
             if inhibition_relief > 0.0:
                 marker.inhibition = max(0.0, float(marker.inhibition) - inhibition_relief)
         flat_markers.sort(key=lambda marker: marker.id)
+        skill_markers = self._load_skill_markers()
         return EnvironmentSnapshot(
             tick=tick,
             markers=flat_markers,
             by_type=copied_grouped,
             control=runtime_control,
+            skills=skill_markers,
         )
+
+    def _load_skill_markers(self) -> list[Marker]:
+        """Load persistent skill markers from the cross-run store when enabled."""
+        if self.skills_store is None:
+            return []
+        skill_cfg = dict(self.config.get("skill_library", {}))
+        if not bool(skill_cfg.get("enabled", False)):
+            return []
+        try:
+            rows = self.skills_store.query_markers(marker_type="skill")
+        except Exception:  # noqa: BLE001
+            return []
+        return [Marker.from_dict(marker.to_dict()) for marker in rows]
 
     def acquire_lock(self, marker_id: str, agent_id: str, tick: int) -> bool:
         """Attempt to lock one marker for an agent."""
@@ -214,6 +235,12 @@ class Environment:
                 agent_id=agent_id,
                 validation=result.validation,
             )
+        )
+
+        self._maybe_promote_to_skill(
+            agent_id=agent_id,
+            result=result,
+            quality_score=quality_score,
         )
 
         self.tokens_used += int(result.consumed_tokens)
@@ -341,8 +368,13 @@ class Environment:
     ) -> Marker:
         timestamp = utc_now_iso()
         lesson_text = self._extract_lesson_text(source_marker)
+        lesson_id = f"lesson::{source_marker.id}"
+        existing = self.store.get_marker(lesson_id)
+        prior_usage = (
+            int(existing.payload.get("usage_count", 0)) if existing is not None else 0
+        )
         return Marker(
-            id=f"lesson::{source_marker.id}",
+            id=lesson_id,
             marker_type="lesson",
             target=source_marker.target,
             intensity=0.8,
@@ -353,6 +385,7 @@ class Environment:
                 "source_agent": source_agent,
                 "source_state": source_marker.state,
                 "quality_score": float(quality_score),
+                "usage_count": prior_usage,
             },
             created_by=source_agent,
             created_at=timestamp,
@@ -456,3 +489,110 @@ class Environment:
             history=["created", "repair_requested"],
         )
         return [self.store.upsert_marker(marker=repair_marker, agent_id=agent_id)]
+
+    def _maybe_promote_to_skill(
+        self,
+        *,
+        agent_id: str,
+        result: ActionResult,
+        quality_score: float,
+    ) -> None:
+        """Promote credited lesson markers to persistent skill markers."""
+        if self.skills_store is None:
+            return
+        skill_cfg = dict(self.config.get("skill_library", {}))
+        if not bool(skill_cfg.get("enabled", False)):
+            return
+        if bool(skill_cfg.get("read_only", False)):
+            return
+
+        credited_raw = result.metadata.get("credited_lesson_ids", [])
+        if not isinstance(credited_raw, (list, tuple, set)):
+            return
+        credited_ids = [str(item).strip() for item in credited_raw if str(item).strip()]
+        if not credited_ids:
+            return
+
+        reinforcement_cfg = dict(self.config.get("reinforcement", {}))
+        lesson_threshold = float(reinforcement_cfg.get("lesson_threshold", 0.7))
+        if float(quality_score) < lesson_threshold:
+            return
+
+        promotion_min_uses = max(1, int(reinforcement_cfg.get("promotion_min_uses", 2)))
+        timestamp = utc_now_iso()
+
+        for lesson_id in credited_ids:
+            lesson = self.store.get_marker(lesson_id)
+            if lesson is None:
+                continue
+
+            lesson_payload = dict(lesson.payload)
+            prior_uses = int(lesson_payload.get("usage_count", 0))
+            usage_count = prior_uses + 1
+            lesson_payload["usage_count"] = usage_count
+
+            updated_lesson = Marker.from_dict(lesson.to_dict())
+            updated_lesson.payload = lesson_payload
+            updated_lesson.last_active_at = timestamp
+            self.store.upsert_marker(marker=updated_lesson, agent_id=agent_id)
+
+            if usage_count < promotion_min_uses:
+                continue
+
+            skill_id = f"skill::{self.adapter_name}::{lesson_id}"
+            skill_intensity = max(0.0, min(1.0, float(quality_score)))
+            skill_text = str(lesson_payload.get("lesson", "")).strip()
+            context_fingerprint = self._build_skill_context_fingerprint(lesson)
+
+            existing_skill = self.skills_store.get_marker(skill_id)
+            if existing_skill is not None:
+                new_payload = dict(existing_skill.payload)
+                new_payload["skill_text"] = skill_text or str(
+                    new_payload.get("skill_text", "")
+                )
+                new_payload["context_fingerprint"] = context_fingerprint
+                new_payload["quality_score"] = max(
+                    float(new_payload.get("quality_score", 0.0)),
+                    float(quality_score),
+                )
+                new_payload["usage_count"] = int(new_payload.get("usage_count", 0)) + 1
+                new_payload["source_lesson_id"] = lesson_id
+                new_payload["domain"] = self.adapter_name
+
+                updated_skill = Marker.from_dict(existing_skill.to_dict())
+                updated_skill.payload = new_payload
+                updated_skill.intensity = max(
+                    existing_skill.intensity,
+                    skill_intensity,
+                )
+                updated_skill.last_active_at = timestamp
+                self.skills_store.upsert_marker(marker=updated_skill, agent_id=agent_id)
+            else:
+                skill_marker = Marker(
+                    id=skill_id,
+                    marker_type="skill",
+                    target=str(lesson.target),
+                    intensity=skill_intensity,
+                    state="terminal",
+                    payload={
+                        "skill_text": skill_text,
+                        "context_fingerprint": context_fingerprint,
+                        "quality_score": float(quality_score),
+                        "usage_count": usage_count,
+                        "source_lesson_id": lesson_id,
+                        "domain": self.adapter_name,
+                    },
+                    created_by=agent_id,
+                    created_at=timestamp,
+                    updated_by=agent_id,
+                    updated_at=timestamp,
+                    last_active_at=timestamp,
+                    history=["promoted"],
+                )
+                self.skills_store.upsert_marker(marker=skill_marker, agent_id=agent_id)
+            self.skills_promoted += 1
+
+    def _build_skill_context_fingerprint(self, lesson: Marker) -> str:
+        target = str(lesson.target).strip()
+        source_marker = str(lesson.payload.get("source_marker", "")).strip()
+        return f"{self.adapter_name}::{target}::{source_marker}"
