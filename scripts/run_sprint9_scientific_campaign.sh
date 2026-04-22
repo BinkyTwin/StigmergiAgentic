@@ -43,8 +43,13 @@ echo ""
 echo "=== NETTOYAGE ==="
 rm -f pheromones/skills.db pheromones/protocols.db
 rm -rf campaign_results
-mkdir -p campaign_results/{adapt,c2,c3,baseline}
+mkdir -p campaign_results/adapt
+mkdir -p campaign_results/c2
+mkdir -p campaign_results/c3
+mkdir -p campaign_results/baseline
 echo "  DB et résultats précédents supprimés"
+echo "  Dossiers créés:"
+ls -la campaign_results/
 
 # ==========================================
 # PHASE 1 : ADAPTATION (0-89)
@@ -54,6 +59,7 @@ echo "=== PHASE 1 : ADAPTATION ($ADAPT_QUERIES queries) ==="
 echo "Config: config/travelplanner_adapt_scientific.yaml"
 echo "Objectif: accumuler skills et protocols"
 
+mkdir -p campaign_results/adapt
 for i in $(seq $ADAPT_START $ADAPT_END); do
     echo "[Adapt] Query $i ..."
     OPENROUTER_API_KEY="$API_KEY" \
@@ -103,6 +109,7 @@ echo "=== PHASE 2 : C2 ÉVALUATION ($EVAL_QUERIES queries) ==="
 echo "Config: config/travelplanner_eval_c2.yaml"
 echo "Objectif: évaluer avec skills accumulés (read-only), sans cross-run"
 
+mkdir -p campaign_results/c2
 for i in $(seq $EVAL_START $EVAL_END); do
     echo "[C2] Query $i ..."
     OPENROUTER_API_KEY="$API_KEY" \
@@ -124,6 +131,7 @@ echo "=== PHASE 3 : C3 ÉVALUATION ($EVAL_QUERIES queries) ==="
 echo "Config: config/travelplanner_eval_c3.yaml"
 echo "Objectif: évaluer avec skills + cross-run protocol (read-only)"
 
+mkdir -p campaign_results/c3
 for i in $(seq $EVAL_START $EVAL_END); do
     echo "[C3] Query $i ..."
     OPENROUTER_API_KEY="$API_KEY" \
@@ -145,6 +153,7 @@ echo "=== PHASE 4 : BASELINE ($EVAL_QUERIES queries) ==="
 echo "Config: config/travelplanner_eval_baseline.yaml"
 echo "Objectif: évaluer sans skills ni cross-run"
 
+mkdir -p campaign_results/baseline
 for i in $(seq $EVAL_START $EVAL_END); do
     echo "[Baseline] Query $i ..."
     OPENROUTER_API_KEY="$API_KEY" \
