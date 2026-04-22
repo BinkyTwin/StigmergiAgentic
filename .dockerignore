@@ -28,6 +28,7 @@ campaign_results/
 docker_results/
 logs/
 metrics/output/
+output/
 *.db
 *.db-journal
 *.db-wal
