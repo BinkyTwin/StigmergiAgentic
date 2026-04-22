@@ -11,6 +11,10 @@ services:
       OPENROUTER_API_KEY: ${OPENROUTER_API_KEY}
       PYTHONUNBUFFERED: "1"
       PYTHONWARNINGS: "ignore"
+      ADAPT_START: ${ADAPT_START:-0}
+      ADAPT_QUERIES: ${ADAPT_QUERIES:-90}
+      EVAL_START: ${EVAL_START:-90}
+      EVAL_QUERIES: ${EVAL_QUERIES:-90}
     volumes:
       # Résultats persistés sur le host
       - ./campaign_results/qwen:/app/campaign_results
@@ -49,6 +53,10 @@ services:
       OPENROUTER_API_KEY: ${OPENROUTER_API_KEY_2}
       PYTHONUNBUFFERED: "1"
       PYTHONWARNINGS: "ignore"
+      ADAPT_START: ${ADAPT_START:-0}
+      ADAPT_QUERIES: ${ADAPT_QUERIES:-90}
+      EVAL_START: ${EVAL_START:-90}
+      EVAL_QUERIES: ${EVAL_QUERIES:-90}
     volumes:
       - ./campaign_results/gemma:/app/campaign_results
       - ./campaign_results/gemma/pheromones:/app/pheromones
