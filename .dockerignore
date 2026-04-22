@@ -23,14 +23,26 @@ __pycache__/
 
 # Runtime artifacts (rebuilt inside container)
 target_repo/
-pheromones/*.json
-pheromones/audit_log.jsonl
+pheromones/
+campaign_results/
+docker_results/
 logs/
 metrics/output/
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+*.jsonl
 
 # Documentation (not needed for execution)
 documentation/
 consigne/
+*.md
+
+# Notebooks
+*.ipynb
+.ipynb_checkpoints/
+notebooks/
 
 # OS
 .DS_Store
