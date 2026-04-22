@@ -224,6 +224,24 @@ uv run pytest tests/integration/test_skill_persistence.py tests/integration/test
 uv run python main.py --adapter travelplanner --config config/travelplanner_adapt.yaml --objective "Query 0"
 ```
 
+### Benchmark Campaigns (Docker — mandatory)
+
+**All future benchmark campaigns must run inside Docker containers.** See `docker-compose.campaign.yml`.
+
+```bash
+# Qwen campaign (Terminal 1)
+OPENROUTER_API_KEY=$(grep OPENROUTER_API_KEY .env | cut -d= -f2) \
+  docker compose -f docker-compose.campaign.yml up qwen-campaign
+
+# Gemma campaign (Terminal 2)
+OPENROUTER_API_KEY_2=$(grep OPENROUTER_API_KEY .env.key2 | cut -d= -f2) \
+  docker compose -f docker-compose.campaign.yml up gemma-campaign
+
+# Analyze results
+uv run python scripts/analyze_campaign.py campaign_results/qwen
+uv run python scripts/analyze_campaign.py campaign_results/gemma
+```
+
 ## Coding Rules
 
 - Python 3.11+, strict type hints

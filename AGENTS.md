@@ -46,12 +46,18 @@ Implemented:
 - `tests/unit/*` + `tests/integration/*` — V6 runtime tests + Sprint 9 skill promotion, protocol persistence, and protocol compiler integration tests (307 passed total)
 
 Not implemented yet:
-- TravelPlanner adaptation/evaluation campaign execution for Sprint 9 hypotheses (operator-run next step)
 - CodeMigration adapter (V2)
 - SWE-bench adapter
-- live train tuning execution and 3-seed V5-full validation benchmark campaign are still operator-run
-- paired-seed `v5_full` vs `v6_base` replay and the comparative `V6-A/B/C` benchmark campaign are still operator-run
 - Pareto instrumentation aligned with V2 runtime
+
+## Campaign Execution (Docker — Mandatory)
+
+**All future benchmark campaigns must run inside Docker containers.** The `docker-compose.campaign.yml` provides isolated `qwen-campaign` and `gemma-campaign` services with separate `skills.db`, `protocols.db`, and `campaign_results/` per container. This prevents:
+- macOS bash expansion bugs (`{a,b,c}` not supported on default `/bin/sh`)
+- File-system conflicts between parallel runs
+- Cross-contamination of protocol namespaces between presets
+
+See `## Commands` below for usage examples.
 
 ## Architecture Baseline
 
@@ -223,6 +229,38 @@ uv pip install -r requirements.txt
 uv run pytest tests/unit/test_config.py tests/unit/test_marker_store.py tests/unit/test_environment.py tests/unit/test_agent.py tests/unit/test_orchestrator.py tests/unit/test_travelplanner_tools.py -q
 uv run pytest tests/integration/test_travelplanner.py -q
 uv run python main.py --adapter travelplanner --config config/ablation/v6_A.yaml --objective "Query 0"
+```
+
+### Benchmark Campaigns (Docker — mandatory for parallel multi-model runs)
+
+**All future benchmark campaigns must run inside Docker containers.** This guarantees:
+- Isolation between models (separate `skills.db`, `protocols.db`, `campaign_results/`)
+- GNU bash compatibility (avoids macOS `{a,b,c}` expansion bugs)
+- Full reproducibility (same environment everywhere)
+- True parallelism (no file-system conflicts)
+
+```bash
+# Build image once
+docker compose -f docker-compose.campaign.yml build
+
+# Qwen campaign (Terminal 1)
+OPENROUTER_API_KEY=$(grep OPENROUTER_API_KEY .env | cut -d= -f2) \
+  docker compose -f docker-compose.campaign.yml up qwen-campaign
+
+# Gemma campaign (Terminal 2)
+OPENROUTER_API_KEY_2=$(grep OPENROUTER_API_KEY .env.key2 | cut -d= -f2) \
+  docker compose -f docker-compose.campaign.yml up gemma-campaign
+
+# Or both at once
+OPENROUTER_API_KEY=$(grep OPENROUTER_API_KEY .env | cut -d= -f2) \
+OPENROUTER_API_KEY_2=$(grep OPENROUTER_API_KEY .env.key2 | cut -d= -f2) \
+  docker compose -f docker-compose.campaign.yml up
+```
+
+**Analyze results:**
+```bash
+uv run python scripts/analyze_campaign.py campaign_results/qwen
+uv run python scripts/analyze_campaign.py campaign_results/gemma
 ```
 
 ## Code Style Guidelines
