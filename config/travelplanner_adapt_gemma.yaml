@@ -1,0 +1,32 @@
+framework:
+  mode: "travelplanner_adapt"
+
+skill_library:
+  enabled: true
+  read_only: false
+  db_path: "pheromones/skills.db"
+
+protocol:
+  enabled: true
+  read_only: false
+  db_path: "pheromones/protocols.db"
+
+emergence:
+  feedback_loop:
+    enabled: true
+    interval_ticks: 5
+    max_adaptation_delta: 0.2
+  cross_run:
+    enabled: false
+    read_only: false
+    max_total_delta: 0.15
+
+reinforcement:
+  promotion_min_uses: 2
+
+agents:
+  protocol_compiler:
+    enabled: false
+
+llm:
+  model: "google/gemma-4-31b-it"

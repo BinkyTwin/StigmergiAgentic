@@ -76,5 +76,30 @@ services:
     volumes:
       - .:/app
 
+  # ---- Gemma 4 31B Campaign (second model, parallel execution) ----
+  gemma-campaign:
+    build: .
+    container_name: stigmergiagentic-gemma
+    environment:
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY_2:-}
+      PYTHONUNBUFFERED: "1"
+      PYTHONWARNINGS: "ignore"
+    command: >
+      bash -c "
+        echo '=== Campagne Gemma 4 31B ===' &&
+        rm -f pheromones/skills.db pheromones/protocols.db &&
+        bash scripts/run_sprint9_scientific_campaign_gemma.sh
+      "
+    volumes:
+      - ./docker_results:/app/campaign_results
+      - ./config:/app/config:ro
+      - ./scripts:/app/scripts:ro
+      - ./core:/app/core:ro
+      - ./adapters:/app/adapters:ro
+      - ./tools:/app/tools:ro
+      - ./llm:/app/llm:ro
+      - ./main.py:/app/main.py:ro
+      - ./pheromones:/app/pheromones
+
 volumes:
   target_repo_data:

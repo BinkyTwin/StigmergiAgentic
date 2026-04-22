@@ -1,0 +1,5 @@
+# Override config pour Google/Gemma-4-31B-it
+# Ce fichier est chargé APRÈS les configs principales et override uniquement le modèle LLM
+
+llm:
+  model: "google/gemma-4-31b-it"
