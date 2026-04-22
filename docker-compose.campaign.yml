@@ -1,0 +1,73 @@
+version: "3.8"
+
+services:
+  # ---- Campagne Qwen (modèle par défaut, clé .env) ----
+  qwen-campaign:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: stigmergiagentic-qwen
+    environment:
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY}
+      PYTHONUNBUFFERED: "1"
+      PYTHONWARNINGS: "ignore"
+    volumes:
+      # Résultats persistés sur le host
+      - ./campaign_results/qwen:/app/campaign_results
+      # DB de session isolée
+      - ./campaign_results/qwen/pheromones:/app/pheromones
+      # Configs (read-only)
+      - ./config:/app/config:ro
+      # Scripts
+      - ./scripts:/app/scripts:ro
+      # Code source (read-only, pour ne pas rebuild l'image)
+      - ./core:/app/core:ro
+      - ./adapters:/app/adapters:ro
+      - ./tools:/app/tools:ro
+      - ./llm:/app/llm:ro
+      - ./main.py:/app/main.py:ro
+    working_dir: /app
+    command: >
+      bash -c "
+        echo '========================================' &&
+        echo '  CAMPAGNE QWEN 3.5 9B' &&
+        echo '========================================' &&
+        mkdir -p campaign_results/adapt &&
+        mkdir -p campaign_results/c2 &&
+        mkdir -p campaign_results/c3 &&
+        mkdir -p campaign_results/baseline &&
+        bash scripts/run_qwen_campaign_docker.sh
+      "
+
+  # ---- Campagne Gemma (google/gemma-4-31b-it, clé .env.key2) ----
+  gemma-campaign:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: stigmergiagentic-gemma
+    environment:
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY_2}
+      PYTHONUNBUFFERED: "1"
+      PYTHONWARNINGS: "ignore"
+    volumes:
+      - ./campaign_results/gemma:/app/campaign_results
+      - ./campaign_results/gemma/pheromones:/app/pheromones
+      - ./config:/app/config:ro
+      - ./scripts:/app/scripts:ro
+      - ./core:/app/core:ro
+      - ./adapters:/app/adapters:ro
+      - ./tools:/app/tools:ro
+      - ./llm:/app/llm:ro
+      - ./main.py:/app/main.py:ro
+    working_dir: /app
+    command: >
+      bash -c "
+        echo '========================================' &&
+        echo '  CAMPAGNE GEMMA 4 31B' &&
+        echo '========================================' &&
+        mkdir -p campaign_results/adapt &&
+        mkdir -p campaign_results/c2 &&
+        mkdir -p campaign_results/c3 &&
+        mkdir -p campaign_results/baseline &&
+        bash scripts/run_gemma_campaign_docker.sh
+      "
