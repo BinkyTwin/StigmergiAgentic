@@ -218,7 +218,58 @@ def test_orchestrator_emergence_summary_is_computed(tmp_path, config_dict: dict)
 
     result = Orchestrator(environment=env, agents=agents, config=config).run_sync()
     assert "colony_specialization" in result.emergence_summary
+
+
+def test_orchestrator_elastic_agent_pool_respects_min_max(tmp_path, config_dict: dict) -> None:
+    config, env, agents = _build_runtime(
+        tmp_path,
+        config_dict,
+        user_input={"item_count": 12, "target_count": 100},
+    )
+    config["agents"]["num_agents_mode"] = "elastic"
+    config["agents"]["elastic"] = {
+        "min_agents": 2,
+        "max_agents": 5,
+        "markers_per_agent": 1,
+    }
+    config["orchestrator"]["max_ticks"] = 2
+    agents = agents[:2]
+
+    result = Orchestrator(environment=env, agents=agents, config=config).run_sync()
+    pool = result.emergence_summary["agent_pool"]
+
+    assert pool["dynamic_agents_min"] >= 2
+    assert pool["dynamic_agents_max"] <= 5
+    assert pool["dynamic_agents_max"] > 2
     assert "action_switching_rate" in result.emergence_summary
+
+
+def test_elastic_pool_counts_planning_markers_with_eligible_actions(
+    tmp_path,
+    config_dict: dict,
+) -> None:
+    config, env, agents = _build_runtime(tmp_path, config_dict)
+    for marker in env.store.query_markers():
+        updated = Marker.from_dict(marker.to_dict())
+        updated.state = "terminal"
+        env.store.upsert_marker(updated, agent_id="seed")
+    planning = Marker(
+        id="migrationbench::local::patch::b1",
+        marker_type="patch_hypothesis",
+        target="patch::b1",
+        intensity=1.0,
+        state="planning",
+        payload={"eligible_actions": ["run_build_validation"]},
+        created_by="seed",
+        created_at="2026-01-01T00:00:00+00:00",
+        updated_by="seed",
+        updated_at="2026-01-01T00:00:00+00:00",
+        history=["created"],
+    )
+    env.store.upsert_marker(planning, agent_id="seed")
+    orchestrator = Orchestrator(environment=env, agents=agents, config=config)
+
+    assert orchestrator._unblocked_marker_count(env.snapshot(tick=0)) == 1
 
 
 def test_orchestrator_tick_emergence_payload_present(tmp_path, config_dict: dict) -> None:

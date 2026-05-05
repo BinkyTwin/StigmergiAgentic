@@ -411,7 +411,34 @@ class TravelPlannerAdapter(DomainAdapter):
 
         if not validate_dag(compiled):
             return None
+        if not self._compiled_protocol_has_required_stages(compiled):
+            return None
         return compiled
+
+    def _compiled_protocol_has_required_stages(self, markers: list[Marker]) -> bool:
+        actions: set[str] = set()
+        has_finalize = False
+        for marker in markers:
+            eligible = marker.payload.get("eligible_actions", [])
+            if isinstance(eligible, list):
+                actions.update(str(action).strip() for action in eligible)
+            marker_text = " ".join(
+                [
+                    marker.id,
+                    marker.target,
+                    str(marker.payload.get("stage", "")),
+                    str(marker.payload.get("priority", "")),
+                ]
+            ).lower()
+            if "final" in marker_text:
+                has_finalize = True
+
+        return (
+            any(action.startswith("search_") for action in actions)
+            and "plan_itinerary" in actions
+            and "validate_constraints" in actions
+            and has_finalize
+        )
 
     def evaluate_run(self, env_snapshot: dict[str, Any]) -> dict[str, Any]:
         if self._workspace is None:
@@ -509,6 +536,12 @@ class TravelPlannerAdapter(DomainAdapter):
         query_data = self._extract_query_data(final_marker, validate_marker, plan_marker, markers)
         final_plan = self._extract_final_plan(final_marker, validate_marker, plan_marker)
         evaluation = self._extract_evaluation(final_marker, validate_marker)
+        artifact_delivered = bool(final_plan)
+        raw_final_pass = bool(evaluation.get("final_pass", False))
+        strict_final_pass = bool(artifact_delivered and raw_final_pass)
+        official_delivered = bool(
+            artifact_delivered and float(evaluation.get("delivery_rate", 0.0) or 0.0)
+        )
         failure_reason = self._infer_query_failure_reason(
             query_data=query_data,
             by_id=by_id,
@@ -522,8 +555,12 @@ class TravelPlannerAdapter(DomainAdapter):
         return {
             "query_idx": query_idx,
             "failure_reason": failure_reason,
-            "final_pass": bool(evaluation.get("final_pass", False)),
-            "delivered": bool(evaluation.get("delivery_rate", 0.0)),
+            "raw_final_pass": raw_final_pass,
+            "strict_final_pass": strict_final_pass,
+            "final_pass": strict_final_pass,
+            "delivered": official_delivered,
+            "artifact_delivered": artifact_delivered,
+            "official_delivered": official_delivered,
             "plan_days": len(final_plan),
             "stop_reason": stop_reason,
         }
@@ -560,7 +597,10 @@ class TravelPlannerAdapter(DomainAdapter):
         if stop_reason in self.STOP_FAILURE_REASONS:
             return stop_reason
         if final_marker is not None:
-            return str(final_marker.payload.get("failure_reason", "empty_plan_from_llm") or "empty_plan_from_llm")
+            reason = str(final_marker.payload.get("failure_reason", "")).strip()
+            if reason and reason != "ok":
+                return reason
+            return "empty_plan_from_llm"
         return "empty_plan_from_llm"
 
     def _is_multi_city_unsupported(self, query_data: dict[str, Any]) -> bool:

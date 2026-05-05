@@ -1,0 +1,169 @@
+% =============================================================================
+% CHAPITRE 1 - Introduction
+% Source : consigne/revue_litterature_v2_DSR.tex (lignes 73 a 236)
+% =============================================================================
+
+\chapter{Introduction}\label{chap:introduction}
+
+En 2025, l\textquotesingle intelligence artificielle générative a
+franchi un seuil décisif dans le domaine du génie logiciel : les grands
+modèles de langage (LLM) ne se contentent plus de compléter du code
+ligne par ligne, ils orchestrent désormais des workflows complets de
+développement, de migration et de maintenance logicielle. Chez Google,
+39 migrations de code distinctes totalisant 93 574 éditions
+individuelles ont été réalisées avec l\textquotesingle assistance de LLM
+en seulement douze mois, avec 74,45 \% des changements appliqués sans
+modification humaine (Ziftci et al., 2025). Amazon Q Developer
+transforme automatiquement des applications Java 8 vers Java 17 avec 79
+\% du code appliqué directement (Amazon, 2024). IBM Watsonx
+s\textquotesingle attaque à la modernisation de systèmes COBOL, estimant
+que 775 milliards de lignes de code legacy restent en production à
+l\textquotesingle échelle mondiale (IBM, 2023).
+
+Ces avancées industrielles convergent vers un constat : la
+transformation de code à grande échelle ne relève plus de la correction
+unitaire de bugs, mais de la coordination de multiples agents logiciels
+opérant simultanément sur des bases de code massives, interdépendantes
+et critiques pour l\textquotesingle activité des entreprises.
+Les organisations font face à des choix architecturaux complexes :
+certaines cherchent à casser des monolithes pour migrer vers des
+microservices, d\textquotesingle autres modernisent progressivement
+des composants tout en maintenant le système principal en production,
+d\textquotesingle autres encore doivent arbitrer entre refonte complète
+et migration incrémentale. Cette diversité de stratégies exige des
+cadres d\textquotesingle orchestration flexibles, capables de
+s\textquotesingle adapter à des objectifs variés plutôt que de
+prescrire un workflow unique.
+
+Or, l\textquotesingle architecture dominante pour orchestrer ces agents
+repose sur des modèles hiérarchiques où un superviseur central planifie,
+distribue et contrôle les tâches de chaque agent subordonné, à
+l\textquotesingle image des frameworks MetaGPT (Hong et al., 2024),
+CrewAI ou AutoGen. Cette approche centralisée reproduit, dans le monde
+logiciel, les structures organisationnelles classiques du
+command-and-control.
+
+Pourtant, la littérature récente révèle des limitations structurelles
+préoccupantes de ces architectures hiérarchiques. Le framework MAST
+identifie 14 modes d\textquotesingle échec distincts des systèmes
+multi-agents LLM, avec des taux d\textquotesingle échec allant de 41 \%
+à 86,7 \% sur sept frameworks état de l\textquotesingle art (Cemri et
+al., 2025). L\textquotesingle approche Agentless démontre
+qu\textquotesingle un pipeline séquentiel simple atteint 32 \% de
+résolution sur SWE-bench Lite pour seulement 0,70 USD par problème,
+surpassant tous les systèmes agents open source (Xia et al., 2024). Gao
+et al. (2025) observent que les gains de performance des systèmes
+multi-agents chutent de 10-16 \% à seulement 0,8-3 \% lorsque des
+modèles frontières sont utilisés, questionnant la valeur ajoutée réelle
+de la complexité agentique.
+
+Face à ces constats, une alternative théorique existe : la stigmergie,
+mécanisme de coordination indirecte où les traces laissées par une
+action dans un médium stimulent les actions subséquentes (Heylighen,
+2016a). Conceptualisée par Grassé (1959) pour expliquer la construction
+collective des termitières sans superviseur central, la stigmergie a été
+formalisée par Bonabeau, Dorigo et Theraulaz (1999) comme fondement de
+l\textquotesingle intelligence en essaim, puis étendue par Heylighen
+(2016a, 2016b) aux systèmes numériques contemporains tels que Wikipédia,
+le développement open source et les systèmes de contrôle de version.
+Ricci et al. (2007) ont proposé le cadre de la \emph{stigmergie
+cognitive}, démontrant que des agents rationnels dotés de capacités
+avancées peuvent se coordonner via des artefacts environnementaux
+manipulables et instrumentables.
+
+L\textquotesingle application de la stigmergie à
+l\textquotesingle orchestration d\textquotesingle agents LLM pour la
+transformation de code présente un intérêt théorique et pratique
+considérable. D\textquotesingle un point de vue théorique, elle propose
+de remplacer la communication explicite inter-agents, source de 36,94 \%
+des échecs identifiés par MAST (Cemri et al., 2025), par une
+coordination médiée par l\textquotesingle environnement.
+D\textquotesingle un point de vue pratique, les systèmes de contrôle de
+version comme Git fonctionnent déjà comme des médiums stigmergiques où
+les commits stimulent les revues, tests et intégrations subséquentes
+(Bolici et al., 2016). D\textquotesingle un point de vue managérial, la
+traçabilité intrinsèque des artefacts partagés répond aux exigences
+croissantes de gouvernance, d\textquotesingle auditabilité et de
+conformité réglementaire, notamment celles de l\textquotesingle Article
+14 de l\textquotesingle EU AI Act imposant une supervision humaine
+effective des systèmes d\textquotesingle IA à haut risque (Fink, 2025).
+
+Toutefois, la littérature académique présente un gap significatif : si
+la stigmergie est bien théorisée en biologie et en systèmes distribués
+classiques, et si les systèmes multi-agents LLM font
+l\textquotesingle objet d\textquotesingle une recherche active, aucun
+cadre intégrateur ne propose de combiner coordination stigmergique,
+agents LLM et gouvernance organisationnelle dans un framework
+généraliste applicable à des workflows complexes, dont la transformation
+de code à grande échelle constitue un cas d\textquotesingle étude
+privilégié. Les travaux existants traitent ces dimensions de
+manière cloisonnée : la littérature sur la stigmergie ignore les LLM, la
+littérature sur les agents LLM privilégie les architectures
+hiérarchiques, et la littérature en management des systèmes
+d\textquotesingle information aborde la gouvernance de
+l\textquotesingle IA sans considérer les mécanismes de coordination
+émergente. Plus fondamentalement, la théorie de la coordination
+(Malone \& Crowston, 1994) identifie la stigmergie comme un mécanisme
+organisationnel à part entière, au même titre que les hiérarchies et les
+marchés, mais cette perspective n\textquotesingle a jamais été
+opérationnalisée pour l\textquotesingle orchestration d\textquotesingle agents IA.
+
+Ce constat motive la problématique suivante :
+
+\begin{quote}
+Comment concevoir un framework d\textquotesingle orchestration
+multi-agents à coordination stigmergique, généraliste et gouvernable,
+capable d\textquotesingle être comparé rigoureusement à des baselines
+hiérarchiques reproductibles sur des tâches complexes de coordination
+sous contraintes ?
+La transformation de code constitue le domaine
+d\textquotesingle application principal pour la validation empirique de
+ces principes de conception.
+\end{quote}
+
+Cette problématique se décline en cinq objectifs de conception,
+conformément à la méthodologie Design Science Research adoptée
+(Hevner et al., 2004 ; Peffers et al., 2007) :
+
+\begin{itemize}
+\tightlist
+\item
+  OC1, Architecture généraliste : Concevoir un framework
+  d\textquotesingle orchestration stigmergique (phéromones numériques,
+  règles locales, environnement partagé) applicable à des tâches
+  variées de coordination multi-agents, indépendamment du domaine.
+\item
+  OC2, Coordination émergente : Démontrer que les agents développent
+  une spécialisation émergente et une allocation dynamique des tâches
+  sans assignation explicite de rôles, conformément aux principes
+  des systèmes adaptatifs complexes.
+\item
+  OC3, Comparaison contrôlée sur la planification sous contraintes :
+  Comparer le framework à des baselines centralisées reproductibles sur
+  le benchmark TravelPlanner (Xie et al., 2024) avec le même backbone,
+  le même protocole d\textquotesingle évaluation et les mêmes
+  contraintes dures.
+\item
+  OC4, Spécialisation à la transformation de code : Adapter le
+  framework aux tâches de migration et de modernisation logicielle, et
+  démontrer sa compétitivité sur les benchmarks PolyMigration (Amazon,
+  2025) et SWE-bench (Jimenez et al., 2024) par rapport aux baselines
+  existantes.
+\item
+  OC5, Gouvernance et auditabilité : Intégrer des mécanismes de
+  traçabilité et de conformité réglementaire directement dans
+  l\textquotesingle environnement stigmergique, et en valider la
+  pertinence par évaluation d\textquotesingle experts.
+\end{itemize}
+
+La revue suit une progression continue : d\textquotesingle abord les
+fondements de la stigmergie et leur ancrage dans les théories
+managériales (coordination organisationnelle, capacités dynamiques,
+routines organisationnelles), puis les mécanismes de coordination
+computationnelle, les limites des architectures multi-agents, les usages
+concrets en migration de code, et enfin les enjeux de gouvernance, de
+processus et d\textquotesingle évaluation. L\textquotesingle objectif est
+de construire un cadre cohérent, à la fois techniquement crédible et
+ancré dans les sciences de gestion, conformément aux exigences du
+Design Science Research en systèmes d\textquotesingle information
+(Hevner et al., 2004).

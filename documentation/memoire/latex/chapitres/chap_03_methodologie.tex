@@ -1,0 +1,247 @@
+% =============================================================================
+% CHAPITRE 3 - Methodologie de recherche
+% Source : consigne/revue_litterature_v2_DSR.tex (lignes 1914 a 2155)
+% =============================================================================
+
+\chapter{M\'ethodologie de recherche}\label{chap:methodologie}
+
+\section{Approche méthodologique : Design Science Research}\label{approche-muxe9thodologique--design-science-research}
+
+Cette recherche adopte une démarche de \emph{Design Science Research}
+(DSR), méthodologie établie en systèmes d\textquotesingle information par
+Hevner, March, Park et Ram (2004) dans \emph{MIS Quarterly} et
+opérationnalisée par le modèle de processus DSRM de Peffers, Tuunanen,
+Rothenberger et Chatterjee (2007). Le DSR est la méthodologie appropriée
+pour cette recherche car l\textquotesingle objectif n\textquotesingle est
+pas de tester des hypothèses causales (approche positiviste) ni de
+comprendre des significations subjectives (approche interprétiviste),
+mais de \emph{concevoir et évaluer un artefact} résolvant un problème
+organisationnel identifié (Hevner et al., 2004, p. 77).
+
+L\textquotesingle artefact central est un framework
+d\textquotesingle orchestration stigmergique pour systèmes multi-agents
+LLM, conçu d\textquotesingle abord comme architecture généraliste puis
+spécialisé pour la transformation de code. Suivant la taxonomie de
+Hevner et al. (2004), cet artefact comprend trois niveaux :
+un \emph{modèle} (l\textquotesingle architecture stigmergique définissant
+types de marqueurs, règles comportementales des agents et propriétés
+de coordination émergente), une \emph{instanciation} (le prototype
+fonctionnel validant la faisabilité), et des \emph{principes de
+conception} généralisables extraits des
+cycles de conception-évaluation (Gregor, Chandra Kruse \& Seidel, 2020).
+
+Le positionnement de la contribution suit le cadre de Gregor et Hevner
+(2013) : il s\textquotesingle agit d\textquotesingle une exaptation
+au sens de Gregor et Hevner,
+c\textquotesingle est-à-dire l\textquotesingle application d\textquotesingle un
+concept de solution mature (la stigmergie, étudiée depuis 1959) à un
+domaine problématique nouveau (l\textquotesingle orchestration
+d\textquotesingle agents LLM). Ce positionnement maximise la
+revendication de nouveauté tout en s\textquotesingle appuyant sur des
+fondations théoriques solides.
+
+\section{Processus DSRM}\label{processus-dsrm}
+
+Le processus de recherche suit les six activités du DSRM (Peffers et al.,
+2007), avec un point d\textquotesingle entrée centré sur le problème :
+
+\emph{Activité 1, Identification et motivation du problème.}
+Les organisations investissent massivement dans la modernisation logicielle,
+mais les approches actuelles échouent à l\textquotesingle échelle. Les
+architectures multi-agents hiérarchiques présentent des taux
+d\textquotesingle échec de 41\% à 86,7\% (Cemri et al., 2025), des surcoûts
+en tokens de 4x à 220x (Gao et al., 2025), et des gains marginaux
+décroissants avec les modèles frontières. Simultanément, les organisations
+font face à des choix stratégiques complexes, casser des monolithes,
+migrer vers des microservices, moderniser incrémentalement, qui
+exigent des cadres d\textquotesingle orchestration flexibles plutôt que
+des workflows rigides.
+
+\emph{Activité 2, Définition des objectifs de la solution.}
+Le framework doit satisfaire cinq objectifs mesurables correspondant aux
+cinq objectifs de conception : (O1) proposer une architecture
+généraliste de coordination stigmergique applicable à des tâches variées ;
+(O2) démontrer l\textquotesingle émergence d\textquotesingle une
+spécialisation des agents sans assignation explicite de rôles ;
+(O3) comparer le framework à des baselines centralisées reproductibles
+sur le benchmark TravelPlanner avec le même backbone, le même scorer
+officiel et le même split d\textquotesingle évaluation ;
+(O4) adapter le framework à la transformation de code et atteindre des
+résultats compétitifs sur PolyMigration et SWE-bench ;
+(O5) produire une trace d\textquotesingle audit complète satisfaisant
+les exigences de traçabilité et de conformité réglementaire, validée
+par un panel d\textquotesingle experts.
+
+\emph{Activité 3, Conception et développement.}
+Le prototype sera développé en trois itérations documentées, chaque
+itération étant informée par les résultats de la précédente (conformément
+au principe de recherche itérative (sixième ligne directrice de Hevner
+et al., 2004). Itération 1 : test des rôles agents de base et des
+marqueurs stigmergiques sur des tâches simples (TravelPlanner, benchmark
+de planification généraliste). Itération 2 : raffinement de la
+sémantique des marqueurs et des mécanismes de résolution de conflits sur
+des migrations de complexité modérée (Amazon PolyMigration). Itération
+3 : introduction de comportements émergents sophistiqués
+(spécialisation, priorisation par intensité de phéromone) sur des
+transformations multi-fichiers (SWE-bench). Chaque décision de
+conception sera tracée à une théorie fondatrice, comme
+l\textquotesingle exige la rigueur DSR.
+
+\emph{Activité 4, Démonstration.}
+Application du prototype à 2-3 scénarios concrets de transformation de
+code de complexité croissante sur des projets open source, permettant
+la reproductibilité.
+
+\emph{Activité 5, Évaluation.}
+L\textquotesingle évaluation suit le framework FEDS (Venable, Pries-Heje
+\& Baskerville, 2016) avec une stratégie centrée sur les risques
+techniques et l\textquotesingle efficacité, en trois épisodes :
+(1) Benchmarks techniques (TravelPlanner pour la validation généraliste,
+PolyMigration et SWE-bench pour la validation spécialisée) comparant
+StigmergiAgentic à un panel de baselines organisationnelles
+reproductibles partageant le même backbone et le même protocole
+d\textquotesingle évaluation : baseline single-agent directe, baseline
+single-agent avec raisonnement guidé, baseline \emph{self-refine},
+baseline centralisée \emph{planner-executor}, et baseline
+hiérarchique explicite implémentée en LangGraph Supervisor, sur les
+métriques de précision officielle, coût, temps et \emph{overhead} de
+coordination ; une tentative exploratoire de reproduction de
+SwarmAgentic est conservée en annexe technique mais n\textquotesingle entre
+pas dans le tableau principal en raison de sa non-reproductibilité dans
+le protocole contrôlé ;
+(2) Étude de cas sur un projet open source réaliste documentant les
+comportements émergents et les patterns de coordination ;
+(3) Évaluation par experts (5-8 professionnels, architectes logiciels,
+managers SI, ingénieurs IA) évaluant utilité, faisabilité,
+gouvernabilité et valeur organisationnelle du framework.
+
+\emph{Activité 6, Communication.}
+Le présent mémoire constitue le vecteur principal de communication.
+Un article ciblant un journal classé ABS/FNEGE est envisagé en
+extension.
+
+\section{Conformité aux sept lignes directrices de Hevner et al. (2004)}\label{conformituxe9-aux-sept-guidelines}
+
+Le tableau suivant synthétise la conformité du design de recherche
+aux sept guidelines du DSR :
+
+\begin{longtable}[]{@{}p{0.28\linewidth}p{0.65\linewidth}@{}}
+\toprule
+\textbf{Ligne directrice (Hevner et al., 2004)} & \textbf{Application dans ce mémoire} \\
+\midrule
+\endhead
+G1. Conception d\textquotesingle un artefact & Framework stigmergique (modèle +
+instanciation + principes de conception) \\
+G2. Pertinence du problème & Échecs documentés des MAS hiérarchiques ;
+besoins industriels de modernisation flexible \\
+G3. Évaluation rigoureuse & Trois épisodes FEDS : benchmarks quantitatifs,
+étude de cas, évaluation par experts \\
+G4. Contributions à la recherche & Principes de conception généralisables ;
+extension de la théorie de la coordination aux agents LLM \\
+G5. Rigueur scientifique & Ancrage théorique multi-disciplinaire ;
+métriques standardisées ; comparaison aux baselines \\
+G6. Processus itératif de recherche & Trois itérations documentées avec
+apprentissage inter-cycles \\
+G7. Communication des résultats & Double audience : technique
+(réplicabilité) et managériale (implications organisationnelles) \\
+\bottomrule
+\end{longtable}
+
+\section{Champ d\textquotesingle étude}\label{champ-duxe9tude}
+
+Le champ d\textquotesingle étude se situe à
+l\textquotesingle intersection de trois domaines : le génie logiciel
+(migration et transformation de code), les systèmes multi-agents
+(orchestration et coordination), et le management des systèmes
+d\textquotesingle information (gouvernance, coordination
+organisationnelle et conformité). Le terrain empirique est constitué de
+benchmarks reconnus (TravelPlanner, PolyMigration, SWE-bench) et de
+dépôts de code open source permettant l\textquotesingle évaluation
+reproductible. Le framework est conçu comme une architecture
+généraliste, validée d\textquotesingle abord sur un benchmark de
+planification (TravelPlanner), puis spécialisée et évaluée sur des
+tâches de transformation de code.
+Ce positionnement interdisciplinaire est cohérent avec la formation de
+l\textquotesingle EMLV qui vise à former des managers comprenant les
+enjeux technologiques et capables de gouverner
+l\textquotesingle innovation.
+
+\section{Collecte de données}\label{collecte-de-donnuxe9es}
+
+La collecte de données s\textquotesingle inscrit dans le cadre DSRM et
+porte sur trois sources complémentaires.
+
+Source 1, Données du processus de conception.
+Chaque itération de conception produira une documentation structurée :
+décisions de conception et leurs justifications théoriques (théories
+fondatrices), alternatives considérées et raisons de leur abandon,
+résultats intermédiaires et apprentissages. Cette documentation
+constitue la matière première pour l\textquotesingle extraction des
+principes de conception.
+
+Source 2, Données d\textquotesingle évaluation quantitative.
+Le prototype générera des métriques sur chaque benchmark : taux de
+succès par tâche et par projet, coût en tokens par transformation,
+temps d\textquotesingle exécution, taux de rollback, \emph{overhead}
+de coordination, couverture de tests avant/après, et traces
+d\textquotesingle exécution (séquences d\textquotesingle actions des
+agents, patterns de lecture/écriture des phéromones, cas
+d\textquotesingle émergence ou d\textquotesingle impasse). Les
+frontières de Pareto coût-précision (Kapoor et al., 2024) permettront de
+situer l\textquotesingle approche par rapport aux alternatives.
+
+Source 3, Données d\textquotesingle évaluation par experts.
+Un panel de 5-8 experts (architectes logiciels, managers SI, ingénieurs
+IA) évaluera le framework via un protocole structuré : présentation du
+concept stigmergique, démonstration live, questionnaire avec items
+Likert sur utilité, faisabilité, gouvernabilité et valeur
+organisationnelle, puis questions ouvertes. Ce dispositif remplace les
+entretiens semi-directifs exploratoires initialement envisagés : dans
+le cadre DSR, les experts évaluent l\textquotesingle artefact plutôt que
+de fournir des données exploratoires (Venable et al., 2016). Des
+entretiens complémentaires informels avec des praticiens du terrain
+(data scientists, responsables IA, managers de programmes de
+transformation) pourront enrichir la compréhension du contexte
+organisationnel et nourrir la discussion.
+
+\section{Analyse des données}\label{analyse-des-donnuxe9es}
+
+Les données quantitatives seront analysées selon plusieurs cadres
+complémentaires. Les frontières de Pareto coût-précision (Kapoor et al.,
+2024) permettront de situer l\textquotesingle approche stigmergique par
+rapport à l\textquotesingle ensemble des alternatives existantes. La
+comparaison au baseline Agentless (Xia et al., 2024) établira si la
+complexité additionnelle de la coordination multi-agents est justifiée.
+La taxonomie MAST (Cemri et al., 2025) servira de grille de lecture
+des modes d\textquotesingle échec observés.
+
+Les données qualitatives (traces de conception, évaluations experts)
+seront analysées pour extraire des principes de conception selon le
+format de Gregor et al. (2020) : « Pour [contexte/classe
+d\textquotesingle utilisateurs], [caractéristique de
+l\textquotesingle artefact] produira [résultat] parce que
+[mécanisme/justification] ». L\textquotesingle objectif est de formuler
+4-6 principes de conception généralisables au-delà du seul cas de la
+transformation de code.
+
+\section{Limites anticipées}\label{limites-anticipuxe9es}
+
+Plusieurs limites méthodologiques sont anticipées. Le prototype sera
+évalué sur un ensemble de benchmarks et de cas, mais la
+généralisabilité restera conditionnée par le volume et la diversité des
+scénarios effectivement testés. Le panel d\textquotesingle experts
+(5-8 personnes) vise la richesse qualitative mais ne prétend pas à la
+représentativité statistique. Les résultats dépendront des modèles LLM
+disponibles au moment du développement, dont les capacités évoluent
+rapidement. Le protocole expérimental peut engendrer des coûts
+d\textquotesingle API non négligeables, ce qui peut contraindre
+l\textquotesingle ampleur des campagnes de test. Le contexte
+mono-chercheur du mémoire limite les possibilités de triangulation par
+les investigateurs. Enfin, le niveau de contribution visé est celui de
+la théorie de conception émergente au sens de Gregor et Hevner (2013), c\textquotesingle est-à-dire
+des principes de conception soutenus par une instanciation et des
+preuves d\textquotesingle évaluation initiales, nécessitant des
+recherches futures pour atteindre le statut de théorie de conception
+complète. Ces limites sont reconnues et seront discutées dans
+l\textquotesingle analyse des résultats.
+

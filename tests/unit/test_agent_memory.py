@@ -212,3 +212,34 @@ def test_agent_perceive_injects_lesson_markers(
     assert decision is not None
     assert decision.lesson_markers
     assert "dependency ordering" in decision.lesson_markers[0]["lesson"]
+
+
+def test_agent_execute_credits_recalled_lesson_markers(
+    tmp_path: Path,
+    config_dict: dict[str, Any],
+) -> None:
+    agent = _build_agent(config_dict)
+    env = _build_environment(tmp_path, config_dict)
+    env.store.upsert_marker(_make_marker("m4"), agent_id="seed")
+    env.store.upsert_marker(
+        _make_marker(
+            "lesson::m4",
+            marker_type="lesson",
+            state="terminal",
+            payload={
+                "lesson": "Prefer explicit dependency ordering.",
+                "source_marker": "m4",
+                "source_agent": "agent-1",
+            },
+            target="m4.py",
+            intensity=0.8,
+        ),
+        agent_id="seed",
+    )
+
+    decision = asyncio.run(agent.perceive_and_decide(env.snapshot(tick=1)))
+    assert decision is not None
+
+    result = asyncio.run(agent.execute(decision, environment=env))
+
+    assert result.metadata["credited_lesson_ids"] == ["lesson::m4"]

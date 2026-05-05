@@ -42,6 +42,30 @@ class PlannerExecutorBlueprintOutput(BaseModel):
     days: list[PlannerExecutorDayOutput] = Field(default_factory=list)
 
 
+class MetaGPTRequirementsOutput(BaseModel):
+    """ProductManager role output — extracted hard + commonsense requirements."""
+
+    hard_constraints: list[str] = Field(default_factory=list)
+    commonsense_constraints: list[str] = Field(default_factory=list)
+    success_criteria: list[str] = Field(default_factory=list)
+
+
+class MetaGPTArchitectureDayOutput(BaseModel):
+    """Architect role per-day skeleton."""
+
+    day: int
+    current_city: str = "-"
+    transportation: str = "-"
+
+
+class MetaGPTArchitectureOutput(BaseModel):
+    """Architect role output — macro plan and per-day city/transport skeleton."""
+
+    accommodation_strategy: str = "-"
+    city_sequence: list[str] = Field(default_factory=list)
+    days: list[MetaGPTArchitectureDayOutput] = Field(default_factory=list)
+
+
 def render_assistant_response(plan: list[dict[str, Any]]) -> str:
     """Render the final TravelPlanner itinerary in the repository text format."""
     if not plan:
@@ -67,7 +91,13 @@ class TravelPlannerScientificBaselineRunner:
     def __init__(
         self,
         *,
-        mode: Literal["direct", "cot", "self_refine", "planner_executor"],
+        mode: Literal[
+            "direct",
+            "cot",
+            "self_refine",
+            "planner_executor",
+            "metagpt_sequential",
+        ],
         config: dict[str, Any],
         workspace: TravelPlannerWorkspace,
         llm_client: LLMClient,
@@ -130,6 +160,13 @@ class TravelPlannerScientificBaselineRunner:
                 search_payload=search_payload,
                 step_trace=step_trace,
             )
+        elif self.mode == "metagpt_sequential":
+            itinerary = self._run_metagpt_sequential(
+                base_prompt=base_prompt,
+                query_data=query_data,
+                search_payload=search_payload,
+                step_trace=step_trace,
+            )
         else:
             raise ValueError(f"Unsupported scientific baseline mode: {self.mode}")
 
@@ -154,6 +191,7 @@ class TravelPlannerScientificBaselineRunner:
             "cot": "solo_cot",
             "self_refine": "solo_self_refine",
             "planner_executor": "planner_executor",
+            "metagpt_sequential": "metagpt_sequential",
         }[self.mode]
 
         return {
@@ -341,18 +379,31 @@ class TravelPlannerScientificBaselineRunner:
         search_payload: dict[str, Any],
         step_trace: list[dict[str, Any]],
     ) -> list[dict[str, Any]]:
-        compact_search_payload = self._compact_planner_search_payload(search_payload)
+        trip_days = max(1, int(query_data.get("days", 1) or 1))
+        local_constraint = query_data.get("local_constraint") or {}
+        if not isinstance(local_constraint, dict):
+            local_constraint = {}
+        budget = query_data.get("budget", "-")
+        people_number = query_data.get("people_number", 1)
         planning_prompt = (
             "You are the central planner in a planner-executor architecture.\n"
             "Return compact valid JSON only with keys "
             '{"outbound_transportation":"...","return_transportation":"...",'
             '"accommodation":"...","days":[{"day":1,"breakfast":"...","lunch":"...","dinner":"...","attraction":"..."}]}\n'
-            "Return only days that contain at least one non-'-' meal or attraction. Missing days will be filled later.\n"
-            "Use canonical '<name>, <city>' strings or '-'.\n"
+            f"Return EXACTLY {trip_days} day entries, ordered day=1..{trip_days}. Every day must have a non-'-' breakfast, lunch, dinner, and attraction.\n"
+            "Use canonical '<name>, <city>' strings. Never reuse the same restaurant across meals and days (each of the "
+            f"{trip_days * 3} meal slots must be a distinct restaurant) and never reuse the same attraction across days.\n"
             "Choose transportation from the routing/search data when possible.\n"
+            f"Hard constraints to respect: total budget ${budget} for {people_number} traveller(s); "
+            f"cuisine={local_constraint.get('cuisine', 'any')}; "
+            f"room_type={local_constraint.get('room type', 'any')}; "
+            f"house_rule={local_constraint.get('house rule', 'any')}; "
+            f"transportation={local_constraint.get('transportation', 'any')}.\n"
+            "Commonsense constraints: stay within the sandbox of provided search data, respect minimum-nights stays, "
+            "ensure restaurant/attraction diversity, and keep current_city consistent with transportation segments.\n"
             f"Query: {json.dumps(self.planner._compact_query_data(query_data), ensure_ascii=True)}\n"  # noqa: SLF001
-            f"RoutingData: {json.dumps(self.planner._build_routing_context(query_data=self.planner._compact_query_data(query_data), search_payload=compact_search_payload), ensure_ascii=True)}\n"  # noqa: SLF001
-            f"SearchData: {json.dumps(compact_search_payload, ensure_ascii=True)}"
+            f"RoutingData: {json.dumps(self.planner._build_routing_context(query_data=self.planner._compact_query_data(query_data), search_payload=search_payload), ensure_ascii=True)}\n"  # noqa: SLF001
+            f"SearchData: {json.dumps(search_payload, ensure_ascii=True)}"
         )
         try:
             blueprint = self._call_schema(
@@ -391,7 +442,10 @@ class TravelPlannerScientificBaselineRunner:
             f"{base_prompt}\n\n"
             "CentralPlanBlueprint:\n"
             f"{json.dumps(normalized_blueprint, ensure_ascii=True)}\n"
-            "The blueprint is authoritative. Keep it unless a minimal repair is required to satisfy constraints."
+            "The blueprint is a strong starting point produced by the central planner. "
+            "Follow its high-level choices (transportation, accommodation, attractions/meals per day) when they satisfy the constraints, "
+            "but you MUST fix any violation: fill every day with breakfast, lunch, dinner and attraction; keep all restaurants and attractions distinct; "
+            "respect budget, cuisine, room and house-rule constraints; align current_city with transportation segments."
         )
         itinerary = self._call_itinerary(
             node_name="central_executor",
@@ -401,6 +455,163 @@ class TravelPlannerScientificBaselineRunner:
             step_trace=step_trace,
         )
         return itinerary
+
+    def _run_metagpt_sequential(
+        self,
+        *,
+        base_prompt: str,
+        query_data: dict[str, Any],
+        search_payload: dict[str, Any],
+        step_trace: list[dict[str, Any]],
+    ) -> list[dict[str, Any]]:
+        """MetaGPT-style pipeline: ProductManager → Architect → Engineer → Reviewer."""
+        trip_days = max(1, int(query_data.get("days", 1) or 1))
+        compact_query = self.planner._compact_query_data(query_data)  # noqa: SLF001
+        local_constraint = query_data.get("local_constraint") or {}
+        if not isinstance(local_constraint, dict):
+            local_constraint = {}
+
+        # Role 1 — ProductManager: extract requirements from the raw query.
+        pm_prompt = (
+            "ROLE: ProductManager. Read the travel request and enumerate the "
+            "explicit and implicit constraints the final itinerary must satisfy.\n"
+            "Return compact JSON only with keys "
+            '{"hard_constraints":["..."],"commonsense_constraints":["..."],"success_criteria":["..."]}\n'
+            "Each list must contain at most 6 short, imperative items (under 18 words).\n"
+            f"Query: {json.dumps(compact_query, ensure_ascii=True)}\n"
+            f"BudgetAndPeople: budget=${query_data.get('budget', '-')}, people={query_data.get('people_number', 1)}\n"
+            f"LocalConstraints: {json.dumps(local_constraint, ensure_ascii=True)}"
+        )
+        try:
+            requirements = self._call_schema(
+                node_name="metagpt_product_manager",
+                prompt=pm_prompt,
+                response_schema=MetaGPTRequirementsOutput,
+                step_trace=step_trace,
+            )
+        except Exception as exc:  # noqa: BLE001
+            step_trace.append(
+                {
+                    "node": "metagpt_product_manager_fallback",
+                    "reason": self._failure_reason_from_exception(exc),
+                    "error_type": type(exc).__name__,
+                }
+            )
+            requirements = MetaGPTRequirementsOutput(
+                hard_constraints=[
+                    f"Respect budget ${query_data.get('budget', '-')}",
+                    f"Serve {query_data.get('people_number', 1)} traveller(s)",
+                ],
+                commonsense_constraints=[
+                    "Diverse restaurants and attractions per day",
+                    "Consistent current_city per transportation",
+                ],
+            )
+
+        # Role 2 — Architect: produce macro plan (city sequence + per-day skeleton).
+        architect_prompt = (
+            "ROLE: Architect. Using the requirements, design the macro structure "
+            f"of a {trip_days}-day itinerary.\n"
+            "Return compact JSON only with keys "
+            '{"accommodation_strategy":"...","city_sequence":["..."],'
+            '"days":[{"day":1,"current_city":"...","transportation":"..."}]}\n'
+            f"The days array MUST contain EXACTLY {trip_days} entries ordered day=1..{trip_days}.\n"
+            "Use canonical '<name>, <city>' strings or '-'. Pick transportation from RoutingData when possible.\n"
+            f"Query: {json.dumps(compact_query, ensure_ascii=True)}\n"
+            f"Requirements: {json.dumps(requirements.model_dump(), ensure_ascii=True)}\n"
+            f"RoutingData: {json.dumps(self.planner._build_routing_context(query_data=compact_query, search_payload=search_payload), ensure_ascii=True)}"  # noqa: SLF001
+        )
+        try:
+            architecture = self._call_schema(
+                node_name="metagpt_architect",
+                prompt=architect_prompt,
+                response_schema=MetaGPTArchitectureOutput,
+                step_trace=step_trace,
+            )
+        except Exception as exc:  # noqa: BLE001
+            step_trace.append(
+                {
+                    "node": "metagpt_architect_fallback",
+                    "reason": self._failure_reason_from_exception(exc),
+                    "error_type": type(exc).__name__,
+                }
+            )
+            architecture = MetaGPTArchitectureOutput(
+                accommodation_strategy="Single accommodation covering all nights",
+                city_sequence=[str(query_data.get("dest", "-"))],
+                days=[
+                    MetaGPTArchitectureDayOutput(day=i + 1)
+                    for i in range(trip_days)
+                ],
+            )
+
+        # Role 3 — Engineer: produce the detailed itinerary.
+        engineer_prompt = (
+            "ROLE: Engineer. Produce the final detailed itinerary that satisfies "
+            "the requirements and follows the architecture skeleton.\n"
+            f"{base_prompt}\n\n"
+            "Requirements:\n"
+            f"{json.dumps(requirements.model_dump(), ensure_ascii=True)}\n"
+            "ArchitecturePlan:\n"
+            f"{json.dumps(architecture.model_dump(), ensure_ascii=True)}\n"
+            f"You MUST return EXACTLY {trip_days} day entries, all fields populated (no '-' placeholders "
+            "for breakfast/lunch/dinner/attraction)."
+        )
+        draft_itinerary = self._call_itinerary(
+            node_name="metagpt_engineer",
+            prompt=engineer_prompt,
+            query_data=query_data,
+            search_payload=search_payload,
+            step_trace=step_trace,
+        )
+
+        # Role 4 — Reviewer: validate against official constraints and repair if needed.
+        draft_eval = self.evaluator.evaluate_plan(
+            query_data=query_data, plan=draft_itinerary
+        )
+        draft_failures = self.evaluator.failed_constraints(draft_eval)
+        draft_feedback = self.evaluator.failure_feedback(draft_eval)
+        step_trace.append(
+            {
+                "node": "metagpt_reviewer_validator",
+                "final_pass": bool(draft_eval.final_pass),
+                "validation_failures": draft_failures,
+                "validation_feedback_count": len(draft_feedback),
+                "estimated_cost": float(draft_eval.estimated_cost),
+            }
+        )
+        if draft_eval.final_pass or not draft_feedback:
+            step_trace.append(
+                {
+                    "node": "metagpt_reviewer_skip_revision",
+                    "reason": "draft_passed" if draft_eval.final_pass else "no_feedback",
+                }
+            )
+            return draft_itinerary
+
+        compact_feedback = self._compact_feedback_items(draft_feedback, limit=6)
+        reviewer_prompt = (
+            "ROLE: Reviewer. The draft itinerary violates constraints. Repair it MINIMALLY "
+            "while preserving the architecture's macro decisions.\n"
+            f"{base_prompt}\n\n"
+            "Requirements:\n"
+            f"{json.dumps(requirements.model_dump(), ensure_ascii=True)}\n"
+            "ArchitecturePlan:\n"
+            f"{json.dumps(architecture.model_dump(), ensure_ascii=True)}\n"
+            "DraftItinerary:\n"
+            f"{json.dumps(draft_itinerary, ensure_ascii=True)}\n"
+            "ValidationFailures:\n"
+            f"{json.dumps(compact_feedback, ensure_ascii=True)}\n"
+            f"Return EXACTLY {trip_days} day entries with all fields populated."
+        )
+        final_itinerary = self._call_itinerary(
+            node_name="metagpt_reviewer",
+            prompt=reviewer_prompt,
+            query_data=query_data,
+            search_payload=search_payload,
+            step_trace=step_trace,
+        )
+        return final_itinerary
 
     def _build_search_payload(self, *, query_data: dict[str, Any]) -> dict[str, Any]:
         raw_payload: dict[str, Any] = {}
@@ -423,13 +634,44 @@ class TravelPlannerScientificBaselineRunner:
         search_payload: dict[str, Any],
         step_trace: list[dict[str, Any]],
     ) -> list[dict[str, Any]]:
+        dynamic_max_tokens = self.planner._dynamic_max_response_tokens(  # noqa: SLF001
+            query_data=query_data
+        )
         response = self._call_llm(
             node_name=node_name,
             prompt=prompt,
             response_schema=TravelItineraryOutput,
             step_trace=step_trace,
+            max_response_tokens=dynamic_max_tokens,
         )
         itinerary = self._parse_itinerary_response(response=response)
+        parse_failure_reason = ""
+        if not itinerary:
+            raw_content = str(getattr(response, "content", "") or "").strip()
+            parse_failure_reason = (
+                "schema_parse_failed" if raw_content else "empty_llm_content"
+            )
+            recovery_response = self._call_llm(
+                node_name=f"{node_name}_recovery",
+                prompt=(
+                    "Your previous response could not be parsed as a valid itinerary JSON. "
+                    "Return ONLY strict JSON matching the schema, no preamble, no markdown fence.\n\n"
+                    f"{prompt}"
+                ),
+                response_schema=TravelItineraryOutput,
+                step_trace=step_trace,
+                max_response_tokens=dynamic_max_tokens,
+            )
+            recovery_itinerary = self._parse_itinerary_response(
+                response=recovery_response
+            )
+            if recovery_itinerary:
+                itinerary = recovery_itinerary
+                parse_failure_reason = "recovered_on_retry"
+            if step_trace:
+                step_trace[-1]["parse_failure_reason"] = parse_failure_reason
+        elif step_trace:
+            step_trace[-1]["parse_failure_reason"] = "none"
         itinerary = self.planner._normalize_itinerary(  # noqa: SLF001 - deliberate reuse
             itinerary=itinerary,
             query_data=query_data,
@@ -465,6 +707,7 @@ class TravelPlannerScientificBaselineRunner:
         prompt: str,
         response_schema: type[BaseModel],
         step_trace: list[dict[str, Any]],
+        max_response_tokens: int | None = None,
     ) -> LLMResponse:
         last_error: Exception | None = None
         for attempt in range(self.node_retry_attempts):
@@ -472,7 +715,20 @@ class TravelPlannerScientificBaselineRunner:
             before_tokens = int(getattr(self.llm_client, "total_tokens_used", 0))
             before_cost = float(getattr(self.llm_client, "total_cost_usd", 0.0))
             try:
-                response = self.llm_client.call(prompt=prompt, response_schema=response_schema)
+                call_kwargs: dict[str, Any] = {
+                    "prompt": prompt,
+                    "response_schema": response_schema,
+                }
+                if max_response_tokens is not None:
+                    try:
+                        response = self.llm_client.call(
+                            **call_kwargs,
+                            max_response_tokens=max_response_tokens,
+                        )
+                    except TypeError:
+                        response = self.llm_client.call(**call_kwargs)
+                else:
+                    response = self.llm_client.call(**call_kwargs)
             except Exception as exc:  # noqa: BLE001
                 last_error = exc
                 if attempt < self.node_retry_attempts - 1:
@@ -746,6 +1002,14 @@ class TravelPlannerScientificBaselineRunner:
                 1
                 for item in llm_steps
                 if str(item.get("node", "")).startswith(("central_planner", "central_executor"))
+            )
+        if mode == "metagpt_sequential":
+            return sum(
+                1
+                for item in step_trace
+                if isinstance(item, dict)
+                and str(item.get("node", "")).startswith("metagpt_")
+                and "response_schema" in item
             )
         return len(step_trace)
 

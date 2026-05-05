@@ -1,0 +1,67 @@
+framework,provider,model,instance_id,strict_success,artifact_delivered,patch_applies,official_success,tokens_total,cost_total_usd,runtime_seconds,failure_reason
+stigmergic_v6_static,deepseek,deepseek-v4-flash,artur__a__vaadin__helper,False,True,True,False,2394,5.3e-05,67.5696,official_eval_failed
+stigmergic_v6_static,deepseek,deepseek-v4-flash,284885166__spring__boot__hashids,False,True,True,False,2131,6.4e-05,68.5654,official_eval_failed
+stigmergic_v6_static,deepseek,deepseek-v4-flash,aingezzz__easy__crypto,False,True,True,False,2141,3.1e-05,31.6576,official_eval_failed
+stigmergic_v6_static,deepseek,deepseek-v4-flash,cubeengine__reflect,False,True,True,False,5424,5.9e-05,71.4394,official_eval_failed
+stigmergic_v6_static,deepseek,deepseek-v4-flash,15093015999__ejserver,False,True,True,False,2075,3.7e-05,50.0357,official_eval_failed
+stigmergic_v6_static,deepseek,deepseek-v4-flash,amadeusitgroup__httpsessionreplacer,False,True,True,False,22181,0.000706,85.8281,official_eval_failed
+stigmergic_v6_static,deepseek,deepseek-v4-flash,bjoernkw__oauth2__with__jira,False,True,True,False,1766,6.7e-05,49.2718,official_eval_failed
+stigmergic_v6_static,deepseek,deepseek-v4-flash,camunda__community__hub__camunda__bpm__junit5,False,True,True,False,5168,0.000163,110.4818,official_eval_failed
+stigmergic_v6_static,deepseek,deepseek-v4-flash,billkiller__javafx__plus,False,True,True,False,3463,6.7e-05,396.1914,official_eval_failed
+stigmergic_v6_static,deepseek,deepseek-v4-flash,dreamjm__tlvcodec,False,True,True,False,4264,5.8e-05,60.9347,official_eval_failed
+stigmergic_v6_static,deepseek,deepseek-v4-flash,jodaorg__joda__beans,False,False,False,False,4418,0.000156,47.4185,empty_patch
+stigmergic_v6_static,deepseek,deepseek-v4-flash,camphul__trampoline,False,True,True,False,10812,0.000114,39.8248,official_eval_failed
+stigmergic_v6_static,deepseek,deepseek-v4-flash,dickchesterwood__fleetman__webapp,False,False,False,False,5388,0.000684,52.6524,empty_patch
+stigmergic_v6_static,deepseek,deepseek-v4-flash,dabla__grizzly__spring__boot__starter,False,True,True,False,5892,7.5e-05,73.5353,official_eval_failed
+stigmergic_v6_static,deepseek,deepseek-v4-flash,blueobelisk__chemicaltagger,False,False,False,False,5432,6.6e-05,145.6369,empty_patch
+stigmergic_v6_static,deepseek,deepseek-v4-flash,realjeeshop__jeeshop,False,True,True,False,11121,8.1e-05,144.6332,official_eval_failed
+stigmergic_v6_static,deepseek,deepseek-v4-flash,mtuhide__cocotemp,False,False,False,False,0,0.0,1800.0412,timeout_after_1800s
+stigmergic_v6_static,deepseek,deepseek-v4-flash,daiyuanchuan__tool,False,True,True,False,10395,0.000167,742.5544,official_eval_failed
+stigmergic_v6_static,deepseek,deepseek-v4-flash,jaroslavtulach__heapdump,False,True,True,False,1114,4.9e-05,91.5382,official_eval_failed
+stigmergic_v6_static,deepseek,deepseek-v4-flash,erhmutlu__iyzico__kafka__demo,False,True,True,False,3152,3e-05,51.7219,official_eval_failed
+stigmergic_v6_static,deepseek,deepseek-v4-flash,citymonstret__rorledning,False,True,True,False,2544,5.9e-05,16.4679,official_eval_failed
+stigmergic_v6_static,deepseek,deepseek-v4-flash,runtimetools__javametrics,False,True,True,False,15443,0.000205,170.689,official_eval_failed
+stigmergic_v6_static,deepseek,deepseek-v4-flash,mercateo__rest__schemagen,False,True,True,False,5416,5.6e-05,26.8484,official_eval_failed
+stigmergic_v6_static,deepseek,deepseek-v4-flash,erudika__para,False,True,True,False,18749,0.000175,198.8782,official_eval_failed
+stigmergic_v6_static,deepseek,deepseek-v4-flash,packtpublishing__master__java__unit__testing__with__spring__boot__and__mockito,False,True,False,False,1674,3.3e-05,16.1224,"git_apply_check_failed:error: patch failed: readme.md:1
+error: readme.md: patch does not apply
+"
+stigmergic_v6_static,deepseek,deepseek-v4-flash,exabrial__form__binding,False,True,True,False,4878,4.6e-05,54.959,official_eval_failed
+stigmergic_v6_static,deepseek,deepseek-v4-flash,comic__con__museum__fan__forge__backend,True,True,True,True,2386,5.5e-05,68.0411,ok
+stigmergic_v6_static,deepseek,deepseek-v4-flash,seesharpsoft__sharping,False,True,True,False,6852,9.2e-05,25.5857,official_eval_failed
+stigmergic_v6_static,deepseek,deepseek-v4-flash,refactoring__bot__refactoring__bot,False,True,False,False,4026,4.7e-05,22.8901,"git_apply_check_failed:error: patch failed: pom.xml:22
+error: pom.xml: patch does not apply
+"
+stigmergic_v6_static,deepseek,deepseek-v4-flash,evandylan__unicorn,False,False,False,False,6449,5.9e-05,18.3428,empty_patch
+stigmergic_v7_repair_colony,deepseek,deepseek-v4-flash,artur__a__vaadin__helper,False,True,True,False,69319,0.002451,123.1331,official_eval_failed
+stigmergic_v7_repair_colony,deepseek,deepseek-v4-flash,284885166__spring__boot__hashids,False,False,False,False,59475,0.009812,255.4287,missing_final_patch
+stigmergic_v7_repair_colony,deepseek,deepseek-v4-flash,aingezzz__easy__crypto,False,False,False,False,30905,0.00519,135.2418,missing_final_patch
+stigmergic_v7_repair_colony,deepseek,deepseek-v4-flash,cubeengine__reflect,False,True,True,False,112918,0.016242,389.0469,official_eval_failed
+stigmergic_v7_repair_colony,deepseek,deepseek-v4-flash,15093015999__ejserver,False,False,False,False,42173,0.006408,165.1588,missing_final_patch
+stigmergic_v7_repair_colony,deepseek,deepseek-v4-flash,amadeusitgroup__httpsessionreplacer,False,False,False,False,370095,0.050084,600.4333,missing_final_patch
+stigmergic_v7_repair_colony,deepseek,deepseek-v4-flash,bjoernkw__oauth2__with__jira,False,False,False,False,38421,0.005263,102.0811,missing_final_patch
+stigmergic_v7_repair_colony,deepseek,deepseek-v4-flash,camunda__community__hub__camunda__bpm__junit5,False,True,True,False,119845,0.015833,490.9264,official_eval_failed
+stigmergic_v7_repair_colony,deepseek,deepseek-v4-flash,billkiller__javafx__plus,False,False,False,False,49759,0.006982,429.2287,missing_final_patch
+stigmergic_v7_repair_colony,deepseek,deepseek-v4-flash,dreamjm__tlvcodec,False,False,False,False,0,0.0,1800.0379,timeout_after_1800s
+stigmergic_v7_repair_colony,deepseek,deepseek-v4-flash,jodaorg__joda__beans,False,False,False,False,35527,0.006739,262.122,missing_final_patch
+stigmergic_v7_repair_colony,deepseek,deepseek-v4-flash,camphul__trampoline,False,False,False,False,127558,0.017874,305.0863,missing_final_patch
+stigmergic_v7_repair_colony,deepseek,deepseek-v4-flash,dickchesterwood__fleetman__webapp,False,False,False,False,34275,0.00685,192.6301,missing_final_patch
+stigmergic_v7_repair_colony,deepseek,deepseek-v4-flash,dabla__grizzly__spring__boot__starter,False,False,False,False,94332,0.013168,217.8838,missing_final_patch
+stigmergic_v7_repair_colony,deepseek,deepseek-v4-flash,blueobelisk__chemicaltagger,False,False,False,False,45159,0.008557,194.7377,missing_final_patch
+stigmergic_v7_repair_colony,deepseek,deepseek-v4-flash,realjeeshop__jeeshop,False,False,False,False,89279,0.01493,231.5837,missing_final_patch
+stigmergic_v7_repair_colony,deepseek,deepseek-v4-flash,mtuhide__cocotemp,False,False,False,False,68632,0.011286,270.1793,missing_final_patch
+stigmergic_v7_repair_colony,deepseek,deepseek-v4-flash,daiyuanchuan__tool,False,False,False,False,106182,0.013846,286.5171,missing_final_patch
+stigmergic_v7_repair_colony,deepseek,deepseek-v4-flash,jaroslavtulach__heapdump,False,False,False,False,56040,0.007746,167.3619,missing_final_patch
+stigmergic_v7_repair_colony,deepseek,deepseek-v4-flash,erhmutlu__iyzico__kafka__demo,False,False,False,False,57253,0.009199,132.264,missing_final_patch
+stigmergic_v7_repair_colony,deepseek,deepseek-v4-flash,citymonstret__rorledning,False,False,False,False,38405,0.005373,106.1075,missing_final_patch
+stigmergic_v7_repair_colony,deepseek,deepseek-v4-flash,runtimetools__javametrics,False,True,False,False,126521,0.019855,486.0319,"git_apply_check_failed:error: patch failed: spring/pom.xml:1
+error: spring/pom.xml: patch does not apply
+"
+stigmergic_v7_repair_colony,deepseek,deepseek-v4-flash,mercateo__rest__schemagen,False,False,False,False,80801,0.013953,300.9766,missing_final_patch
+stigmergic_v7_repair_colony,deepseek,deepseek-v4-flash,erudika__para,False,False,False,False,577497,0.03877,860.9462,missing_final_patch
+stigmergic_v7_repair_colony,deepseek,deepseek-v4-flash,packtpublishing__master__java__unit__testing__with__spring__boot__and__mockito,False,False,False,False,161816,0.013863,252.7037,missing_final_patch
+stigmergic_v7_repair_colony,deepseek,deepseek-v4-flash,exabrial__form__binding,False,True,True,False,61569,0.010101,250.1826,official_eval_failed
+stigmergic_v7_repair_colony,deepseek,deepseek-v4-flash,comic__con__museum__fan__forge__backend,True,True,True,True,2370,0.000352,69.6858,ok
+stigmergic_v7_repair_colony,deepseek,deepseek-v4-flash,seesharpsoft__sharping,False,False,False,False,87409,0.009394,104.8522,missing_final_patch
+stigmergic_v7_repair_colony,deepseek,deepseek-v4-flash,refactoring__bot__refactoring__bot,False,False,False,False,52467,0.005529,107.203,missing_final_patch
+stigmergic_v7_repair_colony,deepseek,deepseek-v4-flash,evandylan__unicorn,False,False,False,False,92526,0.013992,194.7929,missing_final_patch

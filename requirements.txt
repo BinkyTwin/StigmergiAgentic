@@ -21,6 +21,9 @@ pandas>=2.1.0
 
 # Code analysis
 asttokens>=2.4.0
+javalang>=0.13.0
+protobuf>=3.20.0
+parameterized>=0.8.0
 
 # TravelPlanner
 datasets>=2.14.0

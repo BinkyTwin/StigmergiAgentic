@@ -1,6 +1,9 @@
 framework:
   mode: "travelplanner_eval"
 
+travelplanner:
+  dataset_split: "validation"
+
 skill_library:
   enabled: false
   read_only: true

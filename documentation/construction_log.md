@@ -1279,3 +1279,181 @@ P5 — Feedback d'émergence (`core/emergence.py`, `core/orchestrator.py`) :
 - `documentation/redisgn_v2/sprint_06_artifact.md` — V4 capabilities documented
 
 ---
+
+### 2026-05-03 — Pivot V10 from-scratch après invalidation de l'hypothèse fondatrice V3
+
+**Assistant IA utilisé** : Claude Code + revue contradictoire Codex
+
+**Objectif** : Documenter la décision de pivoter le projet depuis l'architecture V3 (Sprint 9 complet) vers une refonte from-scratch V10, à la suite de l'invalidation empirique de l'hypothèse fondatrice (stigmergie pure role-free + scaling = intelligence émergente).
+
+**Actions effectuées** :
+
+- Audit complet du framework V3 (constats S0..S5) sur la base des résultats MigrationBench V6/V7/V7.1/V7.2 (0–1/30 strict_success), TravelPlanner C3 (~21–56 % final_pass selon modèle), et de l'audit externe identifiant la divergence de 73 points entre `patch_applies=90 %` et `artifact_delivery=16,7 %` sur V7.2.
+- Recherche externe (mai 2026) sur 8 axes : multi-agent LLM orchestration, stigmergie LLM, MigrationBench/SWE-bench SOTA, TravelPlanner SOTA, blackboard architectures, SWE-agent/OpenHands, Voyager/agentic memory, MCTS verifier-guided.
+- Production d'un plan Claude initial (blackboard + verifier loop + bench harness unifié + skills Voyager-style + comparaisons externes), confronté au plan Codex (`core_v10/` from-scratch avec EventLog/HypothesisGraph en amont du Blackboard, ablations A0..A6 avec stigmergie au cœur, MCTS retardé).
+- Fusion arbitrée : 6 critiques Codex acceptées (EventLog/HypothesisGraph avant Blackboard, replay obligatoire, stigmergie au cœur identitaire H2, VerifierReport multi-statut, MCTS après branching simple, Sprint 9 archivé non supprimé), 2 nuancées (cloison étanche `core/` ↔ `core_v10/` au lieu de Big Bang, Marker comme projection plutôt que cœur).
+- Plan canonique adopté : `documentation/redisgn_v2/plan_v10_from_scratch_rebuild.md`.
+- Documentation mémoire produite : `documentation/redisgn_v2/pivot_v10_documentation_memoire.md` (7 sections : problématique de départ, diagnostic V3/V7, pivot V10, threats to validity, lien avec la trame du mémoire, calendrier, synthèse soutenance).
+- ADR-018 créé : `documentation/decisions/20260503-pivot-v10-from-scratch.md`.
+- `CLAUDE.md` et `AGENTS.md` mis à jour avec le pointeur V10 et la justification scientifique du pivot. La section Sprint 9 reste documentée comme état legacy.
+- `.codex/knowledge/decision_log.md` et `captures.md` mis à jour côté Claude.
+
+**Décisions prises** :
+
+- **Pivot V10 from-scratch retenu** plutôt que patches V7.3 sur V3 (Alternative 1) ou refonte conceptuelle conservant le substrat V3 (Alternative 2). Justification : seule l'Alternative 3 résout structurellement le problème de télémétrie qui ment via EventLog comme source de vérité unique, place la stigmergie au centre du dispositif expérimental (A4 vs A3 = test direct de H2), et garantit la reproductibilité par cloison étanche `core/` legacy ↔ `core_v10/`.
+- **Reformulation de la question de recherche** : passage de « la stigmergie pure role-free + scaling suffit-il ? » à « quelle hybridation entre coordination explicite (blackboard typé + verifier loop + HypothesisGraph) et coordination indirecte (couche stigmergique opt-in) maximise performance, traçabilité et transférabilité ? ».
+- **Hypothèses opérationnelles H1/H2/H3/H4** consignées avec leur protocole de test (ablation ladder A0..A6, comparaisons externes obligatoires).
+- **H2 (apport stigmergique) repromue au cœur identitaire du mémoire** : la possibilité d'infirmation de H2 est consignée a priori comme résultat scientifique acceptable.
+- **V3 archivée, pas supprimée** : branche `archive/v3-sprint9` reste exécutable indéfiniment ; Sprint 9 marqué legacy avant suppression différée en Phase 9.
+
+**Problèmes rencontrés** :
+
+- Identification tardive de la divergence `patch_applies` vs `artifact_delivery` : l'audit externe (« autre IA » du user) a révélé que `_synthesize_best_partial_payload` était passif (copie de payload sans déclencher la chaîne de finalisation officielle) → décision d'arrêter immédiatement la campagne V7.2 reasoner main_30 en cours.
+- Tension entre l'envie de continuer à patcher V3 (rapide, familier) et l'honnêteté méthodologique (besoin d'une refonte architecturale pour résoudre les bugs de fond) → arbitrage via revue contradictoire Claude × Codex.
+
+**Résultat** : succès — pivot V10 documenté, plan canonique adopté, ADR créé, documentation mémoire intégrée. Implémentation Phase 0 (création branches, ADR, archive V3, gel Sprint 9) à démarrer ensuite.
+
+**Fichiers créés** :
+- `documentation/redisgn_v2/pivot_v10_documentation_memoire.md` — documentation mémoire (7 sections, sources externes intégrées).
+- `documentation/decisions/20260503-pivot-v10-from-scratch.md` — ADR-018 (3 alternatives, citations académiques, critères de succès).
+- `documentation/redisgn_v2/plan_v10_from_scratch_rebuild.md` — plan technique canonique (créé en amont par Codex, validé en revue contradictoire).
+
+**Fichiers modifiés** :
+- `CLAUDE.md` — ajout du pointeur V10 (ligne « Current direction ») et marquage Sprint 9 comme legacy.
+- `AGENTS.md` — idem + justification scientifique du pivot.
+- `documentation/decisions/INDEX.md` — entrée ADR-018 ajoutée (section suivante).
+- `.codex/knowledge/decision_log.md` — entrée du jour côté Claude.
+- `.codex/knowledge/captures.md` — capture du pivot.
+
+---
+
+## 2026-05-04 — Phase 4 V10 livrée : MigrationBench V10 + bench harness unifié (L1→L7)
+
+**Contexte** : Phase 4 du plan canonique `documentation/redisgn_v2/plan_v10_from_scratch_rebuild.md` §17. Codex avait livré Phases 0-3 (`core_v10/` + `ToyTextAdapter`, 39 tests). Reste à porter MigrationBench sur la nouvelle pile sans rouvrir aucun bug du legacy V3/V7.
+
+**Actions** : exécution autonome en 7 itérations `/loop` dynamiques, chacune validée par tests verts avant scheduling de la suivante (cadence 270s tant que le cache prompt restait chaud).
+
+- L1 — `adapters_v10/migrationbench/{__init__, schemas}.py` : recopie sans dépendance legacy de `MigrationBenchInstance`, `TypedEdit`, `TypedEditSet`, `JAVA_MAJOR_VERSION`, `stable_instance_id`. Test d'import boundary étendu à `adapters_v10/`. **49 tests**.
+- L2 — `adapters_v10/migrationbench/{_runtime, workspace}.py` : `MigrationBenchWorkspaceV10` (clone, `branch_workspace`/`fork_branch_workspace` avec isolation filesystem, `apply_typed_edits`, `export_patch`, `as_handle`). Tests sur upstream git local (pas de réseau). **58 tests**.
+- L3 — `adapters_v10/migrationbench/{maven, verifier}.py` : taxonomie 7 catégories, `MigrationBenchVerifier` orchestrant `mvn dependency:resolve → clean compile → test → classes Java 17 == {61}` + `OfficialEvaluator` wrappant `external/MigrationBench/.../run_eval.py`. Émission des 8 signaux canoniques avec invariant `strict_success = ET de tous les autres`. **88 tests**.
+- L4 — `adapters_v10/migrationbench/adapter.py` : `MigrationBenchAdapterV10` (8 méthodes ABC). Branche workspace par candidat ; signals stampés sur `ArtifactResult.metadata` ; `score()` reconstruit `strict_success` depuis ces signals. **96 tests**.
+- L5 — `scripts/bench/{__init__, artifacts, telemetry, harness}.py` : harness CLI, registry pluggable, telemetry pure-EventLog (`build_summary`, `replay_summary_from_dir`). **109 tests**.
+- L6 — `scripts/bench/{providers, docker}.py` + `config/v10/migrationbench_v10_smoke_deepseek.yaml` + service Docker `migrationbench-v10-smoke`. Deterministic POM Java 17 candidate provider sans LLM. Smoke pipeline local in-process (Maven mocké) prouve la chaîne complète sans coût. **121 tests**.
+- L7 — `tests/integration/v10/test_migrationbench_smoke_consistency.py` : 5 invariants golden (live==replay, strict_success⇒chaîne complète, official manquant ⇒ strict_success=False, payload `score.completed` contient les 8 signaux, AST scan absence `_synthesize_best_partial_payload` dans `adapters_v10/`). **126 tests verts** (121 unit + 5 integration).
+
+**Décisions** :
+
+- Cloison étanche stricte : `adapters_v10/` n'importe rien de `core/`, `adapters/`, `core/marker_store.py`. Briques utiles recopiées-adaptées, pas importées. Validé par AST scan dans deux tests indépendants.
+- Invariant verifier-first : `strict_success=True` impossible sans la chaîne complète. Aucun fallback diagnostique passif (le V7.2 `_synthesize_best_partial_payload` n'a aucun équivalent — testé). La validation locale renvoie `PASSED` dès que les 5 premiers signaux sont verts ; `official_success` reste gate par `score()` après `finalize()`.
+- Telemetry pure-EventLog : aucun compteur n'est sérialisé directement par le harness ; tous viennent de `score.completed.payload.score.metrics`. Le summary live est byte-équivalent au summary reconstruit par replay (testé golden).
+- Smoke run réel via Docker laissé à la discrétion utilisateur (gate-keeped : LLM coût + clone `external/MigrationBench` + Maven dans l'image). L'infrastructure est prête (`docker compose -f docker-compose.campaign.yml up migrationbench-v10-smoke`).
+
+**Problèmes rencontrés** :
+
+- Bug initial dans `MigrationBenchVerifier.to_validation_result` : la condition PASSED exigeait `strict_success=True`, qui requiert `official_success`, qui ne tourne qu'en `finalize()` — d'où impossibilité structurelle de jamais finaliser. Corrigé : PASSED dès que la chaîne locale est verte (les 5 premiers signaux), strict_success reste gate dans le score.
+- Faux positif dans le test AST anti-fallback V7 : la chaîne `_synthesize_best_partial_payload` apparaissait dans les docstrings où je documentais explicitement son absence. Test affiné en AST `FunctionDef` scan plutôt que substring grep.
+- Bug `_coerce_edit_set` dans l'adapter : `TypedEditSet.model_dump()` produit un dict `{"edits": [...]}` qui était passé à pydantic comme un single edit dict. Coercion réécrite pour traiter les trois cas (TypedEditSet, dict avec `edits`, list).
+
+**Résultat** : succès — Phase 4 close. La pipeline V10 est honnête (télémétrie reconstructible), strict (verifier-first sans shortcut), testée (126 verts), et prête pour Phase 5 (BranchingRepair durci) puis Phase 6 (StigmergicBlackboard A4 = cœur thèse H2).
+
+**Fichiers créés** :
+- `adapters_v10/migrationbench/{__init__, _runtime, schemas, workspace, maven, verifier, adapter}.py`
+- `scripts/bench/{__init__, artifacts, telemetry, harness, providers, docker}.py`
+- `config/v10/migrationbench_v10_smoke_deepseek.yaml`
+- `tests/unit/v10/migrationbench/{__init__, test_schemas, test_workspace, test_maven_parsing, test_verifier, test_adapter}.py`
+- `tests/unit/v10/bench/{__init__, test_artifacts, test_telemetry_reconstruction, test_harness_toy, test_providers, test_harness_migrationbench, test_docker}.py`
+- `tests/integration/v10/{__init__, test_migrationbench_smoke_consistency}.py`
+
+**Fichiers modifiés** :
+- `docker-compose.campaign.yml` — service `migrationbench-v10-smoke` ajouté.
+- `tests/unit/v10/test_import_boundaries.py` — scan étendu à `adapters_v10/`.
+- `CLAUDE.md` — section « Phase 4 V10 livrée ».
+- `AGENTS.md` — section « Phase 4 V10 livrée » + invariants prouvés.
+- `.codex/knowledge/captures.md` — capture L7.
+- `.codex/knowledge/decision_log.md` — décision L7.
+
+---
+
+## 2026-05-04 — Phase 5 V10 (BranchingRepair A3) close
+
+**Auteur** : Claude Code (Opus 4.7).
+
+**Scope du plan canonique §Phase 5 livré** :
+
+- Strategy `branching_repair` durcie : `_SignatureTracker` (sha256 sur 16 hex
+  de `kind+payload` canonicalisé) + dedup intra-run sur la frontier initiale
+  et chaque round de réparation, avec event `candidate.deduped` portant
+  `(candidate_id, signature, duplicate_of, parent_id, origin)`.
+- Suppression des échecs répétés : compteur de failures par signature ; toute
+  proposition de réparation re-introduisant une signature ayant échoué ≥1 fois
+  est bloquée et émet un event `candidate.repeat_failure_suppressed` portant
+  `previous_failures`.
+- Sélecteur explicable : nouvelle dataclass `SelectionRationale`
+  (`selected_hypothesis_id`, `reason`, `selected_score`, `competitors`
+  ordonnés par `(score.total, score.quality, hypothesis_id)`). Émis comme
+  event `selection.completed` avec `hypothesis_id` non-nul, propagé à
+  `StrategyResult`. `run.completed` payload étendu avec `dedup_skipped` et
+  `repeat_failure_suppressed`.
+- Telemetry : `InstanceSummary` et `Summary` étendues avec les nouveaux
+  compteurs et `selection_rationale`. `build_summary` reconstruit ces totaux
+  depuis l'EventLog si `run.completed.payload` ne les expose pas (replay
+  legacy compatible).
+- Ablation harness : nouveau module `scripts/bench/compare_strategies.py`
+  exécute A1 (`agentless_basic`, sans repair) / A2 (linear-repair placeholder
+  branching avec `max_candidates=1`) / A3 (branching parallel avec
+  `max_candidates=2`, `max_repairs_per_candidate=2`). Produit un campaign tree
+  par bras + un `comparison.json` agrégé.
+- Tests : 6 nouveaux tests unitaires Phase 5 + 4 tests d'intégration
+  ablation harness. Suite V10 totale **136 verts** (+10 vs Phase 4).
+
+**Décisions clés** :
+
+- A2 placeholder : la couche typed-blackboard du plan §Phase 3 (capability
+  auto-election, knowledge sources) n'est pas finalisée. A2 est livré comme
+  variante linear-repair pour permettre la comparaison Phase 5 ; le
+  follow-up Phase 3 viendra raffiner A2 sans casser la surface
+  `compare_strategies`.
+- Signature : volontairement `kind+payload` (ignore `metadata`) pour rester
+  déterministe. Si un adaptateur futur a besoin d'un override, exposer un
+  hook `signature_fn` configurable.
+- Replay legacy : le smoke réel pré-Phase 5
+  (`campaign_results/v10/migrationbench_smoke`) reste lisible — les nouveaux
+  compteurs valent 0 puisque les events Phase 5 sont absents.
+
+**Validation** :
+
+```bash
+.venv/bin/python -m pytest tests/unit/v10/ tests/integration/v10/ -q
+# 136 passed in ~8s
+```
+
+**Problèmes rencontrés** :
+
+- Environnement venv corrompu (pytest, anyio) : modules `_pytest._py.error`
+  et `anyio._core._contextmanagers` manquants après une réinstallation
+  partielle. Résolu par `uv pip install --reinstall pytest anyio`. Tests
+  passent ensuite via `.venv/bin/python -m pytest` (pas via `uv run pytest`
+  qui peut sélectionner un autre python).
+
+**Résultat** : succès — Phase 5 close. Le runner V10 dispose maintenant d'un
+selector auditable et d'une ablation reproductible. La suite est prête pour
+Phase 6 (StigmergicBlackboard A4 = cœur thèse H2).
+
+**Fichiers créés** :
+- `scripts/bench/compare_strategies.py`
+- `tests/unit/v10/test_strategy_runner_phase5.py`
+- `tests/unit/v10/bench/test_compare_strategies.py`
+- `documentation/decisions/20260504-phase5-a3-branching-repair.md`
+- `documentation/redisgn_v2/phase_05_artifact.md`
+
+**Fichiers modifiés** :
+- `core_v10/strategy_runner.py` — `SelectionRationale`, dedup, suppression,
+  rationale events, `_SignatureTracker`.
+- `scripts/bench/telemetry.py` — events constants, champs `Summary` /
+  `InstanceSummary` étendus, fallback reconstruction depuis EventLog.
+- `CLAUDE.md` — section « Phase 5 V10 livrée ».
+- `AGENTS.md` — section « Phase 5 V10 livrée ».
+- `documentation/decisions/INDEX.md` — entrée ADR-019.
+
+---
+

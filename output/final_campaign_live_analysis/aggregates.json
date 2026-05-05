@@ -1,0 +1,147 @@
+{
+  "aggregates": {
+    "deepseek::stigmergiagentic_c3": {
+      "artifact_delivery_rate": 1.0,
+      "avg_cost_usd": 0.006872549444444445,
+      "avg_runtime_seconds": 0.0,
+      "avg_tokens": 30033.86111111111,
+      "cost_total_usd": 1.2370589,
+      "delivery_rate": 0.4166666666666667,
+      "final_pass_rate": 0.5833333333333334,
+      "official_delivery_rate": 0.4166666666666667,
+      "queries": 180,
+      "tokens_total": 5406095
+    },
+    "gemma::metagpt_sequential": {
+      "artifact_delivery_rate": 1.0,
+      "avg_cost_usd": 0.0025334988983050847,
+      "avg_runtime_seconds": 102.52965423728814,
+      "avg_tokens": 15100.093220338984,
+      "cost_total_usd": 0.29895287,
+      "delivery_rate": 1.0,
+      "final_pass_rate": 0.5254237288135594,
+      "official_delivery_rate": 1.0,
+      "queries": 118,
+      "tokens_total": 1781811
+    },
+    "gemma::planner_executor": {
+      "artifact_delivery_rate": 1.0,
+      "avg_cost_usd": 0.002254644222222222,
+      "avg_runtime_seconds": 64.79407499999999,
+      "avg_tokens": 14377.672222222222,
+      "cost_total_usd": 0.40583596,
+      "delivery_rate": 1.0,
+      "final_pass_rate": 0.4,
+      "official_delivery_rate": 1.0,
+      "queries": 180,
+      "tokens_total": 2587981
+    },
+    "gemma::solo_cot": {
+      "artifact_delivery_rate": 1.0,
+      "avg_cost_usd": 0.001311279720670391,
+      "avg_runtime_seconds": 68.36704245810056,
+      "avg_tokens": 7831.743016759777,
+      "cost_total_usd": 0.23471907,
+      "delivery_rate": 1.0,
+      "final_pass_rate": 0.5586592178770949,
+      "official_delivery_rate": 1.0,
+      "queries": 179,
+      "tokens_total": 1401882
+    },
+    "gemma::solo_direct": {
+      "artifact_delivery_rate": 1.0,
+      "avg_cost_usd": 0.0013405695530726257,
+      "avg_runtime_seconds": 91.33611787709498,
+      "avg_tokens": 7806.536312849162,
+      "cost_total_usd": 0.23996195,
+      "delivery_rate": 1.0,
+      "final_pass_rate": 0.5642458100558659,
+      "official_delivery_rate": 1.0,
+      "queries": 179,
+      "tokens_total": 1397370
+    },
+    "gemma::solo_self_refine": {
+      "artifact_delivery_rate": 1.0,
+      "avg_cost_usd": 0.001946291638888889,
+      "avg_runtime_seconds": 56.46071277777777,
+      "avg_tokens": 11713.95,
+      "cost_total_usd": 0.350332495,
+      "delivery_rate": 1.0,
+      "final_pass_rate": 0.6055555555555555,
+      "official_delivery_rate": 1.0,
+      "queries": 180,
+      "tokens_total": 2108511
+    },
+    "gemma::stigmergiagentic_c3": {
+      "artifact_delivery_rate": 0.1111111111111111,
+      "avg_cost_usd": 0.00026582569444444446,
+      "avg_runtime_seconds": 0.0,
+      "avg_tokens": 1575.1444444444444,
+      "cost_total_usd": 0.047848625,
+      "delivery_rate": 0.011111111111111112,
+      "final_pass_rate": 0.1,
+      "official_delivery_rate": 0.011111111111111112,
+      "queries": 180,
+      "tokens_total": 283526
+    }
+  },
+  "mcnemar_gemma_stigmergie_vs_baselines": {
+    "langgraph_supervisor": {
+      "a_fails_b_passes": 0,
+      "a_passes_b_fails": 0,
+      "both_fail": 0,
+      "both_pass": 0,
+      "paired_queries": 0
+    },
+    "metagpt_sequential": {
+      "a_fails_b_passes": 45,
+      "a_passes_b_fails": 1,
+      "both_fail": 55,
+      "both_pass": 17,
+      "paired_queries": 118
+    },
+    "planner_executor": {
+      "a_fails_b_passes": 55,
+      "a_passes_b_fails": 1,
+      "both_fail": 107,
+      "both_pass": 17,
+      "paired_queries": 180
+    },
+    "solo_cot": {
+      "a_fails_b_passes": 84,
+      "a_passes_b_fails": 1,
+      "both_fail": 78,
+      "both_pass": 16,
+      "paired_queries": 179
+    },
+    "solo_direct": {
+      "a_fails_b_passes": 84,
+      "a_passes_b_fails": 1,
+      "both_fail": 77,
+      "both_pass": 17,
+      "paired_queries": 179
+    },
+    "solo_self_refine": {
+      "a_fails_b_passes": 91,
+      "a_passes_b_fails": 0,
+      "both_fail": 71,
+      "both_pass": 18,
+      "paired_queries": 180
+    }
+  },
+  "qwen_fixture": {
+    "artifact_delivery_rate": 0.9777777777777777,
+    "avg_coordination_overhead": 21.4,
+    "avg_cost_usd": 0.004257,
+    "avg_runtime_seconds": 140.3084,
+    "avg_tokens": 41084.72,
+    "cost_total_usd": 0.766304,
+    "delivery_rate": 0.9777777777777777,
+    "final_pass_rate": 0.2388888888888889,
+    "framework": "stigmergiagentic_c3",
+    "model": "qwen-3.5-9b",
+    "official_delivery_rate": 0.9777777777777777,
+    "queries": 180,
+    "tokens_total": 7395250
+  }
+}

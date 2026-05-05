@@ -16,6 +16,7 @@ from dotenv import load_dotenv
 
 from adapters.base import DomainAdapter
 from adapters.assistant import AssistantAdapter
+from adapters.migrationbench import MigrationBenchAdapter
 from adapters.travelplanner import TravelPlannerAdapter
 from core.agent import StigmergicAgent
 from core.config import load_config, merge_config, validate_config
@@ -35,6 +36,7 @@ from llm.client import LLMClient
 
 ASSISTANT_CONFIG_PATH = Path("config/assistant.yaml")
 TRAVELPLANNER_CONFIG_PATH = Path("config/travelplanner.yaml")
+MIGRATIONBENCH_CONFIG_PATH = Path("config/migrationbench_v6_static_deepseek.yaml")
 DEFAULT_DB_PATH = Path("pheromones/markers.db")
 SKILLS_DB_PATH = Path("pheromones/skills.db")
 PROTOCOLS_DB_PATH = Path("pheromones/protocols.db")
@@ -44,7 +46,9 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     """Parse CLI arguments for assistant execution."""
     parser = argparse.ArgumentParser(description="Stigmergic V3 runtime")
     parser.add_argument(
-        "--adapter", choices=["assistant", "travelplanner"], default="assistant"
+        "--adapter",
+        choices=["assistant", "travelplanner", "migrationbench"],
+        default="assistant",
     )
     parser.add_argument("--objective", type=str, required=True)
     parser.add_argument("--workspace", type=str, default=".")
@@ -91,7 +95,7 @@ def main(argv: list[str] | None = None) -> int:
     skills_store = _maybe_build_skills_store(config)
     protocol_store = _maybe_build_protocol_store(config)
     protocol_namespace = _build_protocol_namespace(config, args.adapter)
-    cross_run_applied = _maybe_apply_cross_run_protocol(
+    protocol_status = _apply_cross_run_protocol(
         config=config,
         protocol_store=protocol_store,
         namespace=protocol_namespace,
@@ -153,8 +157,12 @@ def main(argv: list[str] | None = None) -> int:
             objective_id=objective.objective_id,
             markers=result.final_snapshot.markers,
         )
-    else:
+    elif args.adapter == "travelplanner":
         assistant_response = _build_travelplanner_response(
+            result.final_snapshot.markers
+        )
+    else:
+        assistant_response = _build_migrationbench_response(
             result.final_snapshot.markers
         )
 
@@ -177,7 +185,9 @@ def main(argv: list[str] | None = None) -> int:
         dag_info=dag_info,
         assistant_response=assistant_response,
         config=config,
-        cross_run_applied=cross_run_applied,
+        protocol_namespace=protocol_namespace,
+        cross_run_loaded=bool(protocol_status.get("loaded", False)),
+        cross_run_applied=bool(protocol_status.get("applied", False)),
     )
     print(json.dumps(summary, indent=2, sort_keys=True))
 
@@ -207,6 +217,10 @@ def _build_config(args: argparse.Namespace) -> dict[str, Any]:
         travelplanner_overrides = _load_yaml(TRAVELPLANNER_CONFIG_PATH)
         if travelplanner_overrides:
             config = merge_config(config, travelplanner_overrides)
+    elif args.adapter == "migrationbench":
+        migrationbench_overrides = _load_yaml(MIGRATIONBENCH_CONFIG_PATH)
+        if migrationbench_overrides:
+            config = merge_config(config, migrationbench_overrides)
 
     if args.config:
         user_overrides = _load_yaml(Path(args.config))
@@ -237,6 +251,8 @@ def _build_adapter(*, name: str, config: dict[str, Any]) -> DomainAdapter:
         return AssistantAdapter(config=config)
     if name == "travelplanner":
         return TravelPlannerAdapter(config=config)
+    if name == "migrationbench":
+        return MigrationBenchAdapter(config=config)
     raise ValueError(f"Unsupported adapter: {name}")
 
 
@@ -270,7 +286,10 @@ def _select_initial_markers(
 ) -> list[Marker]:
     compiler_cfg = dict(config.get("agents", {}).get("protocol_compiler", {}))
     compiler_enabled = bool(compiler_cfg.get("enabled", False))
+    runtime = config.setdefault("_runtime", {})
     if not compiler_enabled:
+        runtime["protocol_compiler_used"] = False
+        runtime["protocol_compiler_reason"] = "disabled"
         return adapter.initial_markers(objective=objective, agent_id="system_seed")
 
     compiled = adapter.compile_protocol(
@@ -279,7 +298,11 @@ def _select_initial_markers(
         llm_client=llm_client,
     )
     if compiled and validate_dag(compiled):
+        runtime["protocol_compiler_used"] = True
+        runtime["protocol_compiler_reason"] = "compiled"
         return compiled
+    runtime["protocol_compiler_used"] = False
+    runtime["protocol_compiler_reason"] = "fallback_initial_markers"
     return adapter.initial_markers(objective=objective, agent_id="system_seed")
 
 
@@ -319,9 +342,26 @@ def _build_run_summary(
     dag_info: dict[str, Any],
     assistant_response: str,
     config: dict[str, Any],
+    protocol_namespace: str = "",
+    cross_run_loaded: bool = False,
     cross_run_applied: bool = False,
 ) -> dict[str, Any]:
     llm_config = dict(config.get("llm", {}))
+    protocol_cfg = dict(config.get("protocol", {}))
+    if adapter_name == "travelplanner":
+        artifact = _extract_travelplanner_artifact(result.final_snapshot.markers)
+    elif adapter_name == "migrationbench":
+        artifact = _extract_migrationbench_artifact(result.final_snapshot.markers)
+    else:
+        artifact = {
+            "final_plan": [],
+            "artifact_delivered": False,
+            "raw_final_pass": False,
+            "strict_final_pass": False,
+            "failure_reason": "",
+            "query_idx": None,
+        }
+    runtime = dict(config.get("_runtime", {}))
     return {
         "adapter": adapter_name,
         "objective_id": objective_id,
@@ -347,12 +387,161 @@ def _build_run_summary(
                 dict(config.get("skill_library", {})).get("enabled", False)
             ),
             "skills_promoted": int(getattr(environment, "skills_promoted", 0)),
+            "skills_loaded_count": int(
+                getattr(environment, "skills_loaded_count", 0)
+            ),
+            "skills_injected_count": int(
+                getattr(environment, "skills_injected_count", 0)
+            ),
         },
+        "protocol": {
+            "enabled": bool(protocol_cfg.get("enabled", False)),
+            "namespace": protocol_namespace,
+            "coordination_protocol_loaded": bool(cross_run_loaded),
+            "coordination_protocol_applied": bool(cross_run_applied),
+        },
+        "protocol_compiler": {
+            "enabled": bool(
+                dict(config.get("agents", {}))
+                .get("protocol_compiler", {})
+                .get("enabled", False)
+            ),
+            "used": bool(runtime.get("protocol_compiler_used", False)),
+            "reason": str(runtime.get("protocol_compiler_reason", "")),
+        },
+        "protocol_namespace": protocol_namespace,
+        "coordination_protocol_loaded": bool(cross_run_loaded),
         "coordination_protocol_applied": bool(cross_run_applied),
+        "final_plan": artifact["final_plan"],
+        "artifact_delivered": artifact["artifact_delivered"],
+        "raw_final_pass": artifact["raw_final_pass"],
+        "strict_final_pass": artifact["strict_final_pass"],
+        "final_pass": artifact["strict_final_pass"],
+        "failure_reason": artifact["failure_reason"],
+        "query_idx": artifact["query_idx"],
         "emergence": dict(result.emergence_summary),
         "dag": dag_info,
         "evaluation": evaluation,
         "assistant_response": assistant_response,
+    }
+
+
+def _extract_travelplanner_artifact(markers: list[Any]) -> dict[str, Any]:
+    final_plan: list[dict[str, Any]] = []
+    raw_final_pass = False
+    strict_final_pass = False
+    failure_reason = ""
+    query_idx = None
+    fallback_plan: list[dict[str, Any]] = []
+    fallback_raw_final_pass = False
+    fallback_strict_final_pass = False
+    fallback_failure_reason = ""
+    fallback_query_idx = None
+
+    for marker in markers:
+        marker_id = str(getattr(marker, "id", ""))
+        payload = dict(getattr(marker, "payload", {}))
+        query_data = payload.get("query_data")
+        marker_query_idx = None
+        if isinstance(query_data, dict) and query_data.get("query_idx") is not None:
+            try:
+                marker_query_idx = int(query_data.get("query_idx"))
+            except Exception:  # noqa: BLE001
+                marker_query_idx = None
+        elif payload.get("query_idx") is not None:
+            try:
+                marker_query_idx = int(payload.get("query_idx"))
+            except Exception:  # noqa: BLE001
+                marker_query_idx = None
+
+        candidate_plan = payload.get("final_plan", payload.get("plan", []))
+        if isinstance(candidate_plan, list) and candidate_plan and not fallback_plan:
+            fallback_plan = candidate_plan
+            fallback_query_idx = marker_query_idx
+            evaluation = payload.get("evaluation", {})
+            if isinstance(evaluation, dict):
+                fallback_raw_final_pass = bool(
+                    evaluation.get("raw_final_pass", evaluation.get("final_pass", False))
+                )
+                fallback_strict_final_pass = bool(
+                    evaluation.get(
+                        "strict_final_pass",
+                        fallback_raw_final_pass and bool(fallback_plan),
+                    )
+                )
+            else:
+                fallback_raw_final_pass = bool(payload.get("final_pass", False))
+                fallback_strict_final_pass = bool(
+                    payload.get(
+                        "strict_final_pass",
+                        fallback_raw_final_pass and bool(fallback_plan),
+                    )
+                )
+            fallback_failure_reason = str(
+                payload.get("failure_reason", "")
+            ).strip()
+
+        if marker_id.endswith("::finalize"):
+            plan = payload.get("final_plan", [])
+            if isinstance(plan, list):
+                final_plan = plan
+            raw_final_pass = bool(
+                payload.get("raw_final_pass", payload.get("final_pass", False))
+            )
+            strict_final_pass = bool(
+                payload.get("strict_final_pass", raw_final_pass and bool(final_plan))
+            )
+            failure_reason = str(payload.get("failure_reason", "")).strip()
+            query_idx = marker_query_idx
+            if final_plan:
+                break
+
+    if not final_plan and fallback_plan:
+        final_plan = fallback_plan
+        raw_final_pass = fallback_raw_final_pass
+        strict_final_pass = fallback_strict_final_pass
+        failure_reason = fallback_failure_reason
+        query_idx = fallback_query_idx
+
+    if not final_plan and (not failure_reason or failure_reason == "ok"):
+        failure_reason = "empty_plan_from_llm"
+
+    return {
+        "final_plan": final_plan,
+        "artifact_delivered": bool(final_plan),
+        "raw_final_pass": raw_final_pass,
+        "strict_final_pass": bool(final_plan and raw_final_pass and strict_final_pass),
+        "failure_reason": failure_reason or "ok",
+        "query_idx": query_idx,
+    }
+
+
+def _extract_migrationbench_artifact(markers: list[Any]) -> dict[str, Any]:
+    """Extract patch-centric contract from the MigrationBench finalize marker."""
+    for marker in markers:
+        marker_id = str(getattr(marker, "id", ""))
+        if not (
+            marker_id.endswith("::finalize_patch")
+            or marker_id.endswith("::finalize_evaluated_patch")
+        ):
+            continue
+        payload = dict(getattr(marker, "payload", {}))
+        return {
+            "final_plan": [],
+            "artifact_delivered": bool(payload.get("artifact_delivered", False)),
+            "raw_final_pass": bool(payload.get("official_success", False)),
+            "strict_final_pass": bool(payload.get("strict_success", False)),
+            "failure_reason": str(payload.get("failure_reason", "ok")),
+            "query_idx": None,
+            "migrationbench_contract": payload,
+        }
+    return {
+        "final_plan": [],
+        "artifact_delivered": False,
+        "raw_final_pass": False,
+        "strict_final_pass": False,
+        "failure_reason": "missing_final_patch",
+        "query_idx": None,
     }
 
 
@@ -432,6 +621,21 @@ def _build_travelplanner_response(markers: list[Any]) -> str:
         )
 
     return "\n".join(lines) if lines else "No travel plan generated."
+
+
+def _build_migrationbench_response(markers: list[Any]) -> str:
+    """Render a concise patch outcome for MigrationBench runs."""
+    artifact = _extract_migrationbench_artifact(markers)
+    contract = artifact.get("migrationbench_contract", {})
+    if not isinstance(contract, dict) or not contract:
+        return "No MigrationBench patch generated."
+    return (
+        f"patch={contract.get('patch_path', '')} "
+        f"applies={contract.get('patch_applies', False)} "
+        f"official_success={contract.get('official_success', False)} "
+        f"strict_success={contract.get('strict_success', False)} "
+        f"reason={contract.get('failure_reason', '')}"
+    )
 
 
 def _render_marker_output(*, task: str, payload: dict[str, Any]) -> str:
@@ -703,10 +907,16 @@ def _build_protocol_namespace(config: dict[str, Any], adapter_name: str) -> str:
     """Return a stable namespace key for this (adapter, config) combination."""
     import hashlib
 
+    proto_cfg = dict(config.get("protocol", {}))
+    explicit = str(proto_cfg.get("namespace", "")).strip()
+    if explicit:
+        if explicit.startswith("coordination_protocol::"):
+            return explicit
+        return f"coordination_protocol::{adapter_name}::{explicit}"
+
     llm_cfg = dict(config.get("llm", {}))
     pressures_cfg = dict(config.get("pressures", {}))
     skill_cfg = dict(config.get("skill_library", {}))
-    proto_cfg = dict(config.get("protocol", {}))
     emergence_cfg = dict(config.get("emergence", {}))
     feedback_cfg = dict(emergence_cfg.get("feedback_loop", {}))
     key = {
@@ -745,20 +955,36 @@ def _maybe_apply_cross_run_protocol(
     namespace: str,
 ) -> bool:
     """Apply clamped best-protocol adaptations to config before the run starts."""
+    return bool(
+        _apply_cross_run_protocol(
+            config=config,
+            protocol_store=protocol_store,
+            namespace=namespace,
+        ).get("applied", False)
+    )
+
+
+def _apply_cross_run_protocol(
+    *,
+    config: dict[str, Any],
+    protocol_store: MarkerStore | None,
+    namespace: str,
+) -> dict[str, Any]:
+    """Apply best-protocol adaptations and return load/apply diagnostics."""
     cross_run_cfg = dict(config.get("emergence", {}).get("cross_run", {}))
     if not bool(cross_run_cfg.get("enabled", False)):
-        return False
+        return {"namespace": namespace, "loaded": False, "applied": False, "reason": "disabled"}
     if protocol_store is None:
-        return False
+        return {"namespace": namespace, "loaded": False, "applied": False, "reason": "store_missing"}
 
     baseline = protocol_store.load_protocol_marker(slot="baseline", namespace=namespace)
     best = protocol_store.load_protocol_marker(slot="best", namespace=namespace)
     if not baseline or not best:
-        return False
+        return {"namespace": namespace, "loaded": False, "applied": False, "reason": "missing_baseline_or_best"}
 
     adaptations = dict(best.get("adaptations", {}) or {})
     if not adaptations:
-        return False
+        return {"namespace": namespace, "loaded": True, "applied": False, "reason": "no_adaptations"}
 
     max_delta = float(cross_run_cfg.get("max_total_delta", 0.15))
     baseline_config = dict(baseline.get("config", {}) or {})
@@ -769,7 +995,13 @@ def _maybe_apply_cross_run_protocol(
     )
     for path, value in clamped.items():
         _set_config_path(config, str(path), value)
-    return bool(clamped)
+    return {
+        "namespace": namespace,
+        "loaded": True,
+        "applied": bool(clamped),
+        "reason": "applied" if clamped else "clamped_empty",
+        "adaptations": clamped,
+    }
 
 
 def _persist_protocol(

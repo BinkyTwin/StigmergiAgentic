@@ -1,0 +1,53 @@
+% =============================================================================
+% RÉSUMÉ — français (≈ 350 mots, 1/2 page)
+% =============================================================================
+\chapter*{R\'esum\'e}
+\addcontentsline{toc}{chapter}{R\'esum\'e}
+
+% TODO : finaliser après rédaction des chapitres résultats.
+
+Les syst\`emes multi-agents bas\'es sur les grands mod\`eles de langage (LLM)
+promettent d'orchestrer des workflows logiciels complexes, mais les architectures
+hi\'erarchiques actuelles (planificateur--ex\'ecuteurs, superviseurs centralis\'es)
+souffrent de modes d'\'echec syst\'emiques document\'es par le \emph{framework MAST}
+(Cemri, 2025) et d'une \'erosion des gains avec les mod\`eles fronti\`eres
+(Gao, 2025). Ce m\'emoire explore une alternative inspir\'ee de la
+\textbf{stigmergie}, le principe de coordination indirecte par modification d'un
+m\'edium partag\'e th\'eoris\'e par Grass\'e (1959) et Heylighen (2016) et appliqu\'e
+ici aux agents LLM. La probl\'ematique pos\'ee est~: \emph{comment des agents LLM
+peuvent-ils coordonner des t\^aches complexes par modification d'un m\'edium
+stigmergique partag\'e plut\^ot que par communication directe ou contr\^ole
+hi\'erarchique~?}
+
+L'\'etude suit le paradigme \emph{Design Science Research} (Hevner, 2004~;
+Peffers, 2007). Cinq objectifs de conception (OC1 \`a OC5) guident la
+construction de l'artefact \textbf{StigmergiAgentic}, un framework Python
+articulant un substrat de coordination (markers SQLite avec audit
+JSONL append-only), un moteur de d\'ecision \`a pression ACO, des
+m\'ecanismes d'apprentissage (\emph{lessons}, promotion en \emph{skills},
+persistance \emph{cross-run} des protocoles), et une couche de gouvernance
+(\emph{guardrails}, conformit\'e Article~14 EU AI Act).
+
+L'artefact est valid\'e empiriquement sur deux benchmarks. Sur
+\emph{TravelPlanner} (180 requ\^etes de planification sous contraintes), la
+configuration stigmergique C3 atteint un \emph{final pass rate} de 21,1\,\%
+avec Gemma et 22,2\,\% avec DeepSeek, surpassant significativement le baseline
+\emph{planner-executor} (12,2\,\%) et marginalement les baselines solo. Sur
+\emph{MigrationBench} (Java~8 \`a Java~17), une \emph{repair colony} avec
+boucle ferm\'ee \emph{inspect/localize/propose/apply/build/classify/repair}
+d\'emontre une trajectoire d'ing\'enierie DSR rigoureuse. Un panel
+d'experts confirme la valeur op\'erationnelle de la trace d'audit pour la
+conformit\'e r\'eglementaire.
+
+Six principes de conception g\'en\'eralisables sont formul\'es au format
+Gregor (2020), au premier rang desquels la \emph{primitive marker comme
+contrat unique de coordination} et la \emph{gouvernance par le m\'edium}.
+Les contributions th\'eoriques \'etendent la th\'eorie de la coordination de
+Malone et Crowston (1994) aux \'ecologies agentiques contemporaines.
+
+\vspace{0.3cm}
+\noindent\textbf{Mots-cl\'es}~: stigmergie, syst\`emes multi-agents, grands
+mod\`eles de langage, Design Science Research, coordination organisationnelle,
+migration de code, gouvernance algorithmique, EU AI Act, MAST.
+
+\cleardoublepage

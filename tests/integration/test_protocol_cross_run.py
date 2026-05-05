@@ -192,3 +192,24 @@ def test_baseline_is_never_overwritten(tmp_path, config_dict: dict) -> None:
     )
     assert baseline_second is not None
     assert baseline_second["session_id"] == "first"  # unchanged
+
+
+def test_explicit_protocol_namespace_is_stable_across_eval_toggles(
+    config_dict: dict,
+) -> None:
+    adapt = _build_cross_run_config(config_dict)
+    eval_cfg = _build_cross_run_config(config_dict)
+    adapt["protocol"]["namespace"] = "travelplanner_c3_gemma_seed42_v1"
+    eval_cfg["protocol"]["namespace"] = "travelplanner_c3_gemma_seed42_v1"
+    adapt["llm"]["model"] = "qwen/qwen3.5-9b"
+    eval_cfg["llm"]["model"] = "google/gemma-4-31b-it"
+    adapt["emergence"]["feedback_loop"]["enabled"] = True
+    eval_cfg["emergence"]["feedback_loop"]["enabled"] = False
+
+    assert _build_protocol_namespace(adapt, "travelplanner") == (
+        "coordination_protocol::travelplanner::travelplanner_c3_gemma_seed42_v1"
+    )
+    assert _build_protocol_namespace(adapt, "travelplanner") == _build_protocol_namespace(
+        eval_cfg,
+        "travelplanner",
+    )

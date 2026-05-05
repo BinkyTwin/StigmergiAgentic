@@ -1,6 +1,9 @@
 framework:
   mode: "travelplanner_adapt"
 
+travelplanner:
+  dataset_split: "train"
+
 skill_library:
   enabled: true
   read_only: false

@@ -1,0 +1,57 @@
+% =============================================================================
+% ABSTRACT — English (≈ 350 words, 1/2 page)
+% =============================================================================
+\chapter*{Abstract}
+\addcontentsline{toc}{chapter}{Abstract}
+
+\begin{otherlanguage}{english}
+% TODO: finalise after results chapters are stable.
+
+Multi-agent systems built on large language models (LLMs) promise to
+orchestrate complex software workflows, yet current hierarchical
+architectures (planner--executor, centralised supervisors) suffer from
+systemic failure modes documented by the \emph{MAST framework} (Cemri,
+2025) and from the diminishing returns observed with frontier models
+(Gao, 2025). This thesis investigates an alternative grounded in
+\textbf{stigmergy}, the principle of indirect coordination through
+modifications of a shared medium theorised by Grass\'e (1959) and
+Heylighen (2016) and transposed here to LLM agents. The research
+question is: \emph{how can LLM agents coordinate complex tasks by
+modifying a shared stigmergic medium rather than through direct
+communication or hierarchical control?}
+
+The study follows the \emph{Design Science Research} paradigm
+(Hevner, 2004; Peffers, 2007). Five design objectives (DO1 to DO5)
+guide the construction of the \textbf{StigmergiAgentic} artifact, a
+Python framework articulating a coordination substrate (SQLite-backed
+markers with append-only JSONL audit), an ACO-style pressure-driven
+decision engine, learning mechanisms (\emph{lessons}, promotion to
+\emph{skills}, cross-run protocol persistence), and a governance layer
+(\emph{guardrails}, EU~AI~Act Article~14 compliance).
+
+The artifact is empirically validated on two benchmarks. On
+\emph{TravelPlanner} (180 constrained planning queries) the C3
+stigmergic configuration reaches a final pass rate of 21.1\% with
+Gemma and 22.2\% with DeepSeek, significantly outperforming the
+\emph{planner-executor} baseline (12.2\%) and marginally outperforming
+solo baselines. On \emph{MigrationBench} (Java~8 to Java~17), a
+\emph{repair colony} with a closed
+\emph{inspect/localize/propose/apply/build/classify/repair} loop
+demonstrates a rigorous DSR engineering trajectory. An expert panel
+confirms the operational value of the audit trail for regulatory
+compliance.
+
+Six generalisable design principles are formulated using the Gregor
+(2020) format, foremost among them the \emph{marker primitive as the
+sole coordination contract} and \emph{governance through the medium}.
+Theoretical contributions extend Malone and Crowston's (1994)
+coordination theory to contemporary agentic ecologies.
+
+\vspace{0.3cm}
+\noindent\textbf{Keywords}: stigmergy, multi-agent systems, large
+language models, Design Science Research, organisational
+coordination, code migration, algorithmic governance, EU~AI~Act,
+MAST.
+\end{otherlanguage}
+
+\cleardoublepage

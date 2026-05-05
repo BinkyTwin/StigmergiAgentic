@@ -87,10 +87,12 @@ def test_skill_promotion_cross_run_accumulates_usage_count(
             metadata={
                 "quality_score": 0.9,
                 "credited_lesson_ids": [lesson_id],
+                "final_pass": True,
+                "strict_final_pass": True,
             },
         ),
     )
-    assert skills_store.get_marker(f"skill::assistant::{lesson_id}") is None
+    assert skills_store.query_markers(marker_type="skill") == []
 
     # Run 2 — fresh main store, re-seeds the lesson with usage_count=1 (carried
     # out-of-band as it would be by the store if session-shared; here we model
@@ -120,13 +122,20 @@ def test_skill_promotion_cross_run_accumulates_usage_count(
             metadata={
                 "quality_score": 0.95,
                 "credited_lesson_ids": [lesson_id],
+                "final_pass": True,
+                "strict_final_pass": True,
             },
         ),
     )
 
-    promoted = skills_store.get_marker(f"skill::assistant::{lesson_id}")
-    assert promoted is not None
+    promoted_skills = skills_store.query_markers(marker_type="skill")
+    assert len(promoted_skills) == 1
+    promoted = promoted_skills[0]
     assert promoted.marker_type == "skill"
+    assert promoted.payload["skill_text"] == "Ordered dependencies accelerate convergence"
+    assert promoted.payload["action_type"] == "general"
+    assert promoted.payload["constraint_type"] == "execution_order"
+    assert promoted.payload["source_lesson_ids"] == [lesson_id]
     assert env2.skills_promoted == 1
 
 

@@ -8,6 +8,7 @@ Cette documentation trace l'ensemble du processus de construction du POC pour le
 
 - **[construction_log.md](construction_log.md)** — Chronologie détaillée de toutes les actions de développement
 - **[technical_notes.md](technical_notes.md)** — Notes techniques, découvertes, et problèmes résolus
+- **[framework_guide_expert.md](framework_guide_expert.md)** — Guide pédagogique complet du framework, de ses primitives, de sa boucle runtime, de ses adapters, de sa mémoire et de ses campagnes
 
 ### 🎯 Décisions Architecturales
 
@@ -63,5 +64,5 @@ Cela garantit :
 
 ---
 
-**Dernière mise à jour** : 2026-02-09  
+**Dernière mise à jour** : 2026-04-23
 **Auteur** : Lotfi (avec assistance IA Claude Code & GitHub Copilot)

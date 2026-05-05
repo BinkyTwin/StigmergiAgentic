@@ -9,7 +9,7 @@
 #
 
 # --------------- Stage 1: builder ---------------
-FROM python:3.11-slim AS builder
+FROM python:3.11-slim-bookworm AS builder
 
 # Install uv for fast, reproducible dependency resolution
 RUN pip install --no-cache-dir uv
@@ -25,11 +25,15 @@ RUN uv venv /opt/venv --python python3.11 \
     && uv pip install -r requirements.txt
 
 # --------------- Stage 2: runner ---------------
-FROM python:3.11-slim AS runner
+FROM python:3.11-slim-bookworm AS runner
 
-# Install git (needed by agents for Git operations)
+# Install git plus Java/Maven for MigrationBench repository-level evaluation.
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends git \
+    && apt-get install -y --no-install-recommends \
+        bash \
+        git \
+        openjdk-17-jdk \
+        maven \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy virtualenv from builder

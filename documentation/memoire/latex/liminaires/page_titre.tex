@@ -1,0 +1,42 @@
+% =============================================================================
+% PAGE DE TITRE — conforme aux exigences EMLV
+% =============================================================================
+\begin{titlepage}
+\centering
+\vspace*{0.5cm}
+
+% Logo EMLV — déposer le fichier dans images/logo_emlv.png (ou .pdf)
+\IfFileExists{images/logo_emlv.png}{%
+  \includegraphics[width=0.35\textwidth]{logo_emlv.png}\par
+}{%
+  \fbox{\parbox{0.35\textwidth}{\centering\vspace{1.5cm}\textit{Logo EMLV}\vspace{1.5cm}}}\par
+}
+
+\vspace{1.5cm}
+{\Large\textbf{\memoireEcole}\par}
+\vspace{0.4cm}
+{\large M\'emoire de fin d'\'etudes\par}
+
+\vfill
+
+{\LARGE\bfseries \memoireTitre\par}
+
+\vfill
+
+\begin{flushleft}
+{\large
+\textbf{Auteur}~: \memoireAuteur\\[0.4em]
+\textbf{Programme}~: \memoireProgramme\\[0.4em]
+\textbf{Directeur de m\'emoire}~: \memoireDirecteur\\[0.4em]
+\textbf{Date de soutenance}~: \memoireDate\\
+}
+\end{flushleft}
+
+\vspace{1cm}
+
+\begin{center}
+\textit{D\'eclaration de confidentialit\'e~: ce document ne contient aucune information confidentielle.}
+\end{center}
+
+\end{titlepage}
+\cleardoublepage

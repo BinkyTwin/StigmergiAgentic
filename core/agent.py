@@ -403,6 +403,7 @@ class StigmergicAgent:
                 environment=environment,
                 llm_client=llm_client,
             )
+            self._credit_recalled_lessons(decision=decision, result=result)
             environment.apply_action_result(agent_id=self.agent_id, result=result)
             if not bool(result.metadata.get("failed", False)):
                 self.affinity.record_action(
@@ -430,6 +431,40 @@ class StigmergicAgent:
                 action_type=action_type,
                 metadata={"failed": True, "error": str(exc)},
             )
+
+    def _credit_recalled_lessons(
+        self,
+        *,
+        decision: Decision,
+        result: ActionResult,
+    ) -> None:
+        """Attach recalled lesson IDs to successful tool results for promotion."""
+        if bool(result.metadata.get("failed", False)):
+            return
+
+        lessons = getattr(decision, "lesson_markers", [])
+        if not isinstance(lessons, list) or not lessons:
+            return
+
+        credited_ids: list[str] = []
+        for lesson in lessons:
+            if not isinstance(lesson, dict):
+                continue
+            lesson_id = str(lesson.get("id", "")).strip()
+            if lesson_id and lesson_id not in credited_ids:
+                credited_ids.append(lesson_id)
+        if not credited_ids:
+            return
+
+        metadata = dict(result.metadata)
+        existing_raw = metadata.get("credited_lesson_ids", [])
+        existing = (
+            [str(item).strip() for item in existing_raw if str(item).strip()]
+            if isinstance(existing_raw, (list, tuple, set))
+            else []
+        )
+        metadata["credited_lesson_ids"] = list(dict.fromkeys([*existing, *credited_ids]))
+        result.metadata = metadata
 
     def _candidate_markers(self, snapshot: EnvironmentSnapshot) -> list[Marker]:
         inhibition_threshold = float(
@@ -568,8 +603,13 @@ class StigmergicAgent:
                 "context_fingerprint": str(
                     marker.payload.get("context_fingerprint", "")
                 ).strip(),
+                "action_type": str(marker.payload.get("action_type", "")).strip(),
+                "constraint_type": str(
+                    marker.payload.get("constraint_type", "")
+                ).strip(),
                 "quality_score": float(marker.payload.get("quality_score", 0.0)),
                 "usage_count": int(marker.payload.get("usage_count", 0) or 0),
+                "success_count": int(marker.payload.get("success_count", 0) or 0),
                 "domain": str(marker.payload.get("domain", "")).strip(),
                 "intensity": float(marker.intensity),
             }

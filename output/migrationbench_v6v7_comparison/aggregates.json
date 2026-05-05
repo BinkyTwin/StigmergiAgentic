@@ -1,0 +1,1431 @@
+{
+  "aggregates": {
+    "stigmergic_v6_static": {
+      "artifact_delivery_rate": 0.8333333333333334,
+      "cost_total_usd": 0.003554,
+      "failure_reasons": {
+        "empty_patch": 4,
+        "git_apply_check_failed:error: patch failed: pom.xml:22\nerror: pom.xml: patch does not apply\n": 1,
+        "git_apply_check_failed:error: patch failed: readme.md:1\nerror: readme.md: patch does not apply\n": 1,
+        "official_eval_failed": 22,
+        "ok": 1,
+        "timeout_after_1800s": 1
+      },
+      "official_success_rate": 0.03333333333333333,
+      "patch_applies_rate": 0.7666666666666667,
+      "requested_instances": 30,
+      "runtime_total_seconds": 4800.3569,
+      "strict_success_bootstrap_95ci": [
+        0.0,
+        0.1
+      ],
+      "strict_success_rate": 0.03333333333333333,
+      "strict_successes": 1,
+      "tokens_total": 177148
+    },
+    "stigmergic_v7_repair_colony": {
+      "artifact_delivery_rate": 0.2,
+      "cost_total_usd": 0.359642,
+      "failure_reasons": {
+        "git_apply_check_failed:error: patch failed: spring/pom.xml:1\nerror: spring/pom.xml: patch does not apply\n": 1,
+        "missing_final_patch": 23,
+        "official_eval_failed": 4,
+        "ok": 1,
+        "timeout_after_1800s": 1
+      },
+      "official_success_rate": 0.03333333333333333,
+      "patch_applies_rate": 0.16666666666666666,
+      "requested_instances": 30,
+      "runtime_total_seconds": 9484.565,
+      "strict_success_bootstrap_95ci": [
+        0.0,
+        0.1
+      ],
+      "strict_success_rate": 0.03333333333333333,
+      "strict_successes": 1,
+      "tokens_total": 2888528
+    }
+  },
+  "campaign_root": "campaign_results/migrationbench_v6v7",
+  "frameworks": [
+    "stigmergic_v6_static",
+    "stigmergic_v7_repair_colony"
+  ],
+  "interpretation_note": "main_30 is directional and underpowered for small effects; use discordant pair counts and confidence intervals before claiming improvement.",
+  "manifests": {
+    "stigmergic_v6_static": {
+      "campaign_monitoring": {
+        "manual_abort_supported": true,
+        "mode": "monitor_only",
+        "record_tokens_runtime_calls_and_cycles": true
+      },
+      "campaign_type": "migrationbench_framework",
+      "config": "config/migrationbench_v6_static_deepseek.yaml",
+      "framework": "stigmergic_v6_static",
+      "instances": [
+        {
+          "base_commit": "84c6e9d4d040fc04d042b7d92414844825553976",
+          "instance_id": "artur__a__vaadin__helper",
+          "migration_mode": "minimal",
+          "repo_url": "https://github.com/Artur-/a-vaadin-helper",
+          "source": "migrationbench_selected",
+          "stats": {
+            "license": "Apache-2.0",
+            "num_java_files": 8,
+            "num_loc": 347,
+            "num_pom_xml": 1,
+            "num_src_test_java_files": 2,
+            "num_test_cases": 3
+          },
+          "stratum": {
+            "build_complexity": "single-module",
+            "dependency_age": "unknown",
+            "repo_size": "small",
+            "test_count": "low"
+          },
+          "target_java": 17
+        },
+        {
+          "base_commit": "4973285e49b48be7b10818fae530159c55af267a",
+          "instance_id": "284885166__spring__boot__hashids",
+          "migration_mode": "minimal",
+          "repo_url": "https://github.com/284885166/spring-boot-hashids",
+          "source": "migrationbench_selected",
+          "stats": {
+            "license": "Apache-2.0",
+            "num_java_files": 11,
+            "num_loc": 614,
+            "num_pom_xml": 3,
+            "num_src_test_java_files": 0,
+            "num_test_cases": 1
+          },
+          "stratum": {
+            "build_complexity": "multi-module",
+            "dependency_age": "unknown",
+            "repo_size": "small",
+            "test_count": "low"
+          },
+          "target_java": 17
+        },
+        {
+          "base_commit": "59d5bdee4837ae83645b3e71d91dffa65ef65e1f",
+          "instance_id": "aingezzz__easy__crypto",
+          "migration_mode": "minimal",
+          "repo_url": "https://github.com/AingeZzz/easy-crypto",
+          "source": "migrationbench_selected",
+          "stats": {
+            "license": "Apache-2.0",
+            "num_java_files": 63,
+            "num_loc": 6367,
+            "num_pom_xml": 1,
+            "num_src_test_java_files": 16,
+            "num_test_cases": 2
+          },
+          "stratum": {
+            "build_complexity": "single-module",
+            "dependency_age": "unknown",
+            "repo_size": "medium",
+            "test_count": "low"
+          },
+          "target_java": 17
+        },
+        {
+          "base_commit": "edad9418c2cb85822b50f45c639a09aec78fe386",
+          "instance_id": "cubeengine__reflect",
+          "migration_mode": "minimal",
+          "repo_url": "https://github.com/CubeEngine/ReflecT",
+          "source": "migrationbench_selected",
+          "stats": {
+            "license": "MIT",
+            "num_java_files": 83,
+            "num_loc": 7167,
+            "num_pom_xml": 6,
+            "num_src_test_java_files": 0,
+            "num_test_cases": 3
+          },
+          "stratum": {
+            "build_complexity": "multi-module",
+            "dependency_age": "unknown",
+            "repo_size": "medium",
+            "test_count": "low"
+          },
+          "target_java": 17
+        },
+        {
+          "base_commit": "7e51c59e090484ae4573290099b6936855554064",
+          "instance_id": "15093015999__ejserver",
+          "migration_mode": "minimal",
+          "repo_url": "https://github.com/15093015999/EJServer",
+          "source": "migrationbench_selected",
+          "stats": {
+            "license": "MIT",
+            "num_java_files": 68,
+            "num_loc": 10089,
+            "num_pom_xml": 1,
+            "num_src_test_java_files": 1,
+            "num_test_cases": 1
+          },
+          "stratum": {
+            "build_complexity": "single-module",
+            "dependency_age": "unknown",
+            "repo_size": "large",
+            "test_count": "low"
+          },
+          "target_java": 17
+        },
+        {
+          "base_commit": "16e9d930f4743ea27d83322f0a9dfb6e0eb41b2a",
+          "instance_id": "amadeusitgroup__httpsessionreplacer",
+          "migration_mode": "minimal",
+          "repo_url": "https://github.com/AmadeusITGroup/HttpSessionReplacer",
+          "source": "migrationbench_selected",
+          "stats": {
+            "license": "MIT",
+            "num_java_files": 186,
+            "num_loc": 27837,
+            "num_pom_xml": 6,
+            "num_src_test_java_files": 0,
+            "num_test_cases": 349
+          },
+          "stratum": {
+            "build_complexity": "multi-module",
+            "dependency_age": "unknown",
+            "repo_size": "large",
+            "test_count": "high"
+          },
+          "target_java": 17
+        },
+        {
+          "base_commit": "d24180b10d3bd803524dc858db1e01f41bfe8dfe",
+          "instance_id": "bjoernkw__oauth2__with__jira",
+          "migration_mode": "minimal",
+          "repo_url": "https://github.com/BjoernKW/oauth2-with-jira",
+          "source": "migrationbench_selected",
+          "stats": {
+            "license": "Apache-2.0",
+            "num_java_files": 6,
+            "num_loc": 251,
+            "num_pom_xml": 1,
+            "num_src_test_java_files": 1,
+            "num_test_cases": 1
+          },
+          "stratum": {
+            "build_complexity": "single-module",
+            "dependency_age": "unknown",
+            "repo_size": "small",
+            "test_count": "low"
+          },
+          "target_java": 17
+        },
+        {
+          "base_commit": "b4d14f3a981c06c47bc9071182a3c4101453c035",
+          "instance_id": "camunda__community__hub__camunda__bpm__junit5",
+          "migration_mode": "minimal",
+          "repo_url": "https://github.com/camunda-community-hub/camunda-bpm-junit5",
+          "source": "migrationbench_selected",
+          "stats": {
+            "license": "Apache-2.0",
+            "num_java_files": 19,
+            "num_loc": 980,
+            "num_pom_xml": 4,
+            "num_src_test_java_files": 0,
+            "num_test_cases": 1
+          },
+          "stratum": {
+            "build_complexity": "multi-module",
+            "dependency_age": "unknown",
+            "repo_size": "small",
+            "test_count": "low"
+          },
+          "target_java": 17
+        },
+        {
+          "base_commit": "a82844cf352d8c1f22a31338306cab373ad45d43",
+          "instance_id": "billkiller__javafx__plus",
+          "migration_mode": "minimal",
+          "repo_url": "https://github.com/BillKiller/JavaFX-Plus",
+          "source": "migrationbench_selected",
+          "stats": {
+            "license": "MIT",
+            "num_java_files": 88,
+            "num_loc": 8590,
+            "num_pom_xml": 1,
+            "num_src_test_java_files": 5,
+            "num_test_cases": 8
+          },
+          "stratum": {
+            "build_complexity": "single-module",
+            "dependency_age": "unknown",
+            "repo_size": "medium",
+            "test_count": "medium"
+          },
+          "target_java": 17
+        },
+        {
+          "base_commit": "7a2b77534bf401e05109b9a9f29d472432726d2e",
+          "instance_id": "dreamjm__tlvcodec",
+          "migration_mode": "minimal",
+          "repo_url": "https://github.com/DreamJM/TLVCodec",
+          "source": "migrationbench_selected",
+          "stats": {
+            "license": "Apache-2.0",
+            "num_java_files": 32,
+            "num_loc": 2582,
+            "num_pom_xml": 4,
+            "num_src_test_java_files": 0,
+            "num_test_cases": 1
+          },
+          "stratum": {
+            "build_complexity": "multi-module",
+            "dependency_age": "unknown",
+            "repo_size": "medium",
+            "test_count": "low"
+          },
+          "target_java": 17
+        },
+        {
+          "base_commit": "92f8558759bf0ca57506a3dcbba7a6e37c71aea4",
+          "instance_id": "jodaorg__joda__beans",
+          "migration_mode": "minimal",
+          "repo_url": "https://github.com/JodaOrg/joda-beans",
+          "source": "migrationbench_selected",
+          "stats": {
+            "license": "Apache-2.0",
+            "num_java_files": 326,
+            "num_loc": 86321,
+            "num_pom_xml": 1,
+            "num_src_test_java_files": 194,
+            "num_test_cases": 888
+          },
+          "stratum": {
+            "build_complexity": "single-module",
+            "dependency_age": "unknown",
+            "repo_size": "large",
+            "test_count": "high"
+          },
+          "target_java": 17
+        },
+        {
+          "base_commit": "cffea5e50ca9b82d3e981b8ae4c2e38e214494d8",
+          "instance_id": "camphul__trampoline",
+          "migration_mode": "minimal",
+          "repo_url": "https://github.com/Camphul/Trampoline",
+          "source": "migrationbench_selected",
+          "stats": {
+            "license": "MIT",
+            "num_java_files": 267,
+            "num_loc": 13841,
+            "num_pom_xml": 35,
+            "num_src_test_java_files": 0,
+            "num_test_cases": 2
+          },
+          "stratum": {
+            "build_complexity": "multi-module",
+            "dependency_age": "unknown",
+            "repo_size": "large",
+            "test_count": "low"
+          },
+          "target_java": 17
+        },
+        {
+          "base_commit": "8bb27b695219979d0da44b13b927c320885d26d9",
+          "instance_id": "dickchesterwood__fleetman__webapp",
+          "migration_mode": "minimal",
+          "repo_url": "https://github.com/DickChesterwood/fleetman-webapp",
+          "source": "migrationbench_selected",
+          "stats": {
+            "license": "MIT",
+            "num_java_files": 13,
+            "num_loc": 563,
+            "num_pom_xml": 1,
+            "num_src_test_java_files": 1,
+            "num_test_cases": 1
+          },
+          "stratum": {
+            "build_complexity": "single-module",
+            "dependency_age": "unknown",
+            "repo_size": "small",
+            "test_count": "low"
+          },
+          "target_java": 17
+        },
+        {
+          "base_commit": "16807691c69750bc9fb2e1bf07e5b97069c454ee",
+          "instance_id": "dabla__grizzly__spring__boot__starter",
+          "migration_mode": "minimal",
+          "repo_url": "https://github.com/dabla/grizzly-spring-boot-starter",
+          "source": "migrationbench_selected",
+          "stats": {
+            "license": "Apache-2.0",
+            "num_java_files": 20,
+            "num_loc": 974,
+            "num_pom_xml": 3,
+            "num_src_test_java_files": 0,
+            "num_test_cases": 4
+          },
+          "stratum": {
+            "build_complexity": "multi-module",
+            "dependency_age": "unknown",
+            "repo_size": "small",
+            "test_count": "medium"
+          },
+          "target_java": 17
+        },
+        {
+          "base_commit": "8a4e6b1fd4b92ae66e6d058327e920a0777ccbff",
+          "instance_id": "blueobelisk__chemicaltagger",
+          "migration_mode": "minimal",
+          "repo_url": "https://github.com/BlueObelisk/chemicaltagger",
+          "source": "migrationbench_selected",
+          "stats": {
+            "license": "Apache-2.0",
+            "num_java_files": 44,
+            "num_loc": 7434,
+            "num_pom_xml": 1,
+            "num_src_test_java_files": 19,
+            "num_test_cases": -1
+          },
+          "stratum": {
+            "build_complexity": "single-module",
+            "dependency_age": "unknown",
+            "repo_size": "medium",
+            "test_count": "low"
+          },
+          "target_java": 17
+        },
+        {
+          "base_commit": "6498033d50ea952d70e22d9f50936cf1a10f836f",
+          "instance_id": "realjeeshop__jeeshop",
+          "migration_mode": "minimal",
+          "repo_url": "https://github.com/RealJeeshop/jeeshop",
+          "source": "migrationbench_selected",
+          "stats": {
+            "license": "Apache-2.0",
+            "num_java_files": 92,
+            "num_loc": 9882,
+            "num_pom_xml": 9,
+            "num_src_test_java_files": 0,
+            "num_test_cases": 6
+          },
+          "stratum": {
+            "build_complexity": "multi-module",
+            "dependency_age": "unknown",
+            "repo_size": "medium",
+            "test_count": "medium"
+          },
+          "target_java": 17
+        },
+        {
+          "base_commit": "3e78b8884b9710eb9ba50603557fda6b6da1b555",
+          "instance_id": "mtuhide__cocotemp",
+          "migration_mode": "minimal",
+          "repo_url": "https://github.com/MTUHIDE/CoCoTemp",
+          "source": "migrationbench_selected",
+          "stats": {
+            "license": "MIT",
+            "num_java_files": 126,
+            "num_loc": 12959,
+            "num_pom_xml": 1,
+            "num_src_test_java_files": 36,
+            "num_test_cases": 238
+          },
+          "stratum": {
+            "build_complexity": "single-module",
+            "dependency_age": "unknown",
+            "repo_size": "large",
+            "test_count": "high"
+          },
+          "target_java": 17
+        },
+        {
+          "base_commit": "c1e9708f7f0270c3dd6dedeb3231e7f361032e03",
+          "instance_id": "daiyuanchuan__tool",
+          "migration_mode": "minimal",
+          "repo_url": "https://github.com/DaiYuanchuan/tool",
+          "source": "migrationbench_selected",
+          "stats": {
+            "license": "Apache-2.0",
+            "num_java_files": 163,
+            "num_loc": 16590,
+            "num_pom_xml": 6,
+            "num_src_test_java_files": 0,
+            "num_test_cases": 6
+          },
+          "stratum": {
+            "build_complexity": "multi-module",
+            "dependency_age": "unknown",
+            "repo_size": "large",
+            "test_count": "medium"
+          },
+          "target_java": 17
+        },
+        {
+          "base_commit": "87042b6e4f8b58dd49cb0df3bd6867621f5d5e27",
+          "instance_id": "jaroslavtulach__heapdump",
+          "migration_mode": "minimal",
+          "repo_url": "https://github.com/JaroslavTulach/heapdump",
+          "source": "migrationbench_selected",
+          "stats": {
+            "license": "Apache-2.0",
+            "num_java_files": 2,
+            "num_loc": 127,
+            "num_pom_xml": 1,
+            "num_src_test_java_files": 1,
+            "num_test_cases": 1
+          },
+          "stratum": {
+            "build_complexity": "single-module",
+            "dependency_age": "unknown",
+            "repo_size": "small",
+            "test_count": "low"
+          },
+          "target_java": 17
+        },
+        {
+          "base_commit": "77ab3bef7eee59883ec2db3b2a1ef136381951ee",
+          "instance_id": "erhmutlu__iyzico__kafka__demo",
+          "migration_mode": "minimal",
+          "repo_url": "https://github.com/erhmutlu/iyzico-kafka-demo",
+          "source": "migrationbench_selected",
+          "stats": {
+            "license": "MIT",
+            "num_java_files": 33,
+            "num_loc": 1102,
+            "num_pom_xml": 4,
+            "num_src_test_java_files": 0,
+            "num_test_cases": 1
+          },
+          "stratum": {
+            "build_complexity": "multi-module",
+            "dependency_age": "unknown",
+            "repo_size": "small",
+            "test_count": "low"
+          },
+          "target_java": 17
+        },
+        {
+          "base_commit": "250102dc4c06abde191feb89d8aad0f7c7d6a45e",
+          "instance_id": "citymonstret__rorledning",
+          "migration_mode": "minimal",
+          "repo_url": "https://github.com/Citymonstret/Rorledning",
+          "source": "migrationbench_selected",
+          "stats": {
+            "license": "MIT",
+            "num_java_files": 39,
+            "num_loc": 2533,
+            "num_pom_xml": 1,
+            "num_src_test_java_files": 18,
+            "num_test_cases": 10
+          },
+          "stratum": {
+            "build_complexity": "single-module",
+            "dependency_age": "unknown",
+            "repo_size": "medium",
+            "test_count": "medium"
+          },
+          "target_java": 17
+        },
+        {
+          "base_commit": "f7e1a5ef3fdecb08d1c0fd7c93d00e864c8f9ad8",
+          "instance_id": "runtimetools__javametrics",
+          "migration_mode": "minimal",
+          "repo_url": "https://github.com/RuntimeTools/javametrics",
+          "source": "migrationbench_selected",
+          "stats": {
+            "license": "Apache-2.0",
+            "num_java_files": 65,
+            "num_loc": 6867,
+            "num_pom_xml": 8,
+            "num_src_test_java_files": 0,
+            "num_test_cases": 26
+          },
+          "stratum": {
+            "build_complexity": "multi-module",
+            "dependency_age": "unknown",
+            "repo_size": "medium",
+            "test_count": "high"
+          },
+          "target_java": 17
+        },
+        {
+          "base_commit": "4077f51de8b846870d08f85a1e3b3c5da9719b5f",
+          "instance_id": "mercateo__rest__schemagen",
+          "migration_mode": "minimal",
+          "repo_url": "https://github.com/Mercateo/rest-schemagen",
+          "source": "migrationbench_selected",
+          "stats": {
+            "license": "Apache-2.0",
+            "num_java_files": 168,
+            "num_loc": 12069,
+            "num_pom_xml": 1,
+            "num_src_test_java_files": 63,
+            "num_test_cases": 264
+          },
+          "stratum": {
+            "build_complexity": "single-module",
+            "dependency_age": "unknown",
+            "repo_size": "large",
+            "test_count": "high"
+          },
+          "target_java": 17
+        },
+        {
+          "base_commit": "f17691b2173aba0611ee1b349c2c4ca05306e57a",
+          "instance_id": "erudika__para",
+          "migration_mode": "minimal",
+          "repo_url": "https://github.com/Erudika/para",
+          "source": "migrationbench_selected",
+          "stats": {
+            "license": "Apache-2.0",
+            "num_java_files": 206,
+            "num_loc": 43549,
+            "num_pom_xml": 6,
+            "num_src_test_java_files": 0,
+            "num_test_cases": 241
+          },
+          "stratum": {
+            "build_complexity": "multi-module",
+            "dependency_age": "unknown",
+            "repo_size": "large",
+            "test_count": "high"
+          },
+          "target_java": 17
+        },
+        {
+          "base_commit": "36c4b877f11c5a56771c90533a93143a0f23ab73",
+          "instance_id": "packtpublishing__master__java__unit__testing__with__spring__boot__and__mockito",
+          "migration_mode": "minimal",
+          "repo_url": "https://github.com/PacktPublishing/Master-Java-Unit-Testing-with-Spring-Boot-and-Mockito",
+          "source": "migrationbench_selected",
+          "stats": {
+            "license": "MIT",
+            "num_java_files": 22,
+            "num_loc": 847,
+            "num_pom_xml": 1,
+            "num_src_test_java_files": 14,
+            "num_test_cases": -1
+          },
+          "stratum": {
+            "build_complexity": "single-module",
+            "dependency_age": "unknown",
+            "repo_size": "small",
+            "test_count": "low"
+          },
+          "target_java": 17
+        },
+        {
+          "base_commit": "5e997ef96e890918de6b10083e612af1471403dc",
+          "instance_id": "exabrial__form__binding",
+          "migration_mode": "minimal",
+          "repo_url": "https://github.com/exabrial/form-binding",
+          "source": "migrationbench_selected",
+          "stats": {
+            "license": "Apache-2.0",
+            "num_java_files": 26,
+            "num_loc": 895,
+            "num_pom_xml": 5,
+            "num_src_test_java_files": 0,
+            "num_test_cases": 2
+          },
+          "stratum": {
+            "build_complexity": "multi-module",
+            "dependency_age": "unknown",
+            "repo_size": "small",
+            "test_count": "low"
+          },
+          "target_java": 17
+        },
+        {
+          "base_commit": "e6576c190333d23212b5f7588f1ec0b48d4f0902",
+          "instance_id": "comic__con__museum__fan__forge__backend",
+          "migration_mode": "minimal",
+          "repo_url": "https://github.com/Comic-Con-Museum/fan-forge-backend",
+          "source": "migrationbench_selected",
+          "stats": {
+            "license": "Apache-2.0",
+            "num_java_files": 38,
+            "num_loc": 2935,
+            "num_pom_xml": 1,
+            "num_src_test_java_files": 1,
+            "num_test_cases": -1
+          },
+          "stratum": {
+            "build_complexity": "single-module",
+            "dependency_age": "unknown",
+            "repo_size": "medium",
+            "test_count": "low"
+          },
+          "target_java": 17
+        },
+        {
+          "base_commit": "00a990216b0a1922fc8a62edbc858dac89f371e8",
+          "instance_id": "seesharpsoft__sharping",
+          "migration_mode": "minimal",
+          "repo_url": "https://github.com/SeeSharpSoft/sharping",
+          "source": "migrationbench_selected",
+          "stats": {
+            "license": "Apache-2.0",
+            "num_java_files": 130,
+            "num_loc": 8795,
+            "num_pom_xml": 10,
+            "num_src_test_java_files": 0,
+            "num_test_cases": 2
+          },
+          "stratum": {
+            "build_complexity": "multi-module",
+            "dependency_age": "unknown",
+            "repo_size": "medium",
+            "test_count": "low"
+          },
+          "target_java": 17
+        },
+        {
+          "base_commit": "2496468cbf53a8474ea6f1a8edab6b6f8e02211f",
+          "instance_id": "refactoring__bot__refactoring__bot",
+          "migration_mode": "minimal",
+          "repo_url": "https://github.com/Refactoring-Bot/Refactoring-Bot",
+          "source": "migrationbench_selected",
+          "stats": {
+            "license": "MIT",
+            "num_java_files": 146,
+            "num_loc": 17553,
+            "num_pom_xml": 1,
+            "num_src_test_java_files": 38,
+            "num_test_cases": 62
+          },
+          "stratum": {
+            "build_complexity": "single-module",
+            "dependency_age": "unknown",
+            "repo_size": "large",
+            "test_count": "high"
+          },
+          "target_java": 17
+        },
+        {
+          "base_commit": "2568c3367cf296e0a971f4c84c080d8d94a93ab0",
+          "instance_id": "evandylan__unicorn",
+          "migration_mode": "minimal",
+          "repo_url": "https://github.com/EvanDylan/unicorn",
+          "source": "migrationbench_selected",
+          "stats": {
+            "license": "Apache-2.0",
+            "num_java_files": 264,
+            "num_loc": 36378,
+            "num_pom_xml": 16,
+            "num_src_test_java_files": 0,
+            "num_test_cases": 1
+          },
+          "stratum": {
+            "build_complexity": "multi-module",
+            "dependency_age": "unknown",
+            "repo_size": "large",
+            "test_count": "low"
+          },
+          "target_java": 17
+        }
+      ],
+      "migrationbench_root": "external/MigrationBench",
+      "model": "deepseek-v4-flash",
+      "official_eval_enabled": true,
+      "provider": "deepseek",
+      "query_timeout_seconds": 1800.0,
+      "requested_instances": 30,
+      "seed": 42,
+      "subset": "fixtures/migrationbench/subsets/main_30.jsonl",
+      "workspace_root": "workspaces/migrationbench"
+    },
+    "stigmergic_v7_repair_colony": {
+      "campaign_monitoring": {
+        "manual_abort_supported": true,
+        "mode": "high_caps_traced",
+        "record_tokens_runtime_calls_and_cycles": true
+      },
+      "campaign_type": "migrationbench_framework",
+      "config": "config/migrationbench_v7_repair_colony_deepseek.yaml",
+      "framework": "stigmergic_v7_repair_colony",
+      "instances": [
+        {
+          "base_commit": "84c6e9d4d040fc04d042b7d92414844825553976",
+          "instance_id": "artur__a__vaadin__helper",
+          "migration_mode": "minimal",
+          "repo_url": "https://github.com/Artur-/a-vaadin-helper",
+          "source": "migrationbench_selected",
+          "stats": {
+            "license": "Apache-2.0",
+            "num_java_files": 8,
+            "num_loc": 347,
+            "num_pom_xml": 1,
+            "num_src_test_java_files": 2,
+            "num_test_cases": 3
+          },
+          "stratum": {
+            "build_complexity": "single-module",
+            "dependency_age": "unknown",
+            "repo_size": "small",
+            "test_count": "low"
+          },
+          "target_java": 17
+        },
+        {
+          "base_commit": "4973285e49b48be7b10818fae530159c55af267a",
+          "instance_id": "284885166__spring__boot__hashids",
+          "migration_mode": "minimal",
+          "repo_url": "https://github.com/284885166/spring-boot-hashids",
+          "source": "migrationbench_selected",
+          "stats": {
+            "license": "Apache-2.0",
+            "num_java_files": 11,
+            "num_loc": 614,
+            "num_pom_xml": 3,
+            "num_src_test_java_files": 0,
+            "num_test_cases": 1
+          },
+          "stratum": {
+            "build_complexity": "multi-module",
+            "dependency_age": "unknown",
+            "repo_size": "small",
+            "test_count": "low"
+          },
+          "target_java": 17
+        },
+        {
+          "base_commit": "59d5bdee4837ae83645b3e71d91dffa65ef65e1f",
+          "instance_id": "aingezzz__easy__crypto",
+          "migration_mode": "minimal",
+          "repo_url": "https://github.com/AingeZzz/easy-crypto",
+          "source": "migrationbench_selected",
+          "stats": {
+            "license": "Apache-2.0",
+            "num_java_files": 63,
+            "num_loc": 6367,
+            "num_pom_xml": 1,
+            "num_src_test_java_files": 16,
+            "num_test_cases": 2
+          },
+          "stratum": {
+            "build_complexity": "single-module",
+            "dependency_age": "unknown",
+            "repo_size": "medium",
+            "test_count": "low"
+          },
+          "target_java": 17
+        },
+        {
+          "base_commit": "edad9418c2cb85822b50f45c639a09aec78fe386",
+          "instance_id": "cubeengine__reflect",
+          "migration_mode": "minimal",
+          "repo_url": "https://github.com/CubeEngine/ReflecT",
+          "source": "migrationbench_selected",
+          "stats": {
+            "license": "MIT",
+            "num_java_files": 83,
+            "num_loc": 7167,
+            "num_pom_xml": 6,
+            "num_src_test_java_files": 0,
+            "num_test_cases": 3
+          },
+          "stratum": {
+            "build_complexity": "multi-module",
+            "dependency_age": "unknown",
+            "repo_size": "medium",
+            "test_count": "low"
+          },
+          "target_java": 17
+        },
+        {
+          "base_commit": "7e51c59e090484ae4573290099b6936855554064",
+          "instance_id": "15093015999__ejserver",
+          "migration_mode": "minimal",
+          "repo_url": "https://github.com/15093015999/EJServer",
+          "source": "migrationbench_selected",
+          "stats": {
+            "license": "MIT",
+            "num_java_files": 68,
+            "num_loc": 10089,
+            "num_pom_xml": 1,
+            "num_src_test_java_files": 1,
+            "num_test_cases": 1
+          },
+          "stratum": {
+            "build_complexity": "single-module",
+            "dependency_age": "unknown",
+            "repo_size": "large",
+            "test_count": "low"
+          },
+          "target_java": 17
+        },
+        {
+          "base_commit": "16e9d930f4743ea27d83322f0a9dfb6e0eb41b2a",
+          "instance_id": "amadeusitgroup__httpsessionreplacer",
+          "migration_mode": "minimal",
+          "repo_url": "https://github.com/AmadeusITGroup/HttpSessionReplacer",
+          "source": "migrationbench_selected",
+          "stats": {
+            "license": "MIT",
+            "num_java_files": 186,
+            "num_loc": 27837,
+            "num_pom_xml": 6,
+            "num_src_test_java_files": 0,
+            "num_test_cases": 349
+          },
+          "stratum": {
+            "build_complexity": "multi-module",
+            "dependency_age": "unknown",
+            "repo_size": "large",
+            "test_count": "high"
+          },
+          "target_java": 17
+        },
+        {
+          "base_commit": "d24180b10d3bd803524dc858db1e01f41bfe8dfe",
+          "instance_id": "bjoernkw__oauth2__with__jira",
+          "migration_mode": "minimal",
+          "repo_url": "https://github.com/BjoernKW/oauth2-with-jira",
+          "source": "migrationbench_selected",
+          "stats": {
+            "license": "Apache-2.0",
+            "num_java_files": 6,
+            "num_loc": 251,
+            "num_pom_xml": 1,
+            "num_src_test_java_files": 1,
+            "num_test_cases": 1
+          },
+          "stratum": {
+            "build_complexity": "single-module",
+            "dependency_age": "unknown",
+            "repo_size": "small",
+            "test_count": "low"
+          },
+          "target_java": 17
+        },
+        {
+          "base_commit": "b4d14f3a981c06c47bc9071182a3c4101453c035",
+          "instance_id": "camunda__community__hub__camunda__bpm__junit5",
+          "migration_mode": "minimal",
+          "repo_url": "https://github.com/camunda-community-hub/camunda-bpm-junit5",
+          "source": "migrationbench_selected",
+          "stats": {
+            "license": "Apache-2.0",
+            "num_java_files": 19,
+            "num_loc": 980,
+            "num_pom_xml": 4,
+            "num_src_test_java_files": 0,
+            "num_test_cases": 1
+          },
+          "stratum": {
+            "build_complexity": "multi-module",
+            "dependency_age": "unknown",
+            "repo_size": "small",
+            "test_count": "low"
+          },
+          "target_java": 17
+        },
+        {
+          "base_commit": "a82844cf352d8c1f22a31338306cab373ad45d43",
+          "instance_id": "billkiller__javafx__plus",
+          "migration_mode": "minimal",
+          "repo_url": "https://github.com/BillKiller/JavaFX-Plus",
+          "source": "migrationbench_selected",
+          "stats": {
+            "license": "MIT",
+            "num_java_files": 88,
+            "num_loc": 8590,
+            "num_pom_xml": 1,
+            "num_src_test_java_files": 5,
+            "num_test_cases": 8
+          },
+          "stratum": {
+            "build_complexity": "single-module",
+            "dependency_age": "unknown",
+            "repo_size": "medium",
+            "test_count": "medium"
+          },
+          "target_java": 17
+        },
+        {
+          "base_commit": "7a2b77534bf401e05109b9a9f29d472432726d2e",
+          "instance_id": "dreamjm__tlvcodec",
+          "migration_mode": "minimal",
+          "repo_url": "https://github.com/DreamJM/TLVCodec",
+          "source": "migrationbench_selected",
+          "stats": {
+            "license": "Apache-2.0",
+            "num_java_files": 32,
+            "num_loc": 2582,
+            "num_pom_xml": 4,
+            "num_src_test_java_files": 0,
+            "num_test_cases": 1
+          },
+          "stratum": {
+            "build_complexity": "multi-module",
+            "dependency_age": "unknown",
+            "repo_size": "medium",
+            "test_count": "low"
+          },
+          "target_java": 17
+        },
+        {
+          "base_commit": "92f8558759bf0ca57506a3dcbba7a6e37c71aea4",
+          "instance_id": "jodaorg__joda__beans",
+          "migration_mode": "minimal",
+          "repo_url": "https://github.com/JodaOrg/joda-beans",
+          "source": "migrationbench_selected",
+          "stats": {
+            "license": "Apache-2.0",
+            "num_java_files": 326,
+            "num_loc": 86321,
+            "num_pom_xml": 1,
+            "num_src_test_java_files": 194,
+            "num_test_cases": 888
+          },
+          "stratum": {
+            "build_complexity": "single-module",
+            "dependency_age": "unknown",
+            "repo_size": "large",
+            "test_count": "high"
+          },
+          "target_java": 17
+        },
+        {
+          "base_commit": "cffea5e50ca9b82d3e981b8ae4c2e38e214494d8",
+          "instance_id": "camphul__trampoline",
+          "migration_mode": "minimal",
+          "repo_url": "https://github.com/Camphul/Trampoline",
+          "source": "migrationbench_selected",
+          "stats": {
+            "license": "MIT",
+            "num_java_files": 267,
+            "num_loc": 13841,
+            "num_pom_xml": 35,
+            "num_src_test_java_files": 0,
+            "num_test_cases": 2
+          },
+          "stratum": {
+            "build_complexity": "multi-module",
+            "dependency_age": "unknown",
+            "repo_size": "large",
+            "test_count": "low"
+          },
+          "target_java": 17
+        },
+        {
+          "base_commit": "8bb27b695219979d0da44b13b927c320885d26d9",
+          "instance_id": "dickchesterwood__fleetman__webapp",
+          "migration_mode": "minimal",
+          "repo_url": "https://github.com/DickChesterwood/fleetman-webapp",
+          "source": "migrationbench_selected",
+          "stats": {
+            "license": "MIT",
+            "num_java_files": 13,
+            "num_loc": 563,
+            "num_pom_xml": 1,
+            "num_src_test_java_files": 1,
+            "num_test_cases": 1
+          },
+          "stratum": {
+            "build_complexity": "single-module",
+            "dependency_age": "unknown",
+            "repo_size": "small",
+            "test_count": "low"
+          },
+          "target_java": 17
+        },
+        {
+          "base_commit": "16807691c69750bc9fb2e1bf07e5b97069c454ee",
+          "instance_id": "dabla__grizzly__spring__boot__starter",
+          "migration_mode": "minimal",
+          "repo_url": "https://github.com/dabla/grizzly-spring-boot-starter",
+          "source": "migrationbench_selected",
+          "stats": {
+            "license": "Apache-2.0",
+            "num_java_files": 20,
+            "num_loc": 974,
+            "num_pom_xml": 3,
+            "num_src_test_java_files": 0,
+            "num_test_cases": 4
+          },
+          "stratum": {
+            "build_complexity": "multi-module",
+            "dependency_age": "unknown",
+            "repo_size": "small",
+            "test_count": "medium"
+          },
+          "target_java": 17
+        },
+        {
+          "base_commit": "8a4e6b1fd4b92ae66e6d058327e920a0777ccbff",
+          "instance_id": "blueobelisk__chemicaltagger",
+          "migration_mode": "minimal",
+          "repo_url": "https://github.com/BlueObelisk/chemicaltagger",
+          "source": "migrationbench_selected",
+          "stats": {
+            "license": "Apache-2.0",
+            "num_java_files": 44,
+            "num_loc": 7434,
+            "num_pom_xml": 1,
+            "num_src_test_java_files": 19,
+            "num_test_cases": -1
+          },
+          "stratum": {
+            "build_complexity": "single-module",
+            "dependency_age": "unknown",
+            "repo_size": "medium",
+            "test_count": "low"
+          },
+          "target_java": 17
+        },
+        {
+          "base_commit": "6498033d50ea952d70e22d9f50936cf1a10f836f",
+          "instance_id": "realjeeshop__jeeshop",
+          "migration_mode": "minimal",
+          "repo_url": "https://github.com/RealJeeshop/jeeshop",
+          "source": "migrationbench_selected",
+          "stats": {
+            "license": "Apache-2.0",
+            "num_java_files": 92,
+            "num_loc": 9882,
+            "num_pom_xml": 9,
+            "num_src_test_java_files": 0,
+            "num_test_cases": 6
+          },
+          "stratum": {
+            "build_complexity": "multi-module",
+            "dependency_age": "unknown",
+            "repo_size": "medium",
+            "test_count": "medium"
+          },
+          "target_java": 17
+        },
+        {
+          "base_commit": "3e78b8884b9710eb9ba50603557fda6b6da1b555",
+          "instance_id": "mtuhide__cocotemp",
+          "migration_mode": "minimal",
+          "repo_url": "https://github.com/MTUHIDE/CoCoTemp",
+          "source": "migrationbench_selected",
+          "stats": {
+            "license": "MIT",
+            "num_java_files": 126,
+            "num_loc": 12959,
+            "num_pom_xml": 1,
+            "num_src_test_java_files": 36,
+            "num_test_cases": 238
+          },
+          "stratum": {
+            "build_complexity": "single-module",
+            "dependency_age": "unknown",
+            "repo_size": "large",
+            "test_count": "high"
+          },
+          "target_java": 17
+        },
+        {
+          "base_commit": "c1e9708f7f0270c3dd6dedeb3231e7f361032e03",
+          "instance_id": "daiyuanchuan__tool",
+          "migration_mode": "minimal",
+          "repo_url": "https://github.com/DaiYuanchuan/tool",
+          "source": "migrationbench_selected",
+          "stats": {
+            "license": "Apache-2.0",
+            "num_java_files": 163,
+            "num_loc": 16590,
+            "num_pom_xml": 6,
+            "num_src_test_java_files": 0,
+            "num_test_cases": 6
+          },
+          "stratum": {
+            "build_complexity": "multi-module",
+            "dependency_age": "unknown",
+            "repo_size": "large",
+            "test_count": "medium"
+          },
+          "target_java": 17
+        },
+        {
+          "base_commit": "87042b6e4f8b58dd49cb0df3bd6867621f5d5e27",
+          "instance_id": "jaroslavtulach__heapdump",
+          "migration_mode": "minimal",
+          "repo_url": "https://github.com/JaroslavTulach/heapdump",
+          "source": "migrationbench_selected",
+          "stats": {
+            "license": "Apache-2.0",
+            "num_java_files": 2,
+            "num_loc": 127,
+            "num_pom_xml": 1,
+            "num_src_test_java_files": 1,
+            "num_test_cases": 1
+          },
+          "stratum": {
+            "build_complexity": "single-module",
+            "dependency_age": "unknown",
+            "repo_size": "small",
+            "test_count": "low"
+          },
+          "target_java": 17
+        },
+        {
+          "base_commit": "77ab3bef7eee59883ec2db3b2a1ef136381951ee",
+          "instance_id": "erhmutlu__iyzico__kafka__demo",
+          "migration_mode": "minimal",
+          "repo_url": "https://github.com/erhmutlu/iyzico-kafka-demo",
+          "source": "migrationbench_selected",
+          "stats": {
+            "license": "MIT",
+            "num_java_files": 33,
+            "num_loc": 1102,
+            "num_pom_xml": 4,
+            "num_src_test_java_files": 0,
+            "num_test_cases": 1
+          },
+          "stratum": {
+            "build_complexity": "multi-module",
+            "dependency_age": "unknown",
+            "repo_size": "small",
+            "test_count": "low"
+          },
+          "target_java": 17
+        },
+        {
+          "base_commit": "250102dc4c06abde191feb89d8aad0f7c7d6a45e",
+          "instance_id": "citymonstret__rorledning",
+          "migration_mode": "minimal",
+          "repo_url": "https://github.com/Citymonstret/Rorledning",
+          "source": "migrationbench_selected",
+          "stats": {
+            "license": "MIT",
+            "num_java_files": 39,
+            "num_loc": 2533,
+            "num_pom_xml": 1,
+            "num_src_test_java_files": 18,
+            "num_test_cases": 10
+          },
+          "stratum": {
+            "build_complexity": "single-module",
+            "dependency_age": "unknown",
+            "repo_size": "medium",
+            "test_count": "medium"
+          },
+          "target_java": 17
+        },
+        {
+          "base_commit": "f7e1a5ef3fdecb08d1c0fd7c93d00e864c8f9ad8",
+          "instance_id": "runtimetools__javametrics",
+          "migration_mode": "minimal",
+          "repo_url": "https://github.com/RuntimeTools/javametrics",
+          "source": "migrationbench_selected",
+          "stats": {
+            "license": "Apache-2.0",
+            "num_java_files": 65,
+            "num_loc": 6867,
+            "num_pom_xml": 8,
+            "num_src_test_java_files": 0,
+            "num_test_cases": 26
+          },
+          "stratum": {
+            "build_complexity": "multi-module",
+            "dependency_age": "unknown",
+            "repo_size": "medium",
+            "test_count": "high"
+          },
+          "target_java": 17
+        },
+        {
+          "base_commit": "4077f51de8b846870d08f85a1e3b3c5da9719b5f",
+          "instance_id": "mercateo__rest__schemagen",
+          "migration_mode": "minimal",
+          "repo_url": "https://github.com/Mercateo/rest-schemagen",
+          "source": "migrationbench_selected",
+          "stats": {
+            "license": "Apache-2.0",
+            "num_java_files": 168,
+            "num_loc": 12069,
+            "num_pom_xml": 1,
+            "num_src_test_java_files": 63,
+            "num_test_cases": 264
+          },
+          "stratum": {
+            "build_complexity": "single-module",
+            "dependency_age": "unknown",
+            "repo_size": "large",
+            "test_count": "high"
+          },
+          "target_java": 17
+        },
+        {
+          "base_commit": "f17691b2173aba0611ee1b349c2c4ca05306e57a",
+          "instance_id": "erudika__para",
+          "migration_mode": "minimal",
+          "repo_url": "https://github.com/Erudika/para",
+          "source": "migrationbench_selected",
+          "stats": {
+            "license": "Apache-2.0",
+            "num_java_files": 206,
+            "num_loc": 43549,
+            "num_pom_xml": 6,
+            "num_src_test_java_files": 0,
+            "num_test_cases": 241
+          },
+          "stratum": {
+            "build_complexity": "multi-module",
+            "dependency_age": "unknown",
+            "repo_size": "large",
+            "test_count": "high"
+          },
+          "target_java": 17
+        },
+        {
+          "base_commit": "36c4b877f11c5a56771c90533a93143a0f23ab73",
+          "instance_id": "packtpublishing__master__java__unit__testing__with__spring__boot__and__mockito",
+          "migration_mode": "minimal",
+          "repo_url": "https://github.com/PacktPublishing/Master-Java-Unit-Testing-with-Spring-Boot-and-Mockito",
+          "source": "migrationbench_selected",
+          "stats": {
+            "license": "MIT",
+            "num_java_files": 22,
+            "num_loc": 847,
+            "num_pom_xml": 1,
+            "num_src_test_java_files": 14,
+            "num_test_cases": -1
+          },
+          "stratum": {
+            "build_complexity": "single-module",
+            "dependency_age": "unknown",
+            "repo_size": "small",
+            "test_count": "low"
+          },
+          "target_java": 17
+        },
+        {
+          "base_commit": "5e997ef96e890918de6b10083e612af1471403dc",
+          "instance_id": "exabrial__form__binding",
+          "migration_mode": "minimal",
+          "repo_url": "https://github.com/exabrial/form-binding",
+          "source": "migrationbench_selected",
+          "stats": {
+            "license": "Apache-2.0",
+            "num_java_files": 26,
+            "num_loc": 895,
+            "num_pom_xml": 5,
+            "num_src_test_java_files": 0,
+            "num_test_cases": 2
+          },
+          "stratum": {
+            "build_complexity": "multi-module",
+            "dependency_age": "unknown",
+            "repo_size": "small",
+            "test_count": "low"
+          },
+          "target_java": 17
+        },
+        {
+          "base_commit": "e6576c190333d23212b5f7588f1ec0b48d4f0902",
+          "instance_id": "comic__con__museum__fan__forge__backend",
+          "migration_mode": "minimal",
+          "repo_url": "https://github.com/Comic-Con-Museum/fan-forge-backend",
+          "source": "migrationbench_selected",
+          "stats": {
+            "license": "Apache-2.0",
+            "num_java_files": 38,
+            "num_loc": 2935,
+            "num_pom_xml": 1,
+            "num_src_test_java_files": 1,
+            "num_test_cases": -1
+          },
+          "stratum": {
+            "build_complexity": "single-module",
+            "dependency_age": "unknown",
+            "repo_size": "medium",
+            "test_count": "low"
+          },
+          "target_java": 17
+        },
+        {
+          "base_commit": "00a990216b0a1922fc8a62edbc858dac89f371e8",
+          "instance_id": "seesharpsoft__sharping",
+          "migration_mode": "minimal",
+          "repo_url": "https://github.com/SeeSharpSoft/sharping",
+          "source": "migrationbench_selected",
+          "stats": {
+            "license": "Apache-2.0",
+            "num_java_files": 130,
+            "num_loc": 8795,
+            "num_pom_xml": 10,
+            "num_src_test_java_files": 0,
+            "num_test_cases": 2
+          },
+          "stratum": {
+            "build_complexity": "multi-module",
+            "dependency_age": "unknown",
+            "repo_size": "medium",
+            "test_count": "low"
+          },
+          "target_java": 17
+        },
+        {
+          "base_commit": "2496468cbf53a8474ea6f1a8edab6b6f8e02211f",
+          "instance_id": "refactoring__bot__refactoring__bot",
+          "migration_mode": "minimal",
+          "repo_url": "https://github.com/Refactoring-Bot/Refactoring-Bot",
+          "source": "migrationbench_selected",
+          "stats": {
+            "license": "MIT",
+            "num_java_files": 146,
+            "num_loc": 17553,
+            "num_pom_xml": 1,
+            "num_src_test_java_files": 38,
+            "num_test_cases": 62
+          },
+          "stratum": {
+            "build_complexity": "single-module",
+            "dependency_age": "unknown",
+            "repo_size": "large",
+            "test_count": "high"
+          },
+          "target_java": 17
+        },
+        {
+          "base_commit": "2568c3367cf296e0a971f4c84c080d8d94a93ab0",
+          "instance_id": "evandylan__unicorn",
+          "migration_mode": "minimal",
+          "repo_url": "https://github.com/EvanDylan/unicorn",
+          "source": "migrationbench_selected",
+          "stats": {
+            "license": "Apache-2.0",
+            "num_java_files": 264,
+            "num_loc": 36378,
+            "num_pom_xml": 16,
+            "num_src_test_java_files": 0,
+            "num_test_cases": 1
+          },
+          "stratum": {
+            "build_complexity": "multi-module",
+            "dependency_age": "unknown",
+            "repo_size": "large",
+            "test_count": "low"
+          },
+          "target_java": 17
+        }
+      ],
+      "migrationbench_root": "external/MigrationBench",
+      "model": "deepseek-v4-flash",
+      "official_eval_enabled": true,
+      "provider": "deepseek",
+      "query_timeout_seconds": 1800.0,
+      "requested_instances": 30,
+      "seed": 42,
+      "subset": "fixtures/migrationbench/subsets/main_30.jsonl",
+      "workspace_root": "workspaces/migrationbench"
+    }
+  },
+  "paired_vs_reference": {
+    "stigmergic_v7_repair_colony": {
+      "both_fail": 29,
+      "both_pass": 1,
+      "discordant_pairs": 0,
+      "mcnemar_exact_p": 1.0,
+      "paired_instances": 30,
+      "reference_fail_baseline_pass": 0,
+      "reference_pass_baseline_fail": 0
+    }
+  },
+  "reference_framework": "stigmergic_v6_static"
+}

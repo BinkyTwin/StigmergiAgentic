@@ -1,0 +1,44 @@
+# V10 MigrationBench smoke configuration (DeepSeek backbone).
+#
+# Phase 4 / Iteration L6 — used by the Docker service
+# `migrationbench-v10-smoke`. The smoke run uses a deterministic Java 17
+# POM candidate provider so it executes the full
+# apply -> mvn dependency:resolve / clean compile / test -> class version
+# check -> official run_eval.py chain *without* incurring LLM cost. This
+# proves the V10 telemetry pipeline end-to-end before any LLM-driven
+# strategy is wired in.
+#
+# Strict success requires the official MigrationBench evaluator to be
+# present at `external/MigrationBench`. When the evaluator is missing the
+# verifier records `infra_failed` and the strict_success column stays
+# False — there is no diagnostic fallback (the legacy V7
+# `_synthesize_best_partial_payload` shortcut has no V10 equivalent).
+
+adapter: migrationbench
+strategy: branching_repair
+subset: fixtures/migrationbench/subsets/smoke_5.jsonl
+out_dir: campaign_results/v10/migrationbench_smoke
+seed: 42
+
+strategy_config:
+  max_candidates: 1
+  max_repair_rounds: 0
+  max_repairs_per_candidate: 1
+
+extras:
+  workspace_root_root: workspaces/migrationbench_v10
+  artifacts_root: campaign_results/v10/migrationbench_smoke/artifacts
+  migrationbench_root: external/MigrationBench
+  official_eval: true
+  official_timeout_seconds: 1800
+  workspace_timeout_seconds: 600
+  prepare: true
+
+# Optional LLM backbone for future strategy upgrades. Not consumed by the
+# deterministic provider; kept here so the same config can be reused once
+# a Stigmergic A4 strategy is plugged in.
+llm:
+  provider: deepseek
+  model: deepseek-chat
+  base_url: https://api.deepseek.com/v1
+  timeout_seconds: 1800

@@ -1,0 +1,149 @@
+agents:
+  num_agents: 2
+  num_agents_mode: "elastic"
+  selection_temperature: 0.12
+  elastic:
+    min_agents: 2
+    max_agents: 12
+    markers_per_agent: 2
+    scale_up_utilization: 0.8
+    scale_down_contention: 0.45
+    scale_down_idle_utilization: 0.25
+  local_sensing:
+    enabled: true
+    intensity_threshold: 0.0
+    type_affinity_weight: 0.45
+    semantic_affinity_weight: 0.35
+    recency_weight: 0.2
+    max_candidates: 10
+    affinity_exploration_rate: 0.2
+  stickiness:
+    enabled: true
+    recent_progress_window: 4
+    continuity_bonus: 0.08
+    max_consecutive_reuse: 3
+  protocol_compiler:
+    enabled: false
+
+skill_library:
+  enabled: false
+  read_only: true
+  db_path: "pheromones/migrationbench_v7_skills_disabled.db"
+
+protocol:
+  enabled: false
+  read_only: true
+  db_path: "pheromones/migrationbench_v7_protocols_disabled.db"
+
+emergence:
+  enabled: true
+  feedback_loop:
+    enabled: false
+    interval_ticks: 5
+    max_adaptation_delta: 0.0
+  cross_run:
+    enabled: false
+    read_only: true
+    max_total_delta: 0.0
+
+lessons:
+  enabled: false
+
+orchestrator:
+  max_ticks: 220
+  idle_cycles_to_stop: 16
+  parallel: true
+  emergent_resolution:
+    enabled: true
+    base_probability: 0.1
+  recovery_controller:
+    enabled: true
+    stagnation_ticks: 8
+    contention_threshold: 0.6
+    recovery_cooldown_ticks: 8
+    temperature_boost: 0.1
+    temperature_boost_duration: 3
+    inhibition_relief: 0.2
+    dynamic_idle:
+      enabled: true
+      node_per_idle_cycle: 3
+      max_extra_idle_cycles: 16
+  targeted_repair:
+    enabled: true
+    max_cycles: 40
+    repair_marker_intensity: 0.95
+
+guardrails:
+  max_retry_count: 80
+  scope_lock_ttl: 6
+  traceability: true
+  audit_completeness: true
+
+llm:
+  provider: "deepseek"
+  model: "deepseek-reasoner"
+  base_url: "https://api.deepseek.com"
+  temperature: 0.2
+  max_context_tokens: 1000000
+  max_response_tokens: 64000
+  max_tokens_total: 10000000
+  max_budget_usd: 0.0
+  request_timeout_seconds: 900
+  retry_attempts: 3
+  estimated_completion_tokens: 32000
+  reasoning:
+    mode: "thinking"
+
+async:
+  max_concurrent_llm_calls: 4
+  subprocess_timeout: 7200
+
+tools:
+  sandbox_root: "."
+  allowed_commands:
+    - "bash"
+    - "git"
+    - "mvn"
+    - "python"
+    - "uv"
+  bash_timeout_seconds: 7200
+  max_file_size_bytes: 2000000
+
+pressures:
+  formula: "aco"
+  alpha: 1.0
+  beta: 2.0
+  default_weights:
+    inspect_repository: 1.0
+    localize_migration_surface: 1.0
+    propose_patch_candidate: 0.9
+    apply_patch_candidate: 1.0
+    run_build_validation: 0.95
+    classify_build_failure: 0.95
+    repair_patch_candidate: 0.9
+    select_patch_candidate: 1.0
+    finalize_evaluated_patch: 1.0
+    think: 0.2
+
+migrationbench:
+  framework: "stigmergic_v7_repair_colony"
+  workflow: "v7_repair_colony"
+  seed: 42
+  build_command: "mvn clean verify"
+  build_timeout_seconds: 1800
+  official_root: "external/MigrationBench"
+  run_official_eval: true
+  official_timeout_seconds: 1800
+  official_maven_command: "cd {root_dir}; mvn clean verify"
+  query_timeout_seconds: 7200
+  workspace_timeout_seconds: 900
+  force_workspace: true
+  safety_caps:
+    max_tokens_per_instance: 10000000
+    max_runtime_per_instance_seconds: 7200
+    max_llm_calls_per_instance: 300
+    max_repair_cycles_per_instance: 40
+  campaign_monitoring:
+    mode: "high_caps_traced"
+    manual_abort_supported: true
+    record_tokens_runtime_calls_and_cycles: true

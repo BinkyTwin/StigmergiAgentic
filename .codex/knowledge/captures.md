@@ -1,5 +1,376 @@
 # Project Captures
 
+## 2026-05-04 — Phase 4 V10 MigrationBench + Bench Harness Unified (L1→L7)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `impact_score`: `9/10`
+- `confidence`: `high`
+- `scope`: `Port MigrationBench to V10 stack with verifier-first contract and EventLog-derived telemetry, in 7 autonomous /loop iterations.`
+
+### Outcome
+Livré Phase 4 du plan canonique en 7 itérations `/loop` autonomes. `adapters_v10/migrationbench/` implémente `DomainAdapterV10` complet (workspace isolé, verifier émettant 8 signaux canoniques, invariant strict_success non-contournable). `scripts/bench/` unifie le harness CLI Docker-first avec télémétrie reconstructible depuis EventLog seul. Service Docker `migrationbench-v10-smoke` prêt. **126 tests V10 verts** (121 unit + 5 integration golden). Aucune fuite legacy `core/`/`adapters/`. Aucun équivalent du fallback V7.2 `_synthesize_best_partial_payload` (testé par AST scan dédié).
+
+### Reusable Patterns (1-3)
+1. **Validation locale ≠ scoring strict** : la `ValidationResult.PASSED` peut se contenter de la chaîne locale verte ; le score final reste gate par l'official evaluator dans `score()`. Permet à `_finalize_best_validated` d'avancer sans court-circuiter le verifier-first contract.
+2. **Telemetry pure-EventLog** : tout métrique scientifique doit être reconstructible par `replay_summary_from_dir(out_dir) == live_summary`. Les compteurs runtime sont interdits — c'est l'invariant qui rend impossible de répéter le bug V7.2 d'écart `patch_applies` vs `artifact_delivery`.
+3. **AST scan anti-shortcut** : pour interdire un pattern legacy par contrat de test, viser `FunctionDef.name`/`Assign.targets` plutôt que substring grep — sinon les docstrings qui documentent l'absence du pattern produisent des faux positifs.
+
+### Evidence
+- `adapters_v10/migrationbench/{schemas, workspace, _runtime, maven, verifier, adapter}.py`
+- `scripts/bench/{harness, telemetry, artifacts, providers, docker}.py`
+- `config/v10/migrationbench_v10_smoke_deepseek.yaml`
+- `docker-compose.campaign.yml` (service `migrationbench-v10-smoke`)
+- `tests/integration/v10/test_migrationbench_smoke_consistency.py`
+- `documentation/construction_log.md` (entrée 2026-05-04)
+
+## 2026-05-03 — V10 Blackboard, Branching Repair, and Toy Adapter Completion
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `impact_score`: `9/10`
+- `confidence`: `high`
+- `scope`: `Extend the V10 bootstrap runtime with reconstructible blackboard state, minimal stigmergic signals, branching repair, and a deterministic toy adapter`
+
+### Outcome
+
+Extended the isolated V10 runtime with a reconstructible blackboard projection, typed coordination signals, A3-style branching repair, process-reward scoring from validation signals, fallback finalization across validated candidates, and a deterministic `ToyTextAdapter` for end-to-end verification before any real benchmark adapter is connected. Independent review found that repairs were not starting from parent workspaces, duplicate candidate IDs could corrupt lineage, blackboard reconstruction still depended on an in-memory graph, and artifact validation was too permissive. These issues were fixed with regression tests before closure.
+
+### Reusable Patterns (1-3)
+
+1. **Branching repair must execute child candidates from the parent hypothesis workspace, not from the original root workspace, or lineage becomes a lie.**
+2. **A blackboard can remain a projection only if it can be rebuilt from durable events or validates the provenance of any supplied graph state.**
+3. **Selectors should finalize validated candidates by evidence priority with fallback, because local validation and strict artifact success are related but not identical.**
+
+### Evidence
+
+- `core_v10/blackboard.py`
+- `core_v10/signals.py`
+- `core_v10/strategy_runner.py`
+- `core_v10/verifier.py`
+- `adapters_v10/toy.py`
+- `tests/unit/v10/test_blackboard.py`
+- `tests/unit/v10/test_strategy_runner.py`
+- `tests/unit/v10/test_toy_adapter.py`
+- `PYTHONDONTWRITEBYTECODE=1 uv run --isolated pytest -p no:cacheprovider tests/unit/v10 -q` -> 39 passed
+
+## 2026-05-03 — V10 Bootstrap Runtime Implementation
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `impact_score`: `9/10`
+- `confidence`: `high`
+- `scope`: `Implement the first isolated V10 runtime increment from the framework rebuild plan`
+
+### Outcome
+
+Created an isolated V10 namespace with domain-neutral contracts, append-only event logging, replay snapshots, explicit hypothesis graphs, verifier-gated finalization, and a minimal workflow-first `StrategyRunner`. The implementation deliberately avoids importing the legacy `core`/`adapters` packages or embedding benchmark-specific rules. Independent review found early architecture risks around branch workspace handling, graph reuse, score logging, artifact contract weakness, and append concurrency; these were fixed with regression tests before proceeding.
+
+### Reusable Patterns (1-3)
+
+1. **Bootstrap major runtime rewrites in an isolated namespace with import-boundary tests before touching the legacy engine.**
+2. **Verifier loops must validate and finalize in the workspace returned by apply, not the original workspace, so branch isolation remains real.**
+3. **Event logs and artifact contracts need hard mechanical invariants early: locked appends, non-empty required artifacts, score-aware strict success, and per-run hypothesis graphs.**
+
+### Evidence
+
+- `core_v10/contracts.py`
+- `core_v10/event_log.py`
+- `core_v10/hypothesis_graph.py`
+- `core_v10/verifier.py`
+- `core_v10/strategy_runner.py`
+- `adapters_v10/base.py`
+- `documentation/redisgn_v2/v10_starts_here.md`
+- `tests/unit/v10/`
+- `PYTHONDONTWRITEBYTECODE=1 uv run --isolated pytest -p no:cacheprovider tests/unit/v10 -q` -> 29 passed
+
+## 2026-05-03 — V10 Pivot Documented With Memoir Narrative and ADR-018
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `impact_score`: `9/10`
+- `confidence`: `high`
+- `scope`: `Document the V3 → V10 pivot in repository artifacts so the thesis defense can reference a coherent memoir-grade narrative, an ADR with three considered alternatives, and synchronized CLAUDE.md/AGENTS.md pointers`
+
+### Outcome
+
+Produced `documentation/redisgn_v2/pivot_v10_documentation_memoire.md` (7-section memoir-grade narrative covering original hypothesis, V3/V7 empirical diagnosis with three converging findings, V10 reformulation with H1/H2/H3/H4 hypotheses, ablation ladder A0..A6, threats to validity, link to thesis sections, and one-sentence defense synthesis) and `documentation/decisions/20260503-pivot-v10-from-scratch.md` (ADR-018 with three considered alternatives, academic citations, and validation criteria). Updated `CLAUDE.md`, `AGENTS.md`, `documentation/construction_log.md`, `documentation/decisions/INDEX.md` (Sprint 9 ADR-017 marked superseded), and `.codex/knowledge/decision_log.md` to point at the V10 plan and explain the scientific rationale of the pivot. The Sprint 9 status remains documented as legacy so the V3 baseline stays reproducible on `archive/v3-sprint9`.
+
+### Reusable Patterns (1-3)
+
+1. **When a research project pivots its founding hypothesis, write the memoir narrative before the technical plan — the academic story becomes the contract that the new architecture must serve.**
+2. **Pair every architectural rupture with an ADR that names three considered alternatives, with the rejected ones argued on equal footing, so the chosen path is defensible against post-hoc reviewer challenges.**
+3. **Synchronize agent-facing files (CLAUDE.md, AGENTS.md) with a one-line "Current direction" pointer plus a link to the canonical plan, before deprecating the legacy section — agents resuming work from snapshots otherwise default to the prior architecture.**
+
+### Evidence
+
+- `documentation/redisgn_v2/pivot_v10_documentation_memoire.md`
+- `documentation/decisions/20260503-pivot-v10-from-scratch.md`
+- `documentation/construction_log.md` (entrée 2026-05-03)
+- `documentation/decisions/INDEX.md` (ADR 018, ADR 017 marqué déprécié)
+- `CLAUDE.md`, `AGENTS.md` (sections « Current direction »)
+
+## 2026-05-03 — V10 From-Scratch Rebuild Canonical Plan
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `impact_score`: `10/10`
+- `confidence`: `high`
+- `scope`: `Rewrite Claude's StigmergiAgentic 2.0 proposal into a canonical from-scratch V10 plan with a stronger architectural rupture`
+
+### Outcome
+
+Created `documentation/redisgn_v2/plan_v10_from_scratch_rebuild.md` as the canonical V10 rebuild plan. The revised plan accepts Claude's hybrid blackboard plus verifier-loop pivot, but changes the architecture to a new `core_v10` line where EventLog and HypothesisGraph are the source-of-truth layers, the typed Blackboard is a reconstructible projection, strict success is verifier-gated, simple branching precedes MCTS-style search, and the stigmergic layer is tested before verifier-guided tree search so the thesis contribution is not hidden by a generic optimizer.
+
+### Reusable Patterns (1-3)
+
+1. **When a redesign needs a real rupture, create a new core namespace and treat legacy modules as optional references rather than architectural constraints.**
+2. **Put replayable EventLog and explicit HypothesisGraph before active blackboard projections so coordination state remains auditable instead of becoming another marker soup.**
+3. **Order ablations so the thesis mechanism is measured before generic optimizers that could mask its effect.**
+
+### Evidence
+
+- `documentation/redisgn_v2/plan_v10_from_scratch_rebuild.md`
+- `documentation/redisgn_v2/plan_v10_framework_rebuild.md`
+
+## 2026-05-03 — V10 Plug-and-Play Framework Rebuild Plan
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `impact_score`: `9/10`
+- `confidence`: `high`
+- `scope`: `Create a detailed StigmergiAgentic 2.0 / V10 architecture plan after the V6/V7 MigrationBench strict-success plateau`
+
+### Outcome
+
+Created a detailed V10 rebuild plan that reframes StigmergiAgentic as a plug-and-play verified-resolution runtime rather than a decorative multi-agent marker loop. The plan separates adapter contracts, append-only events, active blackboard signals, hypothesis graphs, strategy runners, structured feedback, clean memory modes, and ablation arms. It also preserves the stigmergic philosophy by moving the colony claim from agent count to indirect coordination through validated traces, pheromone-like signals, branch lineages, reinforcement, inhibition, and evidence-based selection.
+
+### Reusable Patterns (1-3)
+
+1. **For major agent-framework rewrites, start from a contract-first architecture and an ablation ladder before adding autonomous or multi-agent complexity.**
+2. **Preserve stigmergic claims through inspectable shared traces, reinforcement/inhibition signals, and hypothesis selection metrics rather than through raw agent population size.**
+3. **Treat benchmarks as plug-in evaluators behind stable adapter contracts so benchmark-specific tooling cannot leak into the core runtime.**
+
+### Evidence
+
+- `documentation/redisgn_v2/plan_v10_framework_rebuild.md`
+- Sources cited in the plan: SWE-agent, Agentless, Anthropic Effective Agents, AutoCodeRover, OpenHands, OpenAI Agents SDK, LangGraph persistence, MigrationBench, SWE-bench Pro, Multi-SWE-bench, and Heylighen's stigmergy work.
+
+## 2026-05-03 — MigrationBench V7.2 Strict-Success Contract Repair
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `impact_score`: `9/10`
+- `confidence`: `high`
+- `scope`: `Diagnosis and repair of V7.2 best-partial finalization and nested repair-marker loops after the DeepSeek main_30 strict-success plateau`
+
+### Outcome
+
+Diagnosed why V7.2 could report high `patch_applies` while remaining at zero `strict_success`: best-partial payloads were synthesized after orchestration without exporting `patch.diff` or running the official evaluator, so they had no path to strict success. A second bug created nested `repair::repair::...` marker chains when repair attempts emitted empty/irrelevant edits, wasting repair cycles on repair markers instead of root patch hypotheses. The adapter now evaluates best-partial branches through the common strict contract, and repair validation collapses retries back to the root patch marker while new branch payloads strip repair bookkeeping.
+
+### Reusable Patterns (1-3)
+
+1. **Never count an internal best-partial patch as benchmark-delivered unless it has gone through the same artifact export and official-eval contract as normal finalization.**
+2. **When repair requests can repair repair markers, collapse retry targeting back to the root domain artifact to avoid recursive coordination artifacts.**
+3. **For strict-success plateaus, compare `patch_applies`, local build/test flags, artifact delivery, and official eval coverage before blaming the model.**
+
+### Evidence
+
+- `adapters/migrationbench/adapter.py`
+- `adapters/migrationbench/tools.py`
+- `tests/unit/test_migrationbench_adapter.py`
+- `tests/unit/test_migrationbench_v7_repair_colony.py`
+- `uv run --isolated pytest tests/unit/test_migrationbench_adapter.py tests/unit/test_migrationbench_evaluator.py tests/unit/test_migrationbench_v7_repair_colony.py -q` -> 21 passed
+
+## 2026-05-02 — MigrationBench V7.1 Repair Colony Hardening
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `impact_score`: `9/10`
+- `confidence`: `high`
+- `scope`: `Implementation of the V7.1 MigrationBench repair-colony hardening plan across edit schema handling, official-like validation, finalization, lessons, isolation, smoke gating, and tests`
+
+### Outcome
+
+Implemented the V7.1 hardening pass for `stigmergic_v7_repair_colony` without changing V6. The arm now normalizes common LLM edit variants before strict typed validation, retries schema failures, rejects empty or irrelevant edits, extracts useful Maven feedback, traces repair history, blocks repeated repair loops, requires exact Java 17 class major versions `{61}` for normal selection, allows only explicit best-partial finalization when caps are reached, disables lessons for V7, cleans stale per-instance artifacts under `--force`, and adds a smoke-gate script before `main_30`.
+
+### Reusable Patterns (1-3)
+
+1. **For LLM-generated code edits, normalize permissive model output into a single strict internal schema before applying anything.** This preserves scientific comparability while avoiding artificial failures from harmless key-name variants.
+2. **For hard repair benchmarks, separate technical mechanics gates from success gates.** Smoke gates should verify branch telemetry, isolation, schema recovery, and finalize paths without requiring benchmark success on a difficult corpus.
+3. **For adaptive systems, disable learning artifacts during early repair-loop validation unless they are the treatment under study.** This prevents in-run lessons or skills from contaminating the mechanism being diagnosed.
+
+### Evidence
+
+- `adapters/migrationbench/tools.py`
+- `scripts/run_migrationbench_query_export.py`
+- `scripts/migrationbench_cleanup.py`
+- `scripts/migrationbench_smoke_gate.py`
+- `config/migrationbench_v7_repair_colony_deepseek.yaml`
+- `tests/unit/test_migrationbench_v7_repair_colony.py`
+- `tests/unit/test_orchestrator.py`
+- `documentation/redisgn_v2/v7_1_implementation_handoff.md`
+- `documentation/redisgn_v2/sprint_09_artifact.md`
+- `uv run pytest tests/unit/test_migrationbench_v7_repair_colony.py tests/unit/test_orchestrator.py -q` -> 29 passed
+- `uv run pytest tests/unit/test_migrationbench_adapter.py tests/unit/test_migrationbench_workspace.py tests/unit/test_migrationbench_evaluator.py -q` -> 6 passed
+
+## 2026-04-27 — MigrationBench Handoff V2 Review
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `impact_score`: `8/10`
+- `confidence`: `high`
+- `scope`: `Review of the improved MigrationBench handoff and scientific plan after agent revisions`
+
+### Outcome
+
+Reviewed the updated MigrationBench handoff and scientific campaign plan. The handoff now addresses the main implementation risks from the previous review: official evaluator preflight is blocking, `repo_url` is declared as the new schema field, `run_migrationbench_query_export.py` is included, workspace/patch isolation is specified, raw LLM diff generation is discouraged, SD-Feedback is prioritized over a weak local imitation, and aggregation is manifest-driven. The remaining issue is consistency debt in the long plan: older sections still mention `github_url`, Gemma-first commands/config names, and `stigmergic_v6_clean`, while the handoff now uses DeepSeek `deepseek-v4-flash` and `stigmergic_v6_static`.
+
+### Reusable Patterns (1-3)
+
+1. **After a handoff is tightened, scan the long master plan for stale conflicting names.** The implementation agent will follow the shortest path, but thesis readers and future scripts may still pick up older `Gemma`, `github_url`, or `v6_clean` references.
+2. **When switching primary models, verify both external docs and local client support.** DeepSeek V4 Flash is documented with 1M context and 384K output, but the local client still needs pricing and reasoning-mode alignment for the new model ID.
+3. **Treat official-baseline availability as an experimental artifact.** Trying SD-Feedback first and documenting failure is stronger than silently substituting a local agentless approximation.
+
+### Evidence
+
+- `documentation/redisgn_v2/migrationbench_implementation_handoff.md`
+- `documentation/redisgn_v2/plan_migrationbench_scientific_campaign.md`
+- `llm/client.py`
+- DeepSeek API docs: `https://api-docs.deepseek.com/quick_start/pricing`
+
+---
+
+## 2026-04-27 — MigrationBench Implementation Handoff Review
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `impact_score`: `8/10`
+- `confidence`: `high`
+- `scope`: `Critical review of the MigrationBench implementation handoff before execution`
+
+### Outcome
+
+Reviewed `documentation/redisgn_v2/migrationbench_implementation_handoff.md` against the MigrationBench scientific plan, the Deep Research integration notes, the current config toggles, and existing TravelPlanner runner/aggregator patterns. The handoff is scientifically sound because it prioritizes official evaluation, patch artifacts, strong baselines, V6 static execution, and frozen cross-run learning before any V7/C3 complexity. The main improvements are to make the external MigrationBench preflight a first-class milestone, enforce a single instance schema (`repo_url` vs `github_url`), specify patch/repository isolation semantics, and require the aggregator to use requested-instance denominators rather than only successfully parsed rows.
+
+### Reusable Patterns (1-3)
+
+1. **For benchmark pivots, make the official evaluator preflight a blocking artifact before adapter intelligence.** This prevents a new domain adapter from hiding scorer or environment failures.
+2. **For patch-centric benchmarks, define artifact invariants before model prompts.** Empty, non-applying, unevaluated, or missing patches must be failures across every arm.
+3. **For migration campaigns, reuse runner resilience patterns but harden denominators around requested instances.** Resume/checkpoint logic should never make missing outputs disappear from the scientific denominator.
+
+### Evidence
+
+- `documentation/redisgn_v2/migrationbench_implementation_handoff.md`
+- `documentation/redisgn_v2/deep_research_report_integration.md`
+- `documentation/redisgn_v2/plan_migrationbench_scientific_campaign.md`
+- `scripts/run_travelplanner_framework_benchmark.py`
+- `scripts/aggregate_campaign_comparison.py`
+
+---
+
+## 2026-04-23 — Framework Expert Guide for Thesis Documentation
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `impact_score`: `8/10`
+- `confidence`: `high`
+- `scope`: `Pedagogical documentation of the StigmergiAgentic runtime, adapters, memory loops, emergence controls, and campaign workflow`
+
+### Outcome
+
+Created `documentation/framework_guide_expert.md` as a thesis-facing expert guide that explains the framework from first principles through concrete code paths: marker model, SQLite/WAL store, environment gatekeeping, homogeneous agent decision flow, orchestrator tick loop, pressure formulas, locks, decay/frequentation, reinforcement, lessons, skills, protocol compiler, cross-run coordination protocols, emergence metrics, adapters, tools, TravelPlanner evaluation, configs, campaign hygiene, diagnostics, and extension procedures. Added the guide to `documentation/README.md` so it is discoverable from the documentation index.
+
+### Reusable Patterns (1-3)
+
+1. **For thesis-facing framework documentation, explain the runtime as a signal flow before listing modules.** The reader needs the mental model `markers -> pressure -> lock -> tool -> deposited markers` before file-by-file details become meaningful.
+2. **Document adaptive mechanisms by separating in-run, cross-run, and evaluation-phase state.** This keeps episodic memory, lessons, skills, and coordination protocols scientifically distinguishable.
+3. **Pair architecture explanation with diagnostics.** A framework guide is more reusable when it tells future readers how to inspect summaries, marker DBs, audit logs, and persistent stores after a run.
+
+### Evidence
+
+- `documentation/framework_guide_expert.md`
+- `documentation/README.md`
+
+---
+
+## 2026-04-23 — V9 Plan Implementation: Clean Train/Eval, Activated C3 Persistence, and Correct Delivery Metrics
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `impact_score`: `9/10`
+- `confidence`: `high`
+- `scope`: `Implementation of the V9 campaign behavior-analysis plan across TravelPlanner campaign configs, runtime memory activation, aggregation, and tests`
+
+### Outcome
+
+Implemented the V9 campaign plan by moving adaptation presets to the published TravelPlanner `train` split, defaulting final Docker campaigns to `45` train-adapt queries plus `180` validation-eval queries, enabling scientific adapt-side cross-run writes, keeping C3 evaluation read-only, and separating `artifact_delivery_rate` from `official_delivery_rate` in the final aggregate exporter. The runtime now creates reusable lessons from successful `terminal` TravelPlanner markers while excluding failed validations and unvalidated terminal plans, agents credit recalled lessons on successful tool execution, and the planner context now prioritizes lower-cost candidates before prompt truncation.
+
+### Reusable Patterns (1-3)
+
+1. **When changing campaign denominators, update script defaults, config split overrides, and stale-output cleanup together.** Otherwise old query JSON can silently contaminate the new run.
+2. **For cross-run skill promotion, gate learning on success semantics rather than terminal state alone.** TravelPlanner uses `terminal` for both successes and exhausted failures, so promotion must reject `failed` / `final_pass=false` outcomes.
+3. **Keep compatibility columns but redefine public metrics around official semantics.** `delivery_rate` can remain present for downstream scripts while `artifact_delivery_rate` and `official_delivery_rate` make the ambiguity auditable.
+
+### Evidence
+
+- `documentation/redisgn_v2/v9_campaign_behavior_analysis.md`
+- `documentation/redisgn_v2/tuto_campagne_finale.md`
+- `scripts/run_gemma_stigmergie_c3_docker.sh`
+- `scripts/run_deepseek_stigmergie_docker.sh`
+- `scripts/run_gemma_baselines_docker.sh`
+- `scripts/aggregate_campaign_comparison.py`
+- `core/environment.py`
+- `core/agent.py`
+- `adapters/travelplanner/tools.py`
+- `tests/unit/test_aggregate_campaign_comparison.py`
+
+---
+
+## 2026-04-23 — Sprint 9 Campaign Protocol Should Move Adaptation to TravelPlanner Train and Evaluate on Full Validation
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `impact_score`: `9/10`
+- `confidence`: `high`
+- `scope`: `Methodology correction for Sprint 9/V9 TravelPlanner adaptation and evaluation split`
+
+### Outcome
+
+Verified locally that SwarmAgentic uses `train_45.jsonl` with `sample_step=5` (9 effective train examples) and evaluates on `validation.jsonl` with 180 queries, while the current Sprint 9 scripts split the validation set into `validation[0:90]` for adaptation and `validation[90:180]` for evaluation. The clean protocol for the next final campaign is to run adaptation on the TravelPlanner `train` split (`0-44`, or an explicit 9-query subset for SwarmAgentic parity) and evaluate C2/C3/baselines on the full validation split (`0-179`).
+
+### Reusable Patterns (1-3)
+
+1. **When a benchmark publishes train and validation splits, use the published train split for any persistent adaptation stage.** Manual validation slicing is weaker even if the two slices do not share exact query IDs.
+2. **Distinguish split hygiene from memory toggles.** Disabling `cross_run` does not fix train/test leakage if evaluation consumes `skills.db` or `protocols.db` learned from validation queries.
+3. **For TravelPlanner thesis tables, prefer full 180-query validation readouts.** This keeps comparisons aligned with SwarmAgentic, official TravelPlanner reporting, and prior Qwen V6_C evidence.
+
+### Evidence
+
+- `documentation/redisgn_v2/v9_campaign_behavior_analysis.md`
+- `scripts/run_swarmagentic_benchmark.py`
+- `scripts/run_sprint9_scientific_campaign.sh`
+- `scripts/run_gemma_stigmergie_c3_docker.sh`
+- `scripts/run_deepseek_stigmergie_docker.sh`
+- `config/travelplanner.yaml`
+
+---
+
+## 2026-04-23 — V9 Campaign Readout: C3 Scores Are Usable, but Sprint 9 Persistence Was Not Activated
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `impact_score`: `9/10`
+- `confidence`: `high`
+- `scope`: `Post-hoc analysis of current V9/Sprint 9 TravelPlanner campaign outputs in campaign_results/`
+
+### Outcome
+
+The current V9 campaign has usable Gemma/DeepSeek C3 results, but it should be treated as a diagnostic run rather than evidence for Sprint 9 cross-run self-optimization. Both C3 sets are complete at 90/90 parseable results, yet `skills.db` and `protocols.db` are empty for both models, every row reports `skills_promoted=0`, and every row reports `coordination_protocol_applied=false`. The observed behavioral frontier remains split between multi-city no-plan `idle_cycles` collapse (32/90 per model) and emitted plans that fail mostly on hard budget constraints.
+
+### Reusable Patterns (1-3)
+
+1. **Before interpreting a self-optimization campaign, verify store activation, not just result-file counts.** Empty `skills.db` / `protocols.db` means C2/C3 mechanisms were not empirically exercised even if config labels say C3.
+2. **Separate artifact delivery from official delivery.** In this campaign, `query_results[0].delivered=true` can coexist with `evaluated_queries=0` and `No travel plan generated`, so aggregate scripts must guard against nested-field optimism.
+3. **When C3 remains around the low-20% range across stronger models, prioritize orchestration and adapter repair over model swapping.** DeepSeek only improved Gemma by one query on the same slice.
+
+### Evidence
+
+- `documentation/redisgn_v2/v9_campaign_behavior_analysis.md`
+- `campaign_results/gemma-stigmergie/c3/`
+- `campaign_results/deepseek-stigmergie/c3/`
+- `campaign_results/gemma-stigmergie/pheromones/skills.db`
+- `campaign_results/gemma-stigmergie/pheromones/protocols.db`
+- `output/final_campaign_v9_check/`
+
+---
+
 ## 2026-04-21 — Sprint 9 Complete: Persistent Skills, Protocol Artifacts, and Protocol Compiler Are Wired and Tested
 
 - `repo_slug`: `stigmergiagentic-33b989`
@@ -1735,3 +2106,738 @@ Prepared a non-breaking Sprint 9 groundwork layer on top of the Sprint 8 runtime
 - `main.py`
 - `tests/unit/test_protocol_compiler.py`
 - `documentation/decisions/20260421-sprint9-groundwork-persistent-skills-protocols-and-compiler.md`
+
+## 2026-04-23 — Final Campaign Live Monitoring Sanity Check
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `impact_score`: `6/10`
+- `confidence`: `high`
+- `scope`: `Verify whether the final Docker campaign is progressing normally without disturbing running services, with emphasis on cross-run skills/protocols and sequential Gemma baselines`
+
+### Outcome
+Confirmed that the three final scientific campaign containers are still alive and actively computing, and that the apparently empty Gemma baseline folders do not indicate a failure yet. `gemma-baselines` runs frameworks sequentially, so only `solo_direct` is expected to populate first; the `zsh: no matches found` messages come from unmatched `*.json` globs during live counting, not from the benchmark itself. Read-only inspection of `campaign_results/*/pheromones/{skills,protocols}.db` also confirmed that both stigmergic services have persistent promoted skills and coordination-protocol markers with nontrivial `usage_count` and `latest` protocol entries, while `docker stats` and `docker top` showed active Python processes still working on long-running queries (`Gemma C3 Q18`, `DeepSeek C3 Q42`, `Gemma baseline solo_direct Q130`) rather than a stalled pipeline.
+
+### Reusable Patterns (1-3)
+1. During live campaign monitoring, treat unmatched shell globs in `zsh` as a counting artifact first and confirm directory creation order before suspecting a benchmark failure.
+2. For in-progress Docker campaigns, combine `docker stats`, `docker top`, recent file mtimes, and read-only SQLite inspection to distinguish genuine stalls from simply long-running queries.
+3. When validating cross-run learning during execution, inspect `skills.db` and `protocols.db` in read-only mode and look for promoted `skill` markers plus `coordination_protocol::*::latest` entries instead of relying only on output JSON counts.
+
+### Evidence
+- `docker-compose.campaign.yml`
+- `scripts/run_gemma_baselines_docker.sh`
+- `campaign_results/gemma-baselines/solo_direct/`
+- `campaign_results/gemma-stigmergie/pheromones/skills.db`
+- `campaign_results/gemma-stigmergie/pheromones/protocols.db`
+- `campaign_results/deepseek-stigmergie/pheromones/skills.db`
+- `campaign_results/deepseek-stigmergie/pheromones/protocols.db`
+
+## 2026-04-23 — Read-Only Audit of Cross-Run Skill and Protocol Artifacts
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `impact_score`: `7/10`
+- `confidence`: `high`
+- `scope`: `Audit the quality and effective usage of persistent skills/protocols during the live final campaign without perturbing running containers`
+
+### Outcome
+The live campaign is persisting cross-run artifacts correctly, but the audit surfaced one major functional gap and two quality issues in the current skill/protocol loop. First, persistent `skill_markers` are recalled into `Decision` and copied into runtime marker payloads, yet the `think` tool only reads `lesson_markers` and the lesson-credit path also ignores `skill_markers`, so the promoted skills currently behave more like archived metadata than reusable runtime guidance. Second, promoted `skill_text` is usually copied from raw objective fragments and then merged by "keep the longest text", which makes the stored skills query-specific and verbose instead of distilled, reusable heuristics. Third, protocol persistence stores raw `latest` adaptations while clamping only happens on re-application, so the persisted `latest` payload can drift far beyond the actual bounded configuration that a future run will consume.
+
+### Reusable Patterns (1-3)
+1. For a cross-run memory feature, verify the full loop end to end: recall, prompt injection, success credit, and persistence update; storage-only validation is not enough.
+2. When promoting lessons into reusable skills, distill to short generalized advice before persistence; copying full objective text creates prompt noise and weak transfer.
+3. If runtime adaptations are clamped on read, store the clamped payload as well or persist both raw and applied values explicitly to keep offline analysis honest.
+
+### Evidence
+- `core/agent.py`
+- `core/environment.py`
+- `tools/think.py`
+- `main.py`
+- `campaign_results/gemma-stigmergie/pheromones/skills.db`
+- `campaign_results/gemma-stigmergie/pheromones/protocols.db`
+
+## 2026-04-24 — Final Campaign Result Audit Finds Empty-Plan C3 False Positives
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `impact_score`: `10/10`
+- `confidence`: `high`
+- `scope`: `Analyze current final campaign outputs, distinguish complete baselines from in-progress baselines, and validate whether C3 final-pass rates correspond to delivered TravelPlanner plans`
+
+### Outcome
+The completed Gemma/DeepSeek C3 validation folders contain 180 files each, but their raw `evaluation.final_pass_rate` values are not scientifically usable as success rates. All 360 stigmergic C3 summaries lack a top-level structured `final_plan`; `assistant_response` is `No travel plan generated.` for 178/180 Gemma C3 files and 105/180 DeepSeek C3 files. The raw evaluator still marks 18 Gemma C3 and 105 DeepSeek C3 cases as `final_pass=True`, which are empty-plan false positives caused by per-query evaluation of empty plans. A stricter artifact-aware reading gives C3 strict successful delivered plans of 0/180 for both Gemma and DeepSeek. The Gemma baselines remain interpretable: `solo_self_refine` is currently strongest among complete baselines at 109/180, followed by `solo_direct` 101/180, `solo_cot` 100/180, and `planner_executor` 72/180; `metagpt_sequential` and `langgraph_supervisor` are still in progress or not started.
+
+### Reusable Patterns (1-3)
+1. For TravelPlanner, never report `final_pass=True` without confirming that a structured final plan or rendered non-empty plan was actually delivered.
+2. Separate raw evaluator pass, artifact delivery, and strict delivered-pass metrics in final campaign tables; empty-plan behavior can otherwise inflate C3 results.
+3. When a final campaign discovers a scoring-path bug, preserve the completed artifacts but mark the affected arm as invalid for primary success claims until rerun or rescored with artifact-aware semantics.
+
+### Evidence
+- `campaign_results/gemma-stigmergie/c3/`
+- `campaign_results/deepseek-stigmergie/c3/`
+- `campaign_results/gemma-baselines/`
+- `adapters/travelplanner/evaluator.py`
+- `adapters/travelplanner/adapter.py`
+- `scripts/aggregate_campaign_comparison.py`
+- `output/final_campaign_live_analysis/aggregates.json`
+
+## 2026-04-24 — C3 Root-Cause Audit Finds Disconnected Cross-Run Learning
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `impact_score`: `10/10`
+- `confidence`: `high`
+- `scope`: `Critically audit why the final C3/skills version underperforms the older Qwen V6 campaign and whether the design choices invalidate the campaign`
+
+### Outcome
+The current C3 campaign is best treated as an invalid implementation/campaign assembly rather than evidence against stigmergic orchestration itself. Cross-run protocol learning was not applied during validation because the protocol namespace includes fields that differ between adapt and eval (`llm.model` and `emergence.feedback_loop.enabled`), so Gemma eval looked for `coordination_protocol::travelplanner::b0f70bab` while adapt persisted `coordination_protocol::travelplanner::f36ac546`, and DeepSeek eval looked for `coordination_protocol::travelplanner::499889af` while adapt persisted `coordination_protocol::travelplanner::d6cf4d18`. Gemma adapt also used the default `qwen/qwen3.5-9b` model because `config/travelplanner_adapt_scientific.yaml` lacks an `llm.model` override. The promoted skills are operationally weak: only five skills were stored, their texts are copied raw objective fragments with `quality_score=1.0`, and the active prompt path recalls skills into `Decision` but does not convert them into actionable planning context. Finally, `agents.protocol_compiler.enabled` is false in the relevant C3 configs, so the objective-conditioned compiler was not actually part of the final C3 test.
+
+### Reusable Patterns (1-3)
+1. Treat cross-run learning as untested unless adapt and eval share an explicit persisted namespace or the run summary proves `coordination_protocol_applied=True`.
+2. Validate model identity separately for train/adapt and eval configs; inherited defaults can silently train the wrong model while filenames imply otherwise.
+3. Require promoted skills to be distilled, consumed by the action prompt, and credited on reuse before claiming skill accumulation as an experimental mechanism.
+
+### Evidence
+- `main.py`
+- `core/agent.py`
+- `tools/think.py`
+- `core/environment.py`
+- `config/travelplanner_adapt_scientific.yaml`
+- `config/travelplanner_eval_c3_gemma.yaml`
+- `config/travelplanner_adapt_scientific_deepseek.yaml`
+- `config/travelplanner_eval_c3_deepseek.yaml`
+- `campaign_results/gemma-stigmergie/pheromones/skills.db`
+- `campaign_results/gemma-stigmergie/pheromones/protocols.db`
+- `campaign_results/deepseek-stigmergie/pheromones/skills.db`
+- `campaign_results/deepseek-stigmergie/pheromones/protocols.db`
+
+## 2026-04-24 — C3 Refactor Implements Artifact-Aware Measurement and Isolated Rerun Controls
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `impact_score`: `10/10`
+- `confidence`: `high`
+- `scope`: `Implement the C3 refactor plan so V6 clean and C3 ablations can be rerun with strict delivered-plan metrics, explicit protocol namespaces, prompt-visible skills, and campaign preflight manifests`
+
+### Outcome
+The TravelPlanner measurement path now treats `strict_final_pass = raw_final_pass and artifact_delivered` as the primary pass signal across the official wrapper, adapter summaries, query exports, run summaries, and campaign aggregation. Empty plans cannot pass, raw and strict metrics are exported separately, and summaries expose `final_plan`, `artifact_delivered`, `failure_reason`, protocol namespace/load/apply status, and skill load/injection counters. Protocol reuse now prefers explicit `protocol.namespace`, Gemma adapt/eval configs pin the intended provider/model, skills are injected into `PlanDayTool` as short reusable planning cards, and skill promotion is gated by `strict_final_pass=True` with raw objective/pattern fragments rejected. A new Python C3 campaign runner replaces fragile shell loops with config/API/namespace/compiler preflight, isolated SQLite stores, per-query logs, JSON extraction, manifests, and strict benchmark summaries.
+
+### Reusable Patterns (1-3)
+1. Make artifact delivery a first-class field in benchmark summaries, not an inference applied only after aggregation.
+2. For cross-run memory experiments, require explicit namespace, preflighted effective config, and prompt-level evidence that retrieved memory was actually injected.
+3. Gate persistent skill promotion on strict task success and normalize stored skills into short transferable guidance before reuse.
+
+### Evidence
+- `adapters/travelplanner/official_eval.py`
+- `adapters/travelplanner/adapter.py`
+- `adapters/travelplanner/tools.py`
+- `core/environment.py`
+- `main.py`
+- `scripts/run_travelplanner_c3_refactor_campaign.py`
+- `scripts/aggregate_campaign_comparison.py`
+- `config/travelplanner_v6_clean_gemma.yaml`
+- `config/travelplanner_c3_full_eval_gemma.yaml`
+
+## 2026-04-24 — Gemma Baseline Completion Audit Finds Silent Empty Query Artifacts
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `impact_score`: `8/10`
+- `confidence`: `high`
+- `scope`: `Audit completed Gemma baseline folders before using them as comparison evidence, with special attention to the LangGraph supervisor environment and empty-output behavior`
+
+### Outcome
+The old Gemma baseline campaign did not produce 180 valid JSON artifacts for every framework despite file counts showing 180/180. `langgraph_supervisor` has 171 valid JSON files and 9 empty files at query indices 0-7 and 10; valid LangGraph outputs show real `openrouter` / `google/gemma-4-31b-it` execution with LangGraph step traces, so the framework environment was available for successful runs. Other silent empty artifacts exist as well: `solo_direct` query 62, `solo_cot` query 0, and `metagpt_sequential` queries 162-179. The root operational issue is the legacy baseline shell loop redirecting stderr to `/dev/null` and ignoring non-zero exits, which turns crashes into zero-byte `query_*.json` files.
+
+### Reusable Patterns (1-3)
+1. Treat benchmark completion as `valid JSON count`, not `file count`, whenever shell redirection or `|| true` is present.
+2. Do not suppress stderr for publication-grade per-query baselines; persist one log per query so API/env/import failures remain diagnosable.
+3. If empty artifacts remain in an old campaign, either count them as full-denominator failures or rerun only those query indices with a log-preserving runner before citing the arm.
+
+### Evidence
+- `campaign_results/gemma-baselines/langgraph_supervisor/`
+- `campaign_results/gemma-baselines/metagpt_sequential/`
+- `scripts/run_gemma_baselines_docker.sh`
+- `scripts/run_travelplanner_langgraph_query_export.py`
+
+## 2026-04-24 — C3 Smoke Test Separates API Recovery From Compiler Failure
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `impact_score`: `9/10`
+- `confidence`: `high`
+- `scope`: `Inspect the rerun C3 smoke after OpenRouter quota recovery and decide whether V6 clean can proceed`
+
+### Outcome
+After the OpenRouter key limit was lifted, the C3 smoke consumed real tokens, confirming that the API path is active. The remaining failure is not quota-related: `full_c3` still delivered 0/5 plans, mostly with `protocol_compiler.used=true`, only 4-6 runtime markers, `query_idx` missing in runtime summaries, and `empty_plan_from_llm`. This indicates the current objective-conditioned compiler can produce a formally accepted but operationally weak protocol that starves the TravelPlanner execution graph. The clean V6 preset is not affected because it disables `skill_library`, `protocol`, `cross_run`, and `protocol_compiler`, but compiler-only/full-C3 should not be launched publication-grade until the compiler contract is strengthened. The C3 runner was patched to force the requested `query_idx` into every per-query artifact even when the runtime summary omits it.
+
+### Reusable Patterns (1-3)
+1. Distinguish API-path recovery from mechanism validity: nonzero token spend proves provider access, not that a compiled coordination graph is executable.
+2. A protocol compiler guard must validate operational TravelPlanner markers, not only action names and coarse stage coverage.
+3. Campaign runners should force requested query identity into artifacts so failed or malformed runtime summaries remain official-scorer addressable.
+
+### Evidence
+- `campaign_results/smoke_gemma_c3_refactor/benchmark_summary.json`
+- `campaign_results/smoke_gemma_c3_refactor/c3/`
+- `scripts/run_travelplanner_c3_refactor_campaign.py`
+- `config/travelplanner_v6_clean_gemma.yaml`
+
+## 2026-04-25 — V6 Clean Smoke Reveals Empty Finalize Export Bug
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `impact_score`: `9/10`
+- `confidence`: `high`
+- `scope`: `Diagnose why V6 clean Gemma smoke reported 10/10 empty plans despite internal evaluation showing delivered valid plans`
+
+### Outcome
+The V6 clean smoke was not a model/runtime failure. Per-query artifacts had top-level `final_plan=[]`, but their internal `evaluation.query_results` showed delivered strict passes. Root cause was the export summary path stopping at an empty `::finalize` marker and never falling back to valid `plan` payloads on plan/validation markers. The extractor now scans beyond empty finalize markers, recovers valid plan-marker artifacts, and the query exporter reuses the corrected summary contract. A real Gemma Q0 control rerun changed from `empty_plan_from_llm` to `artifact_delivered=true`, `strict_final_pass=true`, and a 3-day final plan.
+
+### Reusable Patterns (1-3)
+1. When internal eval and top-level artifact fields disagree, inspect export extraction before blaming the LLM or orchestration runtime.
+2. Empty terminal/finalize markers must not mask valid intermediate artifacts in benchmark exporters.
+3. Add a one-query real-provider control after export-path fixes before relaunching a smoke or full campaign.
+
+### Evidence
+- `main.py`
+- `scripts/run_travelplanner_query_export.py`
+- `tests/unit/test_main_summary.py`
+- `campaign_results/v6_clean_gemma_seed42_exportfix2_q0/queries/query_000.json`
+
+## 2026-04-25 — V6 Clean Gemma Docker Campaign Completes Near Solo Baseline
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `impact_score`: `9/10`
+- `confidence`: `high`
+- `scope`: `Read the completed Docker V6 clean Gemma campaign and compare it against existing Gemma baselines under strict delivered-pass semantics`
+
+### Outcome
+The V6 clean Gemma Docker campaign completed all 180 validation queries with valid JSON artifacts. It delivered 178/180 non-empty plans and achieved 99/180 strict final passes (`final_pass_rate=0.55`) with 5.45M tokens and $0.8495 cost. Against existing Gemma baselines counted over the same 180-query denominator, V6 clean is slightly behind `solo_direct` (101/180), `solo_cot` (100/180), and `solo_self_refine` (109/180), but ahead of heavier orchestration baselines such as `planner_executor` (72/180), `metagpt_sequential` (79/180 with 18 empty artifacts), and `langgraph_supervisor` (53/180 with 9 empty artifacts). V6 wins over solo_direct on 10 paired queries but loses on 12, so it does not justify its extra token/runtime cost as a global TravelPlanner improvement.
+
+### Reusable Patterns (1-3)
+1. Report V6 clean as a valid controlled baseline, not a positive performance claim, when it matches but does not beat solo baselines at higher cost.
+2. Use paired win/loss counts alongside aggregate pass rates to avoid overstating small score differences.
+3. For TravelPlanner, separate artifact delivery success from strict constraint success; V6 can deliver plans reliably while still failing validation repair.
+
+### Evidence
+- `campaign_results/v6_clean_gemma_seed42_docker/benchmark_summary.json`
+- `campaign_results/v6_clean_gemma_seed42_docker/queries/`
+- `campaign_results/gemma-baselines/solo_direct/`
+- `campaign_results/gemma-baselines/solo_self_refine/`
+
+## 2026-04-26 — MigrationBench Becomes the Primary Post-TravelPlanner Scientific Plan
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `impact_score`: `9/10`
+- `confidence`: `high`
+- `scope`: `Create a publication-grade roadmap for moving the framework evaluation from TravelPlanner to repository-level code migration`
+
+### Outcome
+The new plan treats TravelPlanner as a controlled negative or secondary result and makes MigrationBench the primary benchmark for evaluating the framework's real potential. The plan prioritizes official execution-based scoring, strong baselines (`no_change`, deterministic dependency-only, solo, planner-executor, agentless self-debug), Docker-first campaign execution, paired statistical analysis, and explicit C3 ablations only after the V6 migration adapter is stable. It also reframes C3 as a mechanism to be tested through isolated protocol, skills, and compiler arms rather than assumed as a full-system win.
+
+### Reusable Patterns (1-3)
+1. Move to external execution-based benchmarks when the current benchmark does not expose enough coordination surface for the claimed framework mechanism.
+2. Treat agentless/self-debug baselines as mandatory for software-engineering agent claims, because simple pipelines can outperform complex orchestration.
+3. Pre-register subsets, metrics, budgets, and failure semantics before launching expensive code-migration campaigns.
+
+### Evidence
+- `documentation/redisgn_v2/plan_migrationbench_scientific_campaign.md`
+
+## 2026-04-26 — V7 Elastic Colony Supersedes Integrated C3 as the Next Architecture Track
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `impact_score`: `9/10`
+- `confidence`: `high`
+- `scope`: `Audit current runtime rigidity and update the MigrationBench plan with dynamic ticks, elastic agents, progressive decomposition, and visible specialization`
+
+### Outcome
+The current runtime already has useful seeds for adaptation, including dynamic idle extension, emergence metrics, feedback-loop adjustments, and per-agent affinity profiles. However, ticks still depend on a fixed `max_ticks` hard loop, agents are created once from fixed `agents.num_agents`, and decomposition remains bounded by a static `max_depth`. The plan now freezes integrated C3 as the primary architecture path and introduces `V7 Elastic Colony` as the next mechanism track, with isolated ablations for dynamic ticks, elastic agent pools, progressive atomic decomposition, and visible specialization before any full combination or reintroduction of skills/protocol/compiler mechanisms.
+
+### Reusable Patterns (1-3)
+1. Keep hard runtime caps as safety guards, but evaluate agent systems through adaptive budget policies that can explain why they continued or stopped.
+2. Treat population size as an experimental mechanism, not a constant, when the task graph exposes variable parallelism.
+3. Avoid full-stack mechanism bundles after a failed integration; rebuild through isolated ablations that each change one control surface.
+
+### Evidence
+- `core/orchestrator.py`
+- `core/agent.py`
+- `tools/decompose.py`
+- `documentation/redisgn_v2/plan_migrationbench_scientific_campaign.md`
+
+## 2026-04-27 — Publish Deep Research Brief for GitHub-Connected ChatGPT
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `impact_score`: `8/10`
+- `confidence`: `high`
+- `scope`: `Prepare and publish a documentation-only research packet so an external GitHub-connected ChatGPT Deep Research run can inspect the right repository context`
+
+### Outcome
+A dedicated Deep Research brief was added and pushed with the MigrationBench scientific plan on branch `codex/t0-travelplanner-multi-city`. The commit intentionally stages only the two documentation files needed for external review, leaving the dirty local implementation worktree untouched. The brief tells the external agent which files to inspect, what architectural failures to critique, and what deliverables to produce for improving the V7 Elastic Colony and MigrationBench evaluation plan.
+
+### Reusable Patterns (1-3)
+1. For external AI research with repository access, publish a small documentation-only context packet instead of asking the agent to infer priorities from a large dirty worktree.
+2. Include branch name and ordered file-reading instructions so GitHub-connected tools do not accidentally inspect stale default-branch context.
+3. Stage only the minimal research files when pushing context from a dirty experimental branch.
+
+### Evidence
+- `documentation/redisgn_v2/deep_research_brief_for_chatgpt.md`
+- `documentation/redisgn_v2/plan_migrationbench_scientific_campaign.md`
+- Git commit `1bb2447`
+
+## 2026-04-27 — Integrate External Deep Research Into MigrationBench Plan
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `impact_score`: `9/10`
+- `confidence`: `high`
+- `scope`: `Read the downloaded Deep Research report and turn its critical recommendations into concrete MigrationBench/V7 roadmap constraints`
+
+### Outcome
+The external report confirmed the MigrationBench and V7 direction but tightened the proof standard. The plan now states that MigrationBench supports a code-migration claim, not universal agentic superiority; V6 static migration must come before V7; `agentless_self_debug` is mandatory; cross-run adaptation is forbidden on the main evaluation split; `compute_protocol_score` is demoted to telemetry; and elastic agents require hysteresis/cooldown before any full V7 combination. A separate integration note captures the adopted decisions and action items.
+
+### Reusable Patterns (1-3)
+1. Treat external AI research as a decision-hardening pass: integrate only recommendations that change gates, claims, metrics, or implementation order.
+2. Distinguish benchmark-specific claims from general framework claims to avoid overextending external validity.
+3. Demote opaque scalar self-optimization scores to telemetry unless they are validated against external outcomes and disjoint splits.
+
+### Evidence
+- `/Users/lotfi/Downloads/deep-research-report.md`
+- `documentation/redisgn_v2/deep_research_report_integration.md`
+- `documentation/redisgn_v2/plan_migrationbench_scientific_campaign.md`
+
+## 2026-04-27 — Interpret From-Scratch Architecture Critique
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `impact_score`: `8/10`
+- `confidence`: `high`
+- `scope`: `Read the second Deep Research report asking what should be redesigned from scratch and extract the architectural implication`
+
+### Outcome
+The second report reframes the project from an agent-first architecture to a benchmark-first, evaluator-first, patch-first system. It does not reject stigmergy or V7, but argues that the scientific core should be a strict campaign/evaluator harness with strong baselines before adaptive colony mechanisms. The key architectural takeaway is to separate domain adapter, colony controller, official evaluator, artifact store, and offline knowledge plane so skills/protocol/compiler cannot silently contaminate the evaluation path.
+
+### Reusable Patterns (1-3)
+1. For scientific agent frameworks, build the evaluator and artifact contract before adding adaptive intelligence.
+2. Treat cross-run learning as an offline knowledge plane with explicit train/eval split boundaries, not as implicit runtime mutation.
+3. Make new runtime mechanisms ablation-native from the start, so every adaptive control surface can be tested alone.
+
+### Evidence
+- `/Users/lotfi/Downloads/deep-research-report (2).md`
+- `documentation/redisgn_v2/plan_migrationbench_scientific_campaign.md`
+
+## 2026-04-27 — Create MigrationBench Implementation Handoff
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `impact_score`: `9/10`
+- `confidence`: `high`
+- `scope`: `Update the master plan with evaluator-first architecture guidance and create a short implementation handoff for another agent`
+
+### Outcome
+The master plan now includes a "from scratch" evaluator-first, patch-first section that separates campaign runner, instance registry, domain adapter, sandbox, colony controller, scheduler, official evaluator, artifact store, offline analysis, and knowledge plane responsibilities. A concise implementation handoff was added so another agent can begin with MigrationBench preflight, adapter scaffolding, mandatory baselines, strict output contracts, and static V6 guardrails before attempting V7 or C3 mechanisms.
+
+### Reusable Patterns (1-3)
+1. Pair long scientific plans with a shorter implementation handoff so execution agents can act without losing the research constraints.
+2. Encode "do not do yet" items alongside "files to create" to prevent premature full-architecture implementation.
+3. Make the first implementation definition of done about valid artifacts and evaluator integration, not performance wins.
+
+### Evidence
+- `documentation/redisgn_v2/plan_migrationbench_scientific_campaign.md`
+- `documentation/redisgn_v2/migrationbench_implementation_handoff.md`
+
+## 2026-04-27 — Harden MigrationBench Main30 Plan Before Implementation
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `impact_score`: `10/10`
+- `confidence`: `high`
+- `scope`: `Incorporate critical agent feedback before attempting a two-day MigrationBench main_30 campaign`
+
+### Outcome
+The MigrationBench plan and implementation handoff now switch the primary model to DeepSeek direct API `deepseek-v4-flash`, add a power-analysis warning that `main_30` is directional rather than proof of small effects, require official MigrationBench/JavaMigration preflight before adapter work, prioritize official SD-Feedback over a naive local agentless reimplementation, standardize `repo_url`, require clean workspace isolation and patch reapplication checks, forbid raw LLM-generated unified diffs, make the aggregator manifest-driven, and clarify that `stigmergic_v6_static` still means marker-store + dependency frontier + local sensing + pressure/ACO scheduling without C3/V7 mechanisms.
+
+### Reusable Patterns (1-3)
+1. Treat small benchmark campaigns as directional evidence unless power/discordance supports stronger claims.
+2. Prefer running the official reference baseline before implementing a lookalike baseline that could become a strawman.
+3. For patch benchmarks, let the harness compute diffs from concrete edits and verify them on a clean checkout before official evaluation.
+
+### Evidence
+- `documentation/redisgn_v2/plan_migrationbench_scientific_campaign.md`
+- `documentation/redisgn_v2/migrationbench_implementation_handoff.md`
+- DeepSeek pricing/model docs
+- `amazon-science/JavaMigration`
+
+## 2026-04-28 — Review AI Learning CFP Draft
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `impact_score`: `5/10`
+- `confidence`: `high`
+- `scope`: `Assess documentation/cfp_ailearning2026 submission draft, EasyChair checklist, and bibliography without editing the submission text`
+
+### Outcome
+The CFP package is submission-ready in structure and well aligned with the AI&Learning2026 axis on organizational learning, exploration, exploitation, and hybridization. The main remaining risk is rhetorical overclaiming: phrases such as "inédit", "ne peut être résolue que", and broad AI Act alignment should be softened so the conceptual contribution stays credible and defensible.
+
+### Reusable Patterns (1-3)
+1. In short CFP submissions, prefer one sharp conceptual contribution over many adjacent theoretical mappings.
+2. Keep legal/governance references conditional when the artifact is not explicitly framed as a high-risk AI system.
+3. Replace novelty-heavy wording with contribution-specific wording when the paper is conceptual and pre-empirical.
+
+### Evidence
+- `documentation/cfp_ailearning2026/abstract_etendu.md`
+- `documentation/cfp_ailearning2026/submission_easychair.md`
+- `documentation/cfp_ailearning2026/references.bib`
+
+## 2026-04-27 — Frame CFP Submission Around Stigmergic Organizational Learning
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `impact_score`: `6/10`
+- `confidence`: `high`
+- `scope`: `Develop a submission angle for AI&Learning2026 around persistent markers as a hybrid organizational learning medium`
+
+### Outcome
+The strongest framing is to present persistent stigmergic markers as an externalized collective memory for AI-agent organizations. The angle maps directly to the CFP theme on organizational learning with AI, exploration, exploitation, and hybridization, while also connecting to epistemic legitimacy, human-AI responsibility, and governance.
+
+### Reusable Patterns (1-3)
+1. For management-oriented CFPs, translate system mechanisms into organizational learning constructs before presenting technical details.
+2. Use Yan et al. (2026) as the bridge from exploration/exploitation tensions to hybrid human-AI learning governance.
+3. Frame markers as traceable learning artifacts with lifecycle controls: deposition, reinforcement, decay, inhibition, audit, and human oversight.
+
+### Evidence
+- `/Users/lotfi/Downloads/CFP_IA & Learning.pdf`
+- `https://easychair.org/cfp/AI-Learning-2026`
+- `https://doi.org/10.1016/j.ijinfomgt.2025.102997`
+
+## 2026-04-27 — Verify And Patch MigrationBench Guardrail Feedback
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `impact_score`: `9/10`
+- `confidence`: `high`
+- `scope`: `Verify external agent feedback about runaway instance limits, edit schema ambiguity, SD-Feedback fallback criteria, stale plan fragments, and DeepSeek client readiness`
+
+### Outcome
+The feedback was mostly correct. The plan still contained stale `github_url`, Gemma/OpenRouter, and `v6_clean` fragments; the handoff lacked deterministic per-instance kill switches, a concrete typed edit schema, and a timebox for official SD-Feedback. The local DeepSeek client also lacked `deepseek-v4-flash` pricing and did not translate `reasoning.mode: non-thinking` into DeepSeek's official thinking toggle. The docs and client were updated, and targeted LLM client tests passed.
+
+### Reusable Patterns (1-3)
+1. Pair "max model tokens" with deterministic per-instance campaign limits so high-capability models cannot create runaway repair loops.
+2. Standardize edit primitives across all LLM arms before benchmarking; otherwise patch validity becomes a hidden treatment variable.
+3. Verify provider-specific reasoning controls in the actual client code, not just in YAML plans.
+
+### Evidence
+- `documentation/redisgn_v2/plan_migrationbench_scientific_campaign.md`
+- `documentation/redisgn_v2/migrationbench_implementation_handoff.md`
+- `llm/client.py`
+- `tests/unit/test_llm_client_deepseek.py`
+- DeepSeek official pricing and thinking-mode docs
+
+## 2026-04-27 — Relax Main30 Hard Caps To Monitor-Only
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `impact_score`: `7/10`
+- `confidence`: `high`
+- `scope`: `Adjust MigrationBench main_30 controls after deciding not to cap high-budget DeepSeek runs per instance`
+
+### Outcome
+The MigrationBench handoff and master plan no longer require hard per-instance caps for tokens, runtime, LLM calls, or repair cycles during `main_30`. They now specify `monitor_only` execution with manual abort support and mandatory telemetry for tokens, cost, runtime, calls, repair cycles, last progress time, and abort reason. This preserves room for stigmergic repair behavior while keeping the results auditable.
+
+### Reusable Patterns (1-3)
+1. When deliberately removing campaign hard caps, replace them with explicit monitor-only semantics rather than silence.
+2. Manual aborts must remain full-denominator failures unless rerun cleanly from checkpoint.
+3. High-token stigmergic runs should be judged with cost/runtime Pareto metrics instead of being preemptively capped.
+
+### Evidence
+- `documentation/redisgn_v2/plan_migrationbench_scientific_campaign.md`
+- `documentation/redisgn_v2/migrationbench_implementation_handoff.md`
+
+## 2026-04-27 — Implement MigrationBench Patch-First Harness
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `impact_score`: `10/10`
+- `confidence`: `high`
+- `scope`: `Create the first executable MigrationBench evaluation track from the implementation handoff`
+
+### Outcome
+The repository now has a MigrationBench adapter package with typed benchmark instances, typed edit primitives, clean workspace checkout, harness-computed patches, patch reapplication verification on a second checkout, an official MigrationBench evaluator wrapper, deterministic and LLM baselines, a V6 static stigmergic adapter path, official preflight tooling, manifest-driven runners, manifest-driven aggregation, DeepSeek V4 Flash config, registered official selected subsets, Docker services with Java 17/Maven support, and targeted tests for patch validity, empty-patch failure, denominator preservation, and query export behavior.
+
+### Reusable Patterns (1-3)
+1. For execution-based patch benchmarks, implement workspace isolation and patch applicability before optimizing prompts or runtime behavior.
+2. Keep official preflight separate from adapter scoring so setup mortality is measured before framework claims.
+3. Make every framework arm emit one shared output contract so aggregators can synthesize missing rows without framework-specific exceptions.
+
+### Evidence
+- `adapters/migrationbench/`
+- `scripts/run_migrationbench_official_preflight.py`
+- `scripts/run_migrationbench_query_export.py`
+- `scripts/run_migrationbench_framework_benchmark.py`
+- `scripts/aggregate_migrationbench_comparison.py`
+- `fixtures/migrationbench/subsets/main_30.jsonl`
+- `Dockerfile`
+- `docker-compose.campaign.yml`
+- `tests/unit/test_migrationbench_workspace.py`
+- `tests/integration/test_migrationbench_toy_repo.py`
+
+## 2026-04-28 — Fix MigrationBench Compose Preflight Invocation
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `impact_score`: `7/10`
+- `confidence`: `high`
+- `scope`: `Repair Docker Compose command wiring for MigrationBench preflight and campaign services`
+
+### Outcome
+The MigrationBench preflight service no longer drops script arguments at startup. The Compose services now use exec-form `bash` commands with literal command blocks, escaped container-side environment variables, and explicit `/opt/venv/bin/python` calls so login-shell PATH resets cannot bypass installed dependencies.
+
+### Reusable Patterns (1-3)
+1. For Docker Compose campaign services, avoid folded shell commands when passing multi-line Python arguments.
+2. Escape container-side environment variables with `$$` in Compose command blocks.
+3. Validate command wiring with a zero-limit smoke before launching a benchmark preflight or campaign.
+
+### Evidence
+- `docker-compose.campaign.yml`
+- `PREFLIGHT_LIMIT=0 docker compose -f docker-compose.campaign.yml up --force-recreate migrationbench-preflight`
+
+## 2026-04-28 — Fix MigrationBench Official Evaluator Preflight Environment
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `impact_score`: `8/10`
+- `confidence`: `high`
+- `scope`: `Make MigrationBench official evaluator execution scientifically interpretable in Docker preflight`
+
+### Outcome
+The official MigrationBench evaluator now receives its package path through `PYTHONPATH`, the Docker image includes the evaluator's missing Python dependencies, and the preflight summary separates evaluator process health from expected unmigrated-base success. A one-instance Docker smoke now reports `official_eval_process_ok=1`, `failure_reasons.ok=1`, and `setup_failure_rate=0.0`.
+
+### Reusable Patterns (1-3)
+1. Distinguish evaluator execution health from benchmark task success in preflight summaries.
+2. Install official benchmark dependencies explicitly instead of assuming the project requirements cover them.
+3. Treat unmigrated baseline failure as diagnostic when the final benchmark contract expects a migrated artifact.
+
+### Evidence
+- `scripts/run_migrationbench_official_preflight.py`
+- `adapters/migrationbench/evaluator.py`
+- `adapters/migrationbench/workspace.py`
+- `requirements.txt`
+- `PREFLIGHT_LIMIT=1 docker compose -f docker-compose.campaign.yml up --force-recreate migrationbench-preflight`
+
+## 2026-04-28 — Validate MigrationBench Docker Smoke Path
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `impact_score`: `8/10`
+- `confidence`: `high`
+- `scope`: `Run deterministic and LLM smoke checks for MigrationBench campaign services after Docker bind-mount failure`
+
+### Outcome
+The MigrationBench campaign service no longer bind-mounts repository source/config folders from macOS, avoiding `Errno 35 Resource deadlock avoided` when reading YAML inside Docker. Smoke runs passed for `no_change` and `dependency_only_script` on `smoke_5`, and for `solo_direct` plus `stigmergic_v6_static` on `smoke_1`. The LLM arms delivered patches, verified patch applicability, recorded token/cost telemetry, and invoked official evaluation.
+
+### Reusable Patterns (1-3)
+1. For Docker Desktop campaign runs, prefer immutable code copied into the image over source/config bind mounts when filesystem locking errors appear.
+2. Use a `smoke_1` subset for LLM and stigmergic path validation before running expensive multi-framework subsets.
+3. Validate pipeline health with delivery, patch applicability, official evaluator invocation, and telemetry capture before interpreting success rates.
+
+### Evidence
+- `docker-compose.campaign.yml`
+- `fixtures/migrationbench/subsets/smoke_1.jsonl`
+- `campaign_results/migrationbench/main/no_change/benchmark_summary.json`
+- `campaign_results/migrationbench/main/dependency_only_script/benchmark_summary.json`
+- `campaign_results/migrationbench/main/solo_direct/benchmark_summary.json`
+- `campaign_results/migrationbench/main/stigmergic_v6_static/benchmark_summary.json`
+
+## 2026-04-29 — Force Clean MigrationBench Workspaces For Docker Campaigns
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `impact_score`: `9/10`
+- `confidence`: `high`
+- `scope`: `Prevent stale workspace contamination in MigrationBench Docker campaigns`
+
+### Outcome
+The first `main_30_clean` launch showed a contaminated `no_change` summary: all rows failed as `empty_patch`, but one row still reported an artifact, indicating a dirty pre-existing workspace. The campaign was stopped, `MIGRATION_FORCE=true` was added as the Docker default, and a clean `no_change` smoke now reports `artifact_delivery_rate=0.0` and `empty_patch=1/1` as expected.
+
+### Reusable Patterns (1-3)
+1. Treat any `no_change` artifact delivery as a hard contamination signal in patch benchmarks.
+2. Force-clean workspaces for publication-grade campaign launches unless explicitly resuming a known-clean checkpoint.
+3. Keep aborted contaminated result folders separate from clean reruns rather than aggregating them.
+
+### Evidence
+- `docker-compose.campaign.yml`
+- `campaign_results/migrationbench/main_30_clean/no_change/benchmark_summary.json`
+- `campaign_results/migrationbench/smoke_force_check/no_change/benchmark_summary.json`
+
+## 2026-04-29 — Make MigrationBench No-Change Baseline Explicitly Empty
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `impact_score`: `9/10`
+- `confidence`: `high`
+- `scope`: `Fix no-change baseline artifact delivery semantics for MigrationBench main_30`
+
+### Outcome
+The `no_change` baseline no longer exports `git diff` from a checkout, because one repository produced a parasite diff despite no intended migration. It now writes an explicit empty `patch.diff` and constructs `PatchStats(patch_delivered=False)`. Smoke validation on the offending PacktPublishing instance and on all `main_30` instances now reports `artifact_delivery_rate=0.0` with `empty_patch` for every row.
+
+### Reusable Patterns (1-3)
+1. A no-op baseline should emit an explicit no-op artifact rather than inferring no-op status from workspace diff state.
+2. Validate no-op baselines on the full denominator before using them as scientific controls.
+3. If failure reason and artifact metrics disagree, stop the campaign and fix the output contract before interpreting any downstream arm.
+
+### Evidence
+- `adapters/migrationbench/scientific_baselines.py`
+- `fixtures/migrationbench/subsets/smoke_packt.jsonl`
+- `campaign_results/migrationbench/smoke_nochange_packt_fix/no_change/benchmark_summary.json`
+- `campaign_results/migrationbench/smoke_nochange_main30_fix/no_change/benchmark_summary.json`
+
+## 2026-04-29 — Add MigrationBench Per-Instance Timeout Guard
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `impact_score`: `9/10`
+- `confidence`: `high`
+- `scope`: `Stop a stalled MigrationBench solo_direct run and add robust per-instance timeout controls`
+
+### Outcome
+The `main_30_clean_v3` campaign was stopped after `solo_direct` stalled for more than 50 minutes on one instance with no CPU/network activity and no per-instance timeout active. The campaign runner now accepts and forwards `--query-timeout-seconds`, Docker exposes `MIGRATION_QUERY_TIMEOUT_SECONDS`, the framework runner kills the exporter process group on timeout, and manifests record the effective timeout. A forced `1s` Docker smoke produced `timeout_after_1s`, and a normal `1800s` smoke completed with patch delivery/applicability intact.
+
+### Reusable Patterns (1-3)
+1. Per-instance timeouts must be wired from Compose to campaign runner to framework runner, not just declared in YAML.
+2. Timeout handling should kill the whole process group so Maven/official-eval children cannot leak.
+3. Choose timeout values from observed benchmark runtimes; a 300s hard cap is too low when legitimate official evals already exceed 600s.
+
+### Evidence
+- `scripts/run_migrationbench_campaign.py`
+- `scripts/run_migrationbench_framework_benchmark.py`
+- `config/migrationbench_v6_static_deepseek.yaml`
+- `docker-compose.campaign.yml`
+- `campaign_results/migrationbench/main_30_clean_v3/`
+- `campaign_results/migrationbench/smoke_timeout_1s/solo_direct/benchmark_summary.json`
+- `campaign_results/migrationbench/smoke_timeout_normal/solo_direct/benchmark_summary.json`
+
+## 2026-04-29 — Fix MigrationBench Stigmergic Final Contract Selection
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `impact_score`: `9/10`
+- `confidence`: `high`
+- `scope`: `Audit completed main_30_clean_v4 results and repair stigmergic result extraction`
+
+### Outcome
+The completed `main_30_clean_v4` campaign produced valid baseline summaries, but the `stigmergic_v6_static` aggregate was invalid because one instance exported a lesson marker instead of the benchmark final contract. The adapter now requires the final marker to be a `task` marker with `strict_success` in its payload, preventing lesson markers whose IDs also end in `::finalize_patch` from being selected as final results.
+
+### Reusable Patterns (1-3)
+1. In marker-based runtimes, final-result extraction must filter by marker type and required contract keys, not only by ID suffix.
+2. Treat `recorded_rows > requested_instances` as an immediate export-contract failure.
+3. When a result file contains framework memory fields such as `lesson`, rerun that arm after fixing extraction rather than interpreting the aggregate.
+
+### Evidence
+- `adapters/migrationbench/adapter.py`
+- `tests/unit/test_migrationbench_adapter.py`
+- `campaign_results/migrationbench/main_30_clean_v4/stigmergic_v6_static/runs.json`
+- `campaign_results/migrationbench/main_30_clean_v4/stigmergic_v6_static/instances/comic__con__museum__fan__forge__backend_artifacts/markers.db`
+
+## 2026-04-29 — Rebuild MigrationBench Image Without Cache
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `impact_score`: `7/10`
+- `confidence`: `high`
+- `scope`: `Clear MigrationBench scratch/cache state and relaunch stigmergic rerun from a no-cache Docker image`
+
+### Outcome
+The MigrationBench workspace scratch directory had grown to about 11GB and Docker build cache contained more than 14GB of reclaimable data. The scratch workspace was cleared, Docker build cache was pruned, Python `__pycache__` files in source/runtime folders were removed, `.dockerignore` now excludes `external/` and `workspaces/`, and the `migrationbench-campaign` image was rebuilt with `--no-cache` from a 1.4MB minimal temporary context after Docker Desktop stalled on the full repository context. The corrected `stigmergic_v6_static` rerun was launched in `campaign_results/main_30_stigmergic_fixed_nocache`.
+
+### Reusable Patterns (1-3)
+1. Benchmark scratch workspaces should be treated as disposable cache and cleared before reruns that investigate contamination or extraction bugs.
+2. Docker image build contexts should exclude mounted benchmark directories such as `workspaces/` and `external/`.
+3. If Docker Desktop stalls while loading a repository context, build from a minimal temporary context containing only runtime code, configs, scripts, and fixtures.
+
+### Evidence
+- `.dockerignore`
+- `workspaces/migrationbench`
+- `docker image inspect stigmergiagentic-migrationbench-campaign:latest`
+- `campaign_results/migrationbench/main_30_stigmergic_fixed_nocache/stigmergic_v6_static/campaign_manifest.json`
+
+## 2026-04-29 — Triage No-Cache MigrationBench Stigmergic Rerun
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `impact_score`: `8/10`
+- `confidence`: `high`
+- `scope`: `Check completion and scientific validity of the no-cache stigmergic_v6_static rerun`
+
+### Outcome
+The no-cache `stigmergic_v6_static` rerun completed with Docker exit code 0 and a valid denominator: 30 requested instances and 30 recorded rows. The run delivered patches for 29/30 instances and 27/30 patches applied on clean checkout, but strict success was 0/30 because all official evaluations failed or pre-evaluation patch checks failed. This is a valid negative result for the arm, not a cache or export-contract failure.
+
+### Reusable Patterns (1-3)
+1. Separate execution validity from benchmark success: exit code 0 and full denominator only prove the campaign ran cleanly.
+2. For patch benchmarks, inspect delivered, patch-applies, official-success, and strict-success as distinct funnel stages.
+3. Treat `official_eval_failed` with `official_eval_returncode=0` as a benchmark failure signal, not a harness crash.
+
+### Evidence
+- `campaign_results/migrationbench/main_30_stigmergic_fixed_nocache/stigmergic_v6_static/benchmark_summary.json`
+- `campaign_results/migrationbench/main_30_stigmergic_fixed_nocache/stigmergic_v6_static/runs.json`
+- `campaign_results/migrationbench/main_30_stigmergic_fixed_nocache/stigmergic_v6_static/official_eval.json`
+
+## 2026-04-30 — Diagnose MigrationBench V6 Static Zero Success
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `impact_score`: `9/10`
+- `confidence`: `high`
+- `scope`: `Explain why the no-cache stigmergic_v6_static run delivered patches but achieved 0/30 strict success`
+
+### Outcome
+The run failure is not a cache or denominator issue. The V6 static MigrationBench adapter mostly emits tiny POM-oriented patches, often 1-3 changed lines, then runs build and final evaluation without feeding build failures back into a repair loop. The final marker depends on `propose_patch`, not `run_build`, so build feedback is telemetry rather than a decision input. Several patches are semantically broken, such as property renames without updating all references, while others apply but fail official build/test/class-version criteria.
+
+### Reusable Patterns (1-3)
+1. Repository migration agents need a closed repair loop: propose patch, run official-like build/test, classify failure, revise patch, then finalize.
+2. Build markers that no downstream marker depends on are telemetry, not control flow.
+3. High patch delivery/applicability with zero official success indicates shallow edit quality, not necessarily execution infrastructure failure.
+
+### Evidence
+- `adapters/migrationbench/adapter.py`
+- `adapters/migrationbench/tools.py`
+- `campaign_results/migrationbench/main_30_stigmergic_fixed_nocache/stigmergic_v6_static/instances/realjeeshop__jeeshop_artifacts/artifacts/patch.diff`
+- `campaign_results/migrationbench/main_30_stigmergic_fixed_nocache/stigmergic_v6_static/instances/realjeeshop__jeeshop_artifacts/artifacts/official/official_eval.log`
+
+## 2026-04-30 — Implement MigrationBench V7 Repair Colony
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `impact_score`: `9/10`
+- `confidence`: `high`
+- `scope`: `Add a MigrationBench-first V7 adaptive repair-colony arm`
+
+### Outcome
+Implemented `stigmergic_v7_repair_colony` as an opt-in MigrationBench arm with branch-isolated patch hypotheses, build-failure classification, repair-marker deposition, official-eval repair feedback, elastic agent-pool resizing, high-cap telemetry, and V7 summary metrics. The new flow no longer finalizes directly from patch proposal; finalization requires a selected evaluated branch and can feed repair markers when the patch or official evaluator fails.
+
+### Reusable Patterns (1-3)
+1. Closed-loop benchmark agents should encode external failures as typed repair markers rather than terminal telemetry.
+2. Patch-candidate branches let a stigmergic runtime explore and repair alternatives while preserving a clean base checkout.
+3. Skip-official-eval smoke mode must not be treated as a repairable official failure.
+
+### Evidence
+- `config/migrationbench_v7_repair_colony_deepseek.yaml`
+- `adapters/migrationbench/tools.py`
+- `core/orchestrator.py`
+- `tests/unit/test_migrationbench_v7_repair_colony.py`
+
+## 2026-05-04 — Harden V10 BranchingRepair A3 With Dedup, Repeat-Failure Suppression, And An Explainable Selector
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `impact_score`: `8/10`
+- `confidence`: `high`
+- `scope`: `Phase 5 V10 deliverables on top of Phase 4 MigrationBench harness`
+
+### Outcome
+`core_v10/strategy_runner.py` now owns a `_SignatureTracker` (sha256 of canonicalized `kind+payload`), emits `candidate.deduped` / `candidate.repeat_failure_suppressed` / `selection.completed` events, and returns a `SelectionRationale` (selected id, reason, score, ranked competitors). `scripts/bench/telemetry.py` exposes `dedup_skipped_total`, `repeat_failure_suppressed_total`, and per-instance `selection_rationale`, all reconstructible from the EventLog so the live==replay invariant survives. New `scripts/bench/compare_strategies.py` runs A1/A2/A3 ablations on the same JSONL subset and writes `comparison.json`. Suite V10: 136 passed (+10 new tests).
+
+### Reusable Patterns (1-3)
+1. Put auditability primitives (signature dedup, repeated-failure suppression, selection rationale) in the strategy runner — every adapter inherits them for free and the EventLog stays the single source of truth.
+2. When a summary gains new fields, reconstruct them from raw events as a fallback so legacy campaign trees written before the change keep replaying with `live==replay` parity.
+3. An ablation harness should be parametric over `(strategy_name, max_candidates, max_repair_rounds, max_repairs_per_candidate)` rather than hard-coded — this lets future arms (e.g. typed_blackboard, verifier_guided_search) plug in without changing the comparison script.
+
+### Evidence
+- `core_v10/strategy_runner.py`
+- `scripts/bench/telemetry.py`
+- `scripts/bench/compare_strategies.py`
+- `tests/unit/v10/test_strategy_runner_phase5.py`
+- `tests/unit/v10/bench/test_compare_strategies.py`
+- `documentation/decisions/20260504-phase5-a3-branching-repair.md`
+- `documentation/redisgn_v2/phase_05_artifact.md`
+
+## 2026-05-04 — Diagnose V10 A1/A2/A3 main_30 Ablation Non-Interpretability
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `impact_score`: `9/10`
+- `confidence`: `high`
+- `scope`: `Interpret the completed Docker A1/A2/A3 MigrationBench main_30 campaign and identify why it cannot yet evaluate the framework contribution.`
+
+### Outcome
+The A1/A2/A3 `main_30` campaign validated Docker execution, EventLog replay parity, and Phase 5 telemetry plumbing, but it did not validate the framework contribution. A2 and A3 used the same deterministic single-candidate POM provider as A1 and the repair provider returned no candidates, so A3 never branched and A2 never repaired. The identical results (`0/30` strict success, `5` no-candidate, `23` invalid/repair-exhausted, `2` local-pass but official-fail) are therefore an activation failure of the treatment, not evidence that branching repair is ineffective. The local verifier also over-aborts on `dependency:resolve` compared with MigrationBench's official evaluator behavior, and the official evaluator can reject locally green patches when its stdout-based test-count check returns `-2`.
+
+### Reusable Patterns (1-3)
+1. **Ablation arms must emit mechanism-activation evidence before their scores are interpreted**: for branching repair, require multiple candidates or repair candidates, not just `max_candidates > 1` in config.
+2. **Separate harness validity from treatment validity**: `exit 0`, full denominator, and live==replay prove execution integrity, not scientific comparability.
+3. **Mirror official evaluator semantics before optimizing agents**: local verifier gates must not create false negatives that the official benchmark would evaluate differently.
+
+### Evidence
+- `campaign_results/v10/ablation_main30/comparison.json`
+- `scripts/bench/providers.py`
+- `scripts/bench/compare_strategies.py`
+- `adapters_v10/migrationbench/verifier.py`
+- `external/MigrationBench/src/migration_bench/eval/final_eval.py`

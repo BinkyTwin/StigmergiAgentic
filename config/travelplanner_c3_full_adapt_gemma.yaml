@@ -1,0 +1,82 @@
+# Refactored full C3 adaptation preset — Gemma, train split.
+framework:
+  mode: "travelplanner_adapt"
+
+travelplanner:
+  dataset_split: "train"
+
+skill_library:
+  enabled: true
+  read_only: false
+  db_path: "pheromones/skills.db"
+
+protocol:
+  enabled: true
+  read_only: false
+  db_path: "pheromones/protocols.db"
+  namespace: "travelplanner_c3_gemma_seed42_v1"
+
+emergence:
+  feedback_loop:
+    enabled: true
+    interval_ticks: 5
+    max_adaptation_delta: 0.2
+  cross_run:
+    enabled: true
+    read_only: false
+    max_total_delta: 0.15
+
+reinforcement:
+  promotion_min_uses: 1
+  frequentation:
+    enabled: true
+    read_boost: 0.01
+    completion_boost: 0.05
+    max_boost_per_tick: 0.1
+    diminishing_factor: 0.5
+
+agents:
+  num_agents: 6
+  local_sensing:
+    enabled: true
+    intensity_threshold: 0.0
+    type_affinity_weight: 0.4
+    semantic_affinity_weight: 0.3
+    recency_weight: 0.3
+    max_candidates: 0
+    affinity_exploration_rate: 0.2
+  protocol_compiler:
+    enabled: true
+
+orchestrator:
+  max_ticks: 80
+  idle_cycles_to_stop: 16
+  emergent_resolution:
+    enabled: true
+    base_probability: 0.1
+  recovery_controller:
+    enabled: true
+    stagnation_ticks: 5
+    contention_threshold: 0.6
+    recovery_cooldown_ticks: 8
+    temperature_boost: 0.1
+    temperature_boost_duration: 3
+    inhibition_relief: 0.2
+    dynamic_idle:
+      enabled: true
+      node_per_idle_cycle: 6
+      max_extra_idle_cycles: 8
+  targeted_repair:
+    enabled: true
+    max_cycles: 2
+    repair_marker_intensity: 0.95
+
+markers:
+  time_decay:
+    enabled: true
+    decay_period_seconds: 60.0
+
+llm:
+  provider: "openrouter"
+  model: "google/gemma-4-31b-it"
+  max_response_tokens: 2048

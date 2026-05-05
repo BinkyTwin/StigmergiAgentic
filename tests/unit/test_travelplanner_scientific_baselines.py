@@ -175,6 +175,7 @@ def test_scientific_baselines_export_contracts(tmp_path: Path, config_dict: dict
         ("cot", "solo_cot"),
         ("self_refine", "solo_self_refine"),
         ("planner_executor", "planner_executor"),
+        ("metagpt_sequential", "metagpt_sequential"),
     ]:
         config, workspace, objective = _build_runtime(tmp_path / mode, config_dict)
         runner = TravelPlannerScientificBaselineRunner(

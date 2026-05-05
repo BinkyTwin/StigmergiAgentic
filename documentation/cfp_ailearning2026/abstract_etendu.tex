@@ -1,0 +1,163 @@
+\documentclass[12pt,a4paper]{article}
+
+% ---------- Encodage et langue ----------
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[french]{babel}
+\usepackage{mathptmx} % Times New Roman pour le texte et les maths
+\usepackage{microtype}
+
+% ---------- Mise en page ----------
+\usepackage[margin=2.5cm]{geometry}
+\usepackage{setspace}
+\onehalfspacing
+\usepackage{parskip}
+\setlength{\parindent}{0pt}
+
+% ---------- Typographie et tableaux ----------
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{array}
+\usepackage{ragged2e}
+\newcolumntype{L}[1]{>{\RaggedRight\arraybackslash}p{#1}}
+
+% ---------- Liens ----------
+\usepackage[hidelinks]{hyperref}
+
+% ---------- Méta ----------
+\title{\textbf{Apprendre par traces : la stigmergie agentique\\
+comme médium d'apprentissage organisationnel hybride}}
+
+\author{Abdelatif Djeddou\\
+\small École de Management Léonard de Vinci\\
+\small \texttt{abdelatif.djeddou@edu.devinci.fr}}
+
+\date{Avril 2026}
+
+\begin{document}
+
+\maketitle
+
+\begin{flushleft}
+Learning in the Age of AI: Epistemic Practices, Evaluation and Governance \fg{}, DVRC De Vinci Higher Education \& CEROS Université Paris Nanterre.\\[0.3em]
+\textbf{Mots-clés :} apprentissage organisationnel, stigmergie, systèmes multi-agents, IA générative, exploration/exploitation, gouvernance par traces, hybridation humain-IA.
+\end{flushleft}
+
+\hrulefill
+
+\section{Introduction et question de recherche}
+
+L'essor des systèmes d'IA à base d'agents, capables de planifier, de coordonner et d'exécuter des tâches au nom d'organisations entières, déplace la question managériale de l'adoption vers la reconfiguration des pratiques épistémiques : comment, désormais, une organisation apprend-elle lorsque ses agents apprenants ne sont plus seulement humains ? Le présent résumé prend au sérieux l'invitation de Yan, Husted et Fath (2026) à analyser l'apprentissage organisationnel avec l'IA non comme une substitution, mais comme une hybridation entre apprentissage exploratoire et apprentissage exploitatif. Il propose pour cela un cadre conceptuel encore peu exploré : la stigmergie agentique comprise comme médium d'apprentissage hybride.
+
+Notre question de recherche est la suivante : \textit{à quelles conditions la matérialisation de l'apprentissage collectif des agents IA dans des traces persistantes peut-elle constituer un médium organisationnel évaluable et gouvernable, plutôt qu'une boîte noire de coordination automatisée ?} Nous y répondons par une contribution théorique adossée à un dispositif sociotechnique (un cadre multi-agents stigmergique conçu dans le cadre d'un mémoire de master) dont les mécanismes opérationnels servent ici de support à une traduction managériale. La contribution est conceptuelle : un programme empirique adossé est en cours et pourra faire l'objet de communications ultérieures.
+
+\section{Cadre théorique : stigmergie comme médium d'apprentissage}
+
+La stigmergie a d'abord été décrite par Grassé à propos des termites, puis reprise et formalisée par Theraulaz et Bonabeau (1999). L'idée est simple : les agents ne se parlent pas directement, ils modifient leur environnement, et ce sont ces modifications qui orientent les actions des autres. Pas besoin, donc, d'un planificateur central. Cette logique a été transposée en informatique avec l'optimisation par colonies de fourmis (Dorigo et Stützle, 2004), où la fameuse tension entre exploration et exploitation théorisée par March (1991) prend une forme concrète : un produit $\text{phéromone}^{\alpha} \times \text{heuristique}^{\beta}$, que chaque agent calcule localement avant d'agir.
+
+Ce qu'on propose ici, c'est de ne pas s'arrêter à la métaphore biomimétique. La stigmergie, vue comme médium sociotechnique au sens des STS, c'est avant tout un artefact matériel, la trace, qui rend l'apprentissage collectif d'agents hétérogènes lisible, mesurable, et donc finalement gouvernable. Trois lectures théoriques viennent appuyer cette idée. D'abord celle de Yan, Husted et Fath (2026), qui pointent une tension inédite entre exploration et exploitation lorsque l'IA entre dans la boucle, et qui voient l'hybridation comme la voie la plus prometteuse. Ensuite celle de Raisch et Krakowski (2021), qui décrivent un paradoxe entre automation et augmentation : déléguer aux machines libère du temps et des marges, mais ça change aussi la nature même du jugement que le manager doit exercer. Enfin, celle de Kefi et al. (2025), qui mettent en évidence l'ambivalence et la liminalité des usages d'IA, où l'utilisateur oscille en permanence entre soutien et dépendance, entre autonomie et délégation. La stigmergie agentique se situe précisément au croisement de ces trois dynamiques : elle donne corps à l'arbitrage exploration/exploitation, déplace l'augmentation managériale vers un niveau plus méta, et matérialise quelque chose de la liminalité propre à la collaboration humain-IA.
+
+\section{Huit mécanismes traduits en concepts d'apprentissage organisationnel}
+
+Le cadre que nous mobilisons (StigmergiAgentic) implémente huit mécanismes dont chacun trouve un homologue documenté dans la littérature managériale. Cette traduction conceptuelle est la principale contribution du résumé.
+
+\begin{table}[h]
+\centering
+\small
+\begin{tabularx}{\textwidth}{L{4.5cm} L{4.5cm} L{3.5cm}}
+\toprule
+\textbf{Mécanisme stigmergique} & \textbf{Concept d'apprentissage organisationnel} & \textbf{Référence} \\
+\midrule
+Markers persistants (registre transactionnel + journal d'audit append-only) & Mémoire transactive matérialisée & Walsh \& Ungson (1991) \\
+\addlinespace
+Évaporation (\textit{decay}) des traces non renforcées & Désapprentissage organisationnel intentionnel & Akgün, Lynn \& Byrne (2003) \\
+\addlinespace
+Renforcement par succès et par fréquentation & Apprentissage en simple boucle, renforcement distribué & Argyris \& Schön (1978) \\
+\addlinespace
+Codification d'un succès en \textit{leçon}, puis promotion en \textit{compétence} persistante après usages répétés & Codification SECI : externalisation puis combinaison du savoir tacite & Nonaka \& Takeuchi (1995) \\
+\addlinespace
+Compilation de protocoles et garde-fous (budget, reprise, verrous à durée limitée) & Encapsulation de routines, standardisation procédurale & Feldman \& Pentland (2003) \\
+\addlinespace
+Pressions d'action calculées localement avec arbitrage softmax & Arbitrage exploration/exploitation distribué & March (1991) ; Dorigo \& Stützle (2004) \\
+\addlinespace
+Adaptation dynamique (entropie de spécialisation, ajustement des paramètres d'exploration) & Apprentissage en double boucle & Argyris (1977) ; Argyris \& Schön (1978) \\
+\addlinespace
+Audit append-only avec attribution agent par action & Gouvernance par traçabilité, en écho aux exigences de journalisation prévues pour les systèmes à haut risque & EU AI Act (2024) \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+L'argument transversal est que la stigmergie agentique opère une traduction computationnelle de constructs classiques de l'apprentissage organisationnel : oubli intentionnel, codification du tacite, double boucle. Or ces phénomènes ont été historiquement difficiles à observer empiriquement faute d'inscription matérielle. La trace stigmergique, parce qu'elle est persistante, datée, attribuée et auditable, ouvre un terrain d'observation pour les sciences de gestion.
+
+\section{Trois scénarios d'apprentissage hybride}
+
+Pour rendre ces mécanismes lisibles, trois vignettes conceptuelles illustrent leur articulation à des situations organisationnelles concrètes.
+
+\paragraph{Vignette 1 : codification d'une routine émergente.} Un agent résout avec succès une sous-tâche atypique. La qualité du résultat dépasse un seuil et déclenche la création d'une trace typée \textit{leçon} attribuée à cet agent. Lorsque d'autres agents, dans le même run ou dans des runs ultérieurs, réutilisent cette leçon avec succès, elle est promue en \textit{compétence persistante} dans un registre transversal. Lecture managériale : la dynamique SECI de Nonaka et Takeuchi (1995), socialisation, externalisation, combinaison, peut être lue comme un protocole instrumentable, dont chaque étape produit un artefact daté.
+
+\paragraph{Vignette 2 : désapprentissage d'une heuristique obsolète.} Quand un marker n'est plus renforcé, son intensité baisse, à un rythme qu'on peut paramétrer. Les agents finissent par cesser d'y prêter attention. La routine s'efface d'elle-même, sans que personne n'ait eu à décider de l'écarter. Côté managérial, on retrouve ici le désapprentissage organisationnel décrit par Akgün, Lynn et Byrne (2003), qui n'est habituellement repéré qu'après coup. Avec ce dispositif, il devient au contraire un levier directement accessible : le manager peut régler ce qu'on pourrait appeler le \og rythme d'oubli \fg{} de son organisation hybride.
+
+\paragraph{Vignette 3 : arbitrage exploration/exploitation distribué.} Face à un objectif, chaque agent regarde ce qui l'entoure (les phéromones laissées par les autres, des heuristiques propres au contexte) et choisit son action via un mécanisme softmax dont la température fixe le degré d'exploration. La tension classique de March (1991) entre exploration et exploitation n'est donc plus un dilemme que la direction tranche en amont. Elle se rejoue à chaque action d'agent, en continu, mais reste pilotable globalement par quelques paramètres : température, taux d'évaporation, seuils de promotion.
+
+\section{Tensions, paradoxes et effets non intentionnels}
+
+Cette matérialisation soulève au moins quatre tensions, qu'il vaut mieux poser ouvertement plutôt que d'essayer de les contourner.
+
+(i) Support contre dépendance. En reprenant le schéma d'ambivalence et de liminalité décrit par Kefi et al. (2025), on voit qu'une mémoire collective d'IA libère certes les acteurs humains de certaines charges cognitives, mais qu'elle peut aussi affaiblir leurs propres capacités à explorer par eux-mêmes. Le manager se retrouve à arbitrer entre la performance à court terme et la capacité d'apprentissage humain qui, elle, se joue sur la durée.
+
+(ii) Piège de compétence computationnel. Une leçon promue trop vite en compétence, sur la base de quelques succès, peut figer une heuristique qui n'est en réalité optimale que localement, et faire passer à côté de routines plus efficaces. C'est une version informatique du \textit{competency trap} décrit par Levitt et March (1988). Les seuils de promotion ne sont donc pas que techniques : ils portent une dimension éthique non négligeable.
+
+(iii) Paradoxe d'automation déplacé. Conformément à Raisch et Krakowski (2021), plus la stigmergie automatise la coordination, plus la supervision humaine doit se déplacer vers le méta-niveau : la gouvernance ne porte plus sur les actions individuelles mais sur les paramètres qui régissent l'apprentissage collectif. L'augmentation managériale ne disparaît pas, elle change de prise.
+
+(iv) Liminalité de la trace. Les markers persistants sont des artefacts liminaires entre agentivité humaine et machinique : signés par un agent IA mais inscrits dans un registre relevant de la responsabilité humaine, ils brouillent l'attribution de l'apprentissage. Cette ambiguïté est constitutive et ne peut être résolue par fiat technique.
+
+\section{Implications pour la gouvernance et l'évaluation}
+
+Trois implications pratiques émergent. Premièrement, le médium stigmergique fournit des métriques managériales nouvelles dérivées directement des traces : entropie de spécialisation, taux de promotion leçon $\rightarrow$ compétence, ratio évaporation/renforcement, profondeur des protocoles compilés. Ces indicateurs peuvent servir à \textit{évaluer l'apprentissage organisationnel hybride lui-même}, là où les évaluations actuelles se concentrent sur la performance de tâche. Deuxièmement, la traçabilité native autorise une progression graduée \textit{human-on-the-loop} $\rightarrow$ \textit{human-in-control}, en écho aux exigences de traçabilité et de supervision humaine prévues pour les systèmes à haut risque (EU AI Act, 2024) : les humains supervisent en lisant les traces, interviennent en modifiant les paramètres, et reprennent la main lorsque les indicateurs franchissent des seuils définis. Troisièmement, le rôle managérial se déplace vers une gouvernance par configuration plutôt que par contrôle direct : régler des méta-paramètres (rythme d'oubli, seuils de promotion, budget exploratoire) constitue une nouvelle forme de management algorithmique réflexif.
+
+\section{Conclusion}
+
+Cette contribution conceptuelle propose la stigmergie agentique comme cadre intégrateur pour penser l'apprentissage organisationnel à l'ère des agents IA. Elle articule la tension exploration/exploitation (March, 1991 ; Yan et al., 2026), le paradoxe automation/augmentation (Raisch \& Krakowski, 2021) et la liminalité de la délégation (Kefi et al., 2025) au sein d'un même médium, la trace persistante, qui rend lisible, évaluable et gouvernable un apprentissage jusqu'ici implicite. Ce travail s'inscrit dans un projet plus large, mené dans le cadre d'un mémoire de master, dont les résultats relatifs à cette méthode d'orchestration et les campagnes de benchmarks sont en cours de réalisation.
+
+\hrulefill
+
+\section*{Références}
+
+\begin{small}
+\begin{flushleft}
+\setlength{\parskip}{0.4em}
+
+Akgün, A. E., Lynn, G. S., \& Byrne, J. C. (2003). Organizational Learning: A Socio-Cognitive Framework. \textit{Human Relations}, 56(7), 839--868.
+
+Argyris, C., \& Schön, D. A. (1978). \textit{Organizational Learning: A Theory of Action Perspective}. Addison-Wesley.
+
+Dorigo, M., \& Stützle, T. (2004). \textit{Ant Colony Optimization}. MIT Press.
+
+Dwivedi, Y. K., Sharma, A., Rana, N. P., Giannakis, M., Goel, P., \& Dutot, V. (2023). Evolution of artificial intelligence research in \textit{Technological Forecasting and Social Change}. \textit{Technological Forecasting and Social Change}, 192, 122579.
+
+European Parliament and Council. (2024). \textit{Regulation (EU) 2024/1689, Artificial Intelligence Act}.
+
+Feldman, M. S., \& Pentland, B. T. (2003). Reconceptualizing Organizational Routines as a Source of Flexibility and Change. \textit{Administrative Science Quarterly}, 48(1), 94--118.
+
+Ganascia, J.-G. (2017). \textit{Le mythe de la singularité}. Éditions du Seuil.
+
+Kefi, H., Khelladi, I., Mani, Z., \& Veg-Sala, N. (2025). AI-enabled social support chatbot usage: flowing ambivalence and liminalities. \textit{Journal of Decision Systems}, 1--24.
+
+Levitt, B., \& March, J. G. (1988). Organizational Learning. \textit{Annual Review of Sociology}, 14, 319--340.
+
+March, J. G. (1991). Exploration and Exploitation in Organizational Learning. \textit{Organization Science}, 2(1), 71--87.
+
+Nonaka, I., \& Takeuchi, H. (1995). \textit{The Knowledge-Creating Company}. Oxford University Press.
+
+Raisch, S., \& Krakowski, S. (2021). Artificial Intelligence and Management: The Automation-Augmentation Paradox. \textit{Academy of Management Review}, 46(1), 192--210.
+
+Theraulaz, G., \& Bonabeau, E. (1999). A Brief History of Stigmergy. \textit{Artificial Life}, 5(2), 97--116.
+
+Walsh, J. P., \& Ungson, G. R. (1991). Organizational Memory. \textit{Academy of Management Review}, 16(1), 57--91.
+
+Yan, J., Husted, K., \& Fath, B. (2026). Organizational learning with artificial intelligence: Balancing new tensions between explorative and exploitative learning through hybridization. \textit{International Journal of Information Management}, 86, 102997.
+
+\end{flushleft}
+\end{small}
+
+\end{document}

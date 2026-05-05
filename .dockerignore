@@ -26,14 +26,22 @@ target_repo/
 pheromones/
 campaign_results/
 docker_results/
+external/
 logs/
 metrics/output/
 output/
+workspaces/
 *.db
 *.db-journal
 *.db-wal
 *.db-shm
 *.jsonl
+
+# Heavy datasets and vendored corpora (mounted via volumes when needed)
+data/
+third_party/
+fixtures/migrationbench/cache/
+.coverage
 
 # Documentation (not needed for execution)
 documentation/

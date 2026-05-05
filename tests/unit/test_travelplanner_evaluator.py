@@ -33,6 +33,17 @@ def test_evaluate_plan_valid_case(tmp_path: Path) -> None:
     assert result.hard["valid_cost"] is True
 
 
+def test_empty_plan_never_passes(tmp_path: Path) -> None:
+    evaluator, query = _build_evaluator(tmp_path)
+
+    result = evaluator.evaluate_plan(query_data=query, plan=[])
+
+    assert result.delivered is False
+    assert result.final_pass is False
+    assert result.commonsense_macro_pass is False
+    assert result.hard_macro_pass is False
+
+
 def test_commonsense_restaurant_duplicates_fail(tmp_path: Path) -> None:
     evaluator, query = _build_evaluator(tmp_path)
     plan = clone_plan(sample_valid_plan())

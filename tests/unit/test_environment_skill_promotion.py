@@ -84,6 +84,41 @@ def test_no_promotion_without_credited_lessons(tmp_path, config_dict: dict) -> N
     assert skills_store.get_marker("skill::assistant::lesson::task::alpha") is None
 
 
+def test_no_promotion_without_strict_final_pass(tmp_path, config_dict: dict) -> None:
+    config = _enable_skill_library(config_dict)
+    config["reinforcement"] = dict(config["reinforcement"])
+    config["reinforcement"]["promotion_min_uses"] = 1
+    store = MarkerStore(db_path=tmp_path / "main.db")
+    skills_store = MarkerStore(db_path=tmp_path / "skills.db")
+    _seed_task(store)
+    _seed_lesson(store, "lesson::task::alpha")
+    env = Environment(
+        store=store,
+        config=config,
+        skills_store=skills_store,
+        adapter_name="assistant",
+    )
+
+    completed = Marker.from_dict(store.get_marker("task::alpha").to_dict())
+    completed.state = "completed"
+    env.apply_action_result(
+        agent_id="agent-1",
+        result=ActionResult(
+            action_type="think",
+            marker_updates=[completed],
+            metadata={
+                "quality_score": 0.95,
+                "credited_lesson_ids": ["lesson::task::alpha"],
+            },
+        ),
+    )
+
+    lesson = store.get_marker("lesson::task::alpha")
+    assert lesson is not None
+    assert int(lesson.payload.get("usage_count", 0)) == 0
+    assert skills_store.query_markers(marker_type="skill") == []
+
+
 def test_no_promotion_below_promotion_min_uses(tmp_path, config_dict: dict) -> None:
     config = _enable_skill_library(config_dict)
     config["reinforcement"] = dict(config["reinforcement"])
@@ -109,6 +144,8 @@ def test_no_promotion_below_promotion_min_uses(tmp_path, config_dict: dict) -> N
             metadata={
                 "quality_score": 0.95,
                 "credited_lesson_ids": ["lesson::task::alpha"],
+                "final_pass": True,
+                "strict_final_pass": True,
             },
         ),
     )
@@ -150,6 +187,8 @@ def test_promotes_skill_at_threshold(tmp_path, config_dict: dict) -> None:
             metadata={
                 "quality_score": 0.92,
                 "credited_lesson_ids": ["lesson::task::alpha"],
+                "final_pass": True,
+                "strict_final_pass": True,
             },
         ),
     )
@@ -162,7 +201,12 @@ def test_promotes_skill_at_threshold(tmp_path, config_dict: dict) -> None:
     assert promoted.marker_type == "skill"
     assert promoted.state == "terminal"
     assert promoted.payload["domain"] == "assistant"
-    assert int(promoted.payload.get("usage_count", 0)) >= 2
+    assert promoted.payload["skill_text"] == "Prefer explicit dependency ordering"
+    assert promoted.payload["action_type"] == "general"
+    assert promoted.payload["constraint_type"] == "execution_order"
+    assert int(promoted.payload.get("usage_count", 0)) == 1
+    assert int(promoted.payload.get("success_count", 0)) == 1
+    assert promoted.payload["source_lesson_ids"] == ["lesson::task::alpha"]
     assert float(promoted.intensity) > 0.0
     assert env.skills_promoted == 1
 
@@ -200,11 +244,13 @@ def test_skill_library_read_only_blocks_promotion(
             metadata={
                 "quality_score": 0.95,
                 "credited_lesson_ids": ["lesson::task::alpha"],
+                "final_pass": True,
+                "strict_final_pass": True,
             },
         ),
     )
 
-    assert skills_store.get_marker("skill::assistant::lesson::task::alpha") is None
+    assert skills_store.query_markers(marker_type="skill") == []
 
 
 def test_no_promotion_when_quality_below_threshold(
@@ -237,8 +283,10 @@ def test_no_promotion_when_quality_below_threshold(
             metadata={
                 "quality_score": 0.5,
                 "credited_lesson_ids": ["lesson::task::alpha"],
+                "final_pass": True,
+                "strict_final_pass": True,
             },
         ),
     )
 
-    assert skills_store.get_marker("skill::assistant::lesson::task::alpha") is None
+    assert skills_store.query_markers(marker_type="skill") == []

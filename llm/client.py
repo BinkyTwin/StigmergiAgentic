@@ -47,6 +47,33 @@ PROVIDER_DEFAULTS: dict[str, dict[str, Any]] = {
         "pricing_endpoint": "",
         "supports_pricing_fetch": False,
     },
+    "deepseek": {
+        "api_env_var": "DEEPSEEK_API_KEY",
+        "base_url": "https://api.deepseek.com",
+        "pricing_endpoint": "",
+        "supports_pricing_fetch": False,
+    },
+}
+
+# Static per-provider pricing for providers without a pricing endpoint.
+# Values are USD per single token. Source: https://api-docs.deepseek.com/quick_start/pricing/
+DEEPSEEK_V4_FLASH_PRICING = {
+    "prompt_cache_miss": 0.14e-6,
+    "prompt_cache_hit": 0.0028e-6,
+    "completion": 0.28e-6,
+}
+DEEPSEEK_V4_PRO_PRICING = {
+    "prompt_cache_miss": 0.435e-6,
+    "prompt_cache_hit": 0.003625e-6,
+    "completion": 0.87e-6,
+}
+STATIC_PRICING: dict[str, dict[str, dict[str, float]]] = {
+    "deepseek": {
+        "deepseek-v4-flash": DEEPSEEK_V4_FLASH_PRICING,
+        "deepseek-chat": DEEPSEEK_V4_FLASH_PRICING,
+        "deepseek-reasoner": DEEPSEEK_V4_FLASH_PRICING,
+        "deepseek-v4-pro": DEEPSEEK_V4_PRO_PRICING,
+    },
 }
 
 
@@ -61,15 +88,18 @@ class LLMResponse:
     cost_usd: float = 0.0
     parsed: BaseModel | None = None
     parsed_response: LLMParsedResponse | None = None
+    prompt_cache_hit_tokens: int | None = None
+    prompt_cache_miss_tokens: int | None = None
 
 
 @dataclass
 class ModelPricing:
-    """Per-token/per-request pricing for one OpenRouter model."""
+    """Per-token/per-request pricing for one model."""
 
     prompt_cost_per_token_usd: float
     completion_cost_per_token_usd: float
     request_cost_usd: float = 0.0
+    prompt_cache_hit_cost_per_token_usd: float | None = None
 
 
 class LLMClient:
@@ -183,6 +213,8 @@ class LLMClient:
         prompt: str,
         system: str | None = None,
         response_schema: type[BaseModel] | None = None,
+        *,
+        max_response_tokens: int | None = None,
     ) -> LLMResponse:
         """Call the LLM with retry for transient failures and token accounting."""
         estimated_prompt_tokens, estimated_completion_tokens = self._estimate_usage(
@@ -219,12 +251,14 @@ class LLMClient:
                     "messages": self._build_messages(prompt=prompt, system=system),
                     "temperature": self.temperature,
                 }
-                if self.provider == "openrouter" and self.reasoning is not None:
-                    request_payload["extra_body"] = {
-                        "reasoning": dict(self.reasoning)
-                    }
-                if self.max_response_tokens is not None:
-                    request_payload["max_tokens"] = self.max_response_tokens
+                self._apply_provider_request_options(request_payload)
+                effective_max_tokens = (
+                    max_response_tokens
+                    if max_response_tokens is not None
+                    else self.max_response_tokens
+                )
+                if effective_max_tokens is not None:
+                    request_payload["max_tokens"] = effective_max_tokens
                 if response_schema is not None:
                     request_payload["response_format"] = {"type": "json_object"}
 
@@ -237,11 +271,16 @@ class LLMClient:
                 prompt_tokens = int(getattr(usage, "prompt_tokens", 0) or 0)
                 completion_tokens = int(getattr(usage, "completion_tokens", 0) or 0)
                 tokens_used = prompt_tokens + completion_tokens
+                cache_hit_tokens, cache_miss_tokens = self._extract_cache_tokens(
+                    usage=usage
+                )
                 call_cost_usd = self._extract_usage_cost_usd(usage=usage)
                 if call_cost_usd is None:
                     call_cost_usd = self._estimate_cost_usd(
                         prompt_tokens=prompt_tokens,
                         completion_tokens=completion_tokens,
+                        cache_hit_tokens=cache_hit_tokens,
+                        cache_miss_tokens=cache_miss_tokens,
                     )
                 parsed_model, parsed_response = self._parse_structured_content(
                     content=content,
@@ -261,6 +300,8 @@ class LLMClient:
                     cost_usd=float(call_cost_usd or 0.0),
                     parsed=parsed_model,
                     parsed_response=parsed_response,
+                    prompt_cache_hit_tokens=cache_hit_tokens,
+                    prompt_cache_miss_tokens=cache_miss_tokens,
                 )
             except Exception as exc:  # noqa: BLE001
                 last_error = exc
@@ -284,6 +325,8 @@ class LLMClient:
         prompt: str,
         system: str | None = None,
         response_schema: type[BaseModel] | None = None,
+        *,
+        max_response_tokens: int | None = None,
     ) -> LLMResponse:
         """Async variant with optional schema validation and concurrency limits."""
         estimated_prompt_tokens, estimated_completion_tokens = self._estimate_usage(
@@ -314,12 +357,14 @@ class LLMClient:
                             "messages": self._build_messages(prompt=prompt, system=system),
                             "temperature": self.temperature,
                         }
-                        if self.provider == "openrouter" and self.reasoning is not None:
-                            request_payload["extra_body"] = {
-                                "reasoning": dict(self.reasoning)
-                            }
-                        if self.max_response_tokens is not None:
-                            request_payload["max_tokens"] = self.max_response_tokens
+                        self._apply_provider_request_options(request_payload)
+                        effective_max_tokens = (
+                            max_response_tokens
+                            if max_response_tokens is not None
+                            else self.max_response_tokens
+                        )
+                        if effective_max_tokens is not None:
+                            request_payload["max_tokens"] = effective_max_tokens
                         if response_schema is not None:
                             request_payload["response_format"] = {"type": "json_object"}
 
@@ -332,11 +377,16 @@ class LLMClient:
                         prompt_tokens = int(getattr(usage, "prompt_tokens", 0) or 0)
                         completion_tokens = int(getattr(usage, "completion_tokens", 0) or 0)
                         tokens_used = prompt_tokens + completion_tokens
+                        cache_hit_tokens, cache_miss_tokens = self._extract_cache_tokens(
+                            usage=usage
+                        )
                         call_cost_usd = self._extract_usage_cost_usd(usage=usage)
                         if call_cost_usd is None:
                             call_cost_usd = self._estimate_cost_usd(
                                 prompt_tokens=prompt_tokens,
                                 completion_tokens=completion_tokens,
+                                cache_hit_tokens=cache_hit_tokens,
+                                cache_miss_tokens=cache_miss_tokens,
                             )
 
                         parsed_model, parsed_response = self._parse_structured_content(
@@ -361,6 +411,8 @@ class LLMClient:
                             cost_usd=float(call_cost_usd or 0.0),
                             parsed=parsed_model,
                             parsed_response=parsed_response,
+                            prompt_cache_hit_tokens=cache_hit_tokens,
+                            prompt_cache_miss_tokens=cache_miss_tokens,
                         )
                     except Exception as exc:  # noqa: BLE001
                         last_error = exc
@@ -445,11 +497,29 @@ class LLMClient:
         self,
         prompt_tokens: int,
         completion_tokens: int,
+        cache_hit_tokens: int | None = None,
+        cache_miss_tokens: int | None = None,
     ) -> float | None:
         if self.model_pricing is None:
             return None
+        hit_rate = self.model_pricing.prompt_cache_hit_cost_per_token_usd
+        if (
+            hit_rate is not None
+            and cache_hit_tokens is not None
+            and cache_miss_tokens is not None
+        ):
+            prompt_cost = (
+                float(cache_hit_tokens) * float(hit_rate)
+                + float(cache_miss_tokens)
+                * self.model_pricing.prompt_cost_per_token_usd
+            )
+        else:
+            prompt_cost = (
+                float(prompt_tokens)
+                * self.model_pricing.prompt_cost_per_token_usd
+            )
         estimated = (
-            float(prompt_tokens) * self.model_pricing.prompt_cost_per_token_usd
+            prompt_cost
             + float(completion_tokens)
             * self.model_pricing.completion_cost_per_token_usd
             + self.model_pricing.request_cost_usd
@@ -467,6 +537,29 @@ class LLMClient:
             return None
         return self._safe_float(raw_cost)
 
+    def _extract_cache_tokens(self, usage: Any) -> tuple[int | None, int | None]:
+        """Return (cache_hit_tokens, cache_miss_tokens) when exposed by provider."""
+        if usage is None:
+            return None, None
+
+        def _get(key: str) -> Any:
+            value = getattr(usage, key, None)
+            if value is None and isinstance(usage, dict):
+                value = usage.get(key)
+            return value
+
+        hit = _get("prompt_cache_hit_tokens")
+        miss = _get("prompt_cache_miss_tokens")
+        try:
+            hit_int = int(hit) if hit is not None else None
+        except (TypeError, ValueError):
+            hit_int = None
+        try:
+            miss_int = int(miss) if miss is not None else None
+        except (TypeError, ValueError):
+            miss_int = None
+        return hit_int, miss_int
+
     def _parse_reasoning_config(
         self,
         raw_reasoning: Any,
@@ -476,7 +569,13 @@ class LLMClient:
 
         parsed: dict[str, Any] = {}
 
-        effort = raw_reasoning.get("effort")
+        mode = raw_reasoning.get("mode")
+        if mode is not None:
+            mode_text = str(mode).strip()
+            if mode_text:
+                parsed["mode"] = mode_text
+
+        effort = raw_reasoning.get("effort", raw_reasoning.get("reasoning_effort"))
         if effort is not None:
             effort_text = str(effort).strip()
             if effort_text:
@@ -492,7 +591,61 @@ class LLMClient:
 
         return parsed or None
 
+    def _apply_provider_request_options(self, request_payload: dict[str, Any]) -> None:
+        """Add provider-specific request options in one place."""
+        if self.reasoning is None:
+            return
+
+        if self.provider == "openrouter":
+            openrouter_reasoning = {
+                key: value
+                for key, value in self.reasoning.items()
+                if key in {"effort", "exclude", "max_tokens"}
+            }
+            if openrouter_reasoning:
+                request_payload["extra_body"] = {"reasoning": openrouter_reasoning}
+            return
+
+        if self.provider == "deepseek":
+            thinking_type = self._deepseek_thinking_type()
+            if thinking_type is not None:
+                request_payload["extra_body"] = {
+                    "thinking": {"type": thinking_type}
+                }
+
+            effort = self.reasoning.get("effort")
+            if effort is not None:
+                request_payload["reasoning_effort"] = str(effort)
+
+            if thinking_type == "enabled" or (
+                thinking_type is None and effort is not None
+            ):
+                request_payload.pop("temperature", None)
+
+    def _deepseek_thinking_type(self) -> str | None:
+        if self.reasoning is None:
+            return None
+
+        mode = str(self.reasoning.get("mode", "")).strip().lower()
+        if mode in {
+            "non-thinking",
+            "non_thinking",
+            "nonthinking",
+            "disabled",
+            "disable",
+            "off",
+            "none",
+            "false",
+        }:
+            return "disabled"
+        if mode in {"thinking", "enabled", "enable", "on", "true"}:
+            return "enabled"
+        return None
+
     def _init_model_pricing(self) -> ModelPricing | None:
+        static_pricing = self._lookup_static_pricing()
+        if static_pricing is not None:
+            return static_pricing
         if self.max_budget_usd <= 0.0:
             return None
         if not self.supports_pricing_fetch:
@@ -510,6 +663,22 @@ class LLMClient:
             )
             return None
         return self._fetch_model_pricing()
+
+    def _lookup_static_pricing(self) -> ModelPricing | None:
+        provider_table = STATIC_PRICING.get(self.provider)
+        if not provider_table:
+            return None
+        model_entry = provider_table.get(self.model)
+        if not model_entry:
+            return None
+        return ModelPricing(
+            prompt_cost_per_token_usd=float(model_entry["prompt_cache_miss"]),
+            completion_cost_per_token_usd=float(model_entry["completion"]),
+            request_cost_usd=0.0,
+            prompt_cache_hit_cost_per_token_usd=float(
+                model_entry.get("prompt_cache_hit", model_entry["prompt_cache_miss"])
+            ),
+        )
 
     def _fetch_model_pricing(self) -> ModelPricing | None:
         request = Request(

@@ -126,8 +126,16 @@ def test_travelplanner_dag_dependency_order(tmp_path, config_dict: dict) -> None
         llm_client=FakeTravelLLM(),
     ).run_sync()
 
-    plan_marker = next(marker for marker in result.final_snapshot.markers if marker.id.endswith("::plan_itinerary"))
-    validate_marker = next(marker for marker in result.final_snapshot.markers if marker.id.endswith("::validate_constraints"))
+    plan_marker = next(
+        marker
+        for marker in result.final_snapshot.markers
+        if marker.marker_type != "lesson" and marker.id.endswith("::plan_itinerary")
+    )
+    validate_marker = next(
+        marker
+        for marker in result.final_snapshot.markers
+        if marker.marker_type != "lesson" and marker.id.endswith("::validate_constraints")
+    )
 
     assert isinstance(plan_marker.payload.get("depends_on"), list)
     assert validate_marker.payload.get("depends_on") == [plan_marker.id]

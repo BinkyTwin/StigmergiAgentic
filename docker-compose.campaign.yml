@@ -79,3 +79,358 @@ services:
         mkdir -p campaign_results/baseline &&
         bash scripts/run_gemma_campaign_docker.sh
       "
+
+  # ---- Campagne scientifique finale — stigmergie C3 sous Gemma (clé OPENROUTER_API_KEY) ----
+  gemma-stigmergie:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: stigmergiagentic-gemma-stigmergie
+    environment:
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY}
+      PYTHONUNBUFFERED: "1"
+      PYTHONWARNINGS: "ignore"
+      ADAPT_START: ${ADAPT_START:-0}
+      ADAPT_QUERIES: ${ADAPT_QUERIES:-45}
+      EVAL_START: ${EVAL_START:-0}
+      EVAL_QUERIES: ${EVAL_QUERIES:-180}
+      CLEAN_RESULTS: ${CLEAN_RESULTS:-true}
+    volumes:
+      - ./campaign_results/gemma-stigmergie:/app/campaign_results
+      - ./campaign_results/gemma-stigmergie/pheromones:/app/pheromones
+      - ./config:/app/config:ro
+      - ./scripts:/app/scripts:ro
+      - ./core:/app/core:ro
+      - ./adapters:/app/adapters:ro
+      - ./tools:/app/tools:ro
+      - ./llm:/app/llm:ro
+      - ./main.py:/app/main.py:ro
+    working_dir: /app
+    command: >
+      bash -c "
+        echo '========================================' &&
+        echo '  CAMPAGNE GEMMA × STIGMERGIE C3' &&
+        echo '========================================' &&
+        mkdir -p campaign_results/adapt &&
+        mkdir -p campaign_results/c3 &&
+        bash scripts/run_gemma_stigmergie_c3_docker.sh
+      "
+
+  # ---- Campagne scientifique finale — baselines Gemma (clé OPENROUTER_API_KEY_2) ----
+  gemma-baselines:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: stigmergiagentic-gemma-baselines
+    environment:
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY_2}
+      PYTHONUNBUFFERED: "1"
+      PYTHONWARNINGS: "ignore"
+      EVAL_START: ${EVAL_START:-0}
+      EVAL_QUERIES: ${EVAL_QUERIES:-180}
+      BASELINE_CONFIG: ${BASELINE_CONFIG:-config/travelplanner_eval_baseline_gemma.yaml}
+      CLEAN_RESULTS: ${CLEAN_RESULTS:-true}
+    volumes:
+      - ./campaign_results/gemma-baselines:/app/campaign_results
+      - ./config:/app/config:ro
+      - ./scripts:/app/scripts:ro
+      - ./core:/app/core:ro
+      - ./adapters:/app/adapters:ro
+      - ./tools:/app/tools:ro
+      - ./llm:/app/llm:ro
+      - ./main.py:/app/main.py:ro
+    working_dir: /app
+    command: >
+      bash -c "
+        echo '========================================' &&
+        echo '  CAMPAGNE BASELINES × GEMMA' &&
+        echo '========================================' &&
+        mkdir -p campaign_results/solo_direct campaign_results/solo_cot campaign_results/solo_self_refine &&
+        mkdir -p campaign_results/planner_executor campaign_results/metagpt_sequential campaign_results/langgraph_supervisor &&
+        bash scripts/run_gemma_baselines_docker.sh
+      "
+
+  # ---- Campagne scientifique finale — stigmergie C3 sous DeepSeek V3 (clé DEEPSEEK_API_KEY) ----
+  deepseek-stigmergie:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: stigmergiagentic-deepseek-stigmergie
+    environment:
+      DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY}
+      PYTHONUNBUFFERED: "1"
+      PYTHONWARNINGS: "ignore"
+      ADAPT_START: ${ADAPT_START:-0}
+      ADAPT_QUERIES: ${ADAPT_QUERIES:-45}
+      EVAL_START: ${EVAL_START:-0}
+      EVAL_QUERIES: ${EVAL_QUERIES:-180}
+      CLEAN_RESULTS: ${CLEAN_RESULTS:-true}
+    volumes:
+      - ./campaign_results/deepseek-stigmergie:/app/campaign_results
+      - ./campaign_results/deepseek-stigmergie/pheromones:/app/pheromones
+      - ./config:/app/config:ro
+      - ./scripts:/app/scripts:ro
+      - ./core:/app/core:ro
+      - ./adapters:/app/adapters:ro
+      - ./tools:/app/tools:ro
+      - ./llm:/app/llm:ro
+      - ./main.py:/app/main.py:ro
+    working_dir: /app
+    command: >
+      bash -c "
+        echo '========================================' &&
+        echo '  CAMPAGNE DEEPSEEK × STIGMERGIE C3' &&
+        echo '========================================' &&
+        mkdir -p campaign_results/adapt &&
+        mkdir -p campaign_results/c3 &&
+        bash scripts/run_deepseek_stigmergie_docker.sh
+      "
+
+  # ---- MigrationBench official preflight (before adapter claims) ----
+  migrationbench-preflight:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: stigmergiagentic-migrationbench-preflight
+    environment:
+      PYTHONUNBUFFERED: "1"
+      PYTHONWARNINGS: "ignore"
+      MIGRATION_SUBSET: ${MIGRATION_SUBSET:-fixtures/migrationbench/subsets/smoke_5.jsonl}
+      PREFLIGHT_LIMIT: ${PREFLIGHT_LIMIT:-5}
+    volumes:
+      - ./campaign_results/migrationbench-preflight:/app/campaign_results
+      - ./workspaces/migrationbench-preflight:/app/workspaces
+      - ./external:/app/external
+    working_dir: /app
+    command:
+      - bash
+      - -lc
+      - |
+        set -e
+        if [ ! -d external/MigrationBench/.git ]; then
+          mkdir -p external
+          git clone --depth 1 https://github.com/amazon-science/MigrationBench.git external/MigrationBench
+        fi
+        /opt/venv/bin/python scripts/run_migrationbench_official_preflight.py \
+          --subset "$${MIGRATION_SUBSET}" \
+          --out-dir campaign_results/preflight \
+          --migrationbench-root external/MigrationBench \
+          --workspace-root workspaces/preflight \
+          --limit "$${PREFLIGHT_LIMIT}" \
+          --force
+
+  # ---- MigrationBench V6 static / baseline campaign ----
+  migrationbench-campaign:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: stigmergiagentic-migrationbench-campaign
+    environment:
+      DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY}
+      PYTHONUNBUFFERED: "1"
+      PYTHONWARNINGS: "ignore"
+      MIGRATION_SUBSET: ${MIGRATION_SUBSET:-fixtures/migrationbench/subsets/main_30.jsonl}
+      MIGRATION_FRAMEWORKS: ${MIGRATION_FRAMEWORKS:-no_change dependency_only_script solo_direct planner_executor agentless_self_debug stigmergic_v6_static}
+      MIGRATION_CONFIG: ${MIGRATION_CONFIG:-config/migrationbench_v6_static_deepseek.yaml}
+      MIGRATION_SEED: ${MIGRATION_SEED:-42}
+      MIGRATION_OUT_DIR: ${MIGRATION_OUT_DIR:-campaign_results/main}
+      MIGRATION_FORCE: ${MIGRATION_FORCE:-true}
+      MIGRATION_QUERY_TIMEOUT_SECONDS: ${MIGRATION_QUERY_TIMEOUT_SECONDS:-1800}
+    volumes:
+      - ./campaign_results/migrationbench:/app/campaign_results
+      - ./workspaces/migrationbench:/app/workspaces
+      - ./external:/app/external
+    working_dir: /app
+    command:
+      - bash
+      - -lc
+      - |
+        set -e
+        if [ ! -d external/MigrationBench/.git ]; then
+          mkdir -p external
+          git clone --depth 1 https://github.com/amazon-science/MigrationBench.git external/MigrationBench
+        fi
+        FORCE_ARGS=""
+        if [ "$${MIGRATION_FORCE}" = "true" ]; then
+          FORCE_ARGS="--force"
+        fi
+        /opt/venv/bin/python scripts/run_migrationbench_campaign.py \
+          --subset "$${MIGRATION_SUBSET}" \
+          --out-dir "$${MIGRATION_OUT_DIR}" \
+          --config "$${MIGRATION_CONFIG}" \
+          --seed "$${MIGRATION_SEED}" \
+          --query-timeout-seconds "$${MIGRATION_QUERY_TIMEOUT_SECONDS}" \
+          $${FORCE_ARGS} \
+          --frameworks $${MIGRATION_FRAMEWORKS}
+
+  # ---- MigrationBench V10 smoke (Phase 4 / Iteration L6) ----
+  migrationbench-v10-smoke:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: stigmergiagentic-migrationbench-v10-smoke
+    environment:
+      DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:-}
+      PYTHONUNBUFFERED: "1"
+      PYTHONWARNINGS: "ignore"
+      MIGRATION_SUBSET: ${MIGRATION_SUBSET:-fixtures/migrationbench/subsets/smoke_5.jsonl}
+      MIGRATION_OUT_DIR: ${MIGRATION_OUT_DIR:-campaign_results/v10/migrationbench_smoke}
+      MIGRATION_STRATEGY: ${MIGRATION_STRATEGY:-branching_repair}
+      MIGRATION_SEED: ${MIGRATION_SEED:-42}
+      MIGRATION_MAX_CANDIDATES: ${MIGRATION_MAX_CANDIDATES:-1}
+      MIGRATION_MAX_REPAIR_ROUNDS: ${MIGRATION_MAX_REPAIR_ROUNDS:-0}
+      MIGRATION_OFFICIAL_EVAL: ${MIGRATION_OFFICIAL_EVAL:-true}
+      MIGRATION_OFFICIAL_TIMEOUT_SECONDS: ${MIGRATION_OFFICIAL_TIMEOUT_SECONDS:-1800}
+    volumes:
+      - ./campaign_results/v10:/app/campaign_results/v10
+      - ./workspaces/migrationbench_v10:/app/workspaces/migrationbench_v10
+      - ./external:/app/external
+    working_dir: /app
+    command:
+      - bash
+      - -lc
+      - |
+        set -e
+        if [ ! -d external/MigrationBench/.git ]; then
+          mkdir -p external
+          git clone --depth 1 https://github.com/amazon-science/MigrationBench.git external/MigrationBench
+        fi
+        EXTRAS=$$(python -c 'import json,os; print(json.dumps({"workspace_root_root":"workspaces/migrationbench_v10","artifacts_root":os.environ["MIGRATION_OUT_DIR"]+"/artifacts","migrationbench_root":"external/MigrationBench","official_eval":os.environ["MIGRATION_OFFICIAL_EVAL"].lower()=="true","official_timeout_seconds":float(os.environ["MIGRATION_OFFICIAL_TIMEOUT_SECONDS"]),"prepare":True,"out_dir":os.environ["MIGRATION_OUT_DIR"]}))')
+        /opt/venv/bin/python -m scripts.bench.harness \
+          --adapter migrationbench \
+          --strategy "$${MIGRATION_STRATEGY}" \
+          --subset "$${MIGRATION_SUBSET}" \
+          --out-dir "$${MIGRATION_OUT_DIR}" \
+          --seed "$${MIGRATION_SEED}" \
+          --max-candidates "$${MIGRATION_MAX_CANDIDATES}" \
+          --max-repair-rounds "$${MIGRATION_MAX_REPAIR_ROUNDS}" \
+          --extras "$${EXTRAS}"
+
+  # ---- Phase 6 — A3 vs A4 ablation (smoke) ----
+  ablation-a3-vs-a4-smoke:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: stigmergiagentic-ablation-a3-vs-a4-smoke
+    environment:
+      DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:-}
+      PYTHONUNBUFFERED: "1"
+      PYTHONWARNINGS: "ignore"
+      MIGRATION_SUBSET: ${MIGRATION_SUBSET:-fixtures/migrationbench/subsets/smoke_5.jsonl}
+      MIGRATION_OUT_DIR: ${MIGRATION_OUT_DIR:-campaign_results/v10/ablation_a3_vs_a4_smoke}
+      MIGRATION_SEED: ${MIGRATION_SEED:-42}
+      MIGRATION_OFFICIAL_EVAL: ${MIGRATION_OFFICIAL_EVAL:-true}
+      MIGRATION_OFFICIAL_TIMEOUT_SECONDS: ${MIGRATION_OFFICIAL_TIMEOUT_SECONDS:-1800}
+    volumes:
+      - ./campaign_results/v10:/app/campaign_results/v10
+      - ./workspaces/migrationbench_v10:/app/workspaces/migrationbench_v10
+      - ./external:/app/external
+    working_dir: /app
+    command:
+      - bash
+      - -lc
+      - |
+        set -e
+        if [ ! -d external/MigrationBench/.git ]; then
+          mkdir -p external
+          git clone --depth 1 https://github.com/amazon-science/MigrationBench.git external/MigrationBench
+        fi
+        rm -rf workspaces/migrationbench_v10/A3_branching_repair workspaces/migrationbench_v10/A4_stigmergic_blackboard
+        mkdir -p workspaces/migrationbench_v10
+        EXTRAS=$$(python -c 'import json,os; print(json.dumps({"workspace_root_root":"workspaces/migrationbench_v10","artifacts_root":os.environ["MIGRATION_OUT_DIR"]+"/artifacts","migrationbench_root":"external/MigrationBench","official_eval":os.environ["MIGRATION_OFFICIAL_EVAL"].lower()=="true","official_timeout_seconds":float(os.environ["MIGRATION_OFFICIAL_TIMEOUT_SECONDS"]),"prepare":True,"out_dir":os.environ["MIGRATION_OUT_DIR"],"use_llm_providers":True,"llm_initial_candidates":2,"llm_repair_candidates":2,"llm":{"provider":"deepseek","model":"deepseek-chat","base_url":"https://api.deepseek.com/v1","timeout_seconds":180.0,"max_tokens":3000}}))')
+        /opt/venv/bin/python -m scripts.bench.compare_strategies \
+          --adapter migrationbench \
+          --subset "$${MIGRATION_SUBSET}" \
+          --out-dir "$${MIGRATION_OUT_DIR}" \
+          --seed "$${MIGRATION_SEED}" \
+          --arms A3_branching_repair A4_stigmergic_blackboard \
+          --extras "$${EXTRAS}"
+
+  # ---- Phase 6 — A3 vs A4 ablation (parameterized budget) ----
+  ablation-a3-vs-a4-budget:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: stigmergiagentic-ablation-a3-vs-a4-budget
+    environment:
+      DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:-}
+      PYTHONUNBUFFERED: "1"
+      PYTHONWARNINGS: "ignore"
+      MIGRATION_SUBSET: ${MIGRATION_SUBSET:-fixtures/migrationbench/subsets/main_30.jsonl}
+      MIGRATION_OUT_DIR: ${MIGRATION_OUT_DIR:-campaign_results/v10/ablation_a3_vs_a4_budget}
+      MIGRATION_SEED: ${MIGRATION_SEED:-42}
+      MIGRATION_OFFICIAL_EVAL: ${MIGRATION_OFFICIAL_EVAL:-true}
+      MIGRATION_OFFICIAL_TIMEOUT_SECONDS: ${MIGRATION_OFFICIAL_TIMEOUT_SECONDS:-1800}
+      BUDGET_CANDS: ${BUDGET_CANDS:-5}
+      BUDGET_ROUNDS: ${BUDGET_ROUNDS:-1}
+      BUDGET_REPAIRS: ${BUDGET_REPAIRS:-5}
+    volumes:
+      - ./campaign_results/v10:/app/campaign_results/v10
+      - ./workspaces/migrationbench_v10:/app/workspaces/migrationbench_v10
+      - ./external:/app/external
+    working_dir: /app
+    command:
+      - bash
+      - -lc
+      - |
+        set -e
+        if [ ! -d external/MigrationBench/.git ]; then
+          mkdir -p external
+          git clone --depth 1 https://github.com/amazon-science/MigrationBench.git external/MigrationBench
+        fi
+        # Aggressive WS clean: remove any leftover instance branches/_verify so
+        # each run starts from a fresh fork. Required because `workspace_root_root`
+        # is `workspaces/migrationbench_v10` directly (no per-arm subdir).
+        find workspaces/migrationbench_v10 -mindepth 1 -maxdepth 1 -type d -exec rm -rf {} + || true
+        mkdir -p workspaces/migrationbench_v10
+        EXTRAS=$$(python -c 'import json,os; print(json.dumps({"workspace_root_root":"workspaces/migrationbench_v10","artifacts_root":os.environ["MIGRATION_OUT_DIR"]+"/artifacts","migrationbench_root":"external/MigrationBench","official_eval":os.environ["MIGRATION_OFFICIAL_EVAL"].lower()=="true","official_timeout_seconds":float(os.environ["MIGRATION_OFFICIAL_TIMEOUT_SECONDS"]),"prepare":True,"out_dir":os.environ["MIGRATION_OUT_DIR"],"use_llm_providers":True,"llm_initial_candidates":int(os.environ["BUDGET_CANDS"]),"llm_repair_candidates":int(os.environ["BUDGET_REPAIRS"]),"llm":{"provider":"deepseek","model":"deepseek-chat","base_url":"https://api.deepseek.com/v1","timeout_seconds":180.0,"max_tokens":3000}}))')
+        /opt/venv/bin/python -m scripts.bench.compare_strategies \
+          --adapter migrationbench \
+          --subset "$${MIGRATION_SUBSET}" \
+          --out-dir "$${MIGRATION_OUT_DIR}" \
+          --seed "$${MIGRATION_SEED}" \
+          --arms A3_branching_repair A4_stigmergic_blackboard \
+          --max-candidates "$${BUDGET_CANDS}" \
+          --max-repair-rounds "$${BUDGET_ROUNDS}" \
+          --max-repairs-per-candidate "$${BUDGET_REPAIRS}" \
+          --extras "$${EXTRAS}"
+
+  # ---- Phase 6 — A3 vs A4 ablation (main_30) ----
+  ablation-a3-vs-a4-main30:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: stigmergiagentic-ablation-a3-vs-a4-main30
+    environment:
+      DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:-}
+      PYTHONUNBUFFERED: "1"
+      PYTHONWARNINGS: "ignore"
+      MIGRATION_SUBSET: ${MIGRATION_SUBSET:-fixtures/migrationbench/subsets/main_30.jsonl}
+      MIGRATION_OUT_DIR: ${MIGRATION_OUT_DIR:-campaign_results/v10/ablation_a3_vs_a4_main30}
+      MIGRATION_SEED: ${MIGRATION_SEED:-42}
+      MIGRATION_OFFICIAL_EVAL: ${MIGRATION_OFFICIAL_EVAL:-true}
+      MIGRATION_OFFICIAL_TIMEOUT_SECONDS: ${MIGRATION_OFFICIAL_TIMEOUT_SECONDS:-1800}
+    volumes:
+      - ./campaign_results/v10:/app/campaign_results/v10
+      - ./workspaces/migrationbench_v10:/app/workspaces/migrationbench_v10
+      - ./external:/app/external
+    working_dir: /app
+    command:
+      - bash
+      - -lc
+      - |
+        set -e
+        if [ ! -d external/MigrationBench/.git ]; then
+          mkdir -p external
+          git clone --depth 1 https://github.com/amazon-science/MigrationBench.git external/MigrationBench
+        fi
+        rm -rf workspaces/migrationbench_v10/A3_branching_repair workspaces/migrationbench_v10/A4_stigmergic_blackboard
+        mkdir -p workspaces/migrationbench_v10
+        EXTRAS=$$(python -c 'import json,os; print(json.dumps({"workspace_root_root":"workspaces/migrationbench_v10","artifacts_root":os.environ["MIGRATION_OUT_DIR"]+"/artifacts","migrationbench_root":"external/MigrationBench","official_eval":os.environ["MIGRATION_OFFICIAL_EVAL"].lower()=="true","official_timeout_seconds":float(os.environ["MIGRATION_OFFICIAL_TIMEOUT_SECONDS"]),"prepare":True,"out_dir":os.environ["MIGRATION_OUT_DIR"],"use_llm_providers":True,"llm_initial_candidates":2,"llm_repair_candidates":2,"llm":{"provider":"deepseek","model":"deepseek-chat","base_url":"https://api.deepseek.com/v1","timeout_seconds":180.0,"max_tokens":3000}}))')
+        /opt/venv/bin/python -m scripts.bench.compare_strategies \
+          --adapter migrationbench \
+          --subset "$${MIGRATION_SUBSET}" \
+          --out-dir "$${MIGRATION_OUT_DIR}" \
+          --seed "$${MIGRATION_SEED}" \
+          --arms A3_branching_repair A4_stigmergic_blackboard \
+          --extras "$${EXTRAS}"

@@ -4,9 +4,46 @@ This file provides guidance to GitHub Copilot / Codex when working in this repos
 
 ## Project Overview
 
-Stigmergic orchestration framework V3 (runtime overhaul on top of V2 foundations) for a Master's thesis (EMLV).
+Stigmergic orchestration framework for a Master's thesis (EMLV).
 
-Current repository state is **Sprint 9 complete** (C1/C2/C3 fully implemented): Sprint 8 V6 baseline + objective-conditioned protocol compilation (T3), cross-run skill accumulation (T1), and cross-run coordination protocol persistence (T2).
+**Current direction (2026-05-03)** : pivot V10 *from-scratch* en cours. L'architecture V3 (Sprint 9 complet) est figée comme baseline historique reproductible sur la branche `archive/v3-sprint9`. Le code actif évolue dans une nouvelle ligne `core_v10/` indépendante de `core/` legacy. Voir :
+- `documentation/redisgn_v2/plan_v10_from_scratch_rebuild.md` — plan technique canonique (architecture, phases A0..A6, ablations).
+- `documentation/redisgn_v2/pivot_v10_documentation_memoire.md` — documentation mémoire (problématique, diagnostic, reformulation scientifique, hypothèses H1/H2/H3/H4).
+- `documentation/decisions/20260503-pivot-v10-from-scratch.md` — ADR-018 du pivot.
+
+Justification scientifique du pivot : les campagnes V6/V7/V7.1/V7.2 sur MigrationBench main_30 ont plafonné à 0–1/30 strict_success ; la télémétrie V3 a été identifiée comme mécaniquement incohérente (divergence de 73 points entre `patch_applies` et `artifact_delivery` sur V7.2) ; l'apprentissage cross-run du Sprint 9 n'a jamais produit de promotion de skill sur >1000 runs. La nouvelle question de recherche reformule la contribution autour de l'hybridation mesurable entre coordination explicite (blackboard typé + verifier loop + HypothesisGraph) et coordination indirecte (couche stigmergique opt-in mesurée par ablation A4 vs A3).
+
+V3 (Sprint 9) reste documentée ci-dessous comme état du code legacy. Toute nouvelle fonctionnalité doit être implémentée dans `core_v10/` selon le plan canonique.
+
+### Phase 4 V10 livrée (2026-05-04) — MigrationBench V10 + bench harness unifié
+
+L1→L7 du plan canonique livrées en 7 itérations `/loop` autonomes. Modules ajoutés :
+- `adapters_v10/migrationbench/{schemas, workspace, _runtime, maven, verifier, adapter}.py` — adapter V10 complet implémentant `DomainAdapterV10` (setup/observe/capabilities/apply/validate/diagnose/finalize/score), `MigrationBenchVerifier` qui exécute la chaîne stricte `mvn dependency:resolve → clean compile → test → class_version 61 → official run_eval.py` et émet les 8 signaux canoniques.
+- `scripts/bench/{harness, telemetry, artifacts, providers, docker}.py` — harness CLI unifié, registry pluggable adapter+provider+run_instance, deterministic POM Java 17 candidate provider sans LLM, reconstruction télémétrique pure depuis EventLog.
+- `config/v10/migrationbench_v10_smoke_deepseek.yaml` + service Docker `migrationbench-v10-smoke` dans `docker-compose.campaign.yml`.
+
+Invariants prouvés :
+- 126 tests V10 verts (121 unit + 5 integration golden).
+- `strict_success=True` exige la chaîne complète ; aucun fallback diagnostique passif n'existe (testé par AST scan dans `tests/integration/v10/test_migrationbench_smoke_consistency.py::test_no_passive_partial_payload_fallback_anywhere_in_adapters_v10`).
+- `live_summary == replay_summary_from_dir(out_dir)` (testé golden) — la télémétrie ne ment pas.
+- Cloison étanche : aucun `from core.` ou `from adapters.` dans `core_v10/`, `adapters_v10/`, `scripts/bench/`.
+
+### Phase 5 V10 livrée (2026-05-04) — BranchingRepair A3
+
+Modules durcis / ajoutés :
+- `core_v10/strategy_runner.py` : dataclass `SelectionRationale` (id, reason, score, compétiteurs ordonnés), classe interne `_SignatureTracker` (sha256(kind+payload), 16 hex), events `candidate.deduped` / `candidate.repeat_failure_suppressed` / `selection.completed`, payload `run.completed` étendu (`dedup_skipped`, `repeat_failure_suppressed`).
+- `scripts/bench/telemetry.py` : `InstanceSummary` et `Summary` étendues (`dedup_skipped`, `repeat_failure_suppressed`, `selection_rationale`, `dedup_skipped_total`, `repeat_failure_suppressed_total`). Reconstructibles depuis EventLog → `live==replay` invariant préservé même sur les campagnes legacy pré-Phase 5.
+- `scripts/bench/compare_strategies.py` (nouveau) : ablation harness A1 `agentless_basic` / A2 placeholder linear-repair / A3 branching parallel. CLI + API programmatique avec `arms=[AblationArm(...)]` configurable. Écrit un campaign tree par bras + un `comparison.json` agrégé.
+- Tests : `tests/unit/v10/test_strategy_runner_phase5.py` (6) + `tests/unit/v10/bench/test_compare_strategies.py` (4) → **136 V10 verts** (+10).
+
+Limites assumées :
+- A2 = placeholder `branching_repair` avec `max_candidates=1` (linear-repair). La couche typed-blackboard complète (capability auto-election, knowledge sources) relève d'un follow-up Phase 3.
+- Comparaison MigrationBench `main_30` non exécutée ici (campagne Docker LLM). Le harness `compare_strategies` est prêt à être pointé vers `fixtures/migrationbench/subsets/main_30.jsonl`.
+
+ADR : `documentation/decisions/20260504-phase5-a3-branching-repair.md`.
+Artifact : `documentation/redisgn_v2/phase_05_artifact.md`.
+
+## Sprint 9 Complete (Legacy `core/`)
 
 ## Current Scope (Sprint 9 Complete — C1/C2/C3)
 
@@ -50,14 +87,30 @@ Not implemented yet:
 - SWE-bench adapter
 - Pareto instrumentation aligned with V2 runtime
 
+Opt-in extension (2026-04-30):
+- `adapters/migrationbench/*` — MigrationBench adapter with two coexisting bras :
+  - `stigmergic_v6_static` (existant) — `inspect → propose_patch → run_build → finalize_patch`.
+  - `stigmergic_v7_repair_colony` (nouveau, opt-in via `migrationbench.framework` ou `migrationbench.workflow`) — boucle fermée `inspect → localize → propose candidate → apply branch → build → classify failure → repair marker → retest → finalize`, patchs candidats isolés par branche (`branch_workspace` / `fork_branch_workspace`), taxonomie d'échecs typée (`pom_parse_error`, `dependency_resolution_error`, `compile_error`, `test_failure`, `class_version_error`, `patch_apply_error`, `official_eval_failed`).
+- `core/orchestrator.py` — pool d'agents homogènes élastique opt-in via `agents.num_agents_mode: elastic` + bloc `agents.elastic` (`min_agents`, `max_agents`, `markers_per_agent`, `scale_up_utilization`, `scale_down_contention`, `scale_down_idle_utilization`). Resize audité (`agent_pool_resize`) et exposé via `OrchestratorResult.emergence_summary["agent_pool"]`.
+- `config/migrationbench_v7_repair_colony_deepseek.yaml` — preset du bras V7 avec DeepSeek + safety caps (`max_tokens_per_instance`, `max_runtime_per_instance_seconds`, `max_llm_calls_per_instance`, `max_repair_cycles_per_instance`).
+- `docker-compose.campaign.yml` — service `migrationbench-campaign` accepte `MIGRATION_CONFIG` et `MIGRATION_FRAMEWORKS` (override pour V7 sans nouvelle image).
+- Métriques de sortie additionnelles : `repair_cycles`, `llm_calls`, `branch_count`, `best_branch_id`, `failure_taxonomy`, `dynamic_agents_min/max/avg`, `caps_hit`.
+
+V7.1 hardening (2026-05-02):
+- `deepseek-v4-flash` remains the MigrationBench primary model for V7.1.
+- V7 edit parsing normalizes common LLM variants before strict `TypedEditSet` validation, retries schema failures once, and rejects empty/irrelevant edits.
+- Official-like validation now requires Java 17 class major versions exactly `{61}` before normal patch selection.
+- V7 lessons are explicitly disabled through `lessons.enabled: false` and a runtime workflow guard.
+- `scripts/migrationbench_smoke_gate.py` is the required technical gate before rerunning `main_30`.
+
 ## Campaign Execution (Docker — Mandatory)
 
-**All future benchmark campaigns must run inside Docker containers.** The `docker-compose.campaign.yml` provides isolated `qwen-campaign` and `gemma-campaign` services with separate `skills.db`, `protocols.db`, and `campaign_results/` per container. This prevents:
+**All future benchmark campaigns must run inside Docker containers.** The `docker-compose.campaign.yml` provides isolated services with separate `skills.db`, `protocols.db`, and `campaign_results/` per container. This prevents:
 - macOS bash expansion bugs (`{a,b,c}` not supported on default `/bin/sh`)
 - File-system conflicts between parallel runs
 - Cross-contamination of protocol namespaces between presets
 
-See `## Commands` below for usage examples.
+Since 2026-04-22 the final scientific campaign uses three new services: `gemma-stigmergie`, `gemma-baselines`, `deepseek-stigmergie`. Legacy `qwen-campaign` / `gemma-campaign` services remain for pilot work but are no longer used for memoir-grade comparisons. See `documentation/redisgn_v2/decision_log_model_switch.md` for design decisions and `## Commands` below for usage.
 
 ## Architecture Baseline
 
@@ -242,25 +295,105 @@ uv run python main.py --adapter travelplanner --config config/ablation/v6_A.yaml
 ```bash
 # Build image once
 docker compose -f docker-compose.campaign.yml build
+```
 
-# Qwen campaign (Terminal 1)
+#### Legacy pilot services (Qwen / Gemma full-sweep, déprécié 2026-04-22)
+
+```bash
+# Qwen full-sweep (pilot — no longer used for final comparisons)
 OPENROUTER_API_KEY=$(grep OPENROUTER_API_KEY .env | cut -d= -f2) \
   docker compose -f docker-compose.campaign.yml up qwen-campaign
 
-# Gemma campaign (Terminal 2)
+# Gemma full-sweep (pilot)
 OPENROUTER_API_KEY_2=$(grep OPENROUTER_API_KEY .env.key2 | cut -d= -f2) \
   docker compose -f docker-compose.campaign.yml up gemma-campaign
+```
 
-# Or both at once
-OPENROUTER_API_KEY=$(grep OPENROUTER_API_KEY .env | cut -d= -f2) \
+#### Final scientific campaign (2026-04-22)
+
+Design decisions in `documentation/redisgn_v2/decision_log_model_switch.md`.
+
+Primary model: **Gemma** (`google/gemma-4-31b-it` via OpenRouter).
+Strong model (stigmergy only): **DeepSeek V3** (`deepseek-chat`,
+`DEEPSEEK_API_KEY`, `https://api.deepseek.com/v1`).
+Stress-test model: **Qwen 3.5 9B** — pre-computed, reused from
+`output/travelplanner_framework_compare/v6c_retry_20260420_seed42/v6_C/seed42/`
+(23.88% final_pass, no re-run).
+
+Scope: stigmergy = **C3 only**. Baselines (Gemma): `solo_direct`, `solo_cot`,
+`solo_self_refine`, `planner_executor` (fixed 2026-04-22),
+`langgraph_supervisor`, `metagpt_sequential` (new).
+
+Limitation: **1 seed per model** (to be cited in "Threats to validity").
+
+```bash
+# Terminal 1 — Gemma baselines (OPENROUTER_API_KEY_2)
 OPENROUTER_API_KEY_2=$(grep OPENROUTER_API_KEY .env.key2 | cut -d= -f2) \
-  docker compose -f docker-compose.campaign.yml up
+  docker compose -f docker-compose.campaign.yml up gemma-baselines
+
+# Terminal 2 — DeepSeek × stigmergy C3 (DEEPSEEK_API_KEY from .env)
+docker compose -f docker-compose.campaign.yml up deepseek-stigmergie
+
+# Terminal 3 — Gemma × stigmergy C3 (OPENROUTER_API_KEY from .env)
+docker compose -f docker-compose.campaign.yml up gemma-stigmergie
 ```
 
 **Analyze results:**
+
 ```bash
-uv run python scripts/analyze_campaign.py campaign_results/qwen
-uv run python scripts/analyze_campaign.py campaign_results/gemma
+uv run python scripts/aggregate_campaign_comparison.py \
+  --gemma campaign_results/gemma-stigmergie \
+  --deepseek campaign_results/deepseek-stigmergie \
+  --baselines campaign_results/gemma-baselines \
+  --qwen-fixture output/travelplanner_framework_compare/v6c_retry_20260420_seed42/v6_C/seed42/benchmark_summary.json
+```
+
+#### MigrationBench V7 repair colony (opt-in, 2026-04-30)
+
+Le bras `stigmergic_v7_repair_colony` est branché sur le service Docker `migrationbench-campaign`. Le service accepte deux variables d'environnement supplémentaires : `MIGRATION_CONFIG` (chemin du YAML) et `MIGRATION_FRAMEWORKS` (liste). Pour comparer V6 et V7, lancer le service deux fois avec un `MIGRATION_OUT_DIR` distinct par bras.
+
+```bash
+# V6 static (DeepSeek) — référence dans campaign_results/migrationbench_v6v7/
+DEEPSEEK_API_KEY=$(grep DEEPSEEK_API_KEY .env | cut -d= -f2) \
+MIGRATION_CONFIG=config/migrationbench_v6_static_deepseek.yaml \
+MIGRATION_FRAMEWORKS="stigmergic_v6_static" \
+MIGRATION_OUT_DIR=campaign_results/migrationbench_v6v7 \
+MIGRATION_SUBSET=fixtures/migrationbench/subsets/main_30.jsonl \
+  docker compose -f docker-compose.campaign.yml up migrationbench-campaign
+
+# V7 repair colony (DeepSeek) — second run dans le même MIGRATION_OUT_DIR
+DEEPSEEK_API_KEY=$(grep DEEPSEEK_API_KEY .env | cut -d= -f2) \
+MIGRATION_CONFIG=config/migrationbench_v7_repair_colony_deepseek.yaml \
+MIGRATION_FRAMEWORKS="stigmergic_v7_repair_colony" \
+MIGRATION_OUT_DIR=campaign_results/migrationbench_v6v7 \
+MIGRATION_SUBSET=fixtures/migrationbench/subsets/main_30.jsonl \
+  docker compose -f docker-compose.campaign.yml up migrationbench-campaign
+
+# Agrégation V6 vs V7 (référence par défaut = stigmergic_v6_static)
+uv run python scripts/aggregate_migrationbench_comparison.py \
+  --campaign-root campaign_results/migrationbench_v6v7 \
+  --output-dir output/migrationbench_v6v7_comparison
+```
+
+Smoke test rapide (sans evaluator officiel, surface V7) :
+
+```bash
+uv run python scripts/run_migrationbench_framework_benchmark.py \
+  --framework stigmergic_v7_repair_colony \
+  --subset fixtures/migrationbench/subsets/smoke_5.jsonl \
+  --out-dir campaign_results/migrationbench_v7_smoke \
+  --config config/migrationbench_v7_repair_colony_deepseek.yaml \
+  --skip-official-eval
+```
+
+Smoke gate V7.1 obligatoire avant `main_30` :
+
+```bash
+DEEPSEEK_API_KEY=$(grep DEEPSEEK_API_KEY .env | cut -d= -f2) \
+  uv run python scripts/migrationbench_smoke_gate.py \
+    --config config/migrationbench_v7_repair_colony_deepseek.yaml \
+    --subset fixtures/migrationbench/subsets/smoke_5.jsonl \
+    --out-dir campaign_results/migrationbench_v7_smoke_gated
 ```
 
 ## Code Style Guidelines

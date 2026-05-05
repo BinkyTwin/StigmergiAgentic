@@ -5,6 +5,50 @@
 
 ## Active Practices
 
+### V10 Branching Runtime Standard
+- Keep branching lineage and workspace lineage identical: every repair candidate with a parent must be applied from the parent hypothesis workspace.
+- Reject duplicate hypothesis IDs in a run instead of reusing nodes, because duplicate IDs corrupt parentage, validation history, and selection.
+- Build blackboards as reconstructible projections from EventLog plus graph state; when possible, support event-only reconstruction for crash/replay cases.
+- Finalize validated candidates by verifier score order and continue to the next validated candidate if artifact contract or adapter score fails.
+
+### V10 Bootstrap Runtime Standard
+- Build new runtime foundations in `core_v10/` and `adapters_v10/` with explicit import-boundary tests so legacy `core/` and benchmark adapters cannot leak into the new architecture.
+- Treat `apply -> validate -> finalize` workspace continuity as a hard invariant; if apply returns a branch/sandbox workspace, all downstream verifier actions must use that workspace.
+- Keep early EventLog and artifact contracts mechanical and testable: append under a file lock, replay from JSONL, reject empty required artifacts, and compute logged strict success from both adapter score and artifact contract.
+- Reset hypothesis graphs per run unless a future strategy explicitly models cross-run state through a versioned memory layer.
+
+### From-Scratch Framework Pivot Standard
+- For major pivots after an empirically failed architecture, create a new core namespace and archive the old runtime before optimizing or cleaning it.
+- Make append-only events and explicit hypothesis graphs the first-class truth layers; treat blackboards, dashboards, and active signals as reconstructible projections.
+- Place domain-specific verifiers behind adapter contracts, and keep strict success impossible without a verifier-backed artifact contract.
+- In ablation ladders, test the core thesis mechanism before adding generic search optimizers or memory systems that can mask attribution.
+
+### V10 Verified-Resolution Runtime Planning Standard
+- Rebuild agent frameworks around stable adapter contracts, event logs, hypothesis graphs, and replayable artifact contracts before adding new agent roles or memory.
+- Define the stigmergic mechanism as indirect coordination through shared, inspectable traces with reinforcement, inhibition, novelty, and validation signals; do not use agent count as the evidence of colony behavior.
+- Require an ablation ladder where each added mechanism can be removed independently and measured against a strong workflow-first baseline.
+
+### MigrationBench Strict-Success Contract Standard
+- Treat `strict_success` as unreachable unless a candidate has one concrete exported `patch.diff`, a successful fresh `git apply` check, and an official evaluator result in the same output contract.
+- Best-partial fallbacks must execute the same finalization/evaluation path as normal selected patches; marker payload synthesis alone is telemetry, not benchmark delivery.
+- Target repair retries at the root patch hypothesis when the current marker is itself a repair marker, and strip repair bookkeeping from newly generated branch payloads.
+
+### MigrationBench Repair-Colony Hardening Standard
+- Normalize model edit outputs (`file`, `content`, `replace`, `old/new`) into a strict typed edit contract before any workspace mutation; never ask the LLM for unified diffs as the primary artifact.
+- Make official-like validation explicit and auditable before final selection: patch applies, Maven verify, exact Java target class versions, and non-regressed test count when known.
+- Use smoke gates for mechanics, not scientific success: require clean telemetry, one objective per marker DB, schema-error recovery, selected/finalize paths, and bounded feedback digests before rerunning `main_30`.
+
+### MigrationBench Handoff Review Standard
+- Block MigrationBench implementation on an official evaluator preflight over a tiny requested subset before adding prompt optimization, V7 controls, or C3 mechanisms.
+- Keep the instance schema, patch artifact contract, and denominator semantics identical across baselines and stigmergic arms; `requested_instances` is the scientific denominator, not parsed output count.
+- Treat patch workspace isolation as part of evaluation validity: each instance/arm/run needs a clean checkout, deterministic base commit, captured diff, apply check, and typed failure if any step is missing.
+- After revising a handoff, normalize stale master-plan references to the chosen schema/model/arm names before implementation starts.
+
+### Thesis Framework Documentation Standard
+- Start framework documentation with the runtime signal flow and coordination philosophy before module inventory; in this repo the anchor model is `markers -> pressure -> lock -> tool -> deposited markers`.
+- Separate memory/adaptation layers explicitly: agent episodic memory is in-run and local, `lesson` markers are in-run stigmergic artifacts, `skill` markers are cross-run artifacts, and `coordination_protocol` markers adapt runtime configuration.
+- Include operational diagnostics beside architecture: summary JSON, `markers.db`, `audit_log.jsonl`, `skills.db`, and `protocols.db` are the minimum artifacts a reader needs to verify a run.
+
 ### Stigmergic Self-Optimization Design Standard
 - Persist self-improvement as medium-level artifacts (`skill`, `coordination_protocol`, similar markers) instead of manual specialist templates whenever the goal is to preserve role-free stigmergic philosophy.
 - Split `adaptation` and `evaluation` into separate configs or run modes when persistent memory or cross-run feedback is enabled.
@@ -19,6 +63,21 @@
 - Use separate `MarkerStore` instances with `session_isolation=False` for cross-run artifacts (`skills.db`, `protocols.db`) instead of mixing scopes in the session-isolated run store.
 - Enforce immutable `baseline` protocol slots so clamped adaptations always have a stable reference point.
 - Place promotion side-effects in `Environment.apply_action_result()` rather than in agents to keep the policy global and role-free.
+
+### Sprint 9 Campaign Readout Standard
+- Verify `skills.db`, `protocols.db`, `skills_promoted`, and `coordination_protocol_applied` before claiming C2/C3 evidence from a campaign.
+- Report `official_delivery_rate` separately from any nested artifact `delivered` flag; no-plan idle rows must not count as delivered just because a compatibility field says true.
+- Split TravelPlanner C3 failures into `no-plan idle` vs `invalid emitted plan` before choosing improvements, because they map to different levers: decomposition/continuation vs validator-guided cost repair.
+
+### TravelPlanner Train/Eval Hygiene Standard
+- Use the published TravelPlanner `train` split for adaptation whenever artifacts are persisted into `skills.db` or `protocols.db`; do not adapt on one slice of validation and evaluate on another slice as the final thesis protocol.
+- Evaluate final comparison tables on the full 180-query validation split when cost permits, because this aligns with SwarmAgentic, official TravelPlanner reporting, and prior V6_C evidence.
+- Treat `cross_run` as orthogonal to split hygiene: it controls protocol reuse across runs, while adapt-to-eval contamination is governed by which split produced the persisted artifacts.
+
+### Final Campaign Implementation Standard
+- Change campaign split defaults in scripts, Docker Compose, and YAML presets together; also clean per-query output folders by default when the query denominator changes.
+- Keep C3 evaluation stores read-only, but ensure the adapt phase actually writes train-only `skills.db` and `protocols.db` before treating the campaign as Sprint 9 evidence.
+- Export both artifact-level and official-level delivery metrics whenever legacy fields can overstate delivery.
 
 ### Cross-Run Adaptation Evaluation Standard
 - Never enable persistent agent memory or cross-run emergence feedback in the main benchmark-evaluation preset unless the protocol explicitly separates adaptation/training runs from frozen held-out evaluation runs.
@@ -397,3 +456,165 @@
 - When a benchmark baseline must stay frozen, ship new runtime steering mechanisms behind explicit config gates and new ablation presets rather than mutating the incumbent reference preset.
 - Measure contention from explicit lock-attempt events, then inject the aggregated signal back into snapshots so both controllers and agents consume the same source of truth.
 - Keep generic targeted repair split across two layers: adapters generate validation feedback and target choice, while the runtime materializes repair markers and execution bookkeeping.
+
+### Live Campaign Monitoring Standard
+- For sequential multi-framework benchmark scripts, confirm the execution order in the driver script before interpreting empty result folders as failures.
+- In `zsh`, prefer null-safe counting (`find`, Python, or `setopt null_glob`) during live monitoring, because unmatched `*.json` globs emit misleading `no matches found` noise.
+- When a campaign appears paused, verify active work with `docker stats` and `docker top` before concluding that output counts have stalled.
+
+### Cross-Run Skill Audit Standard
+- Audit cross-run memory features end to end: a recalled artifact is only real memory if a downstream tool actually reads it and the success path can credit or refresh it.
+- Avoid promoting raw objectives as reusable skills; prefer short normalized heuristics plus optional provenance fields for the original example.
+- When grouping skills by fingerprint, keep the canonical text and target independent from the first example-specific lesson, or the stored artifact becomes an arbitrary exemplar instead of a reusable pattern.
+
+### TravelPlanner Artifact-Aware Scoring Standard
+- Treat `final_pass` as valid only when paired with a delivered structured itinerary or a non-empty rendered plan; empty-plan evaluator passes must be classified as false positives.
+- Publish three separate columns for final campaign analysis: raw evaluator pass, delivered artifact rate, and strict delivered-pass rate.
+- If a run summary omits `final_plan`, use `assistant_response == "No travel plan generated."` plus per-query failure reasons as a minimum guard before counting a success.
+
+### Cross-Run Learning Campaign Validity Standard
+- Persist or explicitly configure the cross-run namespace used for adapt/eval phases; do not derive it from fields that intentionally differ between train and validation.
+- Add a campaign preflight that prints effective `llm.provider`, `llm.model`, `protocol_compiler.enabled`, `skill_library` mode, and expected protocol namespace for every phase before launching Docker services.
+- A memory/skill mechanism is not experimentally active until recalled artifacts are injected into the downstream action prompt and their reuse can be credited or penalized by the final artifact outcome.
+
+### C3 Refactor Rerun Standard
+- Treat raw evaluator pass, artifact delivery, and strict delivered pass as separate persisted metrics in every TravelPlanner campaign artifact.
+- Run C3 ablations through a single Python runner that owns preflight, isolated DB paths, per-query logs, JSON extraction, and manifest generation instead of ad hoc shell loops.
+- Promote reusable skills only from strict successful delivered runs, and store them as short action/constraint guidance cards rather than objective fragments.
+
+### Baseline Artifact Validity Standard
+- Count completed benchmark queries by parsing valid JSON artifacts, not by counting `query_*.json` files.
+- Never redirect per-query stderr to `/dev/null` in a publication-grade campaign; store query logs and classify non-zero exits.
+- When legacy folders contain zero-byte query files, repair by rerunning those exact indices or report them explicitly as full-denominator failures.
+
+### C3 Smoke Interpretation Standard
+- Treat nonzero token usage as provider-path validation only; require artifact delivery before considering a mechanism healthy.
+- If `protocol_compiler.used=true` coincides with very low marker counts and `empty_plan_from_llm`, stop compiler/full-C3 and test V6 clean or non-compiler arms separately.
+- Force query indices at the campaign-runner layer so failed compiled runs remain aligned with the requested validation denominator.
+
+### Final Artifact Extraction Standard
+- Prefer non-empty delivered artifacts over empty terminal markers when exporting benchmark summaries.
+- If `evaluation.query_results` reports delivered strict pass but top-level `final_plan` is empty, treat it as an exporter bug until marker payloads prove otherwise.
+- Validate exporter fixes with one real-provider query before rerunning a smoke/full campaign.
+
+### Negative Baseline Interpretation Standard
+- When an orchestration framework costs more but only matches a solo baseline, report the result as controlled negative evidence rather than forcing a win narrative.
+- Pair aggregate score with paired per-query wins/losses and cost/runtime deltas.
+- Preserve delivered-artifact rates separately from strict pass rates to distinguish execution reliability from constraint satisfaction.
+
+### External Code-Migration Benchmark Standard
+- Use an official execution-based benchmark as the primary evidence source for code-migration claims; keep toy fixtures for tests and smoke debugging only.
+- Include strong anti-agent baselines, especially deterministic migration scripts and agentless self-debug pipelines, before claiming that multi-agent orchestration adds value.
+- Pre-register repository subsets, budget limits, output contracts, and full-denominator failure semantics before running publication-grade migration campaigns.
+
+### Management CFP Framing Standard
+- Start from the CFP vocabulary, then map repository mechanisms to recognizable constructs such as epistemic practices, organizational memory, exploration/exploitation, and governance.
+- Treat the artifact as an illustrative design-science case unless campaign evidence is strong enough to support empirical performance claims.
+- Convert technical lifecycle controls such as decay, reinforcement, audit, and locks into learning legitimacy controls: what is remembered, forgotten, attributed, evaluated, and authorized.
+- For pre-empirical conceptual abstracts, soften novelty and regulatory claims while keeping the central mechanism concrete and memorable.
+
+### Elastic Colony Runtime Standard
+- Preserve hard caps for safety, but expose adaptive stop/continue reasons when evaluating tick-based agent runtimes.
+- Size the active agent pool from unblocked work, utilization, contention, and budget pressure rather than choosing one fixed population for every task.
+- Introduce dynamic ticks, elastic agents, progressive decomposition, and specialization as separate ablation arms before combining them into a full architecture.
+
+### External AI Research Packet Standard
+- When another AI system has repository access, publish a concise documentation-only brief that lists the exact branch, files, diagnosis, research questions, and expected deliverables.
+- Prefer committing only the brief and any plan documents it references; avoid bundling unrelated local implementation changes into context-sharing commits.
+- Tell the external agent to treat the brief and plan as source-of-truth if older repository files conflict with recent local context.
+
+### External Research Integration Standard
+- Integrate external research by converting it into explicit gates, claim boundaries, baseline requirements, or metric changes rather than appending broad prose.
+- Keep benchmark-specific claims separate from general framework claims, especially when the benchmark covers one language, ecosystem, or task family.
+- Do not let opaque internal scalar scores select or validate self-optimizing mechanisms on the same split used for final evaluation.
+
+### Evaluator-First Agent Architecture Standard
+- Design scientific agent systems around the official evaluator, artifact schema, baselines, and campaign runner before introducing adaptive colony mechanisms.
+- Keep domain adapters capability-oriented and move scheduling, population, tick budgeting, and decomposition policy into the runtime controller.
+- Put cross-run knowledge behind an offline, versioned, split-aware knowledge plane rather than applying learned state implicitly during final evaluation.
+
+### Implementation Handoff Standard
+- When a research plan exceeds a few pages, create a separate handoff file with ordered read-list, files to create, mandatory guardrails, and a first-pass definition of done.
+- Include explicit "not yet" constraints for mechanisms that are scientifically tempting but would break attribution if implemented too early.
+- Define first-pass success as artifact validity, evaluator compatibility, and baseline comparability before optimizing model prompts or adaptive runtime policies.
+
+### Patch Benchmark Campaign Hardening Standard
+- Run official evaluator and official reference baselines before local adapter or local baseline claims.
+- Make aggregators manifest-driven and synthesize failed rows for missing artifacts so file presence never changes the denominator.
+- Generate patches from harness-applied edits, then verify `git apply` on a clean checkout before invoking official evaluation.
+
+### LLM Campaign Monitoring Standard
+- If a high-budget campaign intentionally avoids per-instance hard caps, make that choice explicit as `monitor_only` in the manifest rather than leaving limits ambiguous.
+- Always record tokens, cost, runtime, LLM calls, repair cycles, last progress time, and manual abort reason so uncapped runs remain comparable across arms.
+- Do not use an LLM-as-judge as a hidden automatic stopper; reserve it for post-hoc stagnation classification or optional telemetry.
+
+### Typed Edit Schema Standard
+- Prefer JSON edit primitives such as `replace_text` and `write_file` over LLM-generated unified diffs for repository-level patch benchmarks.
+- Require repository-relative paths, non-empty search text, and expected replacement counts so edit failures are typed and reproducible.
+- Let the harness compute and verify the final patch, and force every baseline/framework arm through the same edit contract.
+
+### MigrationBench Harness Implementation Standard
+- Split the implementation into official preflight, one-instance exporter, batch runner, and aggregator so setup mortality, patch generation, and comparison statistics stay independently debuggable.
+- Persist `campaign_manifest.json` before running instances and treat it as the denominator source; missing or invalid instance outputs become synthetic failures.
+- Keep the official evaluator wrapper conservative: if the patch is empty, inapplicable, or the evaluator is unavailable, strict success is false and the failure reason is explicit.
+
+### Docker Compose Campaign Command Standard
+- Use exec-form `command` with a literal block for multi-line campaign commands instead of folded shell strings.
+- Escape variables that must be resolved inside the container as `$$VARIABLE` or `$${VARIABLE}`.
+- Call `/opt/venv/bin/python` explicitly when login-shell behavior could reset `PATH`.
+- Run a zero-limit or no-op smoke after changing service command wiring.
+
+### Official Benchmark Preflight Standard
+- Gate environment readiness on clone/checkout success, evaluator importability, evaluator process return code, and required toolchain availability.
+- Report base or no-op benchmark success separately when the base artifact is not expected to satisfy the final task contract.
+- Include official benchmark Python dependencies and package path configuration in the Docker image before interpreting benchmark failures.
+
+### Docker Desktop Benchmark Smoke Standard
+- If Docker bind mounts trigger filesystem errors, remove source/config bind mounts and rebuild immutable campaign images.
+- Run deterministic no-LLM arms first, then one-instance LLM and framework arms before launching a full subset.
+- Treat smoke success as pipeline validity: JSON summaries, patch artifacts, patch applicability, official evaluator execution, and telemetry must all be present.
+
+### Patch Benchmark Workspace Cleanliness Standard
+- A `no_change` arm must deliver zero artifacts; any nonzero artifact delivery means the workspace is dirty or the output contract is wrong.
+- Force-clean per-framework workspaces for clean campaign launches, especially after smoke tests or aborted runs.
+- Do not reuse a result directory after a contamination signal; relaunch into a fresh `out-dir`.
+
+### No-Op Baseline Contract Standard
+- Implement no-op baselines by writing an explicit empty artifact and explicit no-delivery stats.
+- Never use raw workspace diffs to infer no-op behavior, because checkout normalization can create parasite diffs.
+- Treat disagreement between `failure_reason=empty_patch` and nonzero artifact delivery as a contract bug.
+
+### MigrationBench Timeout Guard Standard
+- Wire timeout controls through every layer: Docker Compose, campaign runner, framework runner, manifest, and per-instance failure rows.
+- Kill process groups, not only parent Python processes, when enforcing timeouts around tools that can spawn Maven or official evaluators.
+- Set main-campaign timeouts from observed official-eval/runtime tails; keep very short values for smoke tests only.
+
+### Marker Final-Contract Extraction Standard
+- Select final benchmark contracts by marker type and required schema fields, not by marker ID suffix alone.
+- Reject or rerun any benchmark arm where `runs.json` contains more rows than requested instances.
+- Keep framework-internal learning artifacts such as lessons, skills, or protocols out of benchmark result rows.
+
+### Docker Benchmark Cache Hygiene Standard
+- Treat benchmark workspaces as disposable cache when debugging contamination, stale checkouts, or reruns after extraction fixes.
+- Exclude mounted benchmark directories from image contexts, especially `workspaces/` and `external/`.
+- If Docker Desktop stalls on repository context loading, build a tagged campaign image from a minimal temporary context and run Compose with `--no-build`.
+
+### Patch Benchmark Completion Triage Standard
+- Confirm container exit code, requested denominator, recorded rows, and result file presence before interpreting rates.
+- Report the artifact funnel in order: delivered patch, clean `git apply`, official evaluation, strict success.
+- Distinguish valid negative results from infrastructure failures by checking official evaluator return codes and per-instance failure reasons.
+
+### Repository Migration Control-Loop Standard
+- Do not finalize a migration patch from proposal alone; finalization should depend on build/test feedback or an explicit no-repair decision.
+- Treat compile/test logs as first-class context for the next edit proposal, not as passive telemetry.
+- Flag small POM-only patches as a weak baseline unless they pass official evaluation or trigger a repair loop.
+
+### Stigmergic Repair-Colony Implementation Standard
+- Model every candidate patch as a branch-scoped marker with typed edits, attempt number, failure taxonomy, validation status, and quality score.
+- Convert build, patch-apply, and official-eval failures into repair markers with compact feedback; do not silently continue from failed telemetry.
+- Keep dynamic agent pools opt-in and trace min/max/avg active agents so adaptivity is measurable rather than cosmetic.
+
+### Ablation Treatment-Activation Standard
+- Before interpreting an ablation score, verify that each arm actually activated the mechanism it claims to test: candidate fan-out for branching, non-empty repair proposals for repair loops, and blackboard events for typed coordination.
+- Report execution validity separately from scientific validity; Docker `exit 0`, full denominators, and replay parity prove the harness, not the treatment.
+- Align local verifier gates with official benchmark semantics, then keep stricter local-only checks as diagnostics rather than pre-official blockers unless the benchmark contract explicitly requires them.

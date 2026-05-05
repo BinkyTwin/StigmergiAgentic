@@ -36,6 +36,9 @@ class OfficialTravelPlannerEvaluator:
         self.dataset_split = str(dataset_split).strip() or "validation"
 
     def evaluate_plan(self, *, query_data: dict[str, Any], plan: list[dict[str, Any]]) -> OfficialPlanEvaluation:
+        if not plan:
+            return self._empty_plan_evaluation()
+
         with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False, encoding="utf-8") as query_file:
             query_path = Path(query_file.name)
             query_file.write(json.dumps(query_data, ensure_ascii=True))
@@ -60,16 +63,50 @@ class OfficialTravelPlannerEvaluator:
             query_path.unlink(missing_ok=True)
             plan_path.unlink(missing_ok=True)
 
+        delivered = bool(plan) and bool(payload.get("delivered", False))
+        final_pass = delivered and bool(payload.get("final_pass", False))
         return OfficialPlanEvaluation(
-            delivered=bool(payload.get("delivered", False)),
+            delivered=delivered,
             commonsense=dict(payload.get("commonsense", {})),
             hard=dict(payload.get("hard", {})),
             commonsense_messages=dict(payload.get("commonsense_messages", {})),
             hard_messages=dict(payload.get("hard_messages", {})),
             commonsense_macro_pass=bool(payload.get("commonsense_macro_pass", False)),
             hard_macro_pass=bool(payload.get("hard_macro_pass", False)),
-            final_pass=bool(payload.get("final_pass", False)),
+            final_pass=final_pass,
             estimated_cost=float(payload.get("estimated_cost", 0.0)),
+        )
+
+    def _empty_plan_evaluation(self) -> OfficialPlanEvaluation:
+        commonsense = {
+            "is_valid_information_in_current_city": False,
+            "is_valid_information_in_sandbox": False,
+            "is_reasonable_visiting_city": False,
+            "is_valid_restaurants": False,
+            "is_valid_transportation": False,
+            "is_valid_attractions": False,
+            "is_valid_accommodation": False,
+            "is_not_absent": False,
+        }
+        hard = {
+            "valid_cost": False,
+            "valid_room_rule": False,
+            "valid_cuisine": False,
+            "valid_room_type": False,
+            "valid_transportation": False,
+        }
+        messages = {key: "empty plan is not a delivered itinerary" for key in commonsense}
+        hard_messages = {key: "empty plan is not a delivered itinerary" for key in hard}
+        return OfficialPlanEvaluation(
+            delivered=False,
+            commonsense=commonsense,
+            hard=hard,
+            commonsense_messages=messages,
+            hard_messages=hard_messages,
+            commonsense_macro_pass=False,
+            hard_macro_pass=False,
+            final_pass=False,
+            estimated_cost=0.0,
         )
 
     def evaluate_predictions_by_query_idx(

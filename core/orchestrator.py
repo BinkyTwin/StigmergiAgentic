@@ -10,6 +10,7 @@ from typing import Any
 
 from .audit import AuditEvent, utc_timestamp
 from .agent import StigmergicAgent
+from .dependency import unblocked_markers
 from .emergence import compute_adaptations, compute_emergence_metrics
 from .environment import Environment, EnvironmentSnapshot
 from .guardrails import BudgetExceededError
@@ -71,6 +72,8 @@ class Orchestrator:
             "last_activation_tick": None,
             "activation_count": 0,
         }
+        self._elastic_agent_counter = len(self.agents)
+        self._agent_pool_rows: list[dict[str, Any]] = []
         self._bind_agent_callbacks()
 
     async def run(self) -> OrchestratorResult:
@@ -100,6 +103,15 @@ class Orchestrator:
                 if self._snapshot_requires_control_refresh(control_state)
                 else base_snapshot
             )
+            agent_pool_payload = self._maybe_resize_agent_pool(
+                tick=tick,
+                snapshot=pre_snapshot,
+                tick_rows=tick_rows,
+                idle_cycles=idle_cycles,
+            )
+            if agent_pool_payload:
+                control_state["agent_pool"] = agent_pool_payload
+                pre_snapshot.control["agent_pool"] = agent_pool_payload
 
             decisions_by_agent = await self._collect_decisions(
                 snapshot=pre_snapshot,
@@ -206,6 +218,10 @@ class Orchestrator:
                 }
             else:
                 emergence_summary = computed
+        agent_pool_summary = self._agent_pool_summary()
+        if agent_pool_summary:
+            emergence_summary = dict(emergence_summary)
+            emergence_summary["agent_pool"] = agent_pool_summary
 
         return OrchestratorResult(
             stop_reason=stop_reason,
@@ -282,6 +298,166 @@ class Orchestrator:
         for agent in self.agents:
             if hasattr(agent, "bind_on_perceive"):
                 agent.bind_on_perceive(self._record_agent_reads)
+
+    def _maybe_resize_agent_pool(
+        self,
+        *,
+        tick: int,
+        snapshot: EnvironmentSnapshot,
+        tick_rows: list[TickRow],
+        idle_cycles: int,
+    ) -> dict[str, Any]:
+        """Resize homogeneous workers from local workload signals."""
+        agents_cfg = dict(self.config.get("agents", {}))
+        mode = str(agents_cfg.get("num_agents_mode", "fixed")).strip().lower()
+        if mode != "elastic":
+            return {}
+        if not self.agents:
+            return {}
+
+        elastic_cfg = dict(agents_cfg.get("elastic", {}))
+        min_agents = max(1, int(elastic_cfg.get("min_agents", 2)))
+        max_agents = max(min_agents, int(elastic_cfg.get("max_agents", 12)))
+        markers_per_agent = max(1, int(elastic_cfg.get("markers_per_agent", 2)))
+        unblocked = self._unblocked_marker_count(snapshot)
+        target = max(min_agents, min(max_agents, (unblocked + markers_per_agent - 1) // markers_per_agent))
+
+        utilization = self._recent_parallel_utilization(tick_rows)
+        contention = self._recent_lock_contention(tick_rows)
+        if unblocked > len(self.agents) and utilization >= float(
+            elastic_cfg.get("scale_up_utilization", 0.8)
+        ):
+            target += 1
+        if contention >= float(elastic_cfg.get("scale_down_contention", 0.45)):
+            target -= 1
+        if utilization <= float(elastic_cfg.get("scale_down_idle_utilization", 0.25)) and idle_cycles > 0:
+            target -= 1
+        target = max(min_agents, min(max_agents, target))
+
+        before = len(self.agents)
+        if target > before:
+            self._spawn_agents(target - before)
+        elif target < before:
+            self._retire_agents(before - target, min_agents=min_agents)
+
+        after = len(self.agents)
+        payload = {
+            "mode": "elastic",
+            "min_agents": min_agents,
+            "max_agents": max_agents,
+            "target_agents": target,
+            "agents_before": before,
+            "agents_after": after,
+            "unblocked_markers": unblocked,
+            "recent_parallel_utilization": utilization,
+            "recent_lock_contention": contention,
+        }
+        self._agent_pool_rows.append({"tick": int(tick), **payload})
+        if before != after:
+            self._audit_agent_pool_resize(tick=tick, before=before, after=after, payload=payload)
+        return payload
+
+    def _spawn_agents(self, count: int) -> None:
+        registry = getattr(self.agents[0], "tool_registry", None)
+        if registry is None:
+            return
+        for _ in range(max(0, int(count))):
+            self._elastic_agent_counter += 1
+            self.agents.append(
+                StigmergicAgent(
+                    agent_id=f"agent-{self._elastic_agent_counter}",
+                    tool_registry=registry,
+                    config=self.config,
+                    rng=random.Random(self._rng.randint(0, 2**31 - 1)),
+                    on_perceive=self._record_agent_reads,
+                )
+            )
+
+    def _retire_agents(self, count: int, *, min_agents: int) -> None:
+        removable = max(0, len(self.agents) - max(1, int(min_agents)))
+        for _ in range(min(max(0, int(count)), removable)):
+            self.agents.pop()
+
+    def _unblocked_marker_count(self, snapshot: EnvironmentSnapshot) -> int:
+        terminal_ids = {
+            marker.id
+            for marker in snapshot.markers
+            if marker.state in TERMINAL_STATES
+        }
+        pending_candidates = [
+            marker
+            for marker in snapshot.markers
+            if marker.state == "pending" and marker.lock_owner is None
+        ]
+        in_flight = [
+            marker
+            for marker in snapshot.markers
+            if marker.state == "planning" and marker.payload.get("eligible_actions")
+        ]
+        return len(
+            unblocked_markers(markers=pending_candidates, terminal_ids=terminal_ids)
+        ) + len(in_flight)
+
+    def _recent_parallel_utilization(self, tick_rows: list[TickRow], *, window: int = 3) -> float:
+        if not tick_rows:
+            return 1.0
+        rows = tick_rows[-max(1, int(window)) :]
+        values = [
+            float(row.emergence.get("parallel_utilization", 0.0))
+            for row in rows
+        ]
+        return sum(values) / float(len(values)) if values else 0.0
+
+    def _recent_lock_contention(self, tick_rows: list[TickRow], *, window: int = 3) -> float:
+        if not tick_rows:
+            return 0.0
+        rows = tick_rows[-max(1, int(window)) :]
+        values = [
+            float(row.emergence.get("lock_contention_rate", 0.0))
+            for row in rows
+        ]
+        return sum(values) / float(len(values)) if values else 0.0
+
+    def _audit_agent_pool_resize(
+        self,
+        *,
+        tick: int,
+        before: int,
+        after: int,
+        payload: dict[str, Any],
+    ) -> None:
+        self.environment.store.audit_log.append(
+            AuditEvent(
+                timestamp=utc_timestamp(),
+                agent_id="system_agent_pool",
+                action="agent_pool_resize",
+                marker_id="runtime_config",
+                marker_type="system",
+                target="elastic_agent_pool",
+                before={"agents": int(before)},
+                after={"agents": int(after), "signal": payload},
+                tick=int(tick),
+            )
+        )
+
+    def _agent_pool_summary(self) -> dict[str, Any]:
+        if not self._agent_pool_rows:
+            return {}
+        counts = [int(row.get("agents_after", 0)) for row in self._agent_pool_rows]
+        if not counts:
+            return {}
+        return {
+            "mode": "elastic",
+            "dynamic_agents_min": min(counts),
+            "dynamic_agents_max": max(counts),
+            "dynamic_agents_avg": sum(counts) / float(len(counts)),
+            "resize_events": sum(
+                1
+                for row in self._agent_pool_rows
+                if int(row.get("agents_before", 0)) != int(row.get("agents_after", 0))
+            ),
+            "observations": len(self._agent_pool_rows),
+        }
 
     def _record_agent_reads(
         self,
@@ -367,6 +543,7 @@ class Orchestrator:
         recovery_cfg = dict(control_state.get("recovery", {}))
         return {
             "recovery": recovery_cfg,
+            "agent_pool": dict(control_state.get("agent_pool", {})),
             "dynamic_idle_limit": int(control_state.get("dynamic_idle_limit", 0)),
             "stickiness_activations": sum(
                 1

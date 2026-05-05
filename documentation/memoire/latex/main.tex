@@ -1,0 +1,59 @@
+% =============================================================================
+% MAIN.TEX — Mémoire de Master EMLV
+% Auteur  : Abdelatif DJEDDOU
+% Sujet   : Orchestration stigmergique de systèmes multi-agents LLM
+% Build   : xelatex main && biber main && xelatex main && xelatex main
+% =============================================================================
+\documentclass[12pt,a4paper,openany,oneside]{book}
+
+\input{preambule}
+\input{meta}
+
+\begin{document}
+
+% --- Pages liminaires --------------------------------------------------------
+\frontmatter
+\input{liminaires/page_titre}
+\input{liminaires/declaration_originalite}
+\input{liminaires/remerciements}
+\input{liminaires/resume_fr}
+\input{liminaires/resume_en}
+
+\tableofcontents
+\listoffigures
+\listoftables
+
+\input{liminaires/glossaire}
+
+% --- Corps du mémoire --------------------------------------------------------
+\mainmatter
+\input{chapitres/chap_01_introduction}
+\input{chapitres/chap_02_revue_litterature}
+\input{chapitres/chap_03_methodologie}
+\input{chapitres/chap_04_conception_artefact}
+\input{chapitres/chap_05_travelplanner}
+\input{chapitres/chap_06_migrationbench}
+\input{chapitres/chap_07_evaluation_experts}
+\input{chapitres/chap_08_discussion}
+\input{chapitres/chap_09_conclusion}
+
+% --- Bibliographie & Annexes -------------------------------------------------
+\backmatter
+% Bibliographie en texte APA (héritée du DSR). Conversion progressive vers
+% biblatex/biber via bibliography.bib en cours ; tant que les entrées BibTeX
+% ne couvrent pas l'intégralité des citations inline, on garde le rendu manuel.
+\input{liminaires/bibliographie_manuelle}
+% \printbibliography[heading=bibintoc,title={Bibliographie}]  % à activer après conversion BibTeX
+
+\appendix
+\input{annexes/annexe_a_glossaire_etendu}
+\input{annexes/annexe_c_adr}
+\input{annexes/annexe_d_oc_chapitres}
+\input{annexes/annexe_e_configs_yaml}
+\input{annexes/annexe_f_marker_traces}
+\input{annexes/annexe_g_panel_experts}
+\input{annexes/annexe_h_aggregates_v9}
+\input{annexes/annexe_i_journal_v71}
+\input{annexes/annexe_j_reproducibility}
+
+\end{document}

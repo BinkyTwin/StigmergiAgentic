@@ -159,7 +159,7 @@ Chaque ligne doit contenir :
 ```json
 {
   "instance_id": "stable-id",
-  "github_url": "https://github.com/owner/repo",
+  "repo_url": "https://github.com/owner/repo",
   "base_commit": "sha",
   "target_java": 17,
   "migration_mode": "minimal",
@@ -186,18 +186,27 @@ La maximal migration devient une extension seulement si minimal migration est st
 
 ### 5.3 Modèles
 
-Le modèle principal reste **Gemma via OpenRouter** pour cohérence avec la campagne actuelle.
+Le modèle principal devient **DeepSeek direct API `deepseek-v4-flash`**.
+
+Raison : la migration Java repository-level risque d'être dominée par le bruit modèle si l'on conserve un modèle trop faible. Un benchmark où tous les bras échouent à 3-8 % ne permet pas d'évaluer l'orchestration.
 
 Matrice recommandée :
 
 | Étape | Modèle | Rôle |
 |---|---|---|
-| Dev/smoke | Gemma | modèle principal, coût contrôlé |
-| Main | Gemma | comparaison baselines vs framework |
-| Confirmatoire | DeepSeek | vérifier que l'effet ne dépend pas uniquement de Gemma |
-| Optionnel | Qwen ancien ou petit modèle | stress-test faible capacité |
+| Dev/smoke | DeepSeek `deepseek-v4-flash` | modèle principal |
+| Main | DeepSeek `deepseek-v4-flash` | comparaison baselines vs framework |
+| Stress-test | Gemma | modèle plus faible / bas-budget, seulement après pipeline stable |
+| Optionnel | DeepSeek Pro / autre modèle fort | confirmatoire si budget et temps disponibles |
 
 On ne mélange pas les modèles dans la même conclusion. La conclusion principale doit être : "à modèle constant, l'orchestration apporte / n'apporte pas X".
+
+Politique tokens :
+
+- contexte officiel DeepSeek V4 Flash : 1M tokens ;
+- sortie maximale officielle : 384K tokens ;
+- pour les runs publication-grade, ne pas imposer de `max_response_tokens` artificiellement bas ;
+- si un cap plus bas est utilisé pour debug/smoke, il doit être écrit dans le manifest et ne pas être mélangé aux résultats principaux.
 
 ---
 
@@ -212,9 +221,10 @@ Les baselines doivent être plus fortes que celles de TravelPlanner. Sinon, un j
 | `solo_direct` | LLM seul, patch direct, coût faible. |
 | `solo_cot` | LLM seul avec raisonnement structuré. |
 | `planner_executor` | Baseline forte et simple : planifier, éditer, tester, réparer. |
-| `agentless_self_debug` | Baseline anti-agent : localize -> repair -> validate, inspirée Agentless/SD-Feedback. |
+| `sd_feedback_official` | Baseline forte officielle issue de `amazon-science/JavaMigration` si elle tourne localement. |
+| `agentless_self_debug` | Fallback local anti-agent : localize -> repair -> validate, seulement si SD-Feedback officiel ne peut pas tourner. |
 | `langgraph_supervisor` | Graphe supervisé, bon comparateur pour orchestration explicite. |
-| `stigmergic_v6_clean` | Framework sans C3, pour mesurer le runtime stigmergique de base. |
+| `stigmergic_v6_static` | Framework sans C3, pour mesurer le runtime stigmergique de base. |
 | `c3_protocol_only` | Test isolé du protocole persistant. |
 | `c3_skills_only` | Test isolé des skills. |
 | `c3_compiler_only` | Test isolé du compiler. |
@@ -222,7 +232,7 @@ Les baselines doivent être plus fortes que celles de TravelPlanner. Sinon, un j
 
 Ordre de priorité :
 
-1. `no_change`, `dependency_only_script`, `solo_direct`, `planner_executor`, `agentless_self_debug`, `stigmergic_v6_clean`.
+1. `no_change`, `dependency_only_script`, `solo_direct`, `planner_executor`, `sd_feedback_official` ou fallback documenté `agentless_self_debug`, `stigmergic_v6_static`.
 2. `langgraph_supervisor` si l'environnement est stable.
 3. V7 ablations après stabilité, puis seulement ensuite éventuel retour des mécanismes C3.
 
@@ -273,7 +283,7 @@ Rôle des fichiers :
 | `InspectBuildTool` | non-LLM + résumé LLM optionnel | Java version, Maven plugins, modules, erreurs préexistantes. |
 | `SearchCodeTool` | non-LLM | occurrences, fichiers candidats, snippets bornés. |
 | `ReadFileTool` | non-LLM | contenu borné + hash. |
-| `EditPatchTool` | LLM ou diff parser | patch unifié, fichiers modifiés, apply status. |
+| `EditPatchTool` | LLM + harness diff | éditions typées ou fichiers complets, puis `git diff` calculé côté harness. |
 | `RunMavenTool` | non-LLM | exit code, stdout/stderr tronqués, test summary. |
 | `AnalyzeFailureTool` | LLM | cause typée, prochaine action recommandée. |
 | `ValidateMigrationTool` | non-LLM | patch appliqué, build pass, tests pass, class version, official eval status. |
@@ -647,7 +657,7 @@ La campagne MigrationBench doit donc comparer deux familles :
 
 | Famille | Bras | But |
 |---|---|---|
-| Static | `stigmergic_v6_clean_static` | Socle comparable à TravelPlanner, population fixe. |
+| Static | `stigmergic_v6_static` | Socle comparable à TravelPlanner, population fixe. |
 | Elastic ticks | `v7_dynamic_ticks` | Mesurer l'effet d'un arrêt/extension adaptatif. |
 | Elastic agents | `v7_elastic_agents` | Mesurer l'effet de la population dynamique. |
 | Progressive decomposition | `v7_progressive_decompose` | Mesurer si le DAG émerge vraiment. |
@@ -679,9 +689,9 @@ Chaque run, baseline ou framework, doit produire le même contrat.
 ```json
 {
   "instance_id": "owner__repo-id",
-  "framework": "stigmergic_v6_clean",
-  "provider": "openrouter",
-  "model": "google/gemma-4-31b-it",
+  "framework": "stigmergic_v6_static",
+  "provider": "deepseek",
+  "model": "deepseek-v4-flash",
   "seed": 42,
   "artifact_delivered": true,
   "patch_delivered": true,
@@ -707,7 +717,7 @@ Chaque run, baseline ou framework, doit produire le même contrat.
   "coordination_overhead": 11,
   "skills_loaded_count": 4,
   "skills_injected_count": 2,
-  "protocol_namespace": "migrationbench_gemma_seed42_v1",
+  "protocol_namespace": "migrationbench_deepseek_seed42_v1",
   "coordination_protocol_loaded": true,
   "coordination_protocol_applied": true,
   "protocol_compiler_used": false,
@@ -849,8 +859,8 @@ Règles :
 Critère de reproductibilité :
 
 ```text
-docker compose -f docker-compose.campaign.yml up gemma-migrationbench-baselines
-docker compose -f docker-compose.campaign.yml up gemma-migrationbench-stigmergie
+docker compose -f docker-compose.campaign.yml up deepseek-migrationbench-baselines
+docker compose -f docker-compose.campaign.yml up deepseek-migrationbench-stigmergie
 uv run python scripts/aggregate_migrationbench_comparison.py ...
 ```
 
@@ -998,8 +1008,8 @@ Objectif : tuer les bugs avant de payer une campagne.
 Plan :
 
 - 5 repos MigrationBench selected ;
-- bras : `no_change`, `dependency_only_script`, `solo_direct`, `planner_executor`, `agentless_self_debug`, `stigmergic_v6_clean`;
-- modèle : Gemma ;
+- bras : `no_change`, `dependency_only_script`, `solo_direct`, `planner_executor`, `agentless_self_debug`, `stigmergic_v6_static`;
+- modèle : DeepSeek `deepseek-v4-flash` ;
 - seed : 42.
 
 Gate :
@@ -1024,7 +1034,7 @@ Questions :
 
 Gate :
 
-- si `stigmergic_v6_clean` est dominé par `planner_executor` et `agentless_self_debug` sans signal qualitatif, ne pas lancer de full V7 ni de retour C3 intégré ;
+- si `stigmergic_v6_static` est dominé par `planner_executor` et `agentless_self_debug` sans signal qualitatif, ne pas lancer de full V7 ni de retour C3 intégré ;
 - si le runner ou l'évaluateur a plus de 5 % d'erreurs harness, corriger avant main.
 
 ### Phase 7 — Main 30 repos
@@ -1038,7 +1048,7 @@ Bras obligatoires :
 - `solo_direct`;
 - `planner_executor`;
 - `agentless_self_debug`;
-- `stigmergic_v6_clean`.
+- `stigmergic_v6_static`.
 
 Bras conditionnels :
 
@@ -1080,8 +1090,8 @@ Objectif : renforcer la validité externe.
 
 Deux chemins possibles :
 
-- si `main_30` est clair : extension `main_60` Gemma ;
-- si `main_30` montre un effet intéressant mais fragile : confirmer avec DeepSeek sur 30 repos.
+- si `main_30` est clair : extension `main_60` avec DeepSeek ;
+- si `main_30` montre un effet intéressant mais fragile : confirmer sur un subset additionnel ou avec un modèle fort secondaire, sans mélanger les conclusions.
 
 On ne fait pas les deux si le budget ne le permet pas.
 
@@ -1141,7 +1151,7 @@ C'est probablement le scénario le plus réaliste à court terme.
 
 ### Critère fort
 
-- `stigmergic_v6_clean` bat `solo_direct` et `planner_executor` sur strict success ou Pareto coût/succès ;
+- `stigmergic_v6_static` bat `solo_direct` et `planner_executor` sur strict success ou Pareto coût/succès ;
 - `agentless_self_debug` ne domine pas totalement ;
 - failure taxonomy montre un avantage sur les repos nécessitant plusieurs cycles de réparation.
 
@@ -1165,16 +1175,16 @@ adapters/migrationbench/
 scripts/run_migrationbench_campaign.py
 scripts/run_migrationbench_framework_benchmark.py
 scripts/aggregate_migrationbench_comparison.py
-config/migrationbench_v6_clean_gemma.yaml
-config/migrationbench_c3_protocol_only_gemma.yaml
-config/migrationbench_c3_skills_only_gemma.yaml
-config/migrationbench_c3_compiler_only_gemma.yaml
-config/migrationbench_c3_full_gemma.yaml
-config/migrationbench_v7_dynamic_ticks_gemma.yaml
-config/migrationbench_v7_elastic_agents_gemma.yaml
-config/migrationbench_v7_progressive_decompose_gemma.yaml
-config/migrationbench_v7_specialization_gemma.yaml
-config/migrationbench_v7_elastic_colony_gemma.yaml
+config/migrationbench_v6_static_deepseek.yaml
+config/migrationbench_c3_protocol_only_deepseek.yaml
+config/migrationbench_c3_skills_only_deepseek.yaml
+config/migrationbench_c3_compiler_only_deepseek.yaml
+config/migrationbench_c3_full_deepseek.yaml
+config/migrationbench_v7_dynamic_ticks_deepseek.yaml
+config/migrationbench_v7_elastic_agents_deepseek.yaml
+config/migrationbench_v7_progressive_decompose_deepseek.yaml
+config/migrationbench_v7_specialization_deepseek.yaml
+config/migrationbench_v7_elastic_colony_deepseek.yaml
 ```
 
 ### Tests
@@ -1223,7 +1233,7 @@ documentation/decisions/20260426-migrationbench-primary-benchmark.md
 - [ ] `solo_direct` fonctionne.
 - [ ] `planner_executor` fonctionne.
 - [ ] `agentless_self_debug` fonctionne.
-- [ ] `stigmergic_v6_clean` fonctionne.
+- [ ] `stigmergic_v6_static` fonctionne.
 - [ ] Tous les bras sortent le même contrat JSON.
 - [ ] Les patches vides ne peuvent pas réussir.
 - [ ] Les runs absents comptent comme échec.
@@ -1271,9 +1281,655 @@ La prochaine action n'est pas de lancer une grosse campagne. La prochaine action
 2. Installer MigrationBench et reproduire un eval officiel sur 3 repos.
 3. Créer l'adaptateur `migrationbench` minimal avec toy repo.
 4. Implémenter `no_change`, `dependency_only_script`, `solo_direct`, `planner_executor`, `agentless_self_debug`.
-5. Faire un smoke 5 repos avec Gemma.
+5. Faire un smoke 5 repos avec DeepSeek `deepseek-v4-flash`.
 6. Ensuite seulement, implémenter `V7 dynamic_ticks` comme première amélioration runtime isolée.
 
 Seulement après ça, on parle de main_30.
 
 Ce plan est dur, mais c'est justement ce qui le rend défendable. On arrête de demander au framework de se prouver sur un benchmark qui ne lui donne presque pas d'espace pour exister, et on le met sur une tâche où coordination, réparation, mémoire et audit peuvent réellement compter.
+
+---
+
+## 20. Mise à jour après Deep Research
+
+**Date :** 2026-04-27  
+**Source :** `/Users/lotfi/Downloads/deep-research-report.md`  
+**Synthèse intégrée :** `documentation/redisgn_v2/deep_research_report_integration.md`
+
+Le rapport Deep Research confirme la trajectoire, mais durcit trois points importants :
+
+1. **MigrationBench est le benchmark principal pour la migration de code, pas une preuve universelle de supériorité agentique.**
+2. **La prochaine preuve scientifique doit être `V6 static migration` avant toute V7 complète.**
+3. **C3 reste gelé comme architecture intégrée ; ses mécanismes ne reviennent que plus tard comme ablations isolées.**
+
+### 20.1 Boundary scientifique
+
+La revendication autorisée devient :
+
+```text
+StigmergiAgentic est évalué sur la migration repository-level Java avec scoring officiel execution-based.
+```
+
+La revendication interdite devient :
+
+```text
+StigmergiAgentic est prouvé supérieur comme framework agentique généraliste.
+```
+
+Même si MigrationBench est un bon benchmark primaire, il reste Java/Maven-centric. Il peut porter une claim forte sur la migration de code, pas une généralisation automatique à tout le software engineering agentique.
+
+### 20.2 V6 avant V7
+
+`V7 Elastic Colony` ne doit pas être le prochain run scientifique.
+
+Ordre verrouillé :
+
+1. préflight officiel MigrationBench ;
+2. adaptateur MigrationBench minimal ;
+3. baselines fortes ;
+4. `stigmergic_v6_static` ;
+5. smoke 5 ;
+6. pilot 10-20 ;
+7. main 30 ;
+8. puis seulement V7 ablations.
+
+Règle :
+
+```text
+Pas de full V7 tant que V6 static n'est pas interprétable.
+```
+
+### 20.3 Agentless devient obligatoire
+
+`agentless_self_debug` n'est plus recommandé : il est obligatoire.
+
+Raison : les travaux type Agentless montrent qu'un pipeline simple, bien instrumenté, peut battre des architectures agentiques plus complexes. Si StigmergiAgentic ne tient pas face à ce rival, ajouter plus d'agents ou plus de mémoire ne prouve rien.
+
+Baseline minimale forte :
+
+- `no_change`;
+- `dependency_only_script`;
+- `solo_direct`;
+- `solo_cot` ou `solo_self_refine`;
+- `planner_executor`;
+- `agentless_self_debug`;
+- `stigmergic_v6_static`.
+
+### 20.4 Cross-run interdit sur main eval
+
+Pour le `main_30`, aucun mécanisme cross-run ne doit apprendre sur le même split qu'il évalue.
+
+Sont donc désactivés par défaut sur main eval :
+
+- skill promotion ;
+- protocol persistence ;
+- best-protocol selection ;
+- compiler feedback ;
+- config mutation issue de runs précédents.
+
+Si ces mécanismes reviennent, il faut :
+
+```text
+adaptation subset != evaluation subset
+```
+
+et un namespace incluant explicitement :
+
+- benchmark ;
+- migration mode ;
+- model ;
+- seed ;
+- train subset id ;
+- eval subset id ;
+- mechanism arm.
+
+### 20.5 `compute_protocol_score` rétrogradé
+
+`compute_protocol_score` ne doit pas gouverner une campagne scientifique.
+
+Il peut rester :
+
+- télémétrie interne ;
+- dashboard ;
+- aide au debug ;
+- signal exploratoire.
+
+Il ne doit pas être :
+
+- métrique primaire ;
+- critère de victoire ;
+- mécanisme de sélection sur le split d'évaluation ;
+- justification de protocole "best" en publication-grade.
+
+La vérité primaire reste :
+
+```text
+strict_success =
+artifact_delivered
+AND patch_delivered
+AND patch_applies
+AND official_success
+```
+
+### 20.6 Hystérésis obligatoire pour agents élastiques
+
+Le pool d'agents V7 doit éviter les oscillations.
+
+Ajouts obligatoires au design :
+
+- cooldown de spawn ;
+- cooldown de retire ;
+- seuil haut d'utilisation ;
+- seuil bas d'utilisation ;
+- seuil de contention qui réduit la population ;
+- budget pressure qui réduit la population ;
+- raison de spawn/retire tracée dans les summaries ;
+- seed déterministe pour chaque nouvel agent.
+
+Un agent pool sans hystérésis risque de produire une illusion d'intelligence avec plus de bruit, plus de contention et plus de coût.
+
+### 20.7 Gate avant full V7
+
+Ne pas lancer `v7_elastic_colony` sauf si au moins un bras isolé montre :
+
+- gain de `strict_success`; ou
+- meilleur front Pareto coût/succès ; ou
+- réduction claire d'une classe d'échec ; ou
+- signal mécanistique relié à un résultat externe.
+
+Un signal purement interne, comme plus de markers ou plus de spécialisation apparente, ne suffit pas.
+
+### 20.8 Version minimale défendable du mémoire
+
+La version minimale scientifiquement défendable est :
+
+```text
+MigrationBench minimal Java 8 -> 17
++ official evaluator
++ strong baselines
++ V6 static stigmergic runtime
++ strict patch-centric output contract
++ paired analysis
++ failure taxonomy
++ honest interpretation
+```
+
+V7 est une amélioration architecturale, pas une condition de validité minimale du mémoire.
+
+---
+
+## 21. Mise à jour "from scratch" : evaluator-first, patch-first
+
+**Date :** 2026-04-27  
+**Source :** `/Users/lotfi/Downloads/deep-research-report (2).md`
+
+Le second rapport pose une question différente : si l'on devait refaire le framework de zéro, que faudrait-il changer ?
+
+La réponse adoptée est :
+
+```text
+Ne pas commencer par une colonie intelligente.
+Commencer par une machine expérimentale incontestable.
+```
+
+Autrement dit, la prochaine version doit être pensée comme :
+
+```text
+official evaluator first
+patch artifact first
+baseline harness first
+adaptive colony second
+offline knowledge plane last
+```
+
+### 21.1 Changement de posture
+
+Ancienne posture implicite :
+
+```text
+Construire un framework agentique ambitieux, puis chercher comment le prouver.
+```
+
+Nouvelle posture :
+
+```text
+Construire un harness d'évaluation dur, puis ajouter uniquement les mécanismes agentiques qui survivent aux baselines.
+```
+
+Ce changement ne réduit pas l'ambition. Il protège l'ambition contre une critique simple : "votre système est complexe, mais sa valeur n'est pas prouvée".
+
+### 21.2 Architecture logique cible
+
+La cible d'architecture devient :
+
+```text
+Campaign Runner
+  -> Instance Registry
+  -> Domain Adapter
+  -> Workspace Sandbox
+  -> Tool Layer
+  -> Colony Controller
+  -> Scheduler
+  -> Elastic Agent Pool
+  -> Official Evaluator
+  -> Artifact Store
+  -> Offline Analysis
+  -> Knowledge Plane
+```
+
+Règle de séparation :
+
+| Couche | Responsabilité | Interdit |
+|---|---|---|
+| Campaign Runner | lancer, reprendre, journaliser, figer manifest/subset/seed/config | décider de la stratégie agentique |
+| Instance Registry | représenter les subsets pré-enregistrés | choisir dynamiquement les repos selon les résultats |
+| Domain Adapter | préparer repo, exposer outils, extraire patch | cacher une stratégie de résolution complète |
+| Workspace Sandbox | clone, checkout, apply patch, rollback, build/test | modifier silencieusement le benchmark |
+| Tool Layer | actions atomiques typées | mélanger plusieurs politiques dans un tool opaque |
+| Colony Controller | ticks, population, stop/spawn/retire | faire du scoring officiel |
+| Scheduler | assigner markers aux agents | apprendre depuis le split d'évaluation |
+| Official Evaluator | vérité externe | dépendre des métriques internes du runtime |
+| Artifact Store | conserver patch/logs/eval/ticks/profils | écraser ou résumer sans provenance |
+| Knowledge Plane | skills/protocol/compiler offline | muter le runtime main eval sans split disjoint |
+
+### 21.3 Domain adapter minimaliste
+
+Le futur `adapters/migrationbench` doit être capability-oriented, pas intelligence-oriented.
+
+Il doit fournir :
+
+- setup workspace ;
+- lecture/recherche de fichiers ;
+- application de patch ;
+- build/test ;
+- validation officielle ;
+- extraction de patch final ;
+- contrat de sortie.
+
+Il ne doit pas :
+
+- pré-semer un DAG trop intelligent ;
+- cacher un planner dans l'adaptateur ;
+- optimiser les prompts pour des repos précis ;
+- apprendre depuis les résultats du split eval.
+
+Cette règle est une correction directe du problème TravelPlanner, où l'adaptateur pré-semait une grande partie du graphe de travail.
+
+### 21.4 Knowledge plane offline
+
+Les anciennes idées C3 deviennent un `Knowledge Plane` séparé :
+
+```text
+successful adaptation runs
+  -> extracted skills/protocol candidates
+  -> versioned knowledge artifacts
+  -> frozen injection into held-out eval
+```
+
+Règles :
+
+- les skills sont appris seulement sur un split d'adaptation ;
+- les protocoles sont versionnés avec leur subset source ;
+- le compiler est évalué comme générateur de workflow, pas comme magie implicite ;
+- aucun artefact knowledge ne peut être mis à jour pendant le main eval ;
+- chaque artefact injecté est tracé dans le run summary.
+
+Cette couche remplace C3 intégré. Elle ne l'efface pas : elle le rend testable.
+
+### 21.5 Modules à créer en priorité
+
+Ordre strict pour l'agent d'implémentation :
+
+1. `fixtures/migrationbench/subsets/`
+   - `smoke_5.jsonl`
+   - `pilot_20.jsonl`
+   - `main_30.jsonl`
+   - `CORPUS.md`
+
+2. `adapters/migrationbench/`
+   - `schemas.py`
+   - `workspace.py`
+   - `tools.py`
+   - `adapter.py`
+   - `evaluator.py`
+   - `scientific_baselines.py`
+   - `agentless_baseline.py`
+
+3. `scripts/run_migrationbench_campaign.py`
+   - runner unique ;
+   - checkpoints ;
+   - logs ;
+   - manifests ;
+   - full-denominator accounting.
+
+4. `scripts/aggregate_migrationbench_comparison.py`
+   - strict success ;
+   - McNemar ;
+   - bootstrap ;
+   - Wilcoxon ;
+   - Pareto ;
+   - failure taxonomy.
+
+5. `config/migrationbench_v6_static_deepseek.yaml`
+   - cross-run off ;
+   - C3 off ;
+   - fixed agents/ticks ;
+   - official evaluator on.
+
+6. Tests :
+   - `tests/unit/test_migrationbench_workspace.py`
+   - `tests/unit/test_migrationbench_evaluator.py`
+   - `tests/unit/test_migrationbench_baselines.py`
+   - `tests/unit/test_migrationbench_campaign_runner.py`
+   - `tests/integration/test_migrationbench_toy_repo.py`
+
+Seulement après ces six blocs :
+
+7. `core/colony_controller.py` ou extension orchestrator contrôlée
+   - `dynamic_tick_budget`;
+   - `elastic_agent_pool`;
+   - `progressive_decompose`;
+   - `specialization_profiles`.
+
+### 21.6 Règle anti-refonte infinie
+
+Même si cette section parle de "from scratch", il ne faut pas jeter le repo.
+
+À garder :
+
+- `MarkerStore`;
+- audit log ;
+- `ToolRegistry`;
+- `ActionResult`;
+- pression/ACO comme baseline scheduler ;
+- agent homogène comme point de départ ;
+- runner TravelPlanner comme inspiration de robustesse ;
+- métriques d'émergence comme télémétrie.
+
+À refactorer plus tard :
+
+- orchestration fixed-agent ;
+- tick loop hardcoded ;
+- `DecomposeTool` max-depth-only ;
+- cross-run protocol selection ;
+- skills/protocol/compiler intégrés.
+
+À ne pas faire maintenant :
+
+- full V7 ;
+- full C3 ;
+- Poly-MigrationBench ;
+- SWE-bench ;
+- multi-model DeepSeek ;
+- maximal migration.
+
+### 21.7 Handoff court
+
+Un agent d'implémentation doit partir du fichier :
+
+```text
+documentation/redisgn_v2/migrationbench_implementation_handoff.md
+```
+
+Ce fichier condense le présent plan en tâches exécutables. Le présent document reste la justification scientifique complète.
+
+---
+
+## 22. Mise à jour pré-implémentation main_30
+
+**Date :** 2026-04-27  
+**Source :** retours critiques agents IA + vérification docs DeepSeek / JavaMigration.
+
+Cette section verrouille les invariants avant une tentative `main_30` rapide.
+
+### 22.1 Modèle principal : DeepSeek V4 Flash
+
+Le modèle principal devient :
+
+```yaml
+llm:
+  provider: deepseek
+  model: deepseek-v4-flash
+  base_url: https://api.deepseek.com
+  max_context_tokens: 1000000
+  max_response_tokens: 384000
+  max_tokens_total: 500000
+  reasoning:
+    mode: non-thinking
+```
+
+La documentation DeepSeek indique pour `deepseek-v4-flash` :
+
+- contexte : 1M ;
+- sortie maximale : 384K ;
+- JSON output et tool calls supportés ;
+- les anciens noms `deepseek-chat` et `deepseek-reasoner` correspondent par compatibilité aux modes non-thinking/thinking de `deepseek-v4-flash` mais seront dépréciés.
+
+Implication : Gemma n'est plus le modèle principal pour MigrationBench. Il peut rester un stress-test, mais pas la preuve principale.
+
+### 22.2 Power analysis : main_30 est directionnel
+
+`main_30` peut être un résultat mémoire minimal crédible, mais il ne faut pas le surinterpréter.
+
+Règles :
+
+- `n=30` est sous-puissant pour détecter un effet réaliste de 5-10 points ;
+- le test de McNemar dépend du nombre de paires discordantes `(b+c)`, qui sera probablement faible ;
+- si les intervalles de confiance sont larges, le résultat doit être déclaré **non concluant** même si le point estimate est favorable ;
+- une extension `main_60` doit être décidée à partir du taux de discordance observé au pilot/main_30.
+
+Formulation autorisée :
+
+```text
+main_30 fournit une preuve directionnelle, une taxonomie d'échec et une estimation coût/succès.
+```
+
+Formulation interdite :
+
+```text
+main_30 prouve un gain faible ou modéré de 5-10 points.
+```
+
+### 22.3 Baseline forte : SD-Feedback officiel avant imitation
+
+La baseline `agentless_self_debug` ne doit pas être une imitation faible par accident.
+
+Priorité :
+
+1. tenter d'exécuter `amazon-science/JavaMigration` / `SDFeedback` directement ;
+2. si impossible, documenter précisément pourquoi ;
+3. seulement alors implémenter un fallback local `agentless_self_debug`.
+
+Si SD-Feedback officiel ne tourne pas, le mémoire doit l'indiquer comme menace à la validité.
+
+Timebox :
+
+```text
+Maximum 1 journée d'ingénierie pour faire tourner SD-Feedback officiel sur le smoke/preflight.
+Au-delà, basculer vers le fallback local documenté, sans prétendre avoir battu SD-Feedback officiel.
+```
+
+### 22.4 Préflight corpus obligatoire
+
+Avant de figer `main_30.jsonl`, il faut tester si le corpus selected tient encore :
+
+- clone ;
+- checkout `base_commit` ;
+- build/test baseline si requis ;
+- official evaluator invocation ;
+- logs d'échec.
+
+Gate :
+
+```text
+Si plus de 10 % des repos selected candidats échouent avant patch LLM,
+ne pas figer main_30 sans recalibrer le subset.
+```
+
+### 22.5 Schéma d'instance unique
+
+Le champ officiel du projet devient :
+
+```json
+"repo_url": "https://github.com/owner/repo"
+```
+
+Ne pas utiliser `github_url` dans les nouveaux scripts.
+
+### 22.6 Workspace isolation
+
+Chaque run doit partir d'un checkout propre :
+
+```text
+workspaces/{campaign_id}/{framework}/{instance_id}/seed{seed}/
+```
+
+Procédure obligatoire :
+
+1. checkout propre au `base_commit` ;
+2. appliquer modifications ;
+3. exporter `patch.diff` ;
+4. vérifier que `patch.diff` s'applique sur une deuxième copie propre ;
+5. évaluer uniquement cette copie fraîche ;
+6. archiver patch/logs/summary/eval.
+
+### 22.7 Édition : jamais de diff brut demandé au LLM
+
+Le LLM ne doit pas produire directement des hunks `--- a/...` / `+++ b/...` avec numéros de ligne.
+
+Stratégie :
+
+- LLM propose fichier complet ou édition typée search/replace ;
+- harness applique ;
+- harness calcule `git diff` ;
+- harness vérifie `git apply --check` sur une copie propre.
+
+Schéma unique pour tous les bras LLM :
+
+```json
+{
+  "edits": [
+    {
+      "type": "replace_text",
+      "path": "pom.xml",
+      "old": "<maven.compiler.source>1.8</maven.compiler.source>",
+      "new": "<maven.compiler.source>17</maven.compiler.source>",
+      "expected_replacements": 1
+    },
+    {
+      "type": "write_file",
+      "path": "src/main/java/example/Foo.java",
+      "content": "complete file content"
+    }
+  ]
+}
+```
+
+Règles :
+
+- `path` est toujours relatif au repo et ne peut pas sortir du workspace ;
+- `old` est obligatoire et non vide pour `replace_text` ;
+- `expected_replacements` vaut `1` par défaut ;
+- si le nombre réel de remplacements diffère, l'édition échoue sauf `allow_multiple: true` explicite ;
+- `write_file` écrit le fichier complet ;
+- le patch final est toujours calculé par le harness.
+
+### 22.8 Agrégateur manifest-driven
+
+Le dénominateur vient toujours de :
+
+```text
+campaign_manifest.instances
+```
+
+Jamais des fichiers trouvés sur disque.
+
+Les outputs manquants ou invalides deviennent des lignes synthétiques :
+
+```json
+{
+  "strict_success": false,
+  "artifact_delivered": false,
+  "patch_delivered": false,
+  "failure_reason": "missing_or_invalid_artifact"
+}
+```
+
+### 22.9 Semantics officielles MigrationBench
+
+Ne pas réinventer :
+
+- `compiled_major_version_ok` ;
+- multi-module handling ;
+- test count invariance ;
+- dependency policy ;
+- minimal/maximal migration ;
+- baseline setup failure.
+
+Lire le code officiel et se conformer à lui. Les champs internes doivent être nommés comme télémétrie interne, pas comme score officiel.
+
+### 22.10 Identité de `v6_static`
+
+Nom unique :
+
+```text
+stigmergic_v6_static
+```
+
+`v6_static` signifie :
+
+- marker store ;
+- dépendances entre markers ;
+- agents homogènes fixes ;
+- local sensing ;
+- pression/ACO scheduler ;
+- inhibition/locks ;
+- audit trail ;
+- repair markers ;
+- pas de skills ;
+- pas de protocol ;
+- pas de compiler ;
+- pas de cross-run ;
+- pas de population dynamique V7.
+
+Cette cellule est encore stigmergique parce que la coordination passe par des traces environnementales partagées, pas par un superviseur central qui assigne chaque étape.
+
+### 22.11 Politique de monitoring par instance
+
+"Budget API illimité" signifie qu'on ne bride pas artificiellement `main_30` avant que le framework ait eu assez d'espace pour réparer des repositories difficiles.
+
+Pour `main_30`, ne pas imposer de caps bloquants par instance sur le total de tokens, le temps d'exécution, le nombre d'appels LLM ou le nombre de cycles de réparation.
+
+Le runner doit plutôt fonctionner en mode `monitor_only` :
+
+```yaml
+campaign_monitoring:
+  mode: monitor_only
+  manual_abort_supported: true
+  record_tokens_runtime_calls_and_cycles: true
+```
+
+Chaque run summary doit quand même tracer :
+
+- `tokens_total` ;
+- `cost_total_usd` ;
+- `runtime_seconds` ;
+- `llm_calls` ;
+- `repair_cycles` ;
+- `last_progress_at` ;
+- `manual_abort` et `abort_reason` si l'utilisateur coupe le run.
+
+Le monitoring manuel est acceptable pour ce `main_30` court et prioritaire. Si une instance est stoppée manuellement, elle reste un échec dans le dénominateur complet sauf si elle est relancée proprement depuis checkpoint.
+
+Un LLM-as-judge peut être utile plus tard pour classer une stagnation, mais il ne doit pas devenir un stoppeur automatique caché dans la comparaison principale.
+
+### 22.12 V7 déplacé hors scope d'implémentation immédiate
+
+Les sections V7 du plan sont un design futur, pas une tâche du premier agent.
+
+Pour l'agent d'implémentation :
+
+```text
+Lire documentation/redisgn_v2/migrationbench_implementation_handoff.md.
+Ne pas implémenter V7 tant que le handoff n'est pas done.
+```

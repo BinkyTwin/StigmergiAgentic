@@ -63,6 +63,14 @@ def test_travelplanner_compile_protocol_returns_valid_markers(
                     "depends_on": ["custom::plan"],
                     "intensity": 0.8,
                 },
+                {
+                    "id": "custom::finalize",
+                    "target": "finalize",
+                    "eligible_actions": ["validate_constraints"],
+                    "depends_on": ["custom::validate"],
+                    "intensity": 0.75,
+                    "payload": {"stage": "finalize"},
+                },
             ]
         }
     )
@@ -78,6 +86,7 @@ def test_travelplanner_compile_protocol_returns_valid_markers(
         "custom::search_flights",
         "custom::plan",
         "custom::validate",
+        "custom::finalize",
     ]
     assert markers[1].payload["depends_on"] == ["custom::search_flights"]
     assert markers[0].payload["eligible_actions"] == ["search_flights"]

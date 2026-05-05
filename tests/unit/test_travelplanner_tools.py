@@ -268,6 +268,7 @@ def test_plan_prompt_omits_reference_information_and_compacts_payload(
     assert "reference_information" not in prompt
     assert "ignored_field" not in prompt
     assert '"search_restaurants"' in prompt
+    assert "Stay within the query budget" in prompt
 
 
 def test_plan_prompt_includes_routing_data_with_canonical_transport_strings(
@@ -293,6 +294,33 @@ def test_plan_prompt_includes_routing_data_with_canonical_transport_strings(
     assert "RoutingData" in prompt
     assert "Flight Number: F3792603, from Washington to Myrtle Beach" in prompt
     assert "Self-driving, from Washington to Myrtle Beach" in prompt
+
+
+def test_plan_prompt_includes_reusable_skill_cards(
+    tmp_path: Path,
+    config_dict: dict,
+) -> None:
+    _, config, workspace = _build_env(tmp_path, config_dict)
+    query = workspace.get_query(0)
+    tool = PlanDayTool(config=config)
+
+    prompt = tool._build_prompt(
+        query_data=query,
+        search_payload={},
+        validation_feedback=[],
+        skill_cards=[
+            {
+                "id": "skill::travelplanner::plan_itinerary::budget_control",
+                "skill_text": "Prefer cheapest valid candidates before optional attractions.",
+                "constraint_type": "budget_control",
+                "quality_score": 1.0,
+                "usage_count": 2,
+            }
+        ],
+    )
+
+    assert "ReusablePlanningSkills" in prompt
+    assert "Prefer cheapest valid candidates" in prompt
 
 
 def test_plan_prompt_includes_train_few_shot_examples_for_multi_city_queries(
@@ -439,6 +467,41 @@ def test_compact_search_payload_filters_hotels_that_cannot_cover_stay(
             "city": "Myrtle Beach",
         }
     ]
+
+
+def test_compact_search_payload_prioritizes_lower_cost_candidates(
+    tmp_path: Path, config_dict: dict
+) -> None:
+    _, config, workspace = _build_env(tmp_path, config_dict)
+    query = workspace.get_query(0)
+    tool = PlanDayTool(config=config)
+
+    compact = tool._compact_search_payload(
+        {
+            "search_restaurants": [
+                {"Name": "Expensive", "Average Cost": 100, "City": "Myrtle Beach"},
+                {"Name": "Cheap", "Average Cost": 20, "City": "Myrtle Beach"},
+            ],
+            "search_flights_outbound": [
+                {
+                    "Flight Number": "F2",
+                    "Price": 400,
+                    "OriginCityName": "Washington",
+                    "DestCityName": "Myrtle Beach",
+                },
+                {
+                    "Flight Number": "F1",
+                    "Price": 100,
+                    "OriginCityName": "Washington",
+                    "DestCityName": "Myrtle Beach",
+                },
+            ],
+        },
+        query_data=query,
+    )
+
+    assert compact["search_restaurants"][0]["Name"] == "Cheap"
+    assert compact["search_flights_outbound"][0]["Flight Number"] == "F1"
 
 
 def test_plan_tool_normalizes_canonical_fields_from_search_payload(

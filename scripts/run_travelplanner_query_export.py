@@ -135,18 +135,12 @@ def main() -> int:
         config=config,
     )
 
-    final_plan: list[dict] = []
-    final_pass = False
-    for marker in result.final_snapshot.markers:
-        marker_id = str(getattr(marker, "id", ""))
-        if not marker_id.endswith("::finalize"):
-            continue
-        payload = dict(getattr(marker, "payload", {}))
-        plan = payload.get("final_plan", [])
-        if isinstance(plan, list):
-            final_plan = plan
-        final_pass = bool(payload.get("final_pass", False))
-        break
+    final_plan = summary.get("final_plan", [])
+    if not isinstance(final_plan, list):
+        final_plan = []
+    raw_final_pass = bool(summary.get("raw_final_pass", False))
+    strict_final_pass = bool(summary.get("strict_final_pass", False))
+    failure_reason = str(summary.get("failure_reason", "ok"))
 
     output = {
         "status": "ok",
@@ -156,8 +150,11 @@ def main() -> int:
         "summary": summary,
         "assistant_response": assistant_response,
         "evaluation": evaluation,
-        "failure_reason": str(evaluation.get("failure_reason", "ok")),
-        "final_pass": final_pass,
+        "failure_reason": failure_reason,
+        "raw_final_pass": raw_final_pass,
+        "strict_final_pass": strict_final_pass,
+        "final_pass": strict_final_pass,
+        "artifact_delivered": bool(final_plan),
         "final_plan": final_plan,
         "plan": final_plan,
     }

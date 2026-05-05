@@ -153,7 +153,9 @@ def test_load_config_accepts_sprint9_train_eval_presets() -> None:
     evaluation = load_config(Path("config/travelplanner_eval.yaml"))
 
     assert adapt["skill_library"]["enabled"] is True
+    assert adapt["travelplanner"]["dataset_split"] == "train"
     assert adapt["protocol"]["enabled"] is True
     assert adapt["emergence"]["cross_run"]["enabled"] is True
+    assert evaluation["travelplanner"]["dataset_split"] == "validation"
     assert evaluation["skill_library"]["read_only"] is True
     assert evaluation["protocol"]["read_only"] is True

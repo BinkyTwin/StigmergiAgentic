@@ -1,5 +1,117 @@
 # Decision Log
 
+## 2026-05-04 (Phase 4 V10 — Port MigrationBench To V10 Stack With Verifier-First Contract And EventLog-Derived Telemetry)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: Livrer Phase 4 du plan canonique en 7 itérations `/loop` autonomes : `adapters_v10/migrationbench/` complet (workspace isolé, MavenRunner+Verifier émettant 8 signaux canoniques, adapter implémentant `DomainAdapterV10`), `scripts/bench/` unifié (harness CLI, telemetry pure-EventLog, providers déterministes, helpers Docker), service `migrationbench-v10-smoke` dans `docker-compose.campaign.yml`, suite test 121 unit + 5 integration golden. Cloison étanche stricte (`adapters_v10/` n'importe rien de `core/` ni `adapters/`). Invariant : `strict_success` requiert la chaîne complète `apply → mvn dependency+compile+test → class versions == {61} → official run_eval.py Success=True`.
+- `rationale`: Le pivot V10 (ADR-018) impose de prouver que la nouvelle pile peut traiter le banc le plus dur (MigrationBench main_30) sans réintroduire les bugs V3/V7 — notamment la divergence télémétrique de 73 points entre `patch_applies` et `artifact_delivery` causée par `_synthesize_best_partial_payload`. Un harness Docker-first avec summary reconstruit depuis l'EventLog (testé `live==replay`) rend cette divergence structurellement impossible : aucune métrique n'existe en dehors du payload `score.completed`, et `strict_success=True` exige que les 8 signaux soient tous True. La validation locale renvoie `PASSED` dès que la chaîne locale (5 signaux) est verte ; `official_success` reste gate par `score()` après `finalize()`. Cette séparation permet à `_finalize_best_validated` d'avancer sans court-circuiter le verifier-first contract.
+- `alternatives_rejected`: (a) Recopier le legacy `MigrationBenchAdapter` V3 puis adapter — rejeté car aurait conservé le couplage avec `core/marker_store.py` et la sémantique V7 colony qu'on cherche à abandonner ; (b) faire la `validate()` exécuter aussi l'official evaluator pour pouvoir renvoyer `PASSED` selon la chaîne complète — rejeté car double exécution coûteuse de Maven, et l'official Maven n'est pas reproductible (dépend de Maven Central + dépendances tierces) ; (c) déclencher dès L6 un smoke run réel via Docker + DeepSeek API — rejeté car gate-keeped par les règles d'arrêt du plan (`Coût LLM L6 > 10 USD ⇒ stop`, `Maven indisponible ⇒ stop`), et la pipeline complète peut être validée sans coût via Maven mocké + upstream git local + invariant `live==replay` testé golden.
+- `linked_adr`: `documentation/decisions/20260503-pivot-v10-from-scratch.md` (ADR-018)
+
+## 2026-05-03 (Complete V10 Toy Runtime Before Real Benchmark Adapters)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: Extend the V10 bootstrap with blackboard projections, typed coordination signals, branching repair, verifier-scored selection, fallback finalization, event-only blackboard reconstruction, and a deterministic toy adapter before connecting MigrationBench or any other real benchmark.
+- `rationale`: The previous V7 failures came from mixing benchmark logic with unproven runtime mechanics. A toy adapter lets the framework prove branch lineage, workspace continuity, artifact contracts, replay, feedback, repair, and strict-success gating in a controlled setting where failures are attributable to runtime invariants rather than Maven, model quality, or external scorer behavior.
+- `alternatives_rejected`: Connect MigrationBench immediately after the first V10 contracts, keep repairs as sibling branches from the root workspace, allow duplicate candidate IDs, rely only on in-memory graph state for blackboard reconstruction, or finalize only the first locally validated candidate.
+- `linked_adr`: `documentation/redisgn_v2/plan_v10_framework_rebuild.md`
+
+## 2026-05-03 (Bootstrap V10 As Isolated Verified Runtime Core)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: Start V10 implementation with an isolated `core_v10`/`adapters_v10` runtime containing contracts, EventLog/replay, HypothesisGraph, VerifierLoop, and a minimal agentless StrategyRunner, while leaving the legacy V3/V7 runtime untouched.
+- `rationale`: The V10 plan requires a real architectural rupture, and the first executable increment must prove plug-and-play contracts, verifier-gated strict success, replayability, per-run hypothesis state, and branch-workspace continuity before adding MigrationBench logic, blackboards, stigmergic signals, roles, or memory.
+- `alternatives_rejected`: Refactor `core/` in place, patch V7.3 again, start with MigrationBench-specific code, reuse the marker store as the first V10 source of truth, or add role-colony machinery before a simple verified workflow passes contract tests.
+- `linked_adr`: `documentation/redisgn_v2/plan_v10_framework_rebuild.md`
+
+## 2026-05-03 (Document V10 Pivot in Repo Artifacts — Memoir-Grade Narrative + ADR-018)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: Produce a memoir-grade narrative (`documentation/redisgn_v2/pivot_v10_documentation_memoire.md`) and ADR-018 (`documentation/decisions/20260503-pivot-v10-from-scratch.md`) that explicitly trace the path from the invalidated stigmergic-pure hypothesis to the V10 pivot, with H1/H2/H3/H4 hypotheses, ablation ladder A0..A6, and threats-to-validity already declared.
+- `rationale`: A scientific master's thesis cannot publish a pivot of this magnitude without a memoir-section narrative explaining the original hypothesis, the empirical invalidation, and the reformulated research question. Without ADR-018, the repository's decision history would skip from Sprint 9 (C1/C2/C3) directly to V10 implementation, leaving the architectural rationale undocumented for future maintainers and thesis defense.
+- `alternatives_rejected`: Document the pivot only in the technical canonical plan, document only via `.codex/knowledge/captures.md`, postpone documentation until V10 implementation is complete, or leave Sprint 9 ADR active without explicit deprecation.
+- `linked_adr`: `documentation/decisions/20260503-pivot-v10-from-scratch.md`
+
+## 2026-05-03 (Adopt V10 From-Scratch Core Over V3 Cleanup)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: Treat `documentation/redisgn_v2/plan_v10_from_scratch_rebuild.md` as the canonical rebuild plan and pursue a new `core_v10` architecture rather than cleaning V3 in place.
+- `rationale`: The Claude plan correctly identified the hybrid blackboard plus verifier-loop pivot, but still preserved too much of the V3 marker/orchestrator substrate as the center. A true rupture needs EventLog, HypothesisGraph, typed Blackboard projection, verifier-gated artifacts, and an ablation order that tests stigmergic signals before MCTS-style search.
+- `alternatives_rejected`: Continue V7.3, build a V3-cleaned runtime, make Blackboard the source of truth, introduce MCTS before testing stigmergic signals, or patch Sprint 9 textual skills instead of replacing them with verifier-gated memory.
+- `linked_adr`: `documentation/redisgn_v2/plan_v10_from_scratch_rebuild.md`
+
+## 2026-05-03 (Plan StigmergiAgentic V10 As Contract-First Verified Runtime)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: Treat the next major framework line as V10 / StigmergiAgentic 2.0, centered on plug-and-play adapter contracts, EventLog, Blackboard, HypothesisGraph, strategy runners, structured feedback, replay, and ablation-first evaluation.
+- `rationale`: V6/V7 MigrationBench results showed that improving patch delivery and repair mechanics does not automatically produce strict success or causal multi-agent value. A deeper architecture reset is needed so framework logic, domain adapters, validation contracts, stigmergic signals, and memory modes are separately testable.
+- `alternatives_rejected`: Continue with V7.3 prompt/repair tweaks, add more agents to the current marker loop, hard-code Maven solvers into core, or claim colony behavior from concurrent agents without hypothesis-level evidence.
+- `linked_adr`: `documentation/redisgn_v2/plan_v10_framework_rebuild.md`
+
+## 2026-05-03 (Repair V7.2 Strict-Success Contract Before Further Campaign Claims)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: Make V7.2 best-partial finalization export and officially evaluate the selected branch through the common strict contract, and collapse repair retries back to root patch hypotheses instead of recursively repairing repair markers.
+- `rationale`: The main_30 readout showed `patch_applies=27/30` but `strict_success=0/30` for V7.2 because most best-partials were marker payloads only, not official-evaluated artifacts. Marker DB inspection also showed runaway `repair::repair::...` chains after empty repair edits, which consumed LLM calls without producing new candidate branches.
+- `alternatives_rejected`: Accept V7.2 results as purely model-limited, rerun main_30 with the same code, or keep best-partial as a telemetry-only fallback while comparing it to V6 delivered patches.
+- `linked_adr`: `documentation/redisgn_v2/v7_1_diagnostic_loop.md`
+
+## 2026-05-02 (Harden MigrationBench V7.1 Before Any New main_30 Run)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: Implement V7.1 as a technical hardening layer for `stigmergic_v7_repair_colony` and require a smoke gate before any new `main_30`, while keeping V6 static and the DeepSeek `deepseek-v4-flash` model unchanged.
+- `rationale`: The prior V7 result was not interpretable enough for scientific comparison because schema failures, missing finalization, noisy Maven feedback, lessons pollution, weak telemetry, and stale artifacts could masquerade as benchmark failure. Fixing these mechanics first makes future negative or positive results attributable to the repair-colony behavior rather than harness defects.
+- `alternatives_rejected`: Rerun `main_30` immediately, switch to legacy DeepSeek aliases, let compile-only partial patches be selected normally, or treat `reinforcement.enabled=false` as sufficient to disable lessons.
+- `linked_adr`: `documentation/redisgn_v2/v7_1_implementation_handoff.md`
+
+## 2026-04-27 (Accept Improved MigrationBench Handoff With Consistency Cleanup)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: Accept the improved MigrationBench implementation handoff as substantially ready for execution, but require a short consistency cleanup pass in the long scientific plan before coding starts.
+- `rationale`: The handoff now locks the important scientific safeguards: official preflight first, patch/workspace isolation, manifest-driven denominators, query-level exporter, SD-Feedback priority, and V6 static before V7/C3. The remaining risk is stale terminology in the master plan (`github_url`, Gemma-first commands/config names, `v6_clean`) conflicting with the handoff's current DeepSeek/V6-static direction.
+- `alternatives_rejected`: Reject the handoff because the long plan still has stale sections, or proceed to implementation without resolving naming/model conflicts that could leak into scripts and configs.
+- `linked_adr`: `documentation/redisgn_v2/migrationbench_implementation_handoff.md`
+
+## 2026-04-27 (Keep MigrationBench Handoff V6-Static-First with Preflight Tightening)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: Treat the MigrationBench handoff as the correct implementation guide, with a tightened execution emphasis on official evaluator preflight, single instance schema, clean patch workspace isolation, and requested-instance denominator handling before prompt or V7 optimization.
+- `rationale`: The handoff correctly avoids repeating the C3 mistake of combining many adaptive mechanisms before the benchmark contract is trustworthy. Its main remaining risk is not direction but operational ambiguity around evaluator setup, schema naming, workspace cleanliness, and missing-output aggregation.
+- `alternatives_rejected`: Start with V7 Elastic Colony implementation, repair integrated C3 first, or port TravelPlanner runner/aggregator semantics without strengthening patch and denominator invariants for MigrationBench.
+- `linked_adr`: `N/A (implementation handoff review before MigrationBench work)`
+
+## 2026-04-23 (Create a Thesis-Facing Expert Guide for the Framework)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: Create `documentation/framework_guide_expert.md` as the canonical pedagogical guide for understanding the StigmergiAgentic framework end to end, and link it from `documentation/README.md`.
+- `rationale`: The project has accumulated multiple sprint artifacts, ADRs, configs, adapters, and campaign notes; the memoire needs one coherent document that teaches the framework as a runtime mechanism rather than forcing the reader to reconstruct it from scattered implementation files.
+- `alternatives_rejected`: Only update sprint artifacts, only document TravelPlanner, or produce a short architecture summary without runtime diagnostics and extension guidance.
+- `linked_adr`: `N/A (documentation consolidation for thesis support)`
+
+## 2026-04-23 (Implement V9 Final Campaign as Train-Adapt and Full-Validation Eval)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: Implement the V9 final campaign protocol as TravelPlanner `train[0:45]` adaptation followed by read-only full `validation[0:180]` evaluation, and redefine aggregate `delivery_rate` around official delivery semantics while retaining artifact delivery for diagnostics.
+- `rationale`: This turns the previously documented methodology fix into executable defaults, aligns with SwarmAgentic/TravelPlanner validation reporting, prevents stale 90-query outputs from polluting 180-query runs, and avoids claiming C3 evidence when `skills.db` / `protocols.db` remain unwritten.
+- `alternatives_rejected`: Keep 90/90 validation slicing, keep C3 adapt cross-run writes disabled, count nested `query_results.delivered` as delivery for no-plan rows, or defer terminal-marker lesson compatibility until after another expensive campaign.
+- `linked_adr`: `documentation/decisions/20260421-sprint9-full-implementation-persistent-skills-protocols-and-cross-run-coordination.md`
+
+## 2026-04-23 (Move Sprint 9 Adaptation to TravelPlanner Train and Evaluate on Full Validation)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: For the next final Sprint 9/V9 TravelPlanner campaign, use the published TravelPlanner `train` split for adaptation and evaluate C2/C3/baselines on the full 180-query validation split.
+- `rationale`: SwarmAgentic trains on `train_45.jsonl` (sampled to 9 effective examples by default) and evaluates on `validation.jsonl` with 180 queries. The current 90/90 validation split is arbitrary and can leak distribution-level information into persistent artifacts consumed by evaluation.
+- `alternatives_rejected`: Keep using `validation[0:90]` for adaptation and `validation[90:180]` for evaluation, or disable `cross_run` while still letting evaluation consume artifacts learned from validation queries.
+- `linked_adr`: `documentation/decisions/20260421-sprint9-full-implementation-persistent-skills-protocols-and-cross-run-coordination.md`
+
+## 2026-04-23 (Treat the Current V9 Campaign as Diagnostic Until Persistence Activation Is Verified)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: Treat the current V9/Sprint 9 campaign as a diagnostic C3-style runtime comparison, not as final evidence for persistent skill accumulation or cross-run protocol adaptation, until non-empty `skills.db` / `protocols.db` artifacts and protocol application are observed.
+- `rationale`: The result files are mostly available, but both persistent stores are empty, `skills_promoted` remains zero, and no C3 row applies a coordination protocol. Additionally, nested `delivered=true` fields overstate delivery for rows with `No travel plan generated` and `evaluated_queries=0`.
+- `alternatives_rejected`: Cite the current 90/90 C3 files as final Sprint 9 C2/C3 evidence based only on file completeness, or rerun missing baselines before fixing metric semantics and activation checks.
+- `linked_adr`: `documentation/decisions/20260421-sprint9-full-implementation-persistent-skills-protocols-and-cross-run-coordination.md`
+
 ## 2026-04-21 (Complete Sprint 9 by Wiring Persistence and Promotion into the Runtime)
 
 - `repo_slug`: `stigmergiagentic-33b989`
@@ -599,3 +711,275 @@
 - `rationale`: The V6 plan needs experimentally attributable framework changes without polluting the frozen V5 benchmark reference. Explicit config gates and new presets allow the runtime to gain real control-plane leverage while preserving a stable comparison anchor and keeping adapter-specific repair semantics outside `core/`.
 - `alternatives_rejected`: Mutate `v5_full.yaml` directly into the V6 baseline, infer contention only from `marker_reads`, or keep targeted repair fully adapter-local without a framework-level contract.
 - `linked_adr`: `documentation/decisions/20260418-sprint8-v6-general-runtime-controls.md`
+
+## 2026-04-23 (Monitor Final Campaign Progress With Read-Only Runtime Signals)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: For the final Docker campaign, interpret live progress primarily through read-only runtime signals (`docker ps/stats/top`, file mtimes, and read-only SQLite inspection) rather than raw shell glob counts.
+- `rationale`: The Gemma baseline service executes frameworks sequentially, so empty downstream folders are expected until earlier frameworks finish. In `zsh`, unmatched globs add misleading `no matches found` errors, while long TravelPlanner queries can leave counts unchanged for minutes even though the Python runner is still active. Read-only container and SQLite inspection gives a much safer signal during in-flight campaigns without risking interference.
+- `alternatives_rejected`: Diagnose progress from `ls *.json | wc -l` alone, assume empty framework folders imply a crash, or attach intrusive debugging/restart actions to running containers.
+- `linked_adr`: `N/A (live monitoring rule for in-progress campaign)`
+
+## 2026-04-23 (Treat Persistent Skills as Incomplete Until They Affect Prompts and Credit Paths)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: Consider the current cross-run skill loop only partially complete until persistent `skill_markers` are actually consumed by downstream tools and can refresh their own usage/quality signals.
+- `rationale`: The live audit shows that skills are stored and recalled, but the active LLM tool path still reads only `lesson_markers`, and success credit is attached only to recalled lessons. This means the current feature demonstrates persistence but not operational reuse, while also encouraging verbose example-specific `skill_text` artifacts that weaken transfer.
+- `alternatives_rejected`: Treat storage + recall into `Decision` as sufficient evidence of reusable skills, keep raw objective fragments as canonical skill text, or analyze protocol payloads without distinguishing raw vs clamped adaptations.
+- `linked_adr`: `N/A (live audit rule for Sprint 9 skill/protocol persistence)`
+
+## 2026-04-24 (Invalidate C3 Raw Final-Pass Claims Without Delivered Plans)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: Do not use raw C3 `evaluation.final_pass_rate` from the final campaign as a primary success metric unless each counted pass is backed by a delivered TravelPlanner plan artifact.
+- `rationale`: The final campaign audit found that Gemma and DeepSeek C3 can receive `final_pass=True` despite `assistant_response` being `No travel plan generated.` and no structured plan being present in the exported summary. This creates empty-plan false positives and would overstate stigmergic C3 performance if reported directly.
+- `alternatives_rejected`: Report the raw 10.0% Gemma C3 and 58.3% DeepSeek C3 final-pass rates without qualification, collapse delivery and final-pass into one column, or discard the whole campaign instead of preserving baselines and rescoring affected C3 arms.
+- `linked_adr`: `N/A (final campaign scoring correction)`
+
+## 2026-04-24 (Treat Final C3 as an Invalid Cross-Run Learning Assembly)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: Treat the final C3/skills campaign as a failed implementation assembly, not as valid evidence that stigmergic cross-run skills or protocols are ineffective.
+- `rationale`: Validation did not apply the persisted coordination protocols because adapt/eval namespaces diverged, Gemma adapt inherited the default Qwen model instead of training Gemma, skills were stored as verbose raw objective fragments and were not consumed by the active planning prompt, and the protocol compiler was disabled in the C3 configs. These defects break attribution before model-quality comparisons can be interpreted.
+- `alternatives_rejected`: Attribute the result primarily to weak model quality, conclude that the skills idea is scientifically disproven, or keep C3 as a primary comparison arm without a clean preflight/rerun.
+- `linked_adr`: `N/A (final C3 root-cause audit)`
+
+## 2026-04-24 (Rerun C3 Only With Strict Delivered-Plan Contracts)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: Treat C3 reruns as valid only when the runtime and campaign artifacts expose artifact delivery, strict final pass, explicit protocol namespace, skill injection counts, and compiler usage/fallback status.
+- `rationale`: The previous C3 campaign failed at the measurement and assembly boundary: empty plans could pass, adapt/eval namespaces diverged, skills were persisted without action-prompt injection, and compiler status was ambiguous. Making these fields explicit in every per-query and aggregate artifact turns future negative results into interpretable evidence rather than silent implementation failures.
+- `alternatives_rejected`: Keep using raw `final_pass` as the primary metric, rely on derived namespace hashes, continue shell-loop campaigns without preflight manifests, or test full C3 before isolating protocol, skills, and compiler arms.
+- `linked_adr`: `N/A (C3 refactor implementation rule)`
+
+## 2026-04-24 (Baseline Completion Requires Valid JSON, Not File Count)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: Treat zero-byte or unparsable baseline query artifacts as failed queries unless they are rerun with logs and replaced by valid JSON outputs.
+- `rationale`: The legacy Gemma baseline runner masked stderr and ignored non-zero exits, so `ls *.json | wc -l` reported complete folders even when several query artifacts were empty. This affects LangGraph, MetaGPT, and two simpler baselines; counting only files would overstate campaign completeness and hide environment/API failures.
+- `alternatives_rejected`: Accept 180/180 file counts as completion, infer missing stderr causes from aggregate rates, or silently drop empty files from denominators.
+- `linked_adr`: `N/A (baseline artifact validity rule)`
+
+## 2026-04-24 (Proceed With V6 Clean, Hold Compiler C3)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: Proceed only with a clean V6 smoke/full run after provider recovery, while holding `compiler_only` and `full_c3` until the protocol compiler emits operational TravelPlanner graphs.
+- `rationale`: The rerun C3 smoke proves OpenRouter access is restored, but the compiler path still produces empty-plan runs with low marker counts and no delivered artifacts. Since `travelplanner_v6_clean_gemma.yaml` disables the compiler and cross-run mechanisms, V6 clean can still establish the required post-reset baseline without being contaminated by this C3-specific failure.
+- `alternatives_rejected`: Launch full C3 despite 0/5 delivery, treat nonzero token spend as sufficient smoke success, or delay V6 clean until every C3 mechanism is repaired.
+- `linked_adr`: `N/A (post-smoke launch gate)`
+
+## 2026-04-25 (Do Not Treat Empty Top-Level Plans as Runtime Failure Without Checking Internal Eval)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: When a TravelPlanner run has `evaluation.query_results.strict_final_pass=true` but top-level `final_plan=[]`, classify it as an export-contract defect and repair extraction before interpreting campaign quality.
+- `rationale`: V6 clean Gemma initially appeared to fail 10/10 with `empty_plan_from_llm`, yet the internal adapter evaluation already found delivered valid plans. The bug was an empty finalize marker shadowing valid plan-marker artifacts, so relying on top-level fields alone would have incorrectly invalidated V6 clean.
+- `alternatives_rejected`: Discard V6 clean as a model/runtime flop, rerun full campaigns before fixing export extraction, or trust empty finalize markers over non-empty validated plan artifacts.
+- `linked_adr`: `N/A (TravelPlanner export contract rule)`
+
+## 2026-04-25 (Treat V6 Clean TravelPlanner as Controlled Negative Evidence)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: Use the completed V6 clean Gemma TravelPlanner run as a controlled baseline and negative tradeoff result, not as evidence that stigmergic orchestration outperforms strong solo baselines on this benchmark.
+- `rationale`: V6 clean completed reproducibly and delivered plans reliably, but its 99/180 strict pass rate is slightly below `solo_direct` and `solo_cot`, below `solo_self_refine`, and substantially more expensive in tokens/runtime. This supports the emerging interpretation that the current TravelPlanner adapter does not expose enough useful coordination surface for stigmergy to pay off globally.
+- `alternatives_rejected`: Hide the cost disadvantage, claim superiority from delivery rate alone, compare only against weaker orchestration baselines, or continue optimizing TravelPlanner C3 as the main thesis proof.
+- `linked_adr`: `N/A (TravelPlanner V6 interpretation rule)`
+
+## 2026-04-26 (Use MigrationBench as the Primary Post-TravelPlanner Evaluation Track)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: Make MigrationBench the primary next benchmark for the DSR evaluation, with TravelPlanner retained as a controlled limiting case and C3 relaunched only through isolated mechanism ablations after the migration adapter and evaluator are stable.
+- `rationale`: MigrationBench provides repository-level, execution-based Java migration tasks with an official evaluator and strong relevance to the framework's intended code-transformation contribution. It exposes a better surface for repair loops, tool use, memory, coordination, and auditability than TravelPlanner, while allowing comparisons against strong solo, planner-executor, deterministic, and agentless/self-debug baselines.
+- `alternatives_rejected`: Build a new benchmark from scratch, continue optimizing TravelPlanner as the main proof, or launch full C3 before validating the migration adapter, runner, baselines, and official scoring path.
+- `linked_adr`: `documentation/redisgn_v2/plan_migrationbench_scientific_campaign.md`
+
+## 2026-04-26 (Freeze Integrated C3 and Make V7 Elastic Colony the Next Architecture Track)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: Freeze integrated C3 as the next primary architecture claim and instead build a V7 Elastic Colony track with isolated mechanisms for dynamic ticks, elastic agent pools, progressive decomposition, and visible specialization.
+- `rationale`: The current runtime has fixed agent creation, fixed hard tick loops, and static decomposition depth, so adding skills/protocol/compiler on top does not solve the deeper rigidity problem. A colony-style architecture must first demonstrate that it can adapt effort, population, task granularity, and specialization before reintroducing C3 mechanisms as optional add-ons.
+- `alternatives_rejected`: Continue repairing full C3 directly, launch a combined elastic architecture without ablations, or keep `num_agents` and `max_ticks` as unexamined constants in the MigrationBench campaign.
+- `linked_adr`: `documentation/redisgn_v2/plan_migrationbench_scientific_campaign.md`
+
+## 2026-04-27 (Publish a Documentation-Only Deep Research Context Branch)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: Publish the MigrationBench plan and Deep Research brief as a documentation-only commit on `codex/t0-travelplanner-multi-city` for GitHub-connected external analysis.
+- `rationale`: The local worktree contains many unrelated implementation and campaign artifacts, so pushing the whole state would confuse the external reviewer and risk leaking noisy context. A targeted documentation commit gives ChatGPT enough current context to critique the architecture and evaluation plan without contaminating the branch with unrelated local changes.
+- `alternatives_rejected`: Ask the external agent to inspect the default branch only, paste the entire local context into ChatGPT manually, or commit all dirty worktree changes just to expose recent plans.
+- `linked_adr`: `documentation/redisgn_v2/deep_research_brief_for_chatgpt.md`
+
+## 2026-04-27 (Adopt Deep Research Constraints for MigrationBench/V7)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: Adopt the external Deep Research report's stricter constraints: MigrationBench supports a code-migration claim only, V6 static precedes V7, `agentless_self_debug` is mandatory, cross-run learning is disabled on main eval, and `compute_protocol_score` is telemetry rather than a scientific endpoint.
+- `rationale`: The report agrees with the direction but highlights the main ways the study could become invalid: overclaiming from a Java/Maven benchmark, launching V7 before a stable static baseline, omitting strong agentless baselines, leaking cross-run adaptation into evaluation, and relying on opaque scalar self-optimization scores.
+- `alternatives_rejected`: Present MigrationBench as universal proof, launch `v7_elastic_colony` directly, keep agentless as optional, allow protocol/skill learning on the evaluation split, or use `compute_protocol_score` as a publication-grade selector.
+- `linked_adr`: `documentation/redisgn_v2/deep_research_report_integration.md`
+
+## 2026-04-28 (Keep The CFP Draft Conceptual But Soften Overclaims)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: Preserve the AI&Learning2026 submission as a conceptual contribution centered on persistent markers, while softening novelty, determinism, and AI Act claims before submission.
+- `rationale`: The draft fits the CFP well and has a distinctive mechanism, but its credibility depends on avoiding empirical or legal overreach before the associated experimental program is fully published.
+- `alternatives_rejected`: Rewrite it as an empirical performance paper, broaden it into generic AI governance, or leave strong claims such as "inédit" and unconditional AI Act alignment untouched.
+- `linked_adr`: `documentation/cfp_ailearning2026/abstract_etendu.md`
+
+## 2026-04-27 (Use Yan 2026 To Anchor The AI&Learning Submission)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: Frame the AI&Learning2026 submission around stigmergic markers as a hybrid organizational learning medium, anchored in Yan, Husted, and Fath's exploration/exploitation hybridization argument.
+- `rationale`: The CFP explicitly foregrounds organizational learning with AI, exploration, exploitation, and hybridization. Persistent markers provide a concrete mechanism for collective memory, traceability, reinforcement, decay, and governance, making the contribution more distinctive than a generic agentic-AI discussion.
+- `alternatives_rejected`: Center the submission on benchmark performance, broad AI governance, or generic human-AI collaboration without a concrete stigmergic learning mechanism.
+- `linked_adr`: `https://easychair.org/cfp/AI-Learning-2026`
+
+## 2026-04-27 (Adopt Evaluator-First Framing For Any From-Scratch Redesign)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: If redesigning from scratch, frame StigmergiAgentic as an evaluator-first, patch-first experimental system before treating it as an adaptive multi-agent colony.
+- `rationale`: The second Deep Research report correctly identifies that the project risk is not lack of agent ideas, but adding adaptive mechanisms before the official evaluator, patch contract, baselines, campaign artifacts, and split-aware knowledge boundaries are stable.
+- `alternatives_rejected`: Start with a richer V7 colony runtime, keep domain adapters as intelligence-heavy planners, or allow cross-run skills/protocols to mutate final-eval behavior without an offline split-aware knowledge plane.
+- `linked_adr`: `/Users/lotfi/Downloads/deep-research-report (2).md`
+
+## 2026-04-27 (Use a Short Handoff To Drive MigrationBench Implementation)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: Add a concise MigrationBench implementation handoff alongside the long scientific plan, and instruct implementation agents to start from the handoff while treating the master plan as the research authority.
+- `rationale`: The master plan is intentionally detailed and scientifically grounded, but it is too long for a focused implementation pass. A handoff file preserves the key constraints: evaluator-first order, mandatory baselines, cross-run disabled, strict output contract, and V6 static before V7.
+- `alternatives_rejected`: Ask the next agent to infer implementation order from the full plan, start directly with V7 runtime changes, or optimize prompts before the MigrationBench evaluator and artifact contract are stable.
+- `linked_adr`: `documentation/redisgn_v2/migrationbench_implementation_handoff.md`
+
+## 2026-04-27 (Harden Main30 Around DeepSeek And Official MigrationBench Semantics)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: Switch the MigrationBench primary model to DeepSeek direct API `deepseek-v4-flash` and harden `main_30` around official preflight, official SD-Feedback where possible, manifest-driven denominators, clean workspace isolation, harness-computed patches, and explicit power-analysis limits.
+- `rationale`: A two-day `main_30` can produce a credible pilot/memoir result only if model capability, evaluator reproducibility, baseline strength, patch validity, and denominator semantics are locked before implementation. Gemma risks all arms failing; a naive agentless baseline risks becoming a strawman; and `n=30` cannot prove small effects.
+- `alternatives_rejected`: Keep Gemma as primary, imitate SD-Feedback without trying the official baseline, infer denominators from output files, allow raw LLM diffs, reuse dirty workspaces, or present `main_30` as powered proof of 5-10 point gains.
+- `linked_adr`: `documentation/redisgn_v2/migrationbench_implementation_handoff.md`
+
+## 2026-04-27 (Require Deterministic Limits And Provider-Accurate DeepSeek Requests)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: Add deterministic per-instance campaign limits, standardize typed edit primitives, timebox official SD-Feedback integration to one engineering day, and update the DeepSeek client path so `deepseek-v4-flash` pricing and non-thinking mode are actually enforced.
+- `rationale`: Provider maximum output tokens are useful for code migration, but without hard per-instance caps a bad repair loop can invalidate cost/runtime comparisons and waste budget. A shared edit schema prevents baseline-specific patch noise, and YAML reasoning settings are not scientifically meaningful unless the client sends the provider's documented request fields.
+- `alternatives_rejected`: Use an LLM-as-judge as the primary kill switch, let each baseline invent its own edit format, keep trying official SD-Feedback indefinitely, or rely on `reasoning.mode` documentation without client support.
+- `linked_adr`: `documentation/redisgn_v2/migrationbench_implementation_handoff.md`
+
+## 2026-04-27 (Run Main30 In Monitor-Only Mode Without Per-Instance Hard Caps)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: Remove hard `main_30` per-instance caps for tokens, runtime, LLM calls, and repair cycles, and replace them with explicit `monitor_only` telemetry plus manual abort support.
+- `rationale`: The primary research risk is now under-observing stigmergic repair behavior rather than API cost. DeepSeek token pricing is low enough that a high-token run can be allowed, as long as cost/runtime/call/cycle telemetry is preserved and manually aborted runs remain full-denominator failures unless rerun cleanly.
+- `alternatives_rejected`: Keep a 500K token cap, cap runtime at 1800 seconds, stop after fixed repair cycles, or use an LLM-as-judge to automatically terminate runs.
+- `linked_adr`: `documentation/redisgn_v2/migrationbench_implementation_handoff.md`
+
+## 2026-04-27 (Implement MigrationBench V6 Static Before Any V7/C3 Work)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: Implement the MigrationBench track as a patch-first V6 static harness with official preflight, clean workspace isolation, shared typed edits, strong baseline hooks, manifest-driven runners, and strict output contracts before adding V7 elastic colony or C3 mechanisms.
+- `rationale`: The next scientific risk is invalid measurement, not insufficient architectural ambition. A stable harness makes failures attributable to migration strategy or orchestration rather than dirty workspaces, malformed diffs, missing outputs, or denominator drift.
+- `alternatives_rejected`: Start with V7 dynamic agents, repair integrated C3 first, optimize prompts before official evaluator compatibility, or let each baseline define its own patch format.
+- `linked_adr`: `documentation/redisgn_v2/migrationbench_implementation_handoff.md`
+
+## 2026-04-28 (Use Robust Compose Commands For MigrationBench Services)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: Run MigrationBench Docker services with exec-form command blocks, escaped container environment variables, and explicit `/opt/venv/bin/python`.
+- `rationale`: Folded shell commands dropped Python script arguments, host-side Compose interpolation could erase container defaults, and `bash -lc` reset `PATH` enough to bypass the installed virtualenv. Explicit command wiring keeps preflight and campaign launches reproducible.
+- `alternatives_rejected`: Keep folded `bash -c` strings, rely on host-exported variables, or depend on shell PATH resolution for the Python interpreter.
+- `linked_adr`: `docker-compose.campaign.yml`
+
+## 2026-04-28 (Gate MigrationBench Preflight On Evaluator Process Health)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: Treat official evaluator process execution as the Docker preflight gate, while keeping unmigrated-base success as a separate diagnostic field.
+- `rationale`: The smoke repos can clone, checkout, import MigrationBench, and run Maven through the official evaluator, but unmigrated repositories are not expected to satisfy the final Java migration contract. Conflating those two signals would incorrectly block scientifically valid campaign execution.
+- `alternatives_rejected`: Require `official_base_java8_success=True` before running campaigns, ignore official evaluator dependency failures, or hide base success diagnostics entirely.
+- `linked_adr`: `scripts/run_migrationbench_official_preflight.py`
+
+## 2026-04-28 (Run MigrationBench Campaigns From Immutable Docker Image Code)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: Remove repository source/config bind mounts from MigrationBench Docker services and require image rebuilds before smoke/full campaign execution.
+- `rationale`: Docker Desktop bind mounts from the macOS workspace produced `Errno 35 Resource deadlock avoided` while reading YAML configs. Copying code/config into the image at build time improves reproducibility and avoids host filesystem locking artifacts during benchmark runs.
+- `alternatives_rejected`: Keep source/config bind mounts for faster iteration, retry the same failing container, or work around the error with ad hoc local file copies.
+- `linked_adr`: `docker-compose.campaign.yml`
+
+## 2026-04-29 (Force Clean Workspaces For MigrationBench Main Campaigns)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: Default MigrationBench Docker campaigns to `MIGRATION_FORCE=true` so each instance workspace is recreated before execution.
+- `rationale`: A `no_change` arm produced one delivered artifact despite all rows being classified as `empty_patch`, proving stale workspace contamination. Clean workspaces are more important than resume speed for publication-grade patch benchmarks.
+- `alternatives_rejected`: Continue the partial `main_30_clean` run, rely on users to remember `--force`, or accept nonzero artifact delivery in `no_change`.
+- `linked_adr`: `docker-compose.campaign.yml`
+
+## 2026-04-29 (Make No-Change Baseline Emit Explicit Empty Patch)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: The MigrationBench `no_change` baseline must write an explicit empty patch and explicit `patch_delivered=false` stats instead of exporting `git diff`.
+- `rationale`: One repository produced a non-empty workspace diff with no intended changes, which made artifact delivery nonzero while the failure reason remained `empty_patch`. A no-op control must be semantically empty independent of checkout normalization.
+- `alternatives_rejected`: Continue using `workspace.export_patch`, patch the aggregator to hide the inconsistency, or accept the `no_change` arm with nonzero artifact delivery.
+- `linked_adr`: `adapters/migrationbench/scientific_baselines.py`
+
+## 2026-04-29 (Use 1800s Per-Instance Timeout For MigrationBench Main30)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: Add an explicit per-instance timeout to MigrationBench campaigns and default `main_30` Docker runs to `1800` seconds per instance.
+- `rationale`: `main_30_clean_v3` stalled on one `solo_direct` instance without an active timeout. A 300-second cap would be too aggressive because one legitimate official-eval path already took about 620 seconds; 1800 seconds bounds pathological hangs while preserving room for Maven/LLM/stigmergic execution.
+- `alternatives_rejected`: Leave timeout unset, use a universal 300-second hard cap, or rely on provider request timeouts alone.
+- `linked_adr`: `scripts/run_migrationbench_framework_benchmark.py`
+
+## 2026-04-29 (Filter MigrationBench Final Results To Task Contract Markers)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: MigrationBench stigmergic evaluation must select only `task` markers ending in `::finalize_patch` that contain the benchmark contract field `strict_success`.
+- `rationale`: A successful instance created both a final task marker and a lesson marker whose ID also ended in `::finalize_patch`; suffix-only selection exported the lesson as a benchmark row, corrupting the `stigmergic_v6_static` aggregate.
+- `alternatives_rejected`: Interpret the corrupted aggregate, post-process `runs.json` manually, or disable lesson creation globally for MigrationBench.
+- `linked_adr`: `adapters/migrationbench/adapter.py`
+
+## 2026-04-29 (Rebuild MigrationBench From Minimal No-Cache Context)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: Clear MigrationBench scratch workspaces and rebuild the campaign image without cache from a minimal temporary context when Docker Desktop stalls on the full repository context.
+- `rationale`: The rerun needed fresh checkouts after a result-extraction fix, but the workspace scratch had grown to about 11GB and Docker Desktop repeatedly stalled while loading the full repository context. A minimal build context preserves reproducibility while avoiding irrelevant cached workspaces, external clones, and host filesystem artifacts.
+- `alternatives_rejected`: Reuse the existing image, rerun with stale workspaces, keep forcing Compose to build from the full repository context, or delete all Docker images/volumes with an aggressive system prune.
+- `linked_adr`: `.dockerignore`
+
+## 2026-04-29 (Treat No-Cache Stigmergic Main30 As Valid Negative Result)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: Interpret `main_30_stigmergic_fixed_nocache/stigmergic_v6_static` as a completed, denominator-valid, negative result for the V6 static stigmergic arm.
+- `rationale`: The Docker run exited successfully, produced 30 rows for 30 requested instances, and preserved the expected benchmark artifacts. The failure is in the artifact funnel: 29/30 delivered, 27/30 applied, but 0/30 passed official evaluation, so this is not a cache, timeout, or result-extraction failure.
+- `alternatives_rejected`: Discard the run because success is zero, merge it with the previous corrupted stigmergic aggregate, or relaunch again before comparing against the already valid baselines.
+- `linked_adr`: `campaign_results/migrationbench/main_30_stigmergic_fixed_nocache/stigmergic_v6_static/benchmark_summary.json`
+
+## 2026-04-30 (Require Build-Feedback Repair Before Claiming Migration Stigmergy)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: Do not treat the current V6 static MigrationBench adapter as a strong stigmergic implementation until patch proposal is coupled to build/test feedback and repair markers.
+- `rationale`: The current graph inspects, proposes, runs build, and finalizes, but finalization only depends on the patch proposal and the build result does not drive revised edits. This makes the arm behave like a shallow patch generator with telemetry rather than an adaptive migration system.
+- `alternatives_rejected`: Explain 0/30 only as benchmark difficulty, rerun the same adapter unchanged, or claim stigmergic value from patch delivery/applicability without official success.
+- `linked_adr`: `adapters/migrationbench/adapter.py`
+
+## 2026-04-30 (Add MigrationBench V7 Repair Colony As Opt-In Arm)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: Add `stigmergic_v7_repair_colony` as a separate MigrationBench-first framework arm instead of mutating `stigmergic_v6_static`.
+- `rationale`: V7 changes the scientific treatment from one-shot patch generation to closed-loop branch repair with elastic agents. Keeping it opt-in preserves V6 as a negative baseline and makes ablations easier to interpret.
+- `alternatives_rejected`: Patch V6 in place, revive C3 as the main architecture, or add repair logic only inside prompts without marker-level control flow.
+- `linked_adr`: `config/migrationbench_v7_repair_colony_deepseek.yaml`
+
+## 2026-05-04 (Phase 5 V10 — Harden BranchingRepair A3 With Auditable Selection)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: Push signature dedup, repeated-failure suppression, and the explainable `SelectionRationale` into `core_v10/strategy_runner.py` and propagate them through `scripts/bench/telemetry.py`. Add `scripts/bench/compare_strategies.py` to run A1/A2/A3 on the same fixture and emit `comparison.json`.
+- `rationale`: Phase 5 DoD requires "selection explicable par preuves" and "comparaison A1/A2/A3". Putting dedup+rationale in the runner means every adapter (toy, MigrationBench, future) inherits Phase 5 for free, the EventLog stays the single source of truth (live==replay invariant preserved), and ablations are reproducible without bespoke wrappers.
+- `alternatives_rejected`: External wrapper around the runner (would split the EventLog actor identity); keep selection implicit through `HypothesisGraph.select_best` only (no audit trail); block Phase 5 until Phase 3 typed-blackboard ships (would gate scientific deliverables on unrelated Phase-3 work — chose to land A2 as a linear-repair placeholder instead).
+- `linked_adr`: `documentation/decisions/20260504-phase5-a3-branching-repair.md`
+
+## 2026-05-04 (Do Not Treat A1/A2/A3 main_30 As Framework Evidence Yet)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: Treat `campaign_results/v10/ablation_main30/comparison.json` as a harness-valid but treatment-invalid diagnostic run until candidate generation, repair generation, and branching activation are implemented and measured.
+- `rationale`: A2 and A3 used a no-op repair provider and the same deterministic single-candidate POM provider as A1; A3 produced no fan-out, no dedup, and no repeat-failure suppression. The zero strict-success result is therefore not an interpretable comparison of repair or stigmergic coordination.
+- `alternatives_rejected`: Promote the run as Phase 6-ready evidence, tune prompts on top of the current no-op repair loop, or explain the zero result as only benchmark difficulty without checking mechanism activation.
+- `linked_adr`: `campaign_results/v10/ablation_main30/comparison.json`

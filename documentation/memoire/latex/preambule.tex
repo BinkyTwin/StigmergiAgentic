@@ -1,0 +1,90 @@
+% =============================================================================
+% PRÉAMBULE — Mémoire de Master EMLV
+% Conformité format : Times New Roman 12pt, marges 2,5 cm, interligne 1,5,
+% texte justifié, numéros de page, table des matières automatique.
+% Compilation : xelatex + biber.
+% =============================================================================
+
+% --- Polices et internationalisation -----------------------------------------
+\usepackage{fontspec}
+\IfFontExistsTF{Times New Roman}{%
+  \setmainfont{Times New Roman}%
+}{%
+  % Fallback portable si Times New Roman absent du système.
+  \setmainfont{TeX Gyre Termes}%
+}
+\usepackage[main=french,english]{babel}
+\usepackage{csquotes}
+
+% --- Mise en page ------------------------------------------------------------
+\usepackage[a4paper,left=2.5cm,right=2.5cm,top=2.5cm,bottom=2.5cm]{geometry}
+\usepackage{setspace}
+\onehalfspacing
+\usepackage{microtype}
+\usepackage{parskip}
+
+% Numéros de page : style plain par défaut (numéro centré en bas).
+\pagestyle{plain}
+
+% --- Tableaux, figures, listings --------------------------------------------
+\usepackage{graphicx}
+\graphicspath{{images/}}
+% Wrapper graceful : si l'image n'existe pas, afficher un placeholder cadré
+% plutôt que de faire échouer la compilation. Indispensable tant que les
+% schémas du DSR n'ont pas été ré-exportés dans images/.
+\let\StigOriginalIncludegraphics\includegraphics
+\renewcommand{\includegraphics}[2][]{%
+  \IfFileExists{#2}{\StigOriginalIncludegraphics[#1]{#2}}{%
+    \IfFileExists{images/#2}{\StigOriginalIncludegraphics[#1]{#2}}{%
+      \fbox{\parbox{0.7\textwidth}{\centering\vspace{0.6cm}%
+        \textit{[Figure \`a fournir : \texttt{\detokenize{#2}}]}%
+        \vspace{0.6cm}}}%
+    }%
+  }%
+}
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{multirow}
+\usepackage{array}
+\usepackage{tabularx}
+\usepackage{adjustbox}
+\usepackage{float}
+\usepackage{xcolor}
+\usepackage{listings}
+\lstset{
+  basicstyle=\ttfamily\footnotesize,
+  breaklines=true,
+  frame=single,
+  showstringspaces=false,
+  columns=fullflexible,
+}
+
+% --- Mathématiques (légères) -------------------------------------------------
+\usepackage{amsmath}
+\usepackage{amssymb}
+
+% --- Listes ------------------------------------------------------------------
+\usepackage{enumitem}
+
+% --- Hyperliens et métadonnées ----------------------------------------------
+\usepackage[hidelinks]{hyperref}
+
+% --- Bibliographie : APA via biblatex + biber -------------------------------
+\usepackage[backend=biber,style=apa,sortcites=true,sorting=nyt]{biblatex}
+\addbibresource{bibliography.bib}
+
+% --- Helpers Pandoc / utilitaires -------------------------------------------
+\providecommand{\tightlist}{%
+  \setlength{\itemsep}{0pt}\setlength{\parskip}{0pt}}
+\providecommand{\pandocbounded}[1]{%
+  \adjustbox{max width=0.94\linewidth,max totalheight=0.60\textheight,center}{#1}}
+\setlength{\textfloatsep}{10pt plus 2pt minus 2pt}
+\setlength{\intextsep}{10pt plus 2pt minus 2pt}
+
+\usepackage{fancyvrb}
+\newcommand{\AnnexeInput}[1]{%
+  \VerbatimInput[fontsize=\small,frame=single]{#1}}
+
+% --- Profondeur table des matières ------------------------------------------
+\setcounter{tocdepth}{2}
+\setcounter{secnumdepth}{3}

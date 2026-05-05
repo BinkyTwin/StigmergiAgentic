@@ -299,6 +299,9 @@ class PlanDayTool(Tool):
             if isinstance(feedback_raw, list)
             else []
         )
+        skill_cards = self._select_skill_cards(marker=marker, query_data=query_data)
+        if skill_cards and hasattr(environment, "record_skills_injected"):
+            environment.record_skills_injected(len(skill_cards))
 
         consumed_tokens = 0
         cost_usd = 0.0
@@ -314,18 +317,33 @@ class PlanDayTool(Tool):
                 query_data=query_data,
                 search_payload=search_payload,
                 validation_feedback=validation_feedback,
+                skill_cards=skill_cards,
+            )
+            dynamic_max_tokens = self._dynamic_max_response_tokens(
+                query_data=query_data
             )
             try:
                 response = None
                 if hasattr(llm_client, "acall"):
-                    response = await llm_client.acall(
-                        prompt=prompt,
-                        response_schema=TravelItineraryOutput,
-                    )
+                    try:
+                        response = await llm_client.acall(
+                            prompt=prompt,
+                            response_schema=TravelItineraryOutput,
+                            max_response_tokens=dynamic_max_tokens,
+                        )
+                    except TypeError:
+                        response = await llm_client.acall(
+                            prompt=prompt,
+                            response_schema=TravelItineraryOutput,
+                        )
                 elif hasattr(llm_client, "call"):
-                    response = llm_client.call(
-                        prompt=prompt,
-                    )
+                    try:
+                        response = llm_client.call(
+                            prompt=prompt,
+                            max_response_tokens=dynamic_max_tokens,
+                        )
+                    except TypeError:
+                        response = llm_client.call(prompt=prompt)
 
                 if response is not None:
                     planner_model = str(getattr(response, "model", "unknown"))
@@ -342,12 +360,40 @@ class PlanDayTool(Tool):
                         )
                         if raw_content.strip() and not itinerary:
                             planning_failure_reason = "schema_parse_failed"
+                        elif not raw_content.strip():
+                            planning_failure_reason = "empty_llm_content"
+
+                    if not itinerary:
+                        recovery_result = await self._recovery_call(
+                            llm_client=llm_client,
+                            prompt=prompt,
+                            dynamic_max_tokens=dynamic_max_tokens,
+                        )
+                        if recovery_result is not None:
+                            itinerary = recovery_result["itinerary"]
+                            consumed_tokens += recovery_result["tokens"]
+                            cost_usd += recovery_result["cost_usd"]
+                            if recovery_result["model"]:
+                                planner_model = recovery_result["model"]
+                            if itinerary:
+                                planning_failure_reason = "recovered_on_retry"
+
                     itinerary = self._normalize_itinerary(
                         itinerary=itinerary,
                         query_data=query_data,
                         search_payload=search_payload,
                     )
-            except Exception:  # noqa: BLE001
+            except Exception as exc:  # noqa: BLE001
+                planning_failure_reason = (
+                    f"llm_call_exception:{type(exc).__name__}"
+                )
+                import sys as _sys
+                import traceback as _tb
+                print(
+                    f"[PlanDayTool] LLM call exception: {type(exc).__name__}: {exc}",
+                    file=_sys.stderr,
+                )
+                _tb.print_exc(file=_sys.stderr)
                 itinerary = []
 
         planning_attempts = int(marker.payload.get("planning_attempts", 0)) + 1
@@ -360,6 +406,7 @@ class PlanDayTool(Tool):
             payload["planning_attempts"] = planning_attempts
             payload["needs_replan"] = False
             payload["planner_model"] = planner_model
+            payload["skills_injected_count"] = len(skill_cards)
             self._record_failure_reason(
                 payload=payload,
                 reason="empty_plan_after_max_attempts",
@@ -385,6 +432,7 @@ class PlanDayTool(Tool):
             payload["needs_replan"] = True
             payload["planner_model"] = planner_model
             payload["validation_feedback"] = validation_feedback
+            payload["skills_injected_count"] = len(skill_cards)
             self._record_failure_reason(
                 payload=payload,
                 reason="empty_plan_from_llm",
@@ -410,6 +458,12 @@ class PlanDayTool(Tool):
         payload["planning_attempts"] = planning_attempts
         payload["needs_replan"] = False
         payload["validation_feedback"] = validation_feedback
+        payload["skills_injected_count"] = len(skill_cards)
+        payload["skill_card_ids"] = [
+            str(card.get("id", "")).strip()
+            for card in skill_cards
+            if str(card.get("id", "")).strip()
+        ]
         payload["failure_reason"] = "ok"
         payload["last_failure_reason"] = "ok"
         updated.payload = payload
@@ -602,6 +656,7 @@ class PlanDayTool(Tool):
         query_data: dict[str, Any],
         search_payload: dict[str, Any],
         validation_feedback: list[str],
+        skill_cards: list[dict[str, Any]] | None = None,
     ) -> str:
         compact_query = self._compact_query_data(query_data)
         compact_search_payload = self._compact_search_payload(
@@ -618,6 +673,12 @@ class PlanDayTool(Tool):
             feedback_block = (
                 "Previous validation failures to fix exactly:\n"
                 f"{json.dumps(validation_feedback, ensure_ascii=True)}\n"
+            )
+        skill_block = ""
+        if skill_cards:
+            skill_block = (
+                "ReusablePlanningSkills:\n"
+                f"{json.dumps(skill_cards[:5], ensure_ascii=True)}\n"
             )
         city_sequence_block = ""
         if city_sequence:
@@ -674,6 +735,7 @@ class PlanDayTool(Tool):
             "- Put accommodation for each non-final night.\n"
             "- For transport, use either consistent flights or consistent non-flight mode.\n"
             "- Accommodation must satisfy minimum nights, maximum occupancy, and local room constraints.\n"
+            "- Stay within the query budget; prefer the cheapest valid transport, hotel, and restaurant candidates.\n"
             "- The itinerary should form a closed circle within the allotted day count when origin and destination differ.\n"
             "Canonical formatting rules:\n"
             "- A transfer day must use current_city exactly 'from <origin> to <destination>'.\n"
@@ -683,12 +745,85 @@ class PlanDayTool(Tool):
             "- Attractions may be '-' or one or more '<name>, <city>' values separated by '; '.\n"
             "- Meals or attractions that are not scheduled should be '-'.\n"
             f"{feedback_block}"
+            f"{skill_block}"
             f"{few_shot_block}"
             "Use only plausible values from provided search data.\n"
             f"Query: {json.dumps(compact_query, ensure_ascii=True)}\n"
             f"{routing_block}"
             f"SearchData: {json.dumps(compact_search_payload, ensure_ascii=True)}"
         )
+
+    def _select_skill_cards(
+        self,
+        *,
+        marker: Marker,
+        query_data: dict[str, Any],
+    ) -> list[dict[str, Any]]:
+        raw = marker.payload.get("skill_markers", [])
+        if not isinstance(raw, list):
+            return []
+        query_features = self._query_skill_features(query_data)
+        cards: list[dict[str, Any]] = []
+        for item in raw:
+            if not isinstance(item, dict):
+                continue
+            text = self._clean_skill_text(str(item.get("skill_text", "")).strip())
+            if not text:
+                continue
+            constraint_type = str(item.get("constraint_type", "")).strip()
+            if constraint_type and constraint_type not in query_features:
+                if constraint_type not in {
+                    "candidate_formatting",
+                    "budget_control",
+                    "general_planning",
+                }:
+                    continue
+            cards.append(
+                {
+                    "id": str(item.get("id", "")).strip(),
+                    "skill_text": text,
+                    "constraint_type": constraint_type or "general_planning",
+                    "quality_score": float(item.get("quality_score", 0.0) or 0.0),
+                    "usage_count": int(item.get("usage_count", 0) or 0),
+                }
+            )
+        cards.sort(
+            key=lambda card: (
+                -float(card.get("quality_score", 0.0)),
+                -int(card.get("usage_count", 0)),
+                str(card.get("id", "")),
+            )
+        )
+        return cards[:5]
+
+    def _query_skill_features(self, query_data: dict[str, Any]) -> set[str]:
+        features = {"candidate_formatting", "budget_control", "general_planning"}
+        city_sequence = self._resolve_city_sequence(query_data)
+        if len(city_sequence) > 1:
+            features.add("multi_city_routing")
+        local_constraint = query_data.get("local_constraint", {})
+        if isinstance(local_constraint, str):
+            local_constraint = self._safe_literal_value(local_constraint, default={})
+        if isinstance(local_constraint, dict):
+            if local_constraint.get("transportation") is not None:
+                features.add("transportation_constraint")
+            if any(
+                local_constraint.get(key) is not None
+                for key in ("room type", "house rule")
+            ):
+                features.add("accommodation_constraint")
+            if local_constraint.get("cuisine") is not None:
+                features.add("cuisine_constraint")
+        return features
+
+    @staticmethod
+    def _clean_skill_text(text: str) -> str:
+        normalized = " ".join(str(text).split())
+        if not normalized:
+            return ""
+        if normalized.lower().startswith("successful objective fragment:"):
+            return ""
+        return normalized[:320]
 
     def _parse_itinerary(
         self, *, raw_content: str, llm_client: Any | None
@@ -711,6 +846,80 @@ class PlanDayTool(Tool):
             except (json.JSONDecodeError, ValidationError):
                 continue
         return []
+
+    def _dynamic_max_response_tokens(
+        self, *, query_data: dict[str, Any]
+    ) -> int:
+        """Return a generous ceiling on completion tokens.
+
+        ``max_tokens`` is a ceiling, not a target — the model stops on its own
+        once the JSON itinerary is complete. 8000 stays under DeepSeek's
+        hard cap of 8192 while giving plenty of room for a 7-day itinerary
+        (~2500 tokens) plus any optional chain-of-thought preamble before the
+        JSON. The real guard against truncation is the recovery retry in
+        ``execute`` (schema_parse_failed → stricter prompt).
+        """
+        del query_data  # kept for future per-query overrides
+        return 8000
+
+    async def _recovery_call(
+        self,
+        *,
+        llm_client: Any,
+        prompt: str,
+        dynamic_max_tokens: int,
+    ) -> dict[str, Any] | None:
+        """Retry once with a stricter prompt when the first parse failed."""
+        recovery_prompt = (
+            "Your previous response could not be parsed as a valid itinerary JSON. "
+            "Return ONLY strict JSON matching the schema, no preamble, no markdown fence.\n\n"
+            f"{prompt}"
+        )
+        try:
+            if hasattr(llm_client, "acall"):
+                try:
+                    response = await llm_client.acall(
+                        prompt=recovery_prompt,
+                        response_schema=TravelItineraryOutput,
+                        max_response_tokens=dynamic_max_tokens,
+                    )
+                except TypeError:
+                    response = await llm_client.acall(
+                        prompt=recovery_prompt,
+                        response_schema=TravelItineraryOutput,
+                    )
+            elif hasattr(llm_client, "call"):
+                try:
+                    response = llm_client.call(
+                        prompt=recovery_prompt,
+                        max_response_tokens=dynamic_max_tokens,
+                    )
+                except TypeError:
+                    response = llm_client.call(prompt=recovery_prompt)
+            else:
+                return None
+        except Exception:  # noqa: BLE001
+            return None
+
+        if response is None:
+            return None
+        model_name = str(getattr(response, "model", "") or "")
+        tokens = int(getattr(response, "tokens_used", 0) or 0)
+        cost_usd = float(getattr(response, "cost_usd", 0.0) or 0.0)
+        parsed = getattr(response, "parsed", None)
+        if isinstance(parsed, TravelItineraryOutput):
+            itinerary = [day.model_dump() for day in parsed.plan]
+        else:
+            raw_content = str(getattr(response, "content", ""))
+            itinerary = self._parse_itinerary(
+                raw_content=raw_content, llm_client=llm_client
+            )
+        return {
+            "itinerary": itinerary,
+            "tokens": tokens,
+            "cost_usd": cost_usd,
+            "model": model_name,
+        }
 
     def _collect_search_payloads(
         self, *, marker: Marker, environment: Any
@@ -923,6 +1132,10 @@ class PlanDayTool(Tool):
                     raw_records=raw_records,
                     query_data=query_data,
                 )
+            source_records = self._budget_prioritized_records(
+                base_key=base_key,
+                records=source_records,
+            )
             for raw_record in source_records[:limit]:
                 if not isinstance(raw_record, dict):
                     continue
@@ -936,6 +1149,43 @@ class PlanDayTool(Tool):
             if compact_records:
                 compact[search_type] = compact_records
         return compact
+
+    def _budget_prioritized_records(
+        self,
+        *,
+        base_key: str,
+        records: list[dict[str, Any]],
+    ) -> list[dict[str, Any]]:
+        """Sort candidate records by explicit price/cost before prompt truncation."""
+        cost_fields = {
+            "search_flights": ("Price",),
+            "search_ground_transport": ("cost",),
+            "search_hotels": ("price",),
+            "search_restaurants": ("Average Cost",),
+        }.get(base_key)
+        if cost_fields is None:
+            return records
+
+        indexed_records = list(enumerate(records))
+        indexed_records.sort(
+            key=lambda item: (
+                self._record_cost_value(item[1], cost_fields=cost_fields),
+                item[0],
+            )
+        )
+        return [record for _, record in indexed_records]
+
+    def _record_cost_value(
+        self,
+        record: dict[str, Any],
+        *,
+        cost_fields: tuple[str, ...],
+    ) -> float:
+        for field in cost_fields:
+            value = self._coerce_float(record.get(field))
+            if value is not None:
+                return value
+        return float("inf")
 
     def _filter_hotel_candidates(
         self,
@@ -1243,6 +1493,12 @@ class PlanDayTool(Tool):
             return "-"
         return text
 
+    def _coerce_float(self, value: Any) -> float | None:
+        try:
+            return float(value)
+        except (TypeError, ValueError):
+            return None
+
     def _coerce_int(self, value: Any) -> int | None:
         try:
             return int(float(value))
@@ -1443,13 +1699,24 @@ class ValidateConstraintsTool(Tool):
             float(updated.intensity) - self.intensity_step,
         )
 
-        if evaluation.final_pass:
+        strict_final_pass = bool(plan and evaluation.final_pass)
+        payload["evaluation"]["strict_final_pass"] = strict_final_pass
+        payload["evaluation"]["artifact_delivered"] = bool(plan)
+
+        if strict_final_pass:
             payload["failure_reason"] = "ok"
             updated.state = "terminal"
             return ActionResult(
                 action_type=self.action_type,
                 marker_updates=[updated],
-                metadata={"final_pass": True},
+                metadata={
+                    "final_pass": True,
+                    "strict_final_pass": True,
+                    "skill_candidates": self._build_skill_candidates(
+                        query_data=query_data,
+                        plan=plan,
+                    ),
+                },
             )
 
         if failed_constraints:
@@ -1557,14 +1824,23 @@ class ValidateConstraintsTool(Tool):
             )
 
         eval_payload = dict(validate_marker.payload.get("evaluation", {}))
+        final_plan = validate_marker.payload.get("plan", [])
+        if not isinstance(final_plan, list):
+            final_plan = []
+        strict_final_pass = bool(final_plan and eval_payload.get("final_pass", False))
 
         updated = Marker.from_dict(marker.to_dict())
         payload = dict(updated.payload)
         payload["query_data"] = validate_marker.payload.get("query_data")
-        payload["final_plan"] = validate_marker.payload.get("plan", [])
+        payload["final_plan"] = final_plan
         payload["evaluation"] = eval_payload
-        payload["final_pass"] = bool(eval_payload.get("final_pass", False))
+        payload["raw_final_pass"] = bool(eval_payload.get("final_pass", False))
+        payload["strict_final_pass"] = strict_final_pass
+        payload["artifact_delivered"] = bool(final_plan)
+        payload["final_pass"] = strict_final_pass
         payload["failure_reason"] = str(validate_marker.payload.get("failure_reason", "ok"))
+        if not strict_final_pass and payload["failure_reason"] == "ok":
+            payload["failure_reason"] = "empty_plan_from_llm"
         updated.payload = payload
         updated.state = "terminal"
         updated.intensity = max(
@@ -1573,6 +1849,100 @@ class ValidateConstraintsTool(Tool):
         )
 
         return ActionResult(action_type=self.action_type, marker_updates=[updated])
+
+    def _build_skill_candidates(
+        self,
+        *,
+        query_data: dict[str, Any],
+        plan: list[dict[str, Any]],
+    ) -> list[dict[str, Any]]:
+        """Return compact reusable planning guidance from a strict successful plan."""
+        if not plan:
+            return []
+        cards: list[dict[str, Any]] = [
+            {
+                "skill_text": (
+                    "Use exact candidate names from SearchData and keep the "
+                    "'<name>, <city>' format for meals, attractions, and hotels."
+                ),
+                "action_type": "plan_itinerary",
+                "constraint_type": "candidate_formatting",
+            },
+            {
+                "skill_text": (
+                    "Prefer the cheapest valid transport, restaurant, and hotel "
+                    "candidates before spending budget on optional attractions."
+                ),
+                "action_type": "plan_itinerary",
+                "constraint_type": "budget_control",
+            },
+        ]
+        city_sequence = self._resolve_city_sequence_from_query(query_data)
+        if len(city_sequence) > 1:
+            cards.append(
+                {
+                    "skill_text": (
+                        "For multi-city trips, preserve city_sequence order and "
+                        "represent transfer days as current_city 'from A to B'."
+                    ),
+                    "action_type": "plan_itinerary",
+                    "constraint_type": "multi_city_routing",
+                }
+            )
+
+        local_constraint = query_data.get("local_constraint", {})
+        if isinstance(local_constraint, str):
+            local_constraint = self._safe_literal_value(local_constraint, default={})
+        if isinstance(local_constraint, dict):
+            if local_constraint.get("transportation") is not None:
+                cards.append(
+                    {
+                        "skill_text": (
+                            "When transportation is constrained, copy the matching "
+                            "RoutingData transport string and avoid incompatible modes."
+                        ),
+                        "action_type": "plan_itinerary",
+                        "constraint_type": "transportation_constraint",
+                    }
+                )
+            if any(
+                local_constraint.get(key) is not None
+                for key in ("room type", "house rule")
+            ):
+                cards.append(
+                    {
+                        "skill_text": (
+                            "Filter accommodations against room type, house rule, "
+                            "minimum nights, and occupancy before selecting a hotel."
+                        ),
+                        "action_type": "plan_itinerary",
+                        "constraint_type": "accommodation_constraint",
+                    }
+                )
+        return cards[:5]
+
+    def _resolve_city_sequence_from_query(self, query_data: dict[str, Any]) -> list[str]:
+        raw = query_data.get("city_sequence")
+        if isinstance(raw, list):
+            sequence = [str(city).strip() for city in raw if str(city).strip()]
+            if sequence:
+                return sequence
+        dest = str(query_data.get("dest", "")).strip()
+        return [dest] if dest else []
+
+    @staticmethod
+    def _safe_literal_value(value: Any, *, default: Any) -> Any:
+        if isinstance(value, (dict, list, tuple, int, float, bool)):
+            return value
+        if value is None:
+            return default
+        text = str(value).strip()
+        if not text:
+            return default
+        try:
+            return ast.literal_eval(text)
+        except (ValueError, SyntaxError):
+            return default
 
     def _targeted_repair_enabled(self) -> bool:
         orchestrator_cfg = dict(self.config.get("orchestrator", {}))

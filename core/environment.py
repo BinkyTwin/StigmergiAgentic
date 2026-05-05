@@ -57,6 +57,9 @@ class Environment:
         self.propagation_events = 0
         self.pruned_markers = 0
         self.skills_promoted = 0
+        self.skills_loaded_count = 0
+        self.skills_injected_count = 0
+        self.llm_calls_used = 0
 
     def snapshot(
         self,
@@ -147,7 +150,12 @@ class Environment:
             rows = self.skills_store.query_markers(marker_type="skill")
         except Exception:  # noqa: BLE001
             return []
+        self.skills_loaded_count = len(rows)
         return [Marker.from_dict(marker.to_dict()) for marker in rows]
+
+    def record_skills_injected(self, count: int) -> None:
+        """Track reusable skill cards actually injected into action prompts."""
+        self.skills_injected_count += max(0, int(count))
 
     def acquire_lock(self, marker_id: str, agent_id: str, tick: int) -> bool:
         """Attempt to lock one marker for an agent."""
@@ -166,6 +174,7 @@ class Environment:
         reinforcement_enabled = bool(reinforcement_cfg.get("enabled", False))
         propagation_factor = float(reinforcement_cfg.get("propagation_factor", 0.0))
         lesson_threshold = float(reinforcement_cfg.get("lesson_threshold", 0.7))
+        lessons_enabled = self._lessons_enabled()
         quality_score = self._extract_quality_score(result)
 
         for marker_update in result.marker_updates:
@@ -194,10 +203,14 @@ class Environment:
 
             saved = self.store.upsert_marker(marker=marker_to_save, agent_id=agent_id)
             persisted.append(saved)
+            successful_terminal_state = self._is_successful_terminal_state(
+                marker=saved,
+                result=result,
+            )
 
             if (
                 reinforcement_enabled
-                and saved.state in {"completed", "verified"}
+                and successful_terminal_state
                 and (existing is None or existing.state != saved.state)
             ):
                 reinforced = self.apply_reinforcement(
@@ -209,8 +222,9 @@ class Environment:
                     persisted[-1] = reinforced
 
             if (
-                saved.marker_type != "lesson"
-                and saved.state in {"completed", "verified"}
+                lessons_enabled
+                and saved.marker_type != "lesson"
+                and successful_terminal_state
                 and (existing is None or existing.state != saved.state)
                 and quality_score > lesson_threshold
             ):
@@ -251,6 +265,7 @@ class Environment:
 
         self.tokens_used += int(result.consumed_tokens)
         self.cost_used += float(result.cost_usd)
+        self.llm_calls_used += int(result.metadata.get("llm_calls", 0) or 0)
         self.enforce_budget()
         return persisted
 
@@ -334,6 +349,54 @@ class Environment:
         except (TypeError, ValueError):
             return 1.0
 
+    def _lessons_enabled(self) -> bool:
+        lessons_cfg = self.config.get("lessons")
+        if isinstance(lessons_cfg, dict) and "enabled" in lessons_cfg:
+            return bool(lessons_cfg.get("enabled"))
+        migration_cfg = dict(self.config.get("migrationbench", {}))
+        if str(migration_cfg.get("workflow", "")).strip() == "v7_repair_colony":
+            return False
+        return True
+
+    def _is_successful_terminal_state(
+        self,
+        *,
+        marker: Marker,
+        result: ActionResult,
+    ) -> bool:
+        """Return True when a marker transition represents reusable success."""
+        if marker.state not in {"completed", "verified", "terminal"}:
+            return False
+
+        metadata = dict(result.metadata)
+        if bool(metadata.get("failed", False)):
+            return False
+        if metadata.get("final_pass") is False:
+            return False
+
+        payload = dict(marker.payload)
+        if payload.get("final_pass") is False:
+            return False
+        evaluation = payload.get("evaluation")
+        if isinstance(evaluation, dict) and evaluation.get("final_pass") is False:
+            return False
+        if (
+            marker.state == "terminal"
+            and result.action_type == "plan_itinerary"
+            and metadata.get("final_pass") is not True
+            and payload.get("final_pass") is not True
+            and not (
+                isinstance(evaluation, dict)
+                and evaluation.get("final_pass") is True
+            )
+        ):
+            return False
+        failure_reason = str(payload.get("failure_reason", "")).strip().lower()
+        if failure_reason and failure_reason != "ok":
+            return False
+
+        return True
+
     def _propagate_reinforcement(
         self,
         *,
@@ -375,9 +438,12 @@ class Environment:
         quality_score: float,
     ) -> Marker:
         timestamp = utc_now_iso()
-        lesson_text = self._extract_lesson_text(source_marker)
         lesson_id = f"lesson::{source_marker.id}"
         existing = self.store.get_marker(lesson_id)
+        existing_text = ""
+        if existing is not None:
+            existing_text = str(existing.payload.get("lesson", "")).strip()
+        lesson_text = existing_text or self._extract_lesson_text(source_marker)
         prior_usage = (
             int(existing.payload.get("usage_count", 0)) if existing is not None else 0
         )
@@ -515,6 +581,30 @@ class Environment:
             return
         if bool(skill_cfg.get("read_only", False)):
             return
+        if bool(result.metadata.get("failed", False)):
+            return
+        if result.metadata.get("final_pass") is False:
+            return
+        if result.metadata.get("strict_final_pass") is not True:
+            return
+
+        timestamp = utc_now_iso()
+        skill_candidates = result.metadata.get("skill_candidates", [])
+        if isinstance(skill_candidates, list):
+            for candidate in skill_candidates:
+                if not isinstance(candidate, dict):
+                    continue
+                self._upsert_skill_card(
+                    agent_id=agent_id,
+                    timestamp=timestamp,
+                    skill_text=str(candidate.get("skill_text", "")).strip(),
+                    action_type=str(candidate.get("action_type", result.action_type)).strip(),
+                    constraint_type=str(candidate.get("constraint_type", "general_planning")).strip(),
+                    quality_score=quality_score,
+                    source_lesson_ids=[],
+                    source_query_idx=candidate.get("source_query_idx"),
+                    target=str(candidate.get("target", result.action_type)).strip(),
+                )
 
         credited_raw = result.metadata.get("credited_lesson_ids", [])
         if not isinstance(credited_raw, (list, tuple, set)):
@@ -529,8 +619,6 @@ class Environment:
             return
 
         promotion_min_uses = max(1, int(reinforcement_cfg.get("promotion_min_uses", 2)))
-        timestamp = utc_now_iso()
-
         for lesson_id in credited_ids:
             lesson = self.store.get_marker(lesson_id)
             if lesson is None:
@@ -549,64 +637,127 @@ class Environment:
             if usage_count < promotion_min_uses:
                 continue
 
-            skill_text = str(lesson_payload.get("lesson", "")).strip()
+            skill_text = self._normalize_skill_text(
+                str(lesson_payload.get("lesson", "")).strip()
+            )
+            if not skill_text:
+                continue
             context_fingerprint = self._build_skill_context_fingerprint(lesson)
-            skill_id = f"skill::{self.adapter_name}::{context_fingerprint}"
-            skill_intensity = max(0.0, min(1.0, float(quality_score)))
+            action_type, _, constraint_type = context_fingerprint.partition("::")
+            self._upsert_skill_card(
+                agent_id=agent_id,
+                timestamp=timestamp,
+                skill_text=skill_text,
+                action_type=action_type or result.action_type,
+                constraint_type=constraint_type or "general_planning",
+                quality_score=quality_score,
+                source_lesson_ids=[lesson_id],
+                source_query_idx=lesson_payload.get("query_idx"),
+                target=str(lesson.target),
+            )
 
-            existing_skill = self.skills_store.get_marker(skill_id)
-            if existing_skill is not None:
-                new_payload = dict(existing_skill.payload)
-                # Merge skill text heuristics (keep longer/more detailed)
-                existing_text = str(new_payload.get("skill_text", "")).strip()
-                new_payload["skill_text"] = (
-                    skill_text
-                    if len(skill_text) > len(existing_text)
-                    else existing_text
-                )
-                new_payload["context_fingerprint"] = context_fingerprint
-                new_payload["quality_score"] = max(
-                    float(new_payload.get("quality_score", 0.0)),
-                    float(quality_score),
-                )
-                new_payload["usage_count"] = int(new_payload.get("usage_count", 0)) + 1
-                new_payload["source_lesson_ids"] = list(
-                    set(list(new_payload.get("source_lesson_ids", [])) + [lesson_id])
-                )
-                new_payload["domain"] = self.adapter_name
+    def _upsert_skill_card(
+        self,
+        *,
+        agent_id: str,
+        timestamp: str,
+        skill_text: str,
+        action_type: str,
+        constraint_type: str,
+        quality_score: float,
+        source_lesson_ids: list[str],
+        source_query_idx: Any,
+        target: str,
+    ) -> None:
+        if self.skills_store is None:
+            return
+        normalized_text = self._normalize_skill_text(skill_text)
+        if not normalized_text:
+            return
+        normalized_action = str(action_type or "general").strip() or "general"
+        normalized_constraint = (
+            str(constraint_type or "general_planning").strip() or "general_planning"
+        )
+        context_fingerprint = f"{normalized_action}::{normalized_constraint}"
+        skill_id = f"skill::{self.adapter_name}::{context_fingerprint}"
+        skill_intensity = max(0.0, min(1.0, float(quality_score)))
+        source_ids = [str(item).strip() for item in source_lesson_ids if str(item).strip()]
 
-                updated_skill = Marker.from_dict(existing_skill.to_dict())
-                updated_skill.payload = new_payload
-                updated_skill.intensity = max(
-                    existing_skill.intensity,
-                    skill_intensity,
+        existing_skill = self.skills_store.get_marker(skill_id)
+        if existing_skill is not None:
+            payload = dict(existing_skill.payload)
+            if not str(payload.get("skill_text", "")).strip():
+                payload["skill_text"] = normalized_text
+            payload["context_fingerprint"] = context_fingerprint
+            payload["action_type"] = normalized_action
+            payload["constraint_type"] = normalized_constraint
+            payload["quality_score"] = max(
+                float(payload.get("quality_score", 0.0)),
+                skill_intensity,
+            )
+            payload["usage_count"] = int(payload.get("usage_count", 0) or 0) + 1
+            payload["success_count"] = int(payload.get("success_count", 0) or 0) + 1
+            payload["source_lesson_ids"] = list(
+                dict.fromkeys(
+                    [
+                        *[
+                            str(item).strip()
+                            for item in payload.get("source_lesson_ids", [])
+                            if str(item).strip()
+                        ],
+                        *source_ids,
+                    ]
                 )
-                updated_skill.last_active_at = timestamp
-                self.skills_store.upsert_marker(marker=updated_skill, agent_id=agent_id)
-            else:
-                skill_marker = Marker(
-                    id=skill_id,
-                    marker_type="skill",
-                    target=str(lesson.target),
-                    intensity=skill_intensity,
-                    state="terminal",
-                    payload={
-                        "skill_text": skill_text,
-                        "context_fingerprint": context_fingerprint,
-                        "quality_score": float(quality_score),
-                        "usage_count": usage_count,
-                        "source_lesson_ids": [lesson_id],
-                        "domain": self.adapter_name,
-                    },
-                    created_by=agent_id,
-                    created_at=timestamp,
-                    updated_by=agent_id,
-                    updated_at=timestamp,
-                    last_active_at=timestamp,
-                    history=["promoted"],
-                )
-                self.skills_store.upsert_marker(marker=skill_marker, agent_id=agent_id)
-            self.skills_promoted += 1
+            )
+            if source_query_idx is not None:
+                payload["source_query_idx"] = source_query_idx
+            payload["domain"] = self.adapter_name
+
+            updated = Marker.from_dict(existing_skill.to_dict())
+            updated.payload = payload
+            updated.intensity = max(existing_skill.intensity, skill_intensity)
+            updated.last_active_at = timestamp
+            self.skills_store.upsert_marker(marker=updated, agent_id=agent_id)
+        else:
+            payload = {
+                "skill_text": normalized_text,
+                "context_fingerprint": context_fingerprint,
+                "action_type": normalized_action,
+                "constraint_type": normalized_constraint,
+                "quality_score": skill_intensity,
+                "usage_count": 1,
+                "success_count": 1,
+                "source_lesson_ids": source_ids,
+                "domain": self.adapter_name,
+            }
+            if source_query_idx is not None:
+                payload["source_query_idx"] = source_query_idx
+            marker = Marker(
+                id=skill_id,
+                marker_type="skill",
+                target=target or normalized_action,
+                intensity=skill_intensity,
+                state="terminal",
+                payload=payload,
+                created_by=agent_id,
+                created_at=timestamp,
+                updated_by=agent_id,
+                updated_at=timestamp,
+                last_active_at=timestamp,
+                history=["promoted"],
+            )
+            self.skills_store.upsert_marker(marker=marker, agent_id=agent_id)
+        self.skills_promoted += 1
+
+    def _normalize_skill_text(self, text: str) -> str:
+        normalized = " ".join(str(text).split())
+        if not normalized:
+            return ""
+        if normalized.lower().startswith("successful objective fragment:"):
+            return ""
+        if normalized.lower().startswith("successful pattern:"):
+            return ""
+        return normalized[:320]
 
     def _build_skill_context_fingerprint(self, lesson: Marker) -> str:
         """Extract a generic action-pattern fingerprint for meta-skill grouping.

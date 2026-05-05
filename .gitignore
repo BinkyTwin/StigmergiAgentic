@@ -39,6 +39,9 @@ wheels/
 
 # Runtime
 target_repo/
+external/
+workspaces/
+campaign_results/
 pheromones/*.json
 pheromones/audit_log.jsonl
 pheromones/*.db

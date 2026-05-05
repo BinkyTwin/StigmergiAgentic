@@ -72,6 +72,114 @@ def test_environment_deposits_lesson_marker_on_high_quality_success(
     assert "source_marker" in lesson.payload
 
 
+def test_environment_deposits_lesson_marker_on_successful_terminal_state(
+    tmp_path,
+    config_dict: dict,
+) -> None:
+    store = MarkerStore(db_path=tmp_path / "pheromones" / "markers.db")
+    seed = _marker("m-terminal", intensity=1.0)
+    seed.state = "verified"
+    store.upsert_marker(seed, agent_id="seed")
+    env = Environment(store=store, config=config_dict)
+
+    terminal = Marker.from_dict(seed.to_dict())
+    terminal.state = "terminal"
+    terminal.payload = {"task": "Search hotels cheaply", "failure_reason": "ok"}
+
+    env.apply_action_result(
+        agent_id="agent-1",
+        result=ActionResult(
+            action_type="search_hotels",
+            marker_updates=[terminal],
+            metadata={"quality_score": 0.95},
+        ),
+    )
+
+    lesson = store.get_marker("lesson::m-terminal")
+    assert lesson is not None
+    assert lesson.payload["source_state"] == "terminal"
+
+
+def test_environment_waits_for_validation_before_learning_plan_terminal(
+    tmp_path,
+    config_dict: dict,
+) -> None:
+    store = MarkerStore(db_path=tmp_path / "pheromones" / "markers.db")
+    seed = _marker("plan", intensity=1.0)
+    seed.state = "verified"
+    store.upsert_marker(seed, agent_id="seed")
+    env = Environment(store=store, config=config_dict)
+
+    terminal = Marker.from_dict(seed.to_dict())
+    terminal.state = "terminal"
+    terminal.payload = {"plan": [{"current_city": "A"}], "failure_reason": "ok"}
+
+    env.apply_action_result(
+        agent_id="agent-1",
+        result=ActionResult(
+            action_type="plan_itinerary",
+            marker_updates=[terminal],
+            metadata={"quality_score": 0.95},
+        ),
+    )
+
+    assert store.get_marker("lesson::plan") is None
+
+
+def test_environment_does_not_promote_lesson_on_failed_validation(
+    tmp_path,
+    config_dict: dict,
+) -> None:
+    config = dict(config_dict)
+    config["skill_library"] = dict(config_dict["skill_library"])
+    config["skill_library"]["enabled"] = True
+    config["reinforcement"] = dict(config_dict["reinforcement"])
+    config["reinforcement"]["promotion_min_uses"] = 1
+
+    store = MarkerStore(db_path=tmp_path / "pheromones" / "markers.db")
+    skills_store = MarkerStore(db_path=tmp_path / "pheromones" / "skills.db")
+    lesson = Marker(
+        id="lesson::failed",
+        marker_type="lesson",
+        target="query",
+        intensity=0.8,
+        state="terminal",
+        payload={"lesson": "Do not learn from failed validation", "usage_count": 0},
+        created_by="seed",
+        created_at="2026-03-04T12:00:00+00:00",
+        updated_by="seed",
+        updated_at="2026-03-04T12:00:00+00:00",
+    )
+    store.upsert_marker(marker=lesson, agent_id="seed")
+    env = Environment(
+        store=store,
+        config=config,
+        skills_store=skills_store,
+        adapter_name="travelplanner",
+    )
+
+    failed = _marker("validate", intensity=1.0)
+    failed.state = "active"
+    store.upsert_marker(failed, agent_id="seed")
+    terminal = Marker.from_dict(failed.to_dict())
+    terminal.state = "completed"
+
+    env.apply_action_result(
+        agent_id="agent-1",
+        result=ActionResult(
+            action_type="validate_constraints",
+            marker_updates=[terminal],
+            metadata={
+                "quality_score": 0.95,
+                "final_pass": False,
+                "credited_lesson_ids": ["lesson::failed"],
+            },
+        ),
+    )
+
+    assert skills_store.query_markers(marker_type="skill") == []
+
+
 def test_environment_skips_lesson_marker_below_threshold(
     tmp_path,
     config_dict: dict,
