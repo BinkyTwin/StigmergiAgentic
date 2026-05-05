@@ -41,7 +41,24 @@ wheels/
 target_repo/
 external/
 workspaces/
-campaign_results/
+campaign_results/*
+!campaign_results/
+!campaign_results/README.md
+!campaign_results/v10/
+campaign_results/v10/*
+!campaign_results/v10/migrationbench_smoke/
+!campaign_results/v10/migrationbench_smoke/**
+!campaign_results/v10/phase5_toy_compare/
+!campaign_results/v10/phase5_toy_compare/**
+!campaign_results/v10/ablation_main30/
+!campaign_results/v10/ablation_main30/**
+!campaign_results/v10/ablation_main30_llm_v2/
+!campaign_results/v10/ablation_main30_llm_v2/**
+!campaign_results/v10/ablation_a3_vs_a4_smoke/
+!campaign_results/v10/ablation_a3_vs_a4_smoke/**
+!campaign_results/v10/ablation_a3_vs_a4_main30/
+!campaign_results/v10/ablation_a3_vs_a4_main30/**
+campaign_results/**/*.lock
 pheromones/*.json
 pheromones/audit_log.jsonl
 pheromones/*.db
@@ -89,6 +106,7 @@ texput.log
 *.synctex.gz
 *.toc
 *.xdv
+!campaign_results/v10/**/official_eval.log
 
 # OS
 .DS_Store

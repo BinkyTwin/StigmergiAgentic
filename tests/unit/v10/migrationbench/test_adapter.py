@@ -40,6 +40,21 @@ class _Cmd:
         return self.returncode == 0
 
 
+class _FailOfficialEvaluator:
+    def evaluate(self, **kwargs: Any) -> OfficialVerificationResult:
+        return OfficialVerificationResult(
+            official_success=False,
+            ran=True,
+            returncode=0,
+            failure_reason="official_eval_failed",
+            command=["run_eval.py"],
+            stdout_tail="",
+            stderr_tail="Repo (Build success, #tests) = (True, -2)",
+            log_path=str(Path(kwargs["output_dir"]) / "official_eval.log"),
+            runtime_seconds=0.01,
+        )
+
+
 def _git(*args: str, cwd: Path) -> None:
     subprocess.run(
         ["git", *args],
@@ -173,7 +188,7 @@ def test_adapter_apply_writes_branch_workspace(
     )
 
 
-def test_adapter_validate_returns_partial_when_compile_ok_but_official_absent(
+def test_adapter_validate_keeps_local_pass_when_official_absent(
     upstream: tuple[Path, str], tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     repo, sha = upstream
@@ -199,10 +214,46 @@ def test_adapter_validate_returns_partial_when_compile_ok_but_official_absent(
     assert val.signals["class_version_ok"] is True
     assert val.signals["official_success"] is False
     assert val.signals["strict_success"] is False
+    assert val.status == ValidationStatus.PASSED
     # patch_applies might be True (we exported a real diff)
     assert val.metadata["patch_path"].endswith("patch.diff")
     assert val.metadata["verification_cleaned"] is True
     assert not Path(val.metadata["verification_root"]).exists()
+
+
+def test_adapter_validate_feeds_official_failure_back_into_repair(
+    upstream: tuple[Path, str], tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    repo, sha = upstream
+    adapter = MigrationBenchAdapterV10(official_evaluator=_FailOfficialEvaluator())
+    handle = adapter.setup(_make_run_instance(repo, sha, tmp_path))
+
+    def fake_run_maven(repo_dir: Path, cmd: str, *, timeout_seconds: float) -> Any:
+        return _Cmd(returncode=0)
+
+    monkeypatch.setattr(verifier_mod, "run_maven", fake_run_maven)
+    monkeypatch.setattr(
+        MigrationBenchVerifier,
+        "_collect_class_versions",
+        lambda self, repo_dir: {61},
+    )
+
+    cand = _patch_candidate()
+    apply_result = adapter.apply(cand, handle)
+    assert apply_result.applied is True
+    val = adapter.validate(cand, apply_result.workspace)
+    feedback = adapter.diagnose(val, apply_result.workspace)
+
+    assert val.status == ValidationStatus.PARTIAL
+    assert val.signals["official_success"] is False
+    assert val.metadata["official"]["failure_reason"] == "official_eval_failed"
+    assert val.summary == "official_eval_failed"
+    assert "#tests" in val.raw_output
+    assert feedback.failure_type == "official_eval_failed"
+    assert any(
+        action["action"] == "fix_official_eval_failure"
+        for action in feedback.recommended_next_actions
+    )
 
 
 def test_adapter_diagnose_emits_recommendations_for_compile_error(

@@ -192,9 +192,12 @@ def _safe_json_parse(content: str) -> dict[str, Any] | None:
 _TEST_PRESERVATION_RULE = (
     "Hard rule: do NOT delete, rename, comment out, or add @Disabled / @Ignore "
     "to any existing test class or test method. The official MigrationBench "
-    "evaluator counts test cases and rejects the patch when the count drops "
-    "(it returns Success=False with #tests=-2). Touch test files only to fix "
-    "compile errors that come directly from the migration."
+    "evaluator counts test cases and rejects the patch when the count drops or "
+    "when `mvn test -f .` does not emit the standard Maven/Surefire test "
+    "summary it can parse (often reported as Success=False with #tests=-2). "
+    "Touch test files only to fix compile errors that come directly from the "
+    "migration; prefer Maven/Surefire/JUnit configuration fixes when the "
+    "official failure is only about test counting or test-summary parsing."
 )
 
 
@@ -239,7 +242,10 @@ _SYSTEM_PROMPT_REPAIR = (
     "and <release> with the target; dependency_resolution_error → bump "
     "the offending plugin/dependency to a Java-17-compatible version, "
     "but ONLY if the exact text you want to replace is present verbatim "
-    "in the files shown). Output JSON only.\n"
+    "in the files shown; official_eval_failed/#tests=-2 → keep every test "
+    "intact and adjust Maven/Surefire/JUnit configuration so `mvn test -f .` "
+    "runs the existing tests and prints the standard `[INFO] Results` summary). "
+    "Output JSON only.\n"
     + _VERBATIM_RULE + "\n"
     + _TEST_PRESERVATION_RULE
 )

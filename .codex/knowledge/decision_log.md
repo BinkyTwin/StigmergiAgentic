@@ -1,5 +1,37 @@
 # Decision Log
 
+## 2026-05-05 (Run Official MigrationBench Evaluation During Validation When Repair Is Active)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: Execute the official MigrationBench evaluator inside `MigrationBenchAdapterV10.validate()` when the local chain is green and an evaluator is configured, mapping official rejection to a repairable partial validation.
+- `rationale`: Budgeted A3/A4 runs were stopping after a locally passing candidate and only then discovering `official_success=False` in `finalize()`, wasting the configured candidate/repair budget and making the framework look artificially limited.
+- `alternatives_rejected`: Keep official evaluation only in finalization, increase `BUDGET_CANDS` without changing control flow, or treat `#tests=-2` as an opaque terminal artifact failure.
+- `linked_adr`: `documentation/redisgn_v2/phase_06_budget5_audit.md`
+
+## 2026-05-05 (Allowlist Selected Raw V10 Campaigns For GPT/GitHub Review)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: Keep `campaign_results/` ignored by default, but allowlist selected completed V10 raw campaigns and `official_eval.log` files for external GPT/GitHub review.
+- `rationale`: A reviewer needs raw EventLogs, runs, hypothesis graphs, patches, and official evaluator artifacts to audit telemetry claims such as `live==replay`, A3 vs A4 parity, and signal application. Unignoring all campaign results would add a 1.5 GB legacy tree plus local/in-progress runs, which would reduce reviewability and increase repository risk.
+- `alternatives_rejected`: Leave all raw campaigns ignored, unignore the entire `campaign_results/` tree, or expose the active budget=5 retry before it has a completed summary.
+- `linked_adr`: `documentation/decisions/20260505-phase-6-stigmergic-blackboard-a4.md`
+
+## 2026-05-05 (Include Memoir Draft Sources In GPT 5.5 Review Scope)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: Add `documentation/memoire/latex/main.tex`, chapter sources, annexes, bibliography, and memoir planning Markdown to the external GPT 5.5 Pro review prompt.
+- `rationale`: The review should evaluate not only whether the V10 framework and benchmark evidence are technically valid, but also whether the thesis draft frames those results honestly and defensibly. The LaTeX sources are the GitHub-stable representation of the memoir draft.
+- `alternatives_rejected`: Review only implementation artifacts, attach only the generated PDF, or ask for a thesis narrative critique without giving the reviewer the actual manuscript sources.
+- `linked_adr`: `documentation/decisions/20260503-pivot-v10-from-scratch.md`
+
+## 2026-05-05 (Use Versioned Phase 6 Summaries As External Review Evidence)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: For the GPT 5.5 Pro full-review handoff, rely on GitHub-tracked Phase 6 synthesis files and explicitly state that raw `campaign_results/` are local-only because the directory is ignored by Git.
+- `rationale`: The user wants an external full verification, but a GitHub-connected reviewer will not see ignored local campaign directories. The scientific claims can still be reviewed from tracked Phase 6 documents that summarize the completed A3 vs A4 main_30 run, the budget=5 partial/crash audit, the Phase 6 implementation artifact, and the A4 ADR.
+- `alternatives_rejected`: Assume the reviewer can inspect local `campaign_results/`, paste raw JSON/logs into the prompt, or wait for the in-progress `ablation_a3_vs_a4_budget5_retry` campaign before requesting architecture-level review.
+- `linked_adr`: `documentation/decisions/20260505-phase-6-stigmergic-blackboard-a4.md`
+
 ## 2026-05-04 (Phase 4 V10 — Port MigrationBench To V10 Stack With Verifier-First Contract And EventLog-Derived Telemetry)
 
 - `repo_slug`: `stigmergiagentic-33b989`

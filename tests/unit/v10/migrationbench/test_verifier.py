@@ -189,6 +189,18 @@ def test_to_validation_result_status_mapping() -> None:
     )
     assert res.status == ValidationStatus.PASSED
 
+    official_fail_signals = dict(pass_signals)
+    official_fail_signals.update(
+        {"official_success": False, "strict_success": False}
+    )
+    res_official = MigrationBenchVerifier.to_validation_result(
+        candidate_id="c1",
+        signals=official_fail_signals,
+        local=local,
+        require_official_success=True,
+    )
+    assert res_official.status == ValidationStatus.PARTIAL
+
     partial_signals = dict(pass_signals)
     partial_signals.update({"strict_success": False, "test_success": False})
     res2 = MigrationBenchVerifier.to_validation_result(

@@ -1,5 +1,104 @@
 # Project Captures
 
+## 2026-05-05 — Feed MigrationBench Official Failures Back Into V10 Repair
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `impact_score`: `9/10`
+- `confidence`: `high`
+- `scope`: `Prevent budgeted A3/A4 runs from stopping after a locally valid but officially rejected MigrationBench patch.`
+
+### Outcome
+
+The budget=5 relaunch showed that `branching_repair` could stop after one locally passing candidate, then fail only in `finalize()` when the official MigrationBench evaluator returned `official_success=False` (`#tests=-2`). V10 now runs official evaluation inside `validate()` whenever the local chain is green and an evaluator is configured. Official rejection becomes `ValidationStatus.PARTIAL` with official logs in `raw_output`, structured `metadata.official`, and repair feedback (`fix_official_eval_failure`) instead of a terminal fallback finalization.
+
+### Reusable Patterns (1-3)
+
+1. **Benchmark-official failures must be verifier feedback, not post-selection surprises, when repair budget remains.**
+2. **Local-green validation should only pass early when the official evaluator is absent or not required; otherwise official rejection is a repairable partial.**
+3. **When an official benchmark uses brittle log parsing (`#tests=-2`), pass that raw evidence into repair prompts rather than hiding it in final artifacts.**
+
+### Evidence
+
+- `adapters_v10/migrationbench/adapter.py`
+- `adapters_v10/migrationbench/verifier.py`
+- `scripts/bench/providers_llm.py`
+- `tests/unit/v10/migrationbench/test_adapter.py`
+- `tests/unit/v10/migrationbench/test_verifier.py`
+- `documentation/redisgn_v2/phase_06_budget5_audit.md`
+
+## 2026-05-05 — Expose Selected Raw V10 Campaigns For External Review
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `impact_score`: `6/10`
+- `confidence`: `high`
+- `scope`: `Modify ignore rules so GPT/GitHub reviewers can inspect selected raw campaign evidence, not only documentation summaries.`
+
+### Outcome
+
+Updated `.gitignore` to keep `campaign_results/` ignored by default while unignoring completed V10 review campaigns: `migrationbench_smoke`, `phase5_toy_compare`, `ablation_main30`, `ablation_main30_llm_v2`, `ablation_a3_vs_a4_smoke`, and `ablation_a3_vs_a4_main30`. Added `campaign_results/README.md` explaining the exposed raw evidence and why huge legacy/in-progress runs remain ignored. Secret scan over the selected V10 raw campaigns found no obvious API key patterns. Lock files remain ignored; `official_eval.log` files are explicitly unignored.
+
+### Reusable Patterns (1-3)
+
+1. **Expose benchmark raw evidence with allowlisted campaign directories rather than unignoring the full campaign root.**
+2. **Pair raw result exposure with a README that names the campaigns, their scientific role, and exclusions.**
+3. **Keep in-progress retry runs ignored until they have completed summaries, even when raw evidence is otherwise exposed.**
+
+### Evidence
+
+- `.gitignore`
+- `campaign_results/README.md`
+- `campaign_results/v10/ablation_a3_vs_a4_main30/`
+- `campaign_results/v10/ablation_main30_llm_v2/`
+
+## 2026-05-05 — Add Thesis Draft Documentation To External Review Handoff
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `impact_score`: `4/10`
+- `confidence`: `high`
+- `scope`: `Extend the GPT 5.5 Pro review handoff so the reviewer reads the thesis draft documentation alongside framework artifacts.`
+
+### Outcome
+
+Verified that the thesis draft is available through tracked source files under `documentation/memoire/latex/` (`main.tex`, chapters, annexes, bibliography) and through planning/interpretation Markdown under `documentation/memoire/`. The generated PDF exists locally, but the GitHub-stable route is to ask the reviewer to read the LaTeX and Markdown sources.
+
+### Reusable Patterns (1-3)
+
+1. **For thesis review handoffs, point reviewers to `main.tex` plus chapter sources rather than generated PDFs unless the PDF is known to be tracked and current.**
+2. **Ask reviewers to check alignment between code evidence, benchmark claims, and the written thesis argument, not just the framework implementation.**
+
+### Evidence
+
+- `documentation/memoire/latex/main.tex`
+- `documentation/memoire/latex/chapitres/`
+- `documentation/memoire/latex/annexes/`
+- `documentation/memoire/plan_memoire_detaille.md`
+- `documentation/memoire/framework_pedagogique.md`
+
+## 2026-05-05 — GPT 5.5 Full-Review Prompt and Campaign Access Check
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `impact_score`: `5/10`
+- `confidence`: `high`
+- `scope`: `Prepare an external full-review prompt and verify which latest campaign results are accessible through GitHub-tracked files.`
+
+### Outcome
+
+Prepared a focused GPT 5.5 Pro review prompt that asks for architecture, scientific validity, benchmark methodology, telemetry, and thesis-readiness review rather than generic encouragement. Verified that raw `campaign_results/` directories are ignored by Git, so GitHub-connected reviewers cannot see them directly. The latest usable, versioned evidence is in `documentation/redisgn_v2/phase_06_ablation_main30.md`, `documentation/redisgn_v2/phase_06_budget5_audit.md`, `documentation/redisgn_v2/phase_06_artifact.md`, and `documentation/decisions/20260505-phase-6-stigmergic-blackboard-a4.md`; `campaign_results/v10/ablation_a3_vs_a4_budget5_retry/` is still local/in-progress and only has early artifacts.
+
+### Reusable Patterns (1-3)
+
+1. **External reviewer handoffs should point to versioned synthesis files first, and explicitly label ignored raw campaign directories as local-only evidence.**
+2. **Prompt reviewers to falsify claims and inspect telemetry invariants, not just summarize architecture, when benchmark results are weak or partially failed.**
+3. **Mention in-progress campaigns separately from completed evidence so an external model does not treat a manifest-only run as a scientific result.**
+
+### Evidence
+
+- `.gitignore` (`campaign_results/` ignored)
+- `documentation/redisgn_v2/phase_06_ablation_main30.md`
+- `documentation/redisgn_v2/phase_06_budget5_audit.md`
+- `documentation/redisgn_v2/phase_06_artifact.md`
+- `documentation/decisions/20260505-phase-6-stigmergic-blackboard-a4.md`
+
 ## 2026-05-04 — Phase 4 V10 MigrationBench + Bench Harness Unified (L1→L7)
 
 - `repo_slug`: `stigmergiagentic-33b989`

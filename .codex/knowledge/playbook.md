@@ -5,6 +5,18 @@
 
 ## Active Practices
 
+### Official-In-Loop Repair Standard
+- Treat official benchmark rejection as validation feedback while repair budget remains; do not wait until finalization to discover a benchmark-contract failure.
+- If local compile/test/class-version pass but official evaluation fails, classify the candidate as a repairable partial and preserve the official log in `raw_output`/metadata.
+- Prompts should distinguish test deletion from test-summary parsing failures when a benchmark reports sentinel values such as `#tests=-2`.
+
+### External Review Handoff Standard
+- Give external reviewers a falsification-oriented prompt that asks for architecture risks, metric validity, benchmark comparability, telemetry integrity, and thesis narrative gaps.
+- Distinguish GitHub-visible evidence from local-only artifacts: `documentation/` and tracked `output/` files are shareable through GitHub, while ignored `campaign_results/` runs must be summarized, uploaded, or copied explicitly.
+- Never present a currently running or manifest-only campaign as final evidence; label it as in-progress and direct review toward completed, versioned summaries.
+- For memoir/thesis review, include `documentation/memoire/latex/main.tex`, chapter sources, annexes, bibliography, and planning Markdown so reviewers can test whether the manuscript's claims match the implementation evidence.
+- When raw campaign review is needed, use allowlisted `campaign_results/` exceptions plus a local README; do not unignore legacy campaign trees with large SQLite/audit artifacts or active retry runs.
+
 ### V10 Branching Runtime Standard
 - Keep branching lineage and workspace lineage identical: every repair candidate with a parent must be applied from the parent hypothesis workspace.
 - Reject duplicate hypothesis IDs in a run instead of reusing nodes, because duplicate IDs corrupt parentage, validation history, and selection.

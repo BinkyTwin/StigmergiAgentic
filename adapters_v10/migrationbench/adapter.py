@@ -17,7 +17,7 @@ from __future__ import annotations
 import gc
 import json
 import shutil
-from dataclasses import asdict
+from dataclasses import asdict, replace
 from pathlib import Path
 from typing import Any
 
@@ -35,6 +35,7 @@ from core_v10.contracts import (
     RunInstance,
     ScoreResult,
     ValidationResult,
+    ValidationStatus,
     WorkspaceHandle,
 )
 
@@ -269,18 +270,47 @@ class MigrationBenchAdapterV10(DomainAdapterV10):
         finally:
             verification_cleaned = self._cleanup_path(verification_root)
         build_outputs_removed = branch.cleanup_build_outputs()
+        official: OfficialVerificationResult | None = None
+        local_chain_green = bool(
+            patch_stats.patch_delivered
+            and apply_check.applies
+            and local.compile_success
+            and local.test_success
+            and local.class_version_ok
+        )
+        if local_chain_green and self.verifier.official_evaluator is not None:
+            official_dir = (
+                self._artifacts_dir_or_default(workspace)
+                / candidate.candidate_id
+                / "official_validation"
+            )
+            official = self.verifier.verify_official(
+                instance=self._require_instance(),
+                patch_path=patch_path,
+                output_dir=official_dir,
+            )
+
         signals = self.verifier.build_signals(
             patch_stats=patch_stats,
             patch_apply=apply_check,
             local=local,
-            official=None,
+            official=official,
             is_maximal=self._require_instance().is_maximal_migration,
         )
+        require_official_success = official is not None
+        local_for_result = local
+        if require_official_success and not official.official_success:
+            local_for_result = replace(
+                local,
+                failure_taxonomy=official.failure_reason or "official_eval_failed",
+                digest=_official_feedback_text(official),
+            )
         result = self.verifier.to_validation_result(
             candidate_id=candidate.candidate_id,
             signals=signals,
-            local=local,
+            local=local_for_result,
             validator_name=self.name,
+            require_official_success=require_official_success,
         )
         # Augment metadata with patch + apply context for downstream finalize/score.
         merged_metadata = dict(result.metadata)
@@ -293,6 +323,8 @@ class MigrationBenchAdapterV10(DomainAdapterV10):
                 "verification_root": str(verification_root),
                 "verification_cleaned": verification_cleaned,
                 "build_outputs_removed": build_outputs_removed,
+                "official": _official_to_dict(official),
+                "official_required": require_official_success,
             }
         )
         return ValidationResult(
@@ -310,12 +342,17 @@ class MigrationBenchAdapterV10(DomainAdapterV10):
         self, validation: ValidationResult, workspace: WorkspaceHandle
     ) -> FeedbackDigest:
         signals = dict(validation.signals)
-        if signals.get("strict_success"):
+        if validation.status == ValidationStatus.PASSED:
             return FeedbackDigest(
                 candidate_id=validation.candidate_id,
                 failure_type="none",
                 severity="info",
-                summary="strict_success",
+                summary=(
+                    "strict_success"
+                    if signals.get("strict_success")
+                    else (validation.summary or "validation_passed")
+                ),
+                metadata={"signals": signals},
             )
 
         failure_type = (
@@ -357,6 +394,34 @@ class MigrationBenchAdapterV10(DomainAdapterV10):
                     "rationale": "compiled class major version mismatches target",
                 }
             )
+        local_chain_green = all(
+            bool(signals.get(key))
+            for key in (
+                "patch_delivered",
+                "patch_applies",
+                "compile_success",
+                "test_success",
+                "class_version_ok",
+            )
+        )
+        if local_chain_green and not signals.get("official_success"):
+            recommended.append(
+                {
+                    "action": "fix_official_eval_failure",
+                    "rationale": failure_type,
+                }
+            )
+            if "#tests" in (validation.raw_output or ""):
+                recommended.append(
+                    {
+                        "action": "preserve_test_count_and_maven_test_summary",
+                        "rationale": (
+                            "official evaluator rejected the patch while counting "
+                            "tests; keep tests intact and ensure mvn test reports "
+                            "the standard test summary"
+                        ),
+                    }
+                )
 
         # Universal anti-action: the official MigrationBench evaluator
         # (`run_eval.py` → `final_eval.py`) tracks the test count and
@@ -636,6 +701,17 @@ def _official_to_dict(official: OfficialVerificationResult | None) -> dict[str, 
     payload = asdict(official)
     payload["command"] = list(official.command)
     return payload
+
+
+def _official_feedback_text(official: OfficialVerificationResult) -> str:
+    parts = [official.failure_reason or "official_eval_failed"]
+    if official.stdout_tail:
+        parts.append(f"stdout_tail:\n{official.stdout_tail}")
+    if official.stderr_tail:
+        parts.append(f"stderr_tail:\n{official.stderr_tail}")
+    if official.log_path:
+        parts.append(f"log_path: {official.log_path}")
+    return "\n".join(parts)
 
 
 __all__ = ["MigrationBenchAdapterV10"]

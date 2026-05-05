@@ -499,16 +499,16 @@ class MigrationBenchVerifier:
         signals: dict[str, Any],
         local: LocalVerificationResult,
         validator_name: str = "migrationbench_v10",
+        require_official_success: bool = False,
     ) -> ValidationResult:
         """Convert the verifier output into a ``core_v10.ValidationResult``.
 
-        ``ValidationStatus.PASSED`` is reached as soon as the local chain
+        ``ValidationStatus.PASSED`` is reached as soon as the required chain
         (``patch_delivered`` + ``patch_applies`` + ``compile_success`` +
-        ``test_success`` + ``class_version_ok``) is fully green. The
-        official evaluator runs in :meth:`adapter.finalize` and is what
-        gates ``strict_success`` in the final ``ScoreResult`` — so a
-        validate that passes the local chain can still finalize to a
-        non-strict outcome when the official evaluator rejects the patch.
+        ``test_success`` + ``class_version_ok`` and, when requested,
+        ``official_success``) is fully green. This lets expensive official
+        evaluation stay opt-in during validation while allowing budgeted
+        MigrationBench runs to feed official failures back into repair.
         """
 
         local_chain_green = all(
@@ -521,7 +521,10 @@ class MigrationBenchVerifier:
                 "class_version_ok",
             )
         )
-        if local_chain_green:
+        official_chain_green = (
+            not require_official_success or bool(signals.get("official_success"))
+        )
+        if local_chain_green and official_chain_green:
             status = ValidationStatus.PASSED
         elif signals.get("compile_success"):
             status = ValidationStatus.PARTIAL

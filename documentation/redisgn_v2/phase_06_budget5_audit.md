@@ -224,3 +224,45 @@ BUDGET_ROUNDS=1 \
 BUDGET_REPAIRS=5 \
   docker compose -f docker-compose.campaign.yml up ablation-a3-vs-a4-budget
 ```
+
+## 8. Correctif appliqué — remettre l'officiel dans la boucle de réparation
+
+La relance sans rebuild Docker a exposé un second verrou de contrôle : le
+runner arrêtait la recherche dès qu'un candidat passait la chaîne locale
+(`patch_applies`, compile, tests, class version), puis découvrait seulement en
+`finalize()` que l'évaluateur officiel refusait le patch. Sur des instances
+comme `artur__a__vaadin__helper`, cela donnait un run `budget=5` avec un seul
+candidat réellement testé : localement vert, mais `official_success=False`
+avec `#tests=-2`.
+
+Correctif :
+
+- `MigrationBenchAdapterV10.validate()` exécute maintenant l'évaluateur
+  officiel dès que la chaîne locale est verte et qu'un `OfficialEvaluator` est
+  configuré.
+- Si l'officiel échoue, `validate()` renvoie `ValidationStatus.PARTIAL` avec
+  `summary=official_eval_failed`, inclut le log officiel dans `raw_output` et
+  expose `metadata.official`.
+- `diagnose()` transforme ce cas en action de réparation
+  `fix_official_eval_failure`, avec une recommandation spécifique pour
+  préserver le nombre de tests et produire un résumé Maven/Surefire parsable
+  quand le log contient `#tests=-2`.
+- Le prompt repair LLM sait désormais que `#tests=-2` peut signifier un échec
+  de parsing du résumé `mvn test -f .`, pas seulement une suppression de tests.
+
+Effet attendu : A3/A4 n'utilisent plus un candidat localement vert comme arrêt
+prématuré quand le benchmark officiel le rejette. L'échec officiel redevient un
+signal de feedback exploitable par le budget de réparation.
+
+Validation locale :
+
+```bash
+PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 .venv/bin/python -m pytest \
+  tests/unit/v10/migrationbench/test_adapter.py \
+  tests/unit/v10/migrationbench/test_verifier.py -q
+# 21 passed in 2.35s
+
+PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 .venv/bin/python -m pytest \
+  tests/unit/v10 tests/integration/v10 -q
+# 212 passed in 6.69s
+```
