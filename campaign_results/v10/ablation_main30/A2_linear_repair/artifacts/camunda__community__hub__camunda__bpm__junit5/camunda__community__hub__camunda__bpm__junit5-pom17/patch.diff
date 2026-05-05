@@ -1,0 +1,30 @@
+diff --git a/examples/camunda-bpm-assert/pom.xml b/examples/camunda-bpm-assert/pom.xml
+index 2a2087d..5a33fdb 100644
+--- a/examples/camunda-bpm-assert/pom.xml
++++ b/examples/camunda-bpm-assert/pom.xml
+@@ -7,8 +7,8 @@
+ 
+   <properties>
+     <version.java>1.8</version.java>
+-    <maven.compiler.target>1.8</maven.compiler.target>
+-    <maven.compiler.source>1.8</maven.compiler.source>
++    <maven.compiler.target>17</maven.compiler.target>
++    <maven.compiler.source>17</maven.compiler.source>
+     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+   </properties>
+   
+diff --git a/examples/engine-camunda-bpm-assert/pom.xml b/examples/engine-camunda-bpm-assert/pom.xml
+index dd81ed0..fee7d63 100644
+--- a/examples/engine-camunda-bpm-assert/pom.xml
++++ b/examples/engine-camunda-bpm-assert/pom.xml
+@@ -7,8 +7,8 @@
+ 
+   <properties>
+     <version.java>1.8</version.java>
+-    <maven.compiler.target>1.8</maven.compiler.target>
+-    <maven.compiler.source>1.8</maven.compiler.source>
++    <maven.compiler.target>17</maven.compiler.target>
++    <maven.compiler.source>17</maven.compiler.source>
+     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+   </properties>
+   

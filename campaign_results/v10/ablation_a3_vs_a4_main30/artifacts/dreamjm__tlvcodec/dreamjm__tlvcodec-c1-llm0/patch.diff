@@ -1,0 +1,17 @@
+diff --git a/pom.xml b/pom.xml
+index b875ae4..cdeba2d 100644
+--- a/pom.xml
++++ b/pom.xml
+@@ -13,9 +13,9 @@
+     <properties>
+         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
+-        <maven.compiler.source>1.8</maven.compiler.source>
+-        <maven.compiler.target>1.8</maven.compiler.target>
+-        <maven.compiler.compilerVersion>1.8</maven.compiler.compilerVersion>
++        <maven.compiler.source>17</maven.compiler.source>
++        <maven.compiler.target>17</maven.compiler.target>
++        <maven.compiler.compilerVersion>17</maven.compiler.compilerVersion>
+         <spring.boot.version>2.2.4.RELEASE</spring.boot.version>
+         <guava.version>29.0-jre</guava.version>
+         <junit5.version>5.6.0</junit5.version>

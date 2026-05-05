@@ -1,0 +1,25 @@
+diff --git a/pom.xml b/pom.xml
+index 46652e0c..c85ffff3 100644
+--- a/pom.xml
++++ b/pom.xml
+@@ -2,8 +2,8 @@
+ <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+ 
+   <!-- ==================================================================== -->
+-  <!-- Build requires Java SE 8 or later -->
+-  <!-- Releases require Java SE 11 or later -->
++  <!-- Build requires Java SE 17 or later -->
++  <!-- Releases require Java SE 17 or later -->
+   <!-- ==================================================================== -->
+   <parent>
+     <groupId>org.joda</groupId>
+@@ -272,6 +272,9 @@
+   <!-- ==================================================================== -->
+   <properties>
+     <!-- Dependencies -->
++    <maven.compiler.source>17</maven.compiler.source>
++    <maven.compiler.target>17</maven.compiler.target>
++    <maven.compiler.release>17</maven.compiler.release>
+     <assertj.version>3.24.2</assertj.version>
+     <joda-collect.version>1.0.1</joda-collect.version>
+     <joda-convert.version>2.2.3</joda-convert.version>

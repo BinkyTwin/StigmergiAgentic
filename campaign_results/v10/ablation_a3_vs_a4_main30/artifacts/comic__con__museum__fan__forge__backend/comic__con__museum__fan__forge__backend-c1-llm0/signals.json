@@ -1,0 +1,10 @@
+{
+  "class_version_ok": true,
+  "compile_success": true,
+  "dependency_policy_ok": null,
+  "official_success": true,
+  "patch_applies": true,
+  "patch_delivered": true,
+  "strict_success": true,
+  "test_success": true
+}

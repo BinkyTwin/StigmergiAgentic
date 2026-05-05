@@ -1,0 +1,13 @@
+diff --git a/pom.xml b/pom.xml
+index f6509cf..ee81b89 100644
+--- a/pom.xml
++++ b/pom.xml
+@@ -25,7 +25,7 @@
+ 		<version.nexus-staging-maven-plugin>1.5.1</version.nexus-staging-maven-plugin>
+ 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+ 		<project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
+-		<java.version>1.8</java.version>
++		<java.version>17</java.version>
+ 	</properties>
+ 
+ 	<dependencies>

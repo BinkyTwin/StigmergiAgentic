@@ -1,0 +1,19 @@
+
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+2026-05-04 23:31:18,707 [utils.py:64] INFO - CMD: ['git', 'branch', '-f', 'SELF_DEBUG__FINAL_EVAL']
+2026-05-04 23:31:18,709 [utils.py:64] INFO - CMD: ['git', 'checkout', '-f', 'SELF_DEBUG__FINAL_EVAL']
+2026-05-04 23:31:18,710 [utils.py:64] INFO - CMD: ['git', 'clean', '-df']
+2026-05-04 23:31:18,711 [utils.py:64] INFO - CMD: ['git', 'restore', '--staged', '.']
+2026-05-04 23:31:18,713 [utils.py:64] INFO - CMD: ['git', 'restore', '.']
+2026-05-04 23:31:18,714 [utils.py:64] INFO - CMD: ['git', 'log', '-1', "--format='%H'"]
+2026-05-04 23:31:18,715 [utils.py:64] INFO - CMD: ['git', 'apply', '/app/campaign_results/v10/ablation_a3_vs_a4_main30/artifacts/artur__a__vaadin__helper/artur__a__vaadin__helper-c1-llm0-r0-llm0/patch.diff']
+2026-05-04 23:31:18,716 [maven_utils.py:56] INFO - Run `cd /tmp/tmprvssstmz; mvn dependency:resolve` before `cd /tmp/tmprvssstmz; mvn clean verify`.
+2026-05-04 23:31:18,716 [utils.py:64] INFO - CMD: cd /tmp/tmprvssstmz; mvn dependency:resolve
+2026-05-04 23:31:19,845 [utils.py:64] INFO - CMD: cd /tmp/tmprvssstmz; mvn clean verify
+2026-05-04 23:31:22,570 [utils.py:64] INFO - CMD: find /tmp/tmprvssstmz -type f -path '*/target/classes/*.class' | xargs javap -verbose | grep 'major version: '
+2026-05-04 23:31:22,774 [maven_utils.py:56] INFO - Run `cd /tmp/tmprvssstmz; mvn dependency:resolve` before `cd /tmp/tmprvssstmz; mvn test -f .`.
+2026-05-04 23:31:22,774 [utils.py:64] INFO - CMD: cd /tmp/tmprvssstmz; mvn dependency:resolve
+2026-05-04 23:31:23,990 [utils.py:64] INFO - CMD: cd /tmp/tmprvssstmz; mvn test -f .
+2026-05-04 23:31:25,676 [final_eval.py:183] WARNING - Repo (Build success, #tests) = (True, -2): `/tmp/tmprvssstmz`.
+2026-05-04 23:31:25,677 [final_eval.py:263] WARNING - Final eval for `https://github.com/Artur-/a-vaadin-helper` (/app/campaign_results/v10/ablation_a3_vs_a4_main30/artifacts/artur__a__vaadin__helper/artur__a__vaadin__helper-c1-llm0-r0-llm0/patch.diff): Success = False.
+2026-05-04 23:31:25,682 [run_eval.py:162] INFO - [single] Migration success (count) `False`: `('https://github.com/Artur-/a-vaadin-helper', '/app/campaign_results/v10/ablation_a3_vs_a4_main30/artifacts/artur__a__vaadin__helper/artur__a__vaadin__helper-c1-llm0-r0-llm0/patch.diff', None)`.

@@ -1,0 +1,47 @@
+diff --git a/examples/camunda-bpm-assert/pom.xml b/examples/camunda-bpm-assert/pom.xml
+index 2a2087d..697ebe7 100644
+--- a/examples/camunda-bpm-assert/pom.xml
++++ b/examples/camunda-bpm-assert/pom.xml
+@@ -6,9 +6,9 @@
+   <packaging>jar</packaging>
+ 
+   <properties>
+-    <version.java>1.8</version.java>
+-    <maven.compiler.target>1.8</maven.compiler.target>
+-    <maven.compiler.source>1.8</maven.compiler.source>
++    <version.java>17</version.java>
++    <maven.compiler.target>17</maven.compiler.target>
++    <maven.compiler.source>17</maven.compiler.source>
+     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+   </properties>
+   
+diff --git a/examples/engine-camunda-bpm-assert/pom.xml b/examples/engine-camunda-bpm-assert/pom.xml
+index dd81ed0..ef0273d 100644
+--- a/examples/engine-camunda-bpm-assert/pom.xml
++++ b/examples/engine-camunda-bpm-assert/pom.xml
+@@ -6,9 +6,9 @@
+   <packaging>jar</packaging>
+ 
+   <properties>
+-    <version.java>1.8</version.java>
+-    <maven.compiler.target>1.8</maven.compiler.target>
+-    <maven.compiler.source>1.8</maven.compiler.source>
++    <version.java>17</version.java>
++    <maven.compiler.target>17</maven.compiler.target>
++    <maven.compiler.source>17</maven.compiler.source>
+     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+   </properties>
+   
+diff --git a/pom.xml b/pom.xml
+index 1de3611..63c115f 100644
+--- a/pom.xml
++++ b/pom.xml
+@@ -15,7 +15,7 @@
+   <description>Community extension to provide a process engine for JUnit 5 tests.</description>
+   
+   <properties>
+-    <version.java>1.8</version.java>
++    <version.java>17</version.java>
+   </properties>
+   
+   <modules>

@@ -1,0 +1,22 @@
+
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+
+Generating test split:   0%|          | 0/5102 [00:00<?, ? examples/s]
+Generating test split: 100%|██████████| 5102/5102 [00:00<00:00, 212695.94 examples/s]
+2026-05-04 22:41:03,228 [utils.py:64] INFO - CMD: ['git', 'branch', '-f', 'SELF_DEBUG__FINAL_EVAL']
+2026-05-04 22:41:03,230 [utils.py:64] INFO - CMD: ['git', 'checkout', '-f', 'SELF_DEBUG__FINAL_EVAL']
+2026-05-04 22:41:03,231 [utils.py:64] INFO - CMD: ['git', 'clean', '-df']
+2026-05-04 22:41:03,232 [utils.py:64] INFO - CMD: ['git', 'restore', '--staged', '.']
+2026-05-04 22:41:03,234 [utils.py:64] INFO - CMD: ['git', 'restore', '.']
+2026-05-04 22:41:03,235 [utils.py:64] INFO - CMD: ['git', 'log', '-1', "--format='%H'"]
+2026-05-04 22:41:03,236 [utils.py:64] INFO - CMD: ['git', 'apply', '/app/campaign_results/v10/ablation_a3_vs_a4_smoke/artifacts/jonashackt__spring__boot__rest__clientcertificate/jonashackt__spring__boot__rest__clientcertificate-c1-llm0/patch.diff']
+2026-05-04 22:41:03,238 [maven_utils.py:56] INFO - Run `cd /tmp/tmpe46ou6od; mvn dependency:resolve` before `cd /tmp/tmpe46ou6od; mvn clean verify`.
+2026-05-04 22:41:03,238 [utils.py:64] INFO - CMD: cd /tmp/tmpe46ou6od; mvn dependency:resolve
+2026-05-04 22:41:04,260 [utils.py:64] INFO - CMD: cd /tmp/tmpe46ou6od; mvn clean verify
+2026-05-04 22:41:09,596 [utils.py:64] INFO - CMD: find /tmp/tmpe46ou6od -type f -path '*/target/classes/*.class' | xargs javap -verbose | grep 'major version: '
+2026-05-04 22:41:09,735 [maven_utils.py:56] INFO - Run `cd /tmp/tmpe46ou6od; mvn dependency:resolve` before `cd /tmp/tmpe46ou6od; mvn test -f .`.
+2026-05-04 22:41:09,735 [utils.py:64] INFO - CMD: cd /tmp/tmpe46ou6od; mvn dependency:resolve
+2026-05-04 22:41:10,603 [utils.py:64] INFO - CMD: cd /tmp/tmpe46ou6od; mvn test -f .
+2026-05-04 22:41:13,240 [final_eval.py:183] WARNING - Repo (Build success, #tests) = (True, -2): `/tmp/tmpe46ou6od`.
+2026-05-04 22:41:13,240 [final_eval.py:263] WARNING - Final eval for `https://github.com/jonashackt/spring-boot-rest-clientcertificate` (/app/campaign_results/v10/ablation_a3_vs_a4_smoke/artifacts/jonashackt__spring__boot__rest__clientcertificate/jonashackt__spring__boot__rest__clientcertificate-c1-llm0/patch.diff): Success = False.
+2026-05-04 22:41:13,245 [run_eval.py:162] INFO - [single] Migration success (count) `False`: `('https://github.com/jonashackt/spring-boot-rest-clientcertificate', '/app/campaign_results/v10/ablation_a3_vs_a4_smoke/artifacts/jonashackt__spring__boot__rest__clientcertificate/jonashackt__spring__boot__rest__clientcertificate-c1-llm0/patch.diff', None)`.

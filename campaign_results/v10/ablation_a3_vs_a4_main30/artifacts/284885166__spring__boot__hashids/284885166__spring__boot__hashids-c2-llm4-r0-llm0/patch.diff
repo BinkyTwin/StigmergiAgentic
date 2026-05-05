@@ -1,0 +1,48 @@
+diff --git a/demo/pom.xml b/demo/pom.xml
+index cc05eb6..7a9f76b 100644
+--- a/demo/pom.xml
++++ b/demo/pom.xml
+@@ -6,7 +6,7 @@
+     <parent>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-parent</artifactId>
+-       <version>2.1.1.RELEASE</version>
++       <version>2.7.18</version>
+        <relativePath/> <!-- lookup parent from repository -->
+     </parent>
+ 
+@@ -17,7 +17,7 @@
+     <description>Demo project for Spring Boot Hashids</description>
+ 
+     <properties>
+-        <java.version>1.8</java.version>
++        <java.version>17</java.version>
+     </properties>
+ 
+     <dependencies>
+diff --git a/demo/src/main/java/org/yanshen/demo/controller/MemberController.java b/demo/src/main/java/org/yanshen/demo/controller/MemberController.java
+index 133cf0b..515a9f9 100644
+--- a/demo/src/main/java/org/yanshen/demo/controller/MemberController.java
++++ b/demo/src/main/java/org/yanshen/demo/controller/MemberController.java
+@@ -7,7 +7,7 @@ import org.slf4j.Logger;
+ import org.slf4j.LoggerFactory;
+ import org.springframework.web.bind.annotation.*;
+ 
+-import javax.annotation.PostConstruct;
++import jakarta.annotation.PostConstruct;
+ import java.util.ArrayList;
+ import java.util.List;
+ 
+diff --git a/spring-boot-hashids/pom.xml b/spring-boot-hashids/pom.xml
+index f514d8a..8752dde 100644
+--- a/spring-boot-hashids/pom.xml
++++ b/spring-boot-hashids/pom.xml
+@@ -5,7 +5,7 @@
+     <parent>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-parent</artifactId>
+-       <version>2.1.1.RELEASE</version>
++       <version>2.7.18</version>
+        <relativePath/> <!-- lookup parent from repository -->
+     </parent>
+     <modelVersion>4.0.0</modelVersion>

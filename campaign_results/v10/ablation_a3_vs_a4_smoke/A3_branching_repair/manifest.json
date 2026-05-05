@@ -1,0 +1,35 @@
+{
+  "adapter_name": "migrationbench",
+  "campaign_id": "9f4b9425e1b64f4ca2659314555f7995",
+  "extras": {
+    "artifacts_root": "campaign_results/v10/ablation_a3_vs_a4_smoke/artifacts",
+    "llm": {
+      "base_url": "https://api.deepseek.com/v1",
+      "max_tokens": 3000,
+      "model": "deepseek-chat",
+      "provider": "deepseek",
+      "timeout_seconds": 180.0
+    },
+    "llm_initial_candidates": 2,
+    "llm_repair_candidates": 2,
+    "migrationbench_root": "external/MigrationBench",
+    "official_eval": true,
+    "official_timeout_seconds": 1800.0,
+    "out_dir": "campaign_results/v10/ablation_a3_vs_a4_smoke",
+    "prepare": true,
+    "use_llm_providers": true,
+    "workspace_root_root": "workspaces/migrationbench_v10"
+  },
+  "instance_ids": [
+    "zeroual__omar__config__server",
+    "xvir__api__ai__java__webhook",
+    "jaroslavtulach__heapdump",
+    "jonashackt__spring__boot__rest__clientcertificate",
+    "ikubernetes__spring__boot__helloworld"
+  ],
+  "out_dir": "campaign_results/v10/ablation_a3_vs_a4_smoke/A3_branching_repair",
+  "seed": 42,
+  "started_at": "2026-05-04T22:38:16.633399+00:00",
+  "strategy_name": "branching_repair",
+  "subset_path": "fixtures/migrationbench/subsets/smoke_5.jsonl"
+}

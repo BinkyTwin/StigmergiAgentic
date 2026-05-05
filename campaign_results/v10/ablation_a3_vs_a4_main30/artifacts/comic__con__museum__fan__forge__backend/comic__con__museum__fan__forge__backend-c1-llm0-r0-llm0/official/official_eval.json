@@ -1,0 +1,28 @@
+{
+  "command": [
+    "/opt/venv/bin/python",
+    "/app/external/MigrationBench/src/migration_bench/run_eval.py",
+    "--github_url",
+    "https://github.com/Comic-Con-Museum/fan-forge-backend",
+    "--git_diff_filename",
+    "/app/campaign_results/v10/ablation_a3_vs_a4_main30/artifacts/comic__con__museum__fan__forge__backend/comic__con__museum__fan__forge__backend-c1-llm0-r0-llm0/patch.diff",
+    "--base_commit_id",
+    "e6576c190333d23212b5f7588f1ec0b48d4f0902",
+    "--maven_command",
+    "cd {root_dir}; mvn clean verify",
+    "--is_maximal_migration",
+    "0",
+    "--require_compiled_java_major_version",
+    "61",
+    "--max_workers",
+    "1"
+  ],
+  "failure_reason": "ok",
+  "log_path": "/app/campaign_results/v10/ablation_a3_vs_a4_main30/artifacts/comic__con__museum__fan__forge__backend/comic__con__museum__fan__forge__backend-c1-llm0-r0-llm0/official/official_eval.log",
+  "official_success": true,
+  "ran": true,
+  "returncode": 0,
+  "runtime_seconds": 12.0712,
+  "stderr_tail": "ormat='%H'\"]\n2026-05-04 23:41:23,059 [utils.py:64] INFO - CMD: ['git', 'apply', '/app/campaign_results/v10/ablation_a3_vs_a4_main30/artifacts/comic__con__museum__fan__forge__backend/comic__con__museum__fan__forge__backend-c1-llm0-r0-llm0/patch.diff']\n2026-05-04 23:41:23,060 [maven_utils.py:56] INFO - Run `cd /tmp/tmpjennljiz; mvn dependency:resolve` before `cd /tmp/tmpjennljiz; mvn clean verify`.\n2026-05-04 23:41:23,060 [utils.py:64] INFO - CMD: cd /tmp/tmpjennljiz; mvn dependency:resolve\n2026-05-04 23:41:24,297 [utils.py:64] INFO - CMD: cd /tmp/tmpjennljiz; mvn clean verify\n2026-05-04 23:41:27,361 [utils.py:64] INFO - CMD: find /tmp/tmpjennljiz -type f -path '*/target/classes/*.class' | xargs javap -verbose | grep 'major version: '\n2026-05-04 23:41:27,946 [final_eval.py:171] WARNING - Required #tests = `-1`: `https://github.com/Comic-Con-Museum/fan-forge-backend`.\n2026-05-04 23:41:27,947 [maven_utils.py:56] INFO - Run `cd /tmp/tmpjennljiz; mvn dependency:resolve` before `cd /tmp/tmpjennljiz; mvn test -f .`.\n2026-05-04 23:41:27,947 [utils.py:64] INFO - CMD: cd /tmp/tmpjennljiz; mvn dependency:resolve\n2026-05-04 23:41:29,187 [utils.py:64] INFO - CMD: cd /tmp/tmpjennljiz; mvn test -f .\n2026-05-04 23:41:30,727 [final_eval.py:183] WARNING - Repo (Build success, #tests) = (True, -2): `/tmp/tmpjennljiz`.\n2026-05-04 23:41:30,727 [utils.py:64] INFO - CMD: find /tmp/tmpjennljiz/src/test -name \\*.java\n2026-05-04 23:41:30,729 [utils.py:64] INFO - CMD: ['git', 'branch']\n2026-05-04 23:41:30,732 [parse_repo.py:33] INFO - ('* SELF_DEBUG__FINAL_EVAL\\n  master', True)\n2026-05-04 23:41:30,732 [utils.py:64] INFO - CMD: ['git', 'status']\n2026-05-04 23:41:30,734 [parse_repo.py:34] INFO - ('On branch SELF_DEBUG__FINAL_EVAL\\nChanges not staged for commit:\\n  (use \"git add <file>...\" to update what will be committed)\\n  (use \"git restore <file>...\" to discard changes in working directory)\\n\\tmodified:   pom.xml\\n\\nno changes added to commit (use \"git add\" and/or \"git commit -a\")', True)\n2026-05-04 23:41:30,734 [utils.py:135] INFO - Reading `/tmp/tmpjennljiz/src/test/java/DemoTest.java`.\n2026-05-04 23:41:30,736 [utils.py:64] INFO - CMD: find /tmp/tmpjennljiz/src/test -name \\*.java\n2026-05-04 23:41:30,737 [utils.py:64] INFO - CMD: ['git', 'checkout', '-f', 'SELF_DEBUG__FINAL_EVAL']\n2026-05-04 23:41:30,738 [utils.py:64] INFO - CMD: ['git', 'clean', '-df']\n2026-05-04 23:41:30,739 [utils.py:64] INFO - CMD: ['git', 'restore', '--staged', '.']\n2026-05-04 23:41:30,739 [utils.py:64] INFO - CMD: ['git', 'restore', '.']\n2026-05-04 23:41:30,740 [utils.py:64] INFO - CMD: ['git', 'clean', '-df']\n2026-05-04 23:41:30,741 [utils.py:64] INFO - CMD: ['git', 'restore', '--staged', '.']\n2026-05-04 23:41:30,741 [utils.py:64] INFO - CMD: ['git', 'restore', '.']\n2026-05-04 23:41:30,742 [utils.py:64] INFO - CMD: ['git', 'branch']\n2026-05-04 23:41:30,742 [parse_repo.py:33] INFO - ('* SELF_DEBUG__FINAL_EVAL\\n  master', True)\n2026-05-04 23:41:30,742 [utils.py:64] INFO - CMD: ['git', 'status']\n2026-05-04 23:41:30,744 [parse_repo.py:34] INFO - ('On branch SELF_DEBUG__FINAL_EVAL\\nnothing to commit, working tree clean', True)\n2026-05-04 23:41:30,744 [utils.py:135] INFO - Reading `/tmp/tmpjennljiz/src/test/java/DemoTest.java`.\n2026-05-04 23:41:30,744 [parse_repo.py:110] WARNING - Test mismatch for files (len = 000/001): `[]`\n  test files len = 0: `[]`.\n2026-05-04 23:41:30,744 [final_eval.py:263] WARNING - Final eval for `https://github.com/Comic-Con-Museum/fan-forge-backend` (/app/campaign_results/v10/ablation_a3_vs_a4_main30/artifacts/comic__con__museum__fan__forge__backend/comic__con__museum__fan__forge__backend-c1-llm0-r0-llm0/patch.diff): Success = True.\n2026-05-04 23:41:30,750 [run_eval.py:162] INFO - [single] Migration success (count) `True`: `('https://github.com/Comic-Con-Museum/fan-forge-backend', '/app/campaign_results/v10/ablation_a3_vs_a4_main30/artifacts/comic__con__museum__fan__forge__backend/comic__con__museum__fan__forge__backend-c1-llm0-r0-llm0/patch.diff', None)`.\n",
+  "stdout_tail": ""
+}

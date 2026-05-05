@@ -1,0 +1,18 @@
+
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+2026-05-04 23:39:06,138 [utils.py:64] INFO - CMD: ['git', 'branch', '-f', 'SELF_DEBUG__FINAL_EVAL']
+2026-05-04 23:39:06,139 [utils.py:64] INFO - CMD: ['git', 'checkout', '-f', 'SELF_DEBUG__FINAL_EVAL']
+2026-05-04 23:39:06,142 [utils.py:64] INFO - CMD: ['git', 'clean', '-df']
+2026-05-04 23:39:06,143 [utils.py:64] INFO - CMD: ['git', 'restore', '--staged', '.']
+2026-05-04 23:39:06,145 [utils.py:64] INFO - CMD: ['git', 'restore', '.']
+2026-05-04 23:39:06,147 [utils.py:64] INFO - CMD: ['git', 'log', '-1', "--format='%H'"]
+2026-05-04 23:39:06,148 [utils.py:64] INFO - CMD: ['git', 'apply', '/app/campaign_results/v10/ablation_a3_vs_a4_main30/artifacts/citymonstret__rorledning/citymonstret__rorledning-c2-llm4-r0-llm0/patch.diff']
+2026-05-04 23:39:06,149 [maven_utils.py:56] INFO - Run `cd /tmp/tmphfdhxi16; mvn dependency:resolve` before `cd /tmp/tmphfdhxi16; mvn clean verify`.
+2026-05-04 23:39:06,149 [utils.py:64] INFO - CMD: cd /tmp/tmphfdhxi16; mvn dependency:resolve
+2026-05-04 23:39:07,176 [utils.py:64] INFO - CMD: cd /tmp/tmphfdhxi16; mvn clean verify
+2026-05-04 23:39:09,450 [maven_utils.py:56] INFO - Run `cd /tmp/tmphfdhxi16; mvn dependency:resolve` before `cd /tmp/tmphfdhxi16; mvn test -f .`.
+2026-05-04 23:39:09,450 [utils.py:64] INFO - CMD: cd /tmp/tmphfdhxi16; mvn dependency:resolve
+2026-05-04 23:39:10,329 [utils.py:64] INFO - CMD: cd /tmp/tmphfdhxi16; mvn test -f .
+2026-05-04 23:39:11,551 [final_eval.py:183] WARNING - Repo (Build success, #tests) = (False, -2): `/tmp/tmphfdhxi16`.
+2026-05-04 23:39:11,551 [final_eval.py:263] WARNING - Final eval for `https://github.com/Citymonstret/Rorledning` (/app/campaign_results/v10/ablation_a3_vs_a4_main30/artifacts/citymonstret__rorledning/citymonstret__rorledning-c2-llm4-r0-llm0/patch.diff): Success = False.
+2026-05-04 23:39:11,554 [run_eval.py:162] INFO - [single] Migration success (count) `False`: `('https://github.com/Citymonstret/Rorledning', '/app/campaign_results/v10/ablation_a3_vs_a4_main30/artifacts/citymonstret__rorledning/citymonstret__rorledning-c2-llm4-r0-llm0/patch.diff', None)`.

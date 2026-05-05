@@ -1,0 +1,15 @@
+diff --git a/pom.xml b/pom.xml
+index 184e47a..dc3e808 100644
+--- a/pom.xml
++++ b/pom.xml
+@@ -21,8 +21,8 @@
+     </dependencies>
+     <properties>
+         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+-        <maven.compiler.source>8</maven.compiler.source>
+-        <maven.compiler.target>8</maven.compiler.target>
++        <maven.compiler.source>17</maven.compiler.source>
++        <maven.compiler.target>17</maven.compiler.target>
+         <mainClass>org.apidesign.demo.heapdump.Main</mainClass>
+         <netbeans.compile.on.save>none</netbeans.compile.on.save>
+         <debug>-Dnone</debug>

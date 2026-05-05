@@ -1,0 +1,2427 @@
+{
+  "adapter_name": "migrationbench",
+  "arms": [
+    {
+      "arm_id": "A1_agentless_basic",
+      "by_signal": {
+        "artifact_delivered": 2,
+        "class_version_ok": 2,
+        "compile_success": 2,
+        "patch_applies": 2,
+        "patch_delivered": 2,
+        "test_success": 2
+      },
+      "campaign_id": "a18862b670c945afa0851391285376b4",
+      "config": {
+        "max_candidates": 1,
+        "max_repair_rounds": 0,
+        "max_repairs_per_candidate": 1
+      },
+      "dedup_skipped_total": 0,
+      "description": "A1 \u2014 verifier-first single shot, no repair.",
+      "instance_count": 30,
+      "instances": [
+        {
+          "candidate_count": 1,
+          "dedup_skipped": 0,
+          "instance_id": "artur__a__vaadin__helper",
+          "repeat_failure_suppressed": 0,
+          "selected_hypothesis_id": "artur__a__vaadin__helper-pom17",
+          "selection_rationale": {
+            "competitors": [
+              {
+                "hypothesis_id": "artur__a__vaadin__helper-pom17",
+                "passed": true,
+                "score": {
+                  "confidence": 1.0,
+                  "cost": 0.0,
+                  "quality": 1.0,
+                  "risk": 0.0,
+                  "total": 2.0
+                },
+                "status": "selected"
+              }
+            ],
+            "reason": "fallback_validated_finalization",
+            "selected_hypothesis_id": "artur__a__vaadin__helper-pom17",
+            "selected_score": 2.0
+          },
+          "stop_reason": "artifact_contract_failed",
+          "strict_success": false
+        },
+        {
+          "candidate_count": 1,
+          "dedup_skipped": 0,
+          "instance_id": "284885166__spring__boot__hashids",
+          "repeat_failure_suppressed": 0,
+          "selected_hypothesis_id": null,
+          "selection_rationale": {
+            "competitors": [
+              {
+                "hypothesis_id": "284885166__spring__boot__hashids-pom17",
+                "passed": false,
+                "score": {
+                  "confidence": 0.0,
+                  "cost": 0.0,
+                  "quality": 0.0,
+                  "risk": 1.0,
+                  "total": -1.0
+                },
+                "status": "failed"
+              }
+            ],
+            "reason": "no_validated_candidate",
+            "selected_hypothesis_id": null,
+            "selected_score": null
+          },
+          "stop_reason": "all_candidates_invalid",
+          "strict_success": false
+        },
+        {
+          "candidate_count": 1,
+          "dedup_skipped": 0,
+          "instance_id": "aingezzz__easy__crypto",
+          "repeat_failure_suppressed": 0,
+          "selected_hypothesis_id": null,
+          "selection_rationale": {
+            "competitors": [
+              {
+                "hypothesis_id": "aingezzz__easy__crypto-pom17",
+                "passed": false,
+                "score": {
+                  "confidence": 0.0,
+                  "cost": 0.0,
+                  "quality": 0.0,
+                  "risk": 1.0,
+                  "total": -1.0
+                },
+                "status": "applied"
+              }
+            ],
+            "reason": "no_validated_candidate",
+            "selected_hypothesis_id": null,
+            "selected_score": null
+          },
+          "stop_reason": "all_candidates_invalid",
+          "strict_success": false
+        },
+        {
+          "candidate_count": 0,
+          "dedup_skipped": 0,
+          "instance_id": "cubeengine__reflect",
+          "repeat_failure_suppressed": 0,
+          "selected_hypothesis_id": null,
+          "selection_rationale": {
+            "competitors": [],
+            "reason": "no_candidate_generated",
+            "selected_hypothesis_id": null,
+            "selected_score": null
+          },
+          "stop_reason": "no_candidate_generated",
+          "strict_success": false
+        },
+        {
+          "candidate_count": 1,
+          "dedup_skipped": 0,
+          "instance_id": "15093015999__ejserver",
+          "repeat_failure_suppressed": 0,
+          "selected_hypothesis_id": null,
+          "selection_rationale": {
+            "competitors": [
+              {
+                "hypothesis_id": "15093015999__ejserver-pom17",
+                "passed": false,
+                "score": {
+                  "confidence": 0.0,
+                  "cost": 0.0,
+                  "quality": 0.0,
+                  "risk": 1.0,
+                  "total": -1.0
+                },
+                "status": "applied"
+              }
+            ],
+            "reason": "no_validated_candidate",
+            "selected_hypothesis_id": null,
+            "selected_score": null
+          },
+          "stop_reason": "all_candidates_invalid",
+          "strict_success": false
+        },
+        {
+          "candidate_count": 1,
+          "dedup_skipped": 0,
+          "instance_id": "amadeusitgroup__httpsessionreplacer",
+          "repeat_failure_suppressed": 0,
+          "selected_hypothesis_id": null,
+          "selection_rationale": {
+            "competitors": [
+              {
+                "hypothesis_id": "amadeusitgroup__httpsessionreplacer-pom17",
+                "passed": false,
+                "score": {
+                  "confidence": 0.0,
+                  "cost": 0.0,
+                  "quality": 0.0,
+                  "risk": 1.0,
+                  "total": -1.0
+                },
+                "status": "failed"
+              }
+            ],
+            "reason": "no_validated_candidate",
+            "selected_hypothesis_id": null,
+            "selected_score": null
+          },
+          "stop_reason": "all_candidates_invalid",
+          "strict_success": false
+        },
+        {
+          "candidate_count": 1,
+          "dedup_skipped": 0,
+          "instance_id": "bjoernkw__oauth2__with__jira",
+          "repeat_failure_suppressed": 0,
+          "selected_hypothesis_id": null,
+          "selection_rationale": {
+            "competitors": [
+              {
+                "hypothesis_id": "bjoernkw__oauth2__with__jira-pom17",
+                "passed": false,
+                "score": {
+                  "confidence": 0.0,
+                  "cost": 0.0,
+                  "quality": 0.0,
+                  "risk": 1.0,
+                  "total": -1.0
+                },
+                "status": "applied"
+              }
+            ],
+            "reason": "no_validated_candidate",
+            "selected_hypothesis_id": null,
+            "selected_score": null
+          },
+          "stop_reason": "all_candidates_invalid",
+          "strict_success": false
+        },
+        {
+          "candidate_count": 1,
+          "dedup_skipped": 0,
+          "instance_id": "camunda__community__hub__camunda__bpm__junit5",
+          "repeat_failure_suppressed": 0,
+          "selected_hypothesis_id": null,
+          "selection_rationale": {
+            "competitors": [
+              {
+                "hypothesis_id": "camunda__community__hub__camunda__bpm__junit5-pom17",
+                "passed": false,
+                "score": {
+                  "confidence": 0.0,
+                  "cost": 0.0,
+                  "quality": 0.0,
+                  "risk": 1.0,
+                  "total": -1.0
+                },
+                "status": "failed"
+              }
+            ],
+            "reason": "no_validated_candidate",
+            "selected_hypothesis_id": null,
+            "selected_score": null
+          },
+          "stop_reason": "all_candidates_invalid",
+          "strict_success": false
+        },
+        {
+          "candidate_count": 1,
+          "dedup_skipped": 0,
+          "instance_id": "billkiller__javafx__plus",
+          "repeat_failure_suppressed": 0,
+          "selected_hypothesis_id": null,
+          "selection_rationale": {
+            "competitors": [
+              {
+                "hypothesis_id": "billkiller__javafx__plus-pom17",
+                "passed": false,
+                "score": {
+                  "confidence": 0.0,
+                  "cost": 0.0,
+                  "quality": 0.0,
+                  "risk": 1.0,
+                  "total": -1.0
+                },
+                "status": "failed"
+              }
+            ],
+            "reason": "no_validated_candidate",
+            "selected_hypothesis_id": null,
+            "selected_score": null
+          },
+          "stop_reason": "all_candidates_invalid",
+          "strict_success": false
+        },
+        {
+          "candidate_count": 1,
+          "dedup_skipped": 0,
+          "instance_id": "dreamjm__tlvcodec",
+          "repeat_failure_suppressed": 0,
+          "selected_hypothesis_id": null,
+          "selection_rationale": {
+            "competitors": [
+              {
+                "hypothesis_id": "dreamjm__tlvcodec-pom17",
+                "passed": false,
+                "score": {
+                  "confidence": 0.0,
+                  "cost": 0.0,
+                  "quality": 0.0,
+                  "risk": 1.0,
+                  "total": -1.0
+                },
+                "status": "failed"
+              }
+            ],
+            "reason": "no_validated_candidate",
+            "selected_hypothesis_id": null,
+            "selected_score": null
+          },
+          "stop_reason": "all_candidates_invalid",
+          "strict_success": false
+        },
+        {
+          "candidate_count": 0,
+          "dedup_skipped": 0,
+          "instance_id": "jodaorg__joda__beans",
+          "repeat_failure_suppressed": 0,
+          "selected_hypothesis_id": null,
+          "selection_rationale": {
+            "competitors": [],
+            "reason": "no_candidate_generated",
+            "selected_hypothesis_id": null,
+            "selected_score": null
+          },
+          "stop_reason": "no_candidate_generated",
+          "strict_success": false
+        },
+        {
+          "candidate_count": 1,
+          "dedup_skipped": 0,
+          "instance_id": "camphul__trampoline",
+          "repeat_failure_suppressed": 0,
+          "selected_hypothesis_id": null,
+          "selection_rationale": {
+            "competitors": [
+              {
+                "hypothesis_id": "camphul__trampoline-pom17",
+                "passed": false,
+                "score": {
+                  "confidence": 0.0,
+                  "cost": 0.0,
+                  "quality": 0.0,
+                  "risk": 1.0,
+                  "total": -1.0
+                },
+                "status": "failed"
+              }
+            ],
+            "reason": "no_validated_candidate",
+            "selected_hypothesis_id": null,
+            "selected_score": null
+          },
+          "stop_reason": "all_candidates_invalid",
+          "strict_success": false
+        },
+        {
+          "candidate_count": 0,
+          "dedup_skipped": 0,
+          "instance_id": "dickchesterwood__fleetman__webapp",
+          "repeat_failure_suppressed": 0,
+          "selected_hypothesis_id": null,
+          "selection_rationale": {
+            "competitors": [],
+            "reason": "no_candidate_generated",
+            "selected_hypothesis_id": null,
+            "selected_score": null
+          },
+          "stop_reason": "no_candidate_generated",
+          "strict_success": false
+        },
+        {
+          "candidate_count": 1,
+          "dedup_skipped": 0,
+          "instance_id": "dabla__grizzly__spring__boot__starter",
+          "repeat_failure_suppressed": 0,
+          "selected_hypothesis_id": null,
+          "selection_rationale": {
+            "competitors": [
+              {
+                "hypothesis_id": "dabla__grizzly__spring__boot__starter-pom17",
+                "passed": false,
+                "score": {
+                  "confidence": 0.0,
+                  "cost": 0.0,
+                  "quality": 0.0,
+                  "risk": 1.0,
+                  "total": -1.0
+                },
+                "status": "failed"
+              }
+            ],
+            "reason": "no_validated_candidate",
+            "selected_hypothesis_id": null,
+            "selected_score": null
+          },
+          "stop_reason": "all_candidates_invalid",
+          "strict_success": false
+        },
+        {
+          "candidate_count": 0,
+          "dedup_skipped": 0,
+          "instance_id": "blueobelisk__chemicaltagger",
+          "repeat_failure_suppressed": 0,
+          "selected_hypothesis_id": null,
+          "selection_rationale": {
+            "competitors": [],
+            "reason": "no_candidate_generated",
+            "selected_hypothesis_id": null,
+            "selected_score": null
+          },
+          "stop_reason": "no_candidate_generated",
+          "strict_success": false
+        },
+        {
+          "candidate_count": 1,
+          "dedup_skipped": 0,
+          "instance_id": "realjeeshop__jeeshop",
+          "repeat_failure_suppressed": 0,
+          "selected_hypothesis_id": null,
+          "selection_rationale": {
+            "competitors": [
+              {
+                "hypothesis_id": "realjeeshop__jeeshop-pom17",
+                "passed": false,
+                "score": {
+                  "confidence": 0.0,
+                  "cost": 0.0,
+                  "quality": 0.0,
+                  "risk": 1.0,
+                  "total": -1.0
+                },
+                "status": "failed"
+              }
+            ],
+            "reason": "no_validated_candidate",
+            "selected_hypothesis_id": null,
+            "selected_score": null
+          },
+          "stop_reason": "all_candidates_invalid",
+          "strict_success": false
+        },
+        {
+          "candidate_count": 1,
+          "dedup_skipped": 0,
+          "instance_id": "mtuhide__cocotemp",
+          "repeat_failure_suppressed": 0,
+          "selected_hypothesis_id": null,
+          "selection_rationale": {
+            "competitors": [
+              {
+                "hypothesis_id": "mtuhide__cocotemp-pom17",
+                "passed": false,
+                "score": {
+                  "confidence": 0.0,
+                  "cost": 0.0,
+                  "quality": 0.0,
+                  "risk": 1.0,
+                  "total": -1.0
+                },
+                "status": "failed"
+              }
+            ],
+            "reason": "no_validated_candidate",
+            "selected_hypothesis_id": null,
+            "selected_score": null
+          },
+          "stop_reason": "all_candidates_invalid",
+          "strict_success": false
+        },
+        {
+          "candidate_count": 1,
+          "dedup_skipped": 0,
+          "instance_id": "daiyuanchuan__tool",
+          "repeat_failure_suppressed": 0,
+          "selected_hypothesis_id": null,
+          "selection_rationale": {
+            "competitors": [
+              {
+                "hypothesis_id": "daiyuanchuan__tool-pom17",
+                "passed": false,
+                "score": {
+                  "confidence": 0.0,
+                  "cost": 0.0,
+                  "quality": 0.0,
+                  "risk": 1.0,
+                  "total": -1.0
+                },
+                "status": "failed"
+              }
+            ],
+            "reason": "no_validated_candidate",
+            "selected_hypothesis_id": null,
+            "selected_score": null
+          },
+          "stop_reason": "all_candidates_invalid",
+          "strict_success": false
+        },
+        {
+          "candidate_count": 0,
+          "dedup_skipped": 0,
+          "instance_id": "jaroslavtulach__heapdump",
+          "repeat_failure_suppressed": 0,
+          "selected_hypothesis_id": null,
+          "selection_rationale": {
+            "competitors": [],
+            "reason": "no_candidate_generated",
+            "selected_hypothesis_id": null,
+            "selected_score": null
+          },
+          "stop_reason": "no_candidate_generated",
+          "strict_success": false
+        },
+        {
+          "candidate_count": 1,
+          "dedup_skipped": 0,
+          "instance_id": "erhmutlu__iyzico__kafka__demo",
+          "repeat_failure_suppressed": 0,
+          "selected_hypothesis_id": null,
+          "selection_rationale": {
+            "competitors": [
+              {
+                "hypothesis_id": "erhmutlu__iyzico__kafka__demo-pom17",
+                "passed": false,
+                "score": {
+                  "confidence": 0.0,
+                  "cost": 0.0,
+                  "quality": 0.0,
+                  "risk": 1.0,
+                  "total": -1.0
+                },
+                "status": "failed"
+              }
+            ],
+            "reason": "no_validated_candidate",
+            "selected_hypothesis_id": null,
+            "selected_score": null
+          },
+          "stop_reason": "all_candidates_invalid",
+          "strict_success": false
+        },
+        {
+          "candidate_count": 1,
+          "dedup_skipped": 0,
+          "instance_id": "citymonstret__rorledning",
+          "repeat_failure_suppressed": 0,
+          "selected_hypothesis_id": "citymonstret__rorledning-pom17",
+          "selection_rationale": {
+            "competitors": [
+              {
+                "hypothesis_id": "citymonstret__rorledning-pom17",
+                "passed": true,
+                "score": {
+                  "confidence": 1.0,
+                  "cost": 0.0,
+                  "quality": 1.0,
+                  "risk": 0.0,
+                  "total": 2.0
+                },
+                "status": "selected"
+              }
+            ],
+            "reason": "fallback_validated_finalization",
+            "selected_hypothesis_id": "citymonstret__rorledning-pom17",
+            "selected_score": 2.0
+          },
+          "stop_reason": "artifact_contract_failed",
+          "strict_success": false
+        },
+        {
+          "candidate_count": 1,
+          "dedup_skipped": 0,
+          "instance_id": "runtimetools__javametrics",
+          "repeat_failure_suppressed": 0,
+          "selected_hypothesis_id": null,
+          "selection_rationale": {
+            "competitors": [
+              {
+                "hypothesis_id": "runtimetools__javametrics-pom17",
+                "passed": false,
+                "score": {
+                  "confidence": 0.0,
+                  "cost": 0.0,
+                  "quality": 0.0,
+                  "risk": 1.0,
+                  "total": -1.0
+                },
+                "status": "applied"
+              }
+            ],
+            "reason": "no_validated_candidate",
+            "selected_hypothesis_id": null,
+            "selected_score": null
+          },
+          "stop_reason": "all_candidates_invalid",
+          "strict_success": false
+        },
+        {
+          "candidate_count": 1,
+          "dedup_skipped": 0,
+          "instance_id": "mercateo__rest__schemagen",
+          "repeat_failure_suppressed": 0,
+          "selected_hypothesis_id": null,
+          "selection_rationale": {
+            "competitors": [
+              {
+                "hypothesis_id": "mercateo__rest__schemagen-pom17",
+                "passed": false,
+                "score": {
+                  "confidence": 0.0,
+                  "cost": 0.0,
+                  "quality": 0.0,
+                  "risk": 1.0,
+                  "total": -1.0
+                },
+                "status": "failed"
+              }
+            ],
+            "reason": "no_validated_candidate",
+            "selected_hypothesis_id": null,
+            "selected_score": null
+          },
+          "stop_reason": "all_candidates_invalid",
+          "strict_success": false
+        },
+        {
+          "candidate_count": 1,
+          "dedup_skipped": 0,
+          "instance_id": "erudika__para",
+          "repeat_failure_suppressed": 0,
+          "selected_hypothesis_id": null,
+          "selection_rationale": {
+            "competitors": [
+              {
+                "hypothesis_id": "erudika__para-pom17",
+                "passed": false,
+                "score": {
+                  "confidence": 0.0,
+                  "cost": 0.0,
+                  "quality": 0.0,
+                  "risk": 1.0,
+                  "total": -1.0
+                },
+                "status": "failed"
+              }
+            ],
+            "reason": "no_validated_candidate",
+            "selected_hypothesis_id": null,
+            "selected_score": null
+          },
+          "stop_reason": "all_candidates_invalid",
+          "strict_success": false
+        },
+        {
+          "candidate_count": 1,
+          "dedup_skipped": 0,
+          "instance_id": "packtpublishing__master__java__unit__testing__with__spring__boot__and__mockito",
+          "repeat_failure_suppressed": 0,
+          "selected_hypothesis_id": null,
+          "selection_rationale": {
+            "competitors": [
+              {
+                "hypothesis_id": "packtpublishing__master__java__unit__testing__with__spring__boot__and__mockito-pom17",
+                "passed": false,
+                "score": {
+                  "confidence": 0.0,
+                  "cost": 0.0,
+                  "quality": 0.0,
+                  "risk": 1.0,
+                  "total": -1.0
+                },
+                "status": "applied"
+              }
+            ],
+            "reason": "no_validated_candidate",
+            "selected_hypothesis_id": null,
+            "selected_score": null
+          },
+          "stop_reason": "all_candidates_invalid",
+          "strict_success": false
+        },
+        {
+          "candidate_count": 1,
+          "dedup_skipped": 0,
+          "instance_id": "exabrial__form__binding",
+          "repeat_failure_suppressed": 0,
+          "selected_hypothesis_id": null,
+          "selection_rationale": {
+            "competitors": [
+              {
+                "hypothesis_id": "exabrial__form__binding-pom17",
+                "passed": false,
+                "score": {
+                  "confidence": 0.0,
+                  "cost": 0.0,
+                  "quality": 0.0,
+                  "risk": 1.0,
+                  "total": -1.0
+                },
+                "status": "failed"
+              }
+            ],
+            "reason": "no_validated_candidate",
+            "selected_hypothesis_id": null,
+            "selected_score": null
+          },
+          "stop_reason": "all_candidates_invalid",
+          "strict_success": false
+        },
+        {
+          "candidate_count": 1,
+          "dedup_skipped": 0,
+          "instance_id": "comic__con__museum__fan__forge__backend",
+          "repeat_failure_suppressed": 0,
+          "selected_hypothesis_id": null,
+          "selection_rationale": {
+            "competitors": [
+              {
+                "hypothesis_id": "comic__con__museum__fan__forge__backend-pom17",
+                "passed": false,
+                "score": {
+                  "confidence": 0.0,
+                  "cost": 0.0,
+                  "quality": 0.0,
+                  "risk": 1.0,
+                  "total": -1.0
+                },
+                "status": "applied"
+              }
+            ],
+            "reason": "no_validated_candidate",
+            "selected_hypothesis_id": null,
+            "selected_score": null
+          },
+          "stop_reason": "all_candidates_invalid",
+          "strict_success": false
+        },
+        {
+          "candidate_count": 1,
+          "dedup_skipped": 0,
+          "instance_id": "seesharpsoft__sharping",
+          "repeat_failure_suppressed": 0,
+          "selected_hypothesis_id": null,
+          "selection_rationale": {
+            "competitors": [
+              {
+                "hypothesis_id": "seesharpsoft__sharping-pom17",
+                "passed": false,
+                "score": {
+                  "confidence": 0.0,
+                  "cost": 0.0,
+                  "quality": 0.0,
+                  "risk": 1.0,
+                  "total": -1.0
+                },
+                "status": "failed"
+              }
+            ],
+            "reason": "no_validated_candidate",
+            "selected_hypothesis_id": null,
+            "selected_score": null
+          },
+          "stop_reason": "all_candidates_invalid",
+          "strict_success": false
+        },
+        {
+          "candidate_count": 1,
+          "dedup_skipped": 0,
+          "instance_id": "refactoring__bot__refactoring__bot",
+          "repeat_failure_suppressed": 0,
+          "selected_hypothesis_id": null,
+          "selection_rationale": {
+            "competitors": [
+              {
+                "hypothesis_id": "refactoring__bot__refactoring__bot-pom17",
+                "passed": false,
+                "score": {
+                  "confidence": 0.0,
+                  "cost": 0.0,
+                  "quality": 0.0,
+                  "risk": 1.0,
+                  "total": -1.0
+                },
+                "status": "applied"
+              }
+            ],
+            "reason": "no_validated_candidate",
+            "selected_hypothesis_id": null,
+            "selected_score": null
+          },
+          "stop_reason": "all_candidates_invalid",
+          "strict_success": false
+        },
+        {
+          "candidate_count": 1,
+          "dedup_skipped": 0,
+          "instance_id": "evandylan__unicorn",
+          "repeat_failure_suppressed": 0,
+          "selected_hypothesis_id": null,
+          "selection_rationale": {
+            "competitors": [
+              {
+                "hypothesis_id": "evandylan__unicorn-pom17",
+                "passed": false,
+                "score": {
+                  "confidence": 0.0,
+                  "cost": 0.0,
+                  "quality": 0.0,
+                  "risk": 1.0,
+                  "total": -1.0
+                },
+                "status": "failed"
+              }
+            ],
+            "reason": "no_validated_candidate",
+            "selected_hypothesis_id": null,
+            "selected_score": null
+          },
+          "stop_reason": "all_candidates_invalid",
+          "strict_success": false
+        }
+      ],
+      "live_replay_parity": true,
+      "repeat_failure_suppressed_total": 0,
+      "stop_reasons": {
+        "all_candidates_invalid": 23,
+        "artifact_contract_failed": 2,
+        "no_candidate_generated": 5
+      },
+      "strategy_name": "agentless_basic",
+      "strict_success_count": 0
+    },
+    {
+      "arm_id": "A2_linear_repair",
+      "by_signal": {
+        "artifact_delivered": 2,
+        "class_version_ok": 2,
+        "compile_success": 2,
+        "patch_applies": 2,
+        "patch_delivered": 2,
+        "test_success": 2
+      },
+      "campaign_id": "17dc87dbf4c34d97901bbf071397633a",
+      "config": {
+        "max_candidates": 1,
+        "max_repair_rounds": 1,
+        "max_repairs_per_candidate": 1
+      },
+      "dedup_skipped_total": 0,
+      "description": "A2 \u2014 linear single-track verifier-driven repair (no fan-out).",
+      "instance_count": 30,
+      "instances": [
+        {
+          "candidate_count": 1,
+          "dedup_skipped": 0,
+          "instance_id": "artur__a__vaadin__helper",
+          "repeat_failure_suppressed": 0,
+          "selected_hypothesis_id": "artur__a__vaadin__helper-pom17",
+          "selection_rationale": {
+            "competitors": [
+              {
+                "hypothesis_id": "artur__a__vaadin__helper-pom17",
+                "passed": true,
+                "score": {
+                  "confidence": 1.0,
+                  "cost": 0.0,
+                  "quality": 1.0,
+                  "risk": 0.0,
+                  "total": 2.0
+                },
+                "status": "selected"
+              }
+            ],
+            "reason": "fallback_validated_finalization",
+            "selected_hypothesis_id": "artur__a__vaadin__helper-pom17",
+            "selected_score": 2.0
+          },
+          "stop_reason": "artifact_contract_failed",
+          "strict_success": false
+        },
+        {
+          "candidate_count": 1,
+          "dedup_skipped": 0,
+          "instance_id": "284885166__spring__boot__hashids",
+          "repeat_failure_suppressed": 0,
+          "selected_hypothesis_id": null,
+          "selection_rationale": {
+            "competitors": [
+              {
+                "hypothesis_id": "284885166__spring__boot__hashids-pom17",
+                "passed": false,
+                "score": {
+                  "confidence": 0.0,
+                  "cost": 0.0,
+                  "quality": 0.0,
+                  "risk": 1.0,
+                  "total": -1.0
+                },
+                "status": "failed"
+              }
+            ],
+            "reason": "repair_exhausted",
+            "selected_hypothesis_id": null,
+            "selected_score": null
+          },
+          "stop_reason": "repair_exhausted",
+          "strict_success": false
+        },
+        {
+          "candidate_count": 1,
+          "dedup_skipped": 0,
+          "instance_id": "aingezzz__easy__crypto",
+          "repeat_failure_suppressed": 0,
+          "selected_hypothesis_id": null,
+          "selection_rationale": {
+            "competitors": [
+              {
+                "hypothesis_id": "aingezzz__easy__crypto-pom17",
+                "passed": false,
+                "score": {
+                  "confidence": 0.0,
+                  "cost": 0.0,
+                  "quality": 0.0,
+                  "risk": 1.0,
+                  "total": -1.0
+                },
+                "status": "applied"
+              }
+            ],
+            "reason": "repair_exhausted",
+            "selected_hypothesis_id": null,
+            "selected_score": null
+          },
+          "stop_reason": "repair_exhausted",
+          "strict_success": false
+        },
+        {
+          "candidate_count": 0,
+          "dedup_skipped": 0,
+          "instance_id": "cubeengine__reflect",
+          "repeat_failure_suppressed": 0,
+          "selected_hypothesis_id": null,
+          "selection_rationale": {
+            "competitors": [],
+            "reason": "no_candidate_generated",
+            "selected_hypothesis_id": null,
+            "selected_score": null
+          },
+          "stop_reason": "no_candidate_generated",
+          "strict_success": false
+        },
+        {
+          "candidate_count": 1,
+          "dedup_skipped": 0,
+          "instance_id": "15093015999__ejserver",
+          "repeat_failure_suppressed": 0,
+          "selected_hypothesis_id": null,
+          "selection_rationale": {
+            "competitors": [
+              {
+                "hypothesis_id": "15093015999__ejserver-pom17",
+                "passed": false,
+                "score": {
+                  "confidence": 0.0,
+                  "cost": 0.0,
+                  "quality": 0.0,
+                  "risk": 1.0,
+                  "total": -1.0
+                },
+                "status": "applied"
+              }
+            ],
+            "reason": "repair_exhausted",
+            "selected_hypothesis_id": null,
+            "selected_score": null
+          },
+          "stop_reason": "repair_exhausted",
+          "strict_success": false
+        },
+        {
+          "candidate_count": 1,
+          "dedup_skipped": 0,
+          "instance_id": "amadeusitgroup__httpsessionreplacer",
+          "repeat_failure_suppressed": 0,
+          "selected_hypothesis_id": null,
+          "selection_rationale": {
+            "competitors": [
+              {
+                "hypothesis_id": "amadeusitgroup__httpsessionreplacer-pom17",
+                "passed": false,
+                "score": {
+                  "confidence": 0.0,
+                  "cost": 0.0,
+                  "quality": 0.0,
+                  "risk": 1.0,
+                  "total": -1.0
+                },
+                "status": "failed"
+              }
+            ],
+            "reason": "repair_exhausted",
+            "selected_hypothesis_id": null,
+            "selected_score": null
+          },
+          "stop_reason": "repair_exhausted",
+          "strict_success": false
+        },
+        {
+          "candidate_count": 1,
+          "dedup_skipped": 0,
+          "instance_id": "bjoernkw__oauth2__with__jira",
+          "repeat_failure_suppressed": 0,
+          "selected_hypothesis_id": null,
+          "selection_rationale": {
+            "competitors": [
+              {
+                "hypothesis_id": "bjoernkw__oauth2__with__jira-pom17",
+                "passed": false,
+                "score": {
+                  "confidence": 0.0,
+                  "cost": 0.0,
+                  "quality": 0.0,
+                  "risk": 1.0,
+                  "total": -1.0
+                },
+                "status": "applied"
+              }
+            ],
+            "reason": "repair_exhausted",
+            "selected_hypothesis_id": null,
+            "selected_score": null
+          },
+          "stop_reason": "repair_exhausted",
+          "strict_success": false
+        },
+        {
+          "candidate_count": 1,
+          "dedup_skipped": 0,
+          "instance_id": "camunda__community__hub__camunda__bpm__junit5",
+          "repeat_failure_suppressed": 0,
+          "selected_hypothesis_id": null,
+          "selection_rationale": {
+            "competitors": [
+              {
+                "hypothesis_id": "camunda__community__hub__camunda__bpm__junit5-pom17",
+                "passed": false,
+                "score": {
+                  "confidence": 0.0,
+                  "cost": 0.0,
+                  "quality": 0.0,
+                  "risk": 1.0,
+                  "total": -1.0
+                },
+                "status": "failed"
+              }
+            ],
+            "reason": "repair_exhausted",
+            "selected_hypothesis_id": null,
+            "selected_score": null
+          },
+          "stop_reason": "repair_exhausted",
+          "strict_success": false
+        },
+        {
+          "candidate_count": 1,
+          "dedup_skipped": 0,
+          "instance_id": "billkiller__javafx__plus",
+          "repeat_failure_suppressed": 0,
+          "selected_hypothesis_id": null,
+          "selection_rationale": {
+            "competitors": [
+              {
+                "hypothesis_id": "billkiller__javafx__plus-pom17",
+                "passed": false,
+                "score": {
+                  "confidence": 0.0,
+                  "cost": 0.0,
+                  "quality": 0.0,
+                  "risk": 1.0,
+                  "total": -1.0
+                },
+                "status": "failed"
+              }
+            ],
+            "reason": "repair_exhausted",
+            "selected_hypothesis_id": null,
+            "selected_score": null
+          },
+          "stop_reason": "repair_exhausted",
+          "strict_success": false
+        },
+        {
+          "candidate_count": 1,
+          "dedup_skipped": 0,
+          "instance_id": "dreamjm__tlvcodec",
+          "repeat_failure_suppressed": 0,
+          "selected_hypothesis_id": null,
+          "selection_rationale": {
+            "competitors": [
+              {
+                "hypothesis_id": "dreamjm__tlvcodec-pom17",
+                "passed": false,
+                "score": {
+                  "confidence": 0.0,
+                  "cost": 0.0,
+                  "quality": 0.0,
+                  "risk": 1.0,
+                  "total": -1.0
+                },
+                "status": "failed"
+              }
+            ],
+            "reason": "repair_exhausted",
+            "selected_hypothesis_id": null,
+            "selected_score": null
+          },
+          "stop_reason": "repair_exhausted",
+          "strict_success": false
+        },
+        {
+          "candidate_count": 0,
+          "dedup_skipped": 0,
+          "instance_id": "jodaorg__joda__beans",
+          "repeat_failure_suppressed": 0,
+          "selected_hypothesis_id": null,
+          "selection_rationale": {
+            "competitors": [],
+            "reason": "no_candidate_generated",
+            "selected_hypothesis_id": null,
+            "selected_score": null
+          },
+          "stop_reason": "no_candidate_generated",
+          "strict_success": false
+        },
+        {
+          "candidate_count": 1,
+          "dedup_skipped": 0,
+          "instance_id": "camphul__trampoline",
+          "repeat_failure_suppressed": 0,
+          "selected_hypothesis_id": null,
+          "selection_rationale": {
+            "competitors": [
+              {
+                "hypothesis_id": "camphul__trampoline-pom17",
+                "passed": false,
+                "score": {
+                  "confidence": 0.0,
+                  "cost": 0.0,
+                  "quality": 0.0,
+                  "risk": 1.0,
+                  "total": -1.0
+                },
+                "status": "failed"
+              }
+            ],
+            "reason": "repair_exhausted",
+            "selected_hypothesis_id": null,
+            "selected_score": null
+          },
+          "stop_reason": "repair_exhausted",
+          "strict_success": false
+        },
+        {
+          "candidate_count": 0,
+          "dedup_skipped": 0,
+          "instance_id": "dickchesterwood__fleetman__webapp",
+          "repeat_failure_suppressed": 0,
+          "selected_hypothesis_id": null,
+          "selection_rationale": {
+            "competitors": [],
+            "reason": "no_candidate_generated",
+            "selected_hypothesis_id": null,
+            "selected_score": null
+          },
+          "stop_reason": "no_candidate_generated",
+          "strict_success": false
+        },
+        {
+          "candidate_count": 1,
+          "dedup_skipped": 0,
+          "instance_id": "dabla__grizzly__spring__boot__starter",
+          "repeat_failure_suppressed": 0,
+          "selected_hypothesis_id": null,
+          "selection_rationale": {
+            "competitors": [
+              {
+                "hypothesis_id": "dabla__grizzly__spring__boot__starter-pom17",
+                "passed": false,
+                "score": {
+                  "confidence": 0.0,
+                  "cost": 0.0,
+                  "quality": 0.0,
+                  "risk": 1.0,
+                  "total": -1.0
+                },
+                "status": "failed"
+              }
+            ],
+            "reason": "repair_exhausted",
+            "selected_hypothesis_id": null,
+            "selected_score": null
+          },
+          "stop_reason": "repair_exhausted",
+          "strict_success": false
+        },
+        {
+          "candidate_count": 0,
+          "dedup_skipped": 0,
+          "instance_id": "blueobelisk__chemicaltagger",
+          "repeat_failure_suppressed": 0,
+          "selected_hypothesis_id": null,
+          "selection_rationale": {
+            "competitors": [],
+            "reason": "no_candidate_generated",
+            "selected_hypothesis_id": null,
+            "selected_score": null
+          },
+          "stop_reason": "no_candidate_generated",
+          "strict_success": false
+        },
+        {
+          "candidate_count": 1,
+          "dedup_skipped": 0,
+          "instance_id": "realjeeshop__jeeshop",
+          "repeat_failure_suppressed": 0,
+          "selected_hypothesis_id": null,
+          "selection_rationale": {
+            "competitors": [
+              {
+                "hypothesis_id": "realjeeshop__jeeshop-pom17",
+                "passed": false,
+                "score": {
+                  "confidence": 0.0,
+                  "cost": 0.0,
+                  "quality": 0.0,
+                  "risk": 1.0,
+                  "total": -1.0
+                },
+                "status": "failed"
+              }
+            ],
+            "reason": "repair_exhausted",
+            "selected_hypothesis_id": null,
+            "selected_score": null
+          },
+          "stop_reason": "repair_exhausted",
+          "strict_success": false
+        },
+        {
+          "candidate_count": 1,
+          "dedup_skipped": 0,
+          "instance_id": "mtuhide__cocotemp",
+          "repeat_failure_suppressed": 0,
+          "selected_hypothesis_id": null,
+          "selection_rationale": {
+            "competitors": [
+              {
+                "hypothesis_id": "mtuhide__cocotemp-pom17",
+                "passed": false,
+                "score": {
+                  "confidence": 0.0,
+                  "cost": 0.0,
+                  "quality": 0.0,
+                  "risk": 1.0,
+                  "total": -1.0
+                },
+                "status": "failed"
+              }
+            ],
+            "reason": "repair_exhausted",
+            "selected_hypothesis_id": null,
+            "selected_score": null
+          },
+          "stop_reason": "repair_exhausted",
+          "strict_success": false
+        },
+        {
+          "candidate_count": 1,
+          "dedup_skipped": 0,
+          "instance_id": "daiyuanchuan__tool",
+          "repeat_failure_suppressed": 0,
+          "selected_hypothesis_id": null,
+          "selection_rationale": {
+            "competitors": [
+              {
+                "hypothesis_id": "daiyuanchuan__tool-pom17",
+                "passed": false,
+                "score": {
+                  "confidence": 0.0,
+                  "cost": 0.0,
+                  "quality": 0.0,
+                  "risk": 1.0,
+                  "total": -1.0
+                },
+                "status": "failed"
+              }
+            ],
+            "reason": "repair_exhausted",
+            "selected_hypothesis_id": null,
+            "selected_score": null
+          },
+          "stop_reason": "repair_exhausted",
+          "strict_success": false
+        },
+        {
+          "candidate_count": 0,
+          "dedup_skipped": 0,
+          "instance_id": "jaroslavtulach__heapdump",
+          "repeat_failure_suppressed": 0,
+          "selected_hypothesis_id": null,
+          "selection_rationale": {
+            "competitors": [],
+            "reason": "no_candidate_generated",
+            "selected_hypothesis_id": null,
+            "selected_score": null
+          },
+          "stop_reason": "no_candidate_generated",
+          "strict_success": false
+        },
+        {
+          "candidate_count": 1,
+          "dedup_skipped": 0,
+          "instance_id": "erhmutlu__iyzico__kafka__demo",
+          "repeat_failure_suppressed": 0,
+          "selected_hypothesis_id": null,
+          "selection_rationale": {
+            "competitors": [
+              {
+                "hypothesis_id": "erhmutlu__iyzico__kafka__demo-pom17",
+                "passed": false,
+                "score": {
+                  "confidence": 0.0,
+                  "cost": 0.0,
+                  "quality": 0.0,
+                  "risk": 1.0,
+                  "total": -1.0
+                },
+                "status": "failed"
+              }
+            ],
+            "reason": "repair_exhausted",
+            "selected_hypothesis_id": null,
+            "selected_score": null
+          },
+          "stop_reason": "repair_exhausted",
+          "strict_success": false
+        },
+        {
+          "candidate_count": 1,
+          "dedup_skipped": 0,
+          "instance_id": "citymonstret__rorledning",
+          "repeat_failure_suppressed": 0,
+          "selected_hypothesis_id": "citymonstret__rorledning-pom17",
+          "selection_rationale": {
+            "competitors": [
+              {
+                "hypothesis_id": "citymonstret__rorledning-pom17",
+                "passed": true,
+                "score": {
+                  "confidence": 1.0,
+                  "cost": 0.0,
+                  "quality": 1.0,
+                  "risk": 0.0,
+                  "total": 2.0
+                },
+                "status": "selected"
+              }
+            ],
+            "reason": "fallback_validated_finalization",
+            "selected_hypothesis_id": "citymonstret__rorledning-pom17",
+            "selected_score": 2.0
+          },
+          "stop_reason": "artifact_contract_failed",
+          "strict_success": false
+        },
+        {
+          "candidate_count": 1,
+          "dedup_skipped": 0,
+          "instance_id": "runtimetools__javametrics",
+          "repeat_failure_suppressed": 0,
+          "selected_hypothesis_id": null,
+          "selection_rationale": {
+            "competitors": [
+              {
+                "hypothesis_id": "runtimetools__javametrics-pom17",
+                "passed": false,
+                "score": {
+                  "confidence": 0.0,
+                  "cost": 0.0,
+                  "quality": 0.0,
+                  "risk": 1.0,
+                  "total": -1.0
+                },
+                "status": "applied"
+              }
+            ],
+            "reason": "repair_exhausted",
+            "selected_hypothesis_id": null,
+            "selected_score": null
+          },
+          "stop_reason": "repair_exhausted",
+          "strict_success": false
+        },
+        {
+          "candidate_count": 1,
+          "dedup_skipped": 0,
+          "instance_id": "mercateo__rest__schemagen",
+          "repeat_failure_suppressed": 0,
+          "selected_hypothesis_id": null,
+          "selection_rationale": {
+            "competitors": [
+              {
+                "hypothesis_id": "mercateo__rest__schemagen-pom17",
+                "passed": false,
+                "score": {
+                  "confidence": 0.0,
+                  "cost": 0.0,
+                  "quality": 0.0,
+                  "risk": 1.0,
+                  "total": -1.0
+                },
+                "status": "failed"
+              }
+            ],
+            "reason": "repair_exhausted",
+            "selected_hypothesis_id": null,
+            "selected_score": null
+          },
+          "stop_reason": "repair_exhausted",
+          "strict_success": false
+        },
+        {
+          "candidate_count": 1,
+          "dedup_skipped": 0,
+          "instance_id": "erudika__para",
+          "repeat_failure_suppressed": 0,
+          "selected_hypothesis_id": null,
+          "selection_rationale": {
+            "competitors": [
+              {
+                "hypothesis_id": "erudika__para-pom17",
+                "passed": false,
+                "score": {
+                  "confidence": 0.0,
+                  "cost": 0.0,
+                  "quality": 0.0,
+                  "risk": 1.0,
+                  "total": -1.0
+                },
+                "status": "failed"
+              }
+            ],
+            "reason": "repair_exhausted",
+            "selected_hypothesis_id": null,
+            "selected_score": null
+          },
+          "stop_reason": "repair_exhausted",
+          "strict_success": false
+        },
+        {
+          "candidate_count": 1,
+          "dedup_skipped": 0,
+          "instance_id": "packtpublishing__master__java__unit__testing__with__spring__boot__and__mockito",
+          "repeat_failure_suppressed": 0,
+          "selected_hypothesis_id": null,
+          "selection_rationale": {
+            "competitors": [
+              {
+                "hypothesis_id": "packtpublishing__master__java__unit__testing__with__spring__boot__and__mockito-pom17",
+                "passed": false,
+                "score": {
+                  "confidence": 0.0,
+                  "cost": 0.0,
+                  "quality": 0.0,
+                  "risk": 1.0,
+                  "total": -1.0
+                },
+                "status": "applied"
+              }
+            ],
+            "reason": "repair_exhausted",
+            "selected_hypothesis_id": null,
+            "selected_score": null
+          },
+          "stop_reason": "repair_exhausted",
+          "strict_success": false
+        },
+        {
+          "candidate_count": 1,
+          "dedup_skipped": 0,
+          "instance_id": "exabrial__form__binding",
+          "repeat_failure_suppressed": 0,
+          "selected_hypothesis_id": null,
+          "selection_rationale": {
+            "competitors": [
+              {
+                "hypothesis_id": "exabrial__form__binding-pom17",
+                "passed": false,
+                "score": {
+                  "confidence": 0.0,
+                  "cost": 0.0,
+                  "quality": 0.0,
+                  "risk": 1.0,
+                  "total": -1.0
+                },
+                "status": "failed"
+              }
+            ],
+            "reason": "repair_exhausted",
+            "selected_hypothesis_id": null,
+            "selected_score": null
+          },
+          "stop_reason": "repair_exhausted",
+          "strict_success": false
+        },
+        {
+          "candidate_count": 1,
+          "dedup_skipped": 0,
+          "instance_id": "comic__con__museum__fan__forge__backend",
+          "repeat_failure_suppressed": 0,
+          "selected_hypothesis_id": null,
+          "selection_rationale": {
+            "competitors": [
+              {
+                "hypothesis_id": "comic__con__museum__fan__forge__backend-pom17",
+                "passed": false,
+                "score": {
+                  "confidence": 0.0,
+                  "cost": 0.0,
+                  "quality": 0.0,
+                  "risk": 1.0,
+                  "total": -1.0
+                },
+                "status": "applied"
+              }
+            ],
+            "reason": "repair_exhausted",
+            "selected_hypothesis_id": null,
+            "selected_score": null
+          },
+          "stop_reason": "repair_exhausted",
+          "strict_success": false
+        },
+        {
+          "candidate_count": 1,
+          "dedup_skipped": 0,
+          "instance_id": "seesharpsoft__sharping",
+          "repeat_failure_suppressed": 0,
+          "selected_hypothesis_id": null,
+          "selection_rationale": {
+            "competitors": [
+              {
+                "hypothesis_id": "seesharpsoft__sharping-pom17",
+                "passed": false,
+                "score": {
+                  "confidence": 0.0,
+                  "cost": 0.0,
+                  "quality": 0.0,
+                  "risk": 1.0,
+                  "total": -1.0
+                },
+                "status": "failed"
+              }
+            ],
+            "reason": "repair_exhausted",
+            "selected_hypothesis_id": null,
+            "selected_score": null
+          },
+          "stop_reason": "repair_exhausted",
+          "strict_success": false
+        },
+        {
+          "candidate_count": 1,
+          "dedup_skipped": 0,
+          "instance_id": "refactoring__bot__refactoring__bot",
+          "repeat_failure_suppressed": 0,
+          "selected_hypothesis_id": null,
+          "selection_rationale": {
+            "competitors": [
+              {
+                "hypothesis_id": "refactoring__bot__refactoring__bot-pom17",
+                "passed": false,
+                "score": {
+                  "confidence": 0.0,
+                  "cost": 0.0,
+                  "quality": 0.0,
+                  "risk": 1.0,
+                  "total": -1.0
+                },
+                "status": "applied"
+              }
+            ],
+            "reason": "repair_exhausted",
+            "selected_hypothesis_id": null,
+            "selected_score": null
+          },
+          "stop_reason": "repair_exhausted",
+          "strict_success": false
+        },
+        {
+          "candidate_count": 1,
+          "dedup_skipped": 0,
+          "instance_id": "evandylan__unicorn",
+          "repeat_failure_suppressed": 0,
+          "selected_hypothesis_id": null,
+          "selection_rationale": {
+            "competitors": [
+              {
+                "hypothesis_id": "evandylan__unicorn-pom17",
+                "passed": false,
+                "score": {
+                  "confidence": 0.0,
+                  "cost": 0.0,
+                  "quality": 0.0,
+                  "risk": 1.0,
+                  "total": -1.0
+                },
+                "status": "failed"
+              }
+            ],
+            "reason": "repair_exhausted",
+            "selected_hypothesis_id": null,
+            "selected_score": null
+          },
+          "stop_reason": "repair_exhausted",
+          "strict_success": false
+        }
+      ],
+      "live_replay_parity": true,
+      "repeat_failure_suppressed_total": 0,
+      "stop_reasons": {
+        "artifact_contract_failed": 2,
+        "no_candidate_generated": 5,
+        "repair_exhausted": 23
+      },
+      "strategy_name": "branching_repair",
+      "strict_success_count": 0
+    },
+    {
+      "arm_id": "A3_branching_repair",
+      "by_signal": {
+        "artifact_delivered": 2,
+        "class_version_ok": 2,
+        "compile_success": 2,
+        "patch_applies": 2,
+        "patch_delivered": 2,
+        "test_success": 2
+      },
+      "campaign_id": "d2d386d69e584e3d85b0ed46bc1c5a30",
+      "config": {
+        "max_candidates": 2,
+        "max_repair_rounds": 1,
+        "max_repairs_per_candidate": 2
+      },
+      "dedup_skipped_total": 0,
+      "description": "A3 \u2014 branching parallel repair with signature dedup, repeated-failure suppression, explainable selection.",
+      "instance_count": 30,
+      "instances": [
+        {
+          "candidate_count": 1,
+          "dedup_skipped": 0,
+          "instance_id": "artur__a__vaadin__helper",
+          "repeat_failure_suppressed": 0,
+          "selected_hypothesis_id": "artur__a__vaadin__helper-pom17",
+          "selection_rationale": {
+            "competitors": [
+              {
+                "hypothesis_id": "artur__a__vaadin__helper-pom17",
+                "passed": true,
+                "score": {
+                  "confidence": 1.0,
+                  "cost": 0.0,
+                  "quality": 1.0,
+                  "risk": 0.0,
+                  "total": 2.0
+                },
+                "status": "selected"
+              }
+            ],
+            "reason": "fallback_validated_finalization",
+            "selected_hypothesis_id": "artur__a__vaadin__helper-pom17",
+            "selected_score": 2.0
+          },
+          "stop_reason": "artifact_contract_failed",
+          "strict_success": false
+        },
+        {
+          "candidate_count": 1,
+          "dedup_skipped": 0,
+          "instance_id": "284885166__spring__boot__hashids",
+          "repeat_failure_suppressed": 0,
+          "selected_hypothesis_id": null,
+          "selection_rationale": {
+            "competitors": [
+              {
+                "hypothesis_id": "284885166__spring__boot__hashids-pom17",
+                "passed": false,
+                "score": {
+                  "confidence": 0.0,
+                  "cost": 0.0,
+                  "quality": 0.0,
+                  "risk": 1.0,
+                  "total": -1.0
+                },
+                "status": "failed"
+              }
+            ],
+            "reason": "repair_exhausted",
+            "selected_hypothesis_id": null,
+            "selected_score": null
+          },
+          "stop_reason": "repair_exhausted",
+          "strict_success": false
+        },
+        {
+          "candidate_count": 1,
+          "dedup_skipped": 0,
+          "instance_id": "aingezzz__easy__crypto",
+          "repeat_failure_suppressed": 0,
+          "selected_hypothesis_id": null,
+          "selection_rationale": {
+            "competitors": [
+              {
+                "hypothesis_id": "aingezzz__easy__crypto-pom17",
+                "passed": false,
+                "score": {
+                  "confidence": 0.0,
+                  "cost": 0.0,
+                  "quality": 0.0,
+                  "risk": 1.0,
+                  "total": -1.0
+                },
+                "status": "applied"
+              }
+            ],
+            "reason": "repair_exhausted",
+            "selected_hypothesis_id": null,
+            "selected_score": null
+          },
+          "stop_reason": "repair_exhausted",
+          "strict_success": false
+        },
+        {
+          "candidate_count": 0,
+          "dedup_skipped": 0,
+          "instance_id": "cubeengine__reflect",
+          "repeat_failure_suppressed": 0,
+          "selected_hypothesis_id": null,
+          "selection_rationale": {
+            "competitors": [],
+            "reason": "no_candidate_generated",
+            "selected_hypothesis_id": null,
+            "selected_score": null
+          },
+          "stop_reason": "no_candidate_generated",
+          "strict_success": false
+        },
+        {
+          "candidate_count": 1,
+          "dedup_skipped": 0,
+          "instance_id": "15093015999__ejserver",
+          "repeat_failure_suppressed": 0,
+          "selected_hypothesis_id": null,
+          "selection_rationale": {
+            "competitors": [
+              {
+                "hypothesis_id": "15093015999__ejserver-pom17",
+                "passed": false,
+                "score": {
+                  "confidence": 0.0,
+                  "cost": 0.0,
+                  "quality": 0.0,
+                  "risk": 1.0,
+                  "total": -1.0
+                },
+                "status": "applied"
+              }
+            ],
+            "reason": "repair_exhausted",
+            "selected_hypothesis_id": null,
+            "selected_score": null
+          },
+          "stop_reason": "repair_exhausted",
+          "strict_success": false
+        },
+        {
+          "candidate_count": 1,
+          "dedup_skipped": 0,
+          "instance_id": "amadeusitgroup__httpsessionreplacer",
+          "repeat_failure_suppressed": 0,
+          "selected_hypothesis_id": null,
+          "selection_rationale": {
+            "competitors": [
+              {
+                "hypothesis_id": "amadeusitgroup__httpsessionreplacer-pom17",
+                "passed": false,
+                "score": {
+                  "confidence": 0.0,
+                  "cost": 0.0,
+                  "quality": 0.0,
+                  "risk": 1.0,
+                  "total": -1.0
+                },
+                "status": "failed"
+              }
+            ],
+            "reason": "repair_exhausted",
+            "selected_hypothesis_id": null,
+            "selected_score": null
+          },
+          "stop_reason": "repair_exhausted",
+          "strict_success": false
+        },
+        {
+          "candidate_count": 1,
+          "dedup_skipped": 0,
+          "instance_id": "bjoernkw__oauth2__with__jira",
+          "repeat_failure_suppressed": 0,
+          "selected_hypothesis_id": null,
+          "selection_rationale": {
+            "competitors": [
+              {
+                "hypothesis_id": "bjoernkw__oauth2__with__jira-pom17",
+                "passed": false,
+                "score": {
+                  "confidence": 0.0,
+                  "cost": 0.0,
+                  "quality": 0.0,
+                  "risk": 1.0,
+                  "total": -1.0
+                },
+                "status": "applied"
+              }
+            ],
+            "reason": "repair_exhausted",
+            "selected_hypothesis_id": null,
+            "selected_score": null
+          },
+          "stop_reason": "repair_exhausted",
+          "strict_success": false
+        },
+        {
+          "candidate_count": 1,
+          "dedup_skipped": 0,
+          "instance_id": "camunda__community__hub__camunda__bpm__junit5",
+          "repeat_failure_suppressed": 0,
+          "selected_hypothesis_id": null,
+          "selection_rationale": {
+            "competitors": [
+              {
+                "hypothesis_id": "camunda__community__hub__camunda__bpm__junit5-pom17",
+                "passed": false,
+                "score": {
+                  "confidence": 0.0,
+                  "cost": 0.0,
+                  "quality": 0.0,
+                  "risk": 1.0,
+                  "total": -1.0
+                },
+                "status": "failed"
+              }
+            ],
+            "reason": "repair_exhausted",
+            "selected_hypothesis_id": null,
+            "selected_score": null
+          },
+          "stop_reason": "repair_exhausted",
+          "strict_success": false
+        },
+        {
+          "candidate_count": 1,
+          "dedup_skipped": 0,
+          "instance_id": "billkiller__javafx__plus",
+          "repeat_failure_suppressed": 0,
+          "selected_hypothesis_id": null,
+          "selection_rationale": {
+            "competitors": [
+              {
+                "hypothesis_id": "billkiller__javafx__plus-pom17",
+                "passed": false,
+                "score": {
+                  "confidence": 0.0,
+                  "cost": 0.0,
+                  "quality": 0.0,
+                  "risk": 1.0,
+                  "total": -1.0
+                },
+                "status": "failed"
+              }
+            ],
+            "reason": "repair_exhausted",
+            "selected_hypothesis_id": null,
+            "selected_score": null
+          },
+          "stop_reason": "repair_exhausted",
+          "strict_success": false
+        },
+        {
+          "candidate_count": 1,
+          "dedup_skipped": 0,
+          "instance_id": "dreamjm__tlvcodec",
+          "repeat_failure_suppressed": 0,
+          "selected_hypothesis_id": null,
+          "selection_rationale": {
+            "competitors": [
+              {
+                "hypothesis_id": "dreamjm__tlvcodec-pom17",
+                "passed": false,
+                "score": {
+                  "confidence": 0.0,
+                  "cost": 0.0,
+                  "quality": 0.0,
+                  "risk": 1.0,
+                  "total": -1.0
+                },
+                "status": "failed"
+              }
+            ],
+            "reason": "repair_exhausted",
+            "selected_hypothesis_id": null,
+            "selected_score": null
+          },
+          "stop_reason": "repair_exhausted",
+          "strict_success": false
+        },
+        {
+          "candidate_count": 0,
+          "dedup_skipped": 0,
+          "instance_id": "jodaorg__joda__beans",
+          "repeat_failure_suppressed": 0,
+          "selected_hypothesis_id": null,
+          "selection_rationale": {
+            "competitors": [],
+            "reason": "no_candidate_generated",
+            "selected_hypothesis_id": null,
+            "selected_score": null
+          },
+          "stop_reason": "no_candidate_generated",
+          "strict_success": false
+        },
+        {
+          "candidate_count": 1,
+          "dedup_skipped": 0,
+          "instance_id": "camphul__trampoline",
+          "repeat_failure_suppressed": 0,
+          "selected_hypothesis_id": null,
+          "selection_rationale": {
+            "competitors": [
+              {
+                "hypothesis_id": "camphul__trampoline-pom17",
+                "passed": false,
+                "score": {
+                  "confidence": 0.0,
+                  "cost": 0.0,
+                  "quality": 0.0,
+                  "risk": 1.0,
+                  "total": -1.0
+                },
+                "status": "failed"
+              }
+            ],
+            "reason": "repair_exhausted",
+            "selected_hypothesis_id": null,
+            "selected_score": null
+          },
+          "stop_reason": "repair_exhausted",
+          "strict_success": false
+        },
+        {
+          "candidate_count": 0,
+          "dedup_skipped": 0,
+          "instance_id": "dickchesterwood__fleetman__webapp",
+          "repeat_failure_suppressed": 0,
+          "selected_hypothesis_id": null,
+          "selection_rationale": {
+            "competitors": [],
+            "reason": "no_candidate_generated",
+            "selected_hypothesis_id": null,
+            "selected_score": null
+          },
+          "stop_reason": "no_candidate_generated",
+          "strict_success": false
+        },
+        {
+          "candidate_count": 1,
+          "dedup_skipped": 0,
+          "instance_id": "dabla__grizzly__spring__boot__starter",
+          "repeat_failure_suppressed": 0,
+          "selected_hypothesis_id": null,
+          "selection_rationale": {
+            "competitors": [
+              {
+                "hypothesis_id": "dabla__grizzly__spring__boot__starter-pom17",
+                "passed": false,
+                "score": {
+                  "confidence": 0.0,
+                  "cost": 0.0,
+                  "quality": 0.0,
+                  "risk": 1.0,
+                  "total": -1.0
+                },
+                "status": "failed"
+              }
+            ],
+            "reason": "repair_exhausted",
+            "selected_hypothesis_id": null,
+            "selected_score": null
+          },
+          "stop_reason": "repair_exhausted",
+          "strict_success": false
+        },
+        {
+          "candidate_count": 0,
+          "dedup_skipped": 0,
+          "instance_id": "blueobelisk__chemicaltagger",
+          "repeat_failure_suppressed": 0,
+          "selected_hypothesis_id": null,
+          "selection_rationale": {
+            "competitors": [],
+            "reason": "no_candidate_generated",
+            "selected_hypothesis_id": null,
+            "selected_score": null
+          },
+          "stop_reason": "no_candidate_generated",
+          "strict_success": false
+        },
+        {
+          "candidate_count": 1,
+          "dedup_skipped": 0,
+          "instance_id": "realjeeshop__jeeshop",
+          "repeat_failure_suppressed": 0,
+          "selected_hypothesis_id": null,
+          "selection_rationale": {
+            "competitors": [
+              {
+                "hypothesis_id": "realjeeshop__jeeshop-pom17",
+                "passed": false,
+                "score": {
+                  "confidence": 0.0,
+                  "cost": 0.0,
+                  "quality": 0.0,
+                  "risk": 1.0,
+                  "total": -1.0
+                },
+                "status": "failed"
+              }
+            ],
+            "reason": "repair_exhausted",
+            "selected_hypothesis_id": null,
+            "selected_score": null
+          },
+          "stop_reason": "repair_exhausted",
+          "strict_success": false
+        },
+        {
+          "candidate_count": 1,
+          "dedup_skipped": 0,
+          "instance_id": "mtuhide__cocotemp",
+          "repeat_failure_suppressed": 0,
+          "selected_hypothesis_id": null,
+          "selection_rationale": {
+            "competitors": [
+              {
+                "hypothesis_id": "mtuhide__cocotemp-pom17",
+                "passed": false,
+                "score": {
+                  "confidence": 0.0,
+                  "cost": 0.0,
+                  "quality": 0.0,
+                  "risk": 1.0,
+                  "total": -1.0
+                },
+                "status": "failed"
+              }
+            ],
+            "reason": "repair_exhausted",
+            "selected_hypothesis_id": null,
+            "selected_score": null
+          },
+          "stop_reason": "repair_exhausted",
+          "strict_success": false
+        },
+        {
+          "candidate_count": 1,
+          "dedup_skipped": 0,
+          "instance_id": "daiyuanchuan__tool",
+          "repeat_failure_suppressed": 0,
+          "selected_hypothesis_id": null,
+          "selection_rationale": {
+            "competitors": [
+              {
+                "hypothesis_id": "daiyuanchuan__tool-pom17",
+                "passed": false,
+                "score": {
+                  "confidence": 0.0,
+                  "cost": 0.0,
+                  "quality": 0.0,
+                  "risk": 1.0,
+                  "total": -1.0
+                },
+                "status": "failed"
+              }
+            ],
+            "reason": "repair_exhausted",
+            "selected_hypothesis_id": null,
+            "selected_score": null
+          },
+          "stop_reason": "repair_exhausted",
+          "strict_success": false
+        },
+        {
+          "candidate_count": 0,
+          "dedup_skipped": 0,
+          "instance_id": "jaroslavtulach__heapdump",
+          "repeat_failure_suppressed": 0,
+          "selected_hypothesis_id": null,
+          "selection_rationale": {
+            "competitors": [],
+            "reason": "no_candidate_generated",
+            "selected_hypothesis_id": null,
+            "selected_score": null
+          },
+          "stop_reason": "no_candidate_generated",
+          "strict_success": false
+        },
+        {
+          "candidate_count": 1,
+          "dedup_skipped": 0,
+          "instance_id": "erhmutlu__iyzico__kafka__demo",
+          "repeat_failure_suppressed": 0,
+          "selected_hypothesis_id": null,
+          "selection_rationale": {
+            "competitors": [
+              {
+                "hypothesis_id": "erhmutlu__iyzico__kafka__demo-pom17",
+                "passed": false,
+                "score": {
+                  "confidence": 0.0,
+                  "cost": 0.0,
+                  "quality": 0.0,
+                  "risk": 1.0,
+                  "total": -1.0
+                },
+                "status": "failed"
+              }
+            ],
+            "reason": "repair_exhausted",
+            "selected_hypothesis_id": null,
+            "selected_score": null
+          },
+          "stop_reason": "repair_exhausted",
+          "strict_success": false
+        },
+        {
+          "candidate_count": 1,
+          "dedup_skipped": 0,
+          "instance_id": "citymonstret__rorledning",
+          "repeat_failure_suppressed": 0,
+          "selected_hypothesis_id": "citymonstret__rorledning-pom17",
+          "selection_rationale": {
+            "competitors": [
+              {
+                "hypothesis_id": "citymonstret__rorledning-pom17",
+                "passed": true,
+                "score": {
+                  "confidence": 1.0,
+                  "cost": 0.0,
+                  "quality": 1.0,
+                  "risk": 0.0,
+                  "total": 2.0
+                },
+                "status": "selected"
+              }
+            ],
+            "reason": "fallback_validated_finalization",
+            "selected_hypothesis_id": "citymonstret__rorledning-pom17",
+            "selected_score": 2.0
+          },
+          "stop_reason": "artifact_contract_failed",
+          "strict_success": false
+        },
+        {
+          "candidate_count": 1,
+          "dedup_skipped": 0,
+          "instance_id": "runtimetools__javametrics",
+          "repeat_failure_suppressed": 0,
+          "selected_hypothesis_id": null,
+          "selection_rationale": {
+            "competitors": [
+              {
+                "hypothesis_id": "runtimetools__javametrics-pom17",
+                "passed": false,
+                "score": {
+                  "confidence": 0.0,
+                  "cost": 0.0,
+                  "quality": 0.0,
+                  "risk": 1.0,
+                  "total": -1.0
+                },
+                "status": "applied"
+              }
+            ],
+            "reason": "repair_exhausted",
+            "selected_hypothesis_id": null,
+            "selected_score": null
+          },
+          "stop_reason": "repair_exhausted",
+          "strict_success": false
+        },
+        {
+          "candidate_count": 1,
+          "dedup_skipped": 0,
+          "instance_id": "mercateo__rest__schemagen",
+          "repeat_failure_suppressed": 0,
+          "selected_hypothesis_id": null,
+          "selection_rationale": {
+            "competitors": [
+              {
+                "hypothesis_id": "mercateo__rest__schemagen-pom17",
+                "passed": false,
+                "score": {
+                  "confidence": 0.0,
+                  "cost": 0.0,
+                  "quality": 0.0,
+                  "risk": 1.0,
+                  "total": -1.0
+                },
+                "status": "failed"
+              }
+            ],
+            "reason": "repair_exhausted",
+            "selected_hypothesis_id": null,
+            "selected_score": null
+          },
+          "stop_reason": "repair_exhausted",
+          "strict_success": false
+        },
+        {
+          "candidate_count": 1,
+          "dedup_skipped": 0,
+          "instance_id": "erudika__para",
+          "repeat_failure_suppressed": 0,
+          "selected_hypothesis_id": null,
+          "selection_rationale": {
+            "competitors": [
+              {
+                "hypothesis_id": "erudika__para-pom17",
+                "passed": false,
+                "score": {
+                  "confidence": 0.0,
+                  "cost": 0.0,
+                  "quality": 0.0,
+                  "risk": 1.0,
+                  "total": -1.0
+                },
+                "status": "failed"
+              }
+            ],
+            "reason": "repair_exhausted",
+            "selected_hypothesis_id": null,
+            "selected_score": null
+          },
+          "stop_reason": "repair_exhausted",
+          "strict_success": false
+        },
+        {
+          "candidate_count": 1,
+          "dedup_skipped": 0,
+          "instance_id": "packtpublishing__master__java__unit__testing__with__spring__boot__and__mockito",
+          "repeat_failure_suppressed": 0,
+          "selected_hypothesis_id": null,
+          "selection_rationale": {
+            "competitors": [
+              {
+                "hypothesis_id": "packtpublishing__master__java__unit__testing__with__spring__boot__and__mockito-pom17",
+                "passed": false,
+                "score": {
+                  "confidence": 0.0,
+                  "cost": 0.0,
+                  "quality": 0.0,
+                  "risk": 1.0,
+                  "total": -1.0
+                },
+                "status": "applied"
+              }
+            ],
+            "reason": "repair_exhausted",
+            "selected_hypothesis_id": null,
+            "selected_score": null
+          },
+          "stop_reason": "repair_exhausted",
+          "strict_success": false
+        },
+        {
+          "candidate_count": 1,
+          "dedup_skipped": 0,
+          "instance_id": "exabrial__form__binding",
+          "repeat_failure_suppressed": 0,
+          "selected_hypothesis_id": null,
+          "selection_rationale": {
+            "competitors": [
+              {
+                "hypothesis_id": "exabrial__form__binding-pom17",
+                "passed": false,
+                "score": {
+                  "confidence": 0.0,
+                  "cost": 0.0,
+                  "quality": 0.0,
+                  "risk": 1.0,
+                  "total": -1.0
+                },
+                "status": "failed"
+              }
+            ],
+            "reason": "repair_exhausted",
+            "selected_hypothesis_id": null,
+            "selected_score": null
+          },
+          "stop_reason": "repair_exhausted",
+          "strict_success": false
+        },
+        {
+          "candidate_count": 1,
+          "dedup_skipped": 0,
+          "instance_id": "comic__con__museum__fan__forge__backend",
+          "repeat_failure_suppressed": 0,
+          "selected_hypothesis_id": null,
+          "selection_rationale": {
+            "competitors": [
+              {
+                "hypothesis_id": "comic__con__museum__fan__forge__backend-pom17",
+                "passed": false,
+                "score": {
+                  "confidence": 0.0,
+                  "cost": 0.0,
+                  "quality": 0.0,
+                  "risk": 1.0,
+                  "total": -1.0
+                },
+                "status": "applied"
+              }
+            ],
+            "reason": "repair_exhausted",
+            "selected_hypothesis_id": null,
+            "selected_score": null
+          },
+          "stop_reason": "repair_exhausted",
+          "strict_success": false
+        },
+        {
+          "candidate_count": 1,
+          "dedup_skipped": 0,
+          "instance_id": "seesharpsoft__sharping",
+          "repeat_failure_suppressed": 0,
+          "selected_hypothesis_id": null,
+          "selection_rationale": {
+            "competitors": [
+              {
+                "hypothesis_id": "seesharpsoft__sharping-pom17",
+                "passed": false,
+                "score": {
+                  "confidence": 0.0,
+                  "cost": 0.0,
+                  "quality": 0.0,
+                  "risk": 1.0,
+                  "total": -1.0
+                },
+                "status": "failed"
+              }
+            ],
+            "reason": "repair_exhausted",
+            "selected_hypothesis_id": null,
+            "selected_score": null
+          },
+          "stop_reason": "repair_exhausted",
+          "strict_success": false
+        },
+        {
+          "candidate_count": 1,
+          "dedup_skipped": 0,
+          "instance_id": "refactoring__bot__refactoring__bot",
+          "repeat_failure_suppressed": 0,
+          "selected_hypothesis_id": null,
+          "selection_rationale": {
+            "competitors": [
+              {
+                "hypothesis_id": "refactoring__bot__refactoring__bot-pom17",
+                "passed": false,
+                "score": {
+                  "confidence": 0.0,
+                  "cost": 0.0,
+                  "quality": 0.0,
+                  "risk": 1.0,
+                  "total": -1.0
+                },
+                "status": "applied"
+              }
+            ],
+            "reason": "repair_exhausted",
+            "selected_hypothesis_id": null,
+            "selected_score": null
+          },
+          "stop_reason": "repair_exhausted",
+          "strict_success": false
+        },
+        {
+          "candidate_count": 1,
+          "dedup_skipped": 0,
+          "instance_id": "evandylan__unicorn",
+          "repeat_failure_suppressed": 0,
+          "selected_hypothesis_id": null,
+          "selection_rationale": {
+            "competitors": [
+              {
+                "hypothesis_id": "evandylan__unicorn-pom17",
+                "passed": false,
+                "score": {
+                  "confidence": 0.0,
+                  "cost": 0.0,
+                  "quality": 0.0,
+                  "risk": 1.0,
+                  "total": -1.0
+                },
+                "status": "failed"
+              }
+            ],
+            "reason": "repair_exhausted",
+            "selected_hypothesis_id": null,
+            "selected_score": null
+          },
+          "stop_reason": "repair_exhausted",
+          "strict_success": false
+        }
+      ],
+      "live_replay_parity": true,
+      "repeat_failure_suppressed_total": 0,
+      "stop_reasons": {
+        "artifact_contract_failed": 2,
+        "no_candidate_generated": 5,
+        "repair_exhausted": 23
+      },
+      "strategy_name": "branching_repair",
+      "strict_success_count": 0
+    }
+  ],
+  "limit": null,
+  "out_dir": "campaign_results/v10/ablation_main30",
+  "seed": 42,
+  "subset_path": "fixtures/migrationbench/subsets/main_30.jsonl"
+}

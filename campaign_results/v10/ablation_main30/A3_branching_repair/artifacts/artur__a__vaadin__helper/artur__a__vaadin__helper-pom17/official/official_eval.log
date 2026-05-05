@@ -1,0 +1,23 @@
+
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+
+Generating test split:   0%|          | 0/5102 [00:00<?, ? examples/s]
+Generating test split: 100%|██████████| 5102/5102 [00:00<00:00, 34435.36 examples/s]
+Generating test split: 100%|██████████| 5102/5102 [00:00<00:00, 34178.08 examples/s]
+2026-05-04 12:21:31,095 [utils.py:64] INFO - CMD: ['git', 'branch', '-f', 'SELF_DEBUG__FINAL_EVAL']
+2026-05-04 12:21:31,098 [utils.py:64] INFO - CMD: ['git', 'checkout', '-f', 'SELF_DEBUG__FINAL_EVAL']
+2026-05-04 12:21:31,099 [utils.py:64] INFO - CMD: ['git', 'clean', '-df']
+2026-05-04 12:21:31,100 [utils.py:64] INFO - CMD: ['git', 'restore', '--staged', '.']
+2026-05-04 12:21:31,101 [utils.py:64] INFO - CMD: ['git', 'restore', '.']
+2026-05-04 12:21:31,102 [utils.py:64] INFO - CMD: ['git', 'log', '-1', "--format='%H'"]
+2026-05-04 12:21:31,103 [utils.py:64] INFO - CMD: ['git', 'apply', '/app/campaign_results/v10/ablation_main30/A3_branching_repair/artifacts/artur__a__vaadin__helper/artur__a__vaadin__helper-pom17/patch.diff']
+2026-05-04 12:21:31,104 [maven_utils.py:56] INFO - Run `cd /tmp/tmp8zwvkmhj; mvn dependency:resolve` before `cd /tmp/tmp8zwvkmhj; mvn clean verify`.
+2026-05-04 12:21:31,104 [utils.py:64] INFO - CMD: cd /tmp/tmp8zwvkmhj; mvn dependency:resolve
+2026-05-04 12:21:33,383 [utils.py:64] INFO - CMD: cd /tmp/tmp8zwvkmhj; mvn clean verify
+2026-05-04 12:21:39,833 [utils.py:64] INFO - CMD: find /tmp/tmp8zwvkmhj -type f -path '*/target/classes/*.class' | xargs javap -verbose | grep 'major version: '
+2026-05-04 12:21:40,187 [maven_utils.py:56] INFO - Run `cd /tmp/tmp8zwvkmhj; mvn dependency:resolve` before `cd /tmp/tmp8zwvkmhj; mvn test -f .`.
+2026-05-04 12:21:40,187 [utils.py:64] INFO - CMD: cd /tmp/tmp8zwvkmhj; mvn dependency:resolve
+2026-05-04 12:21:43,522 [utils.py:64] INFO - CMD: cd /tmp/tmp8zwvkmhj; mvn test -f .
+2026-05-04 12:21:47,637 [final_eval.py:183] WARNING - Repo (Build success, #tests) = (True, -2): `/tmp/tmp8zwvkmhj`.
+2026-05-04 12:21:47,638 [final_eval.py:263] WARNING - Final eval for `https://github.com/Artur-/a-vaadin-helper` (/app/campaign_results/v10/ablation_main30/A3_branching_repair/artifacts/artur__a__vaadin__helper/artur__a__vaadin__helper-pom17/patch.diff): Success = False.
+2026-05-04 12:21:47,646 [run_eval.py:162] INFO - [single] Migration success (count) `False`: `('https://github.com/Artur-/a-vaadin-helper', '/app/campaign_results/v10/ablation_main30/A3_branching_repair/artifacts/artur__a__vaadin__helper/artur__a__vaadin__helper-pom17/patch.diff', None)`.

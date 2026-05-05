@@ -1,0 +1,13 @@
+diff --git a/pom.xml b/pom.xml
+index fdecd4d..a5d54cc 100644
+--- a/pom.xml
++++ b/pom.xml
+@@ -43,7 +43,7 @@
+     </scm>
+ 
+     <properties>
+-        <java.version>1.8</java.version>
++        <java.version>17</java.version>
+         <maven.compiler.source>${java.version}</maven.compiler.source>
+         <maven.compiler.target>${java.version}</maven.compiler.target>
+         <spring.boot.version>2.1.4.RELEASE</spring.boot.version>

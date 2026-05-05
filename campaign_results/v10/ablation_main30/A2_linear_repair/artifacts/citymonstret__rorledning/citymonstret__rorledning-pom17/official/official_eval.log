@@ -1,0 +1,18 @@
+
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+2026-05-04 12:13:00,306 [utils.py:64] INFO - CMD: ['git', 'branch', '-f', 'SELF_DEBUG__FINAL_EVAL']
+2026-05-04 12:13:00,309 [utils.py:64] INFO - CMD: ['git', 'checkout', '-f', 'SELF_DEBUG__FINAL_EVAL']
+2026-05-04 12:13:00,311 [utils.py:64] INFO - CMD: ['git', 'clean', '-df']
+2026-05-04 12:13:00,312 [utils.py:64] INFO - CMD: ['git', 'restore', '--staged', '.']
+2026-05-04 12:13:00,313 [utils.py:64] INFO - CMD: ['git', 'restore', '.']
+2026-05-04 12:13:00,315 [utils.py:64] INFO - CMD: ['git', 'log', '-1', "--format='%H'"]
+2026-05-04 12:13:00,316 [utils.py:64] INFO - CMD: ['git', 'apply', '/app/campaign_results/v10/ablation_main30/A2_linear_repair/artifacts/citymonstret__rorledning/citymonstret__rorledning-pom17/patch.diff']
+2026-05-04 12:13:00,317 [maven_utils.py:56] INFO - Run `cd /tmp/tmpiuwagvwp; mvn dependency:resolve` before `cd /tmp/tmpiuwagvwp; mvn clean verify`.
+2026-05-04 12:13:00,318 [utils.py:64] INFO - CMD: cd /tmp/tmpiuwagvwp; mvn dependency:resolve
+2026-05-04 12:13:01,520 [utils.py:64] INFO - CMD: cd /tmp/tmpiuwagvwp; mvn clean verify
+2026-05-04 12:13:10,418 [maven_utils.py:56] INFO - Run `cd /tmp/tmpiuwagvwp; mvn dependency:resolve` before `cd /tmp/tmpiuwagvwp; mvn test -f .`.
+2026-05-04 12:13:10,418 [utils.py:64] INFO - CMD: cd /tmp/tmpiuwagvwp; mvn dependency:resolve
+2026-05-04 12:13:12,211 [utils.py:64] INFO - CMD: cd /tmp/tmpiuwagvwp; mvn test -f .
+2026-05-04 12:13:16,051 [final_eval.py:183] WARNING - Repo (Build success, #tests) = (False, -2): `/tmp/tmpiuwagvwp`.
+2026-05-04 12:13:16,051 [final_eval.py:263] WARNING - Final eval for `https://github.com/Citymonstret/Rorledning` (/app/campaign_results/v10/ablation_main30/A2_linear_repair/artifacts/citymonstret__rorledning/citymonstret__rorledning-pom17/patch.diff): Success = False.
+2026-05-04 12:13:16,058 [run_eval.py:162] INFO - [single] Migration success (count) `False`: `('https://github.com/Citymonstret/Rorledning', '/app/campaign_results/v10/ablation_main30/A2_linear_repair/artifacts/citymonstret__rorledning/citymonstret__rorledning-pom17/patch.diff', None)`.
