@@ -300,3 +300,22 @@ PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 .venv/bin/python -m pytest \
   tests/unit/v10 tests/integration/v10 -q
 # 212 passed in 6.93s
 ```
+
+Validation Docker sans transfert de contexte (`docker run`, repo monté dans
+`/app`, image existante `stigmergiagentic-ablation-a3-vs-a4-budget:latest`) :
+
+```bash
+# campaign_results/v10/a4_digest_smoke_20260506010110
+# subset main_30, limit=3, A4 only, budget 3x1x3, official_eval=true
+docker inspect stigmergiagentic-a4-digest-smoke-20260506010110
+# exited 0, 2026-05-05T23:01:12Z -> 2026-05-05T23:05:16Z
+
+# Replay telemetry audit:
+# live == replay, mismatches={}
+# signal_emitted_total=39
+# signal_applied_total=4
+# validation_completed_total=13
+# validation_partial_total=6
+# validation_failed_total=3
+# validation_error_total=4
+```
