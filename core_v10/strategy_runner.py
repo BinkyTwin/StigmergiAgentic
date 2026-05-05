@@ -643,7 +643,17 @@ class StrategyRunner:
                 # Inject the stigmergic digest *and* the parent branch's
                 # current files so the repair_provider grounds its output in
                 # the post-apply state (not the pristine base workspace).
-                aug_observation = _attach_digest(observation, store)
+                digest = policy_digest(store)
+                aug_observation = _attach_digest(observation, digest=digest)
+                if not digest.is_empty:
+                    _emit_applied(
+                        kind=SignalKind.SUPPORT,
+                        target="stigmergic_digest",
+                        effect="repair_prompt_context",
+                        hypothesis_id=report.hypothesis_id,
+                        rationale="signal_digest_attached_to_repair_prompt",
+                        intensity=_digest_max_intensity(digest),
+                    )
                 aug_observation = _attach_live_files(
                     aug_observation, parent_node.workspace
                 )
@@ -1063,13 +1073,24 @@ def _signal_reorder(
     return sorted_candidates
 
 
-def _attach_digest(observation: Observation, store: SignalStore) -> Observation:
+def _attach_digest(observation: Observation, *, digest) -> Observation:
     """Return ``observation`` with the stigmergic digest attached to ``data``."""
 
-    digest_payload = policy_digest(store).to_dict()
+    digest_payload = digest.to_dict()
     new_data = dict(observation.data or {})
     new_data["stigmergic_digest"] = digest_payload
     return replace(observation, data=new_data)
+
+
+def _digest_max_intensity(digest) -> float:
+    records = (
+        tuple(digest.top_inhibitions)
+        + tuple(digest.top_supports)
+        + tuple(digest.top_novelties)
+    )
+    if not records:
+        return 0.0
+    return max(float(record.intensity) for record in records)
 
 
 _LIVE_FILES_MAX_BYTES = 200_000  # per file, conservative cap to keep prompts small

@@ -266,3 +266,37 @@ PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 .venv/bin/python -m pytest \
   tests/unit/v10 tests/integration/v10 -q
 # 212 passed in 6.69s
 ```
+
+## 9. Correctif appliqué — activation réelle du digest stigmergique A4
+
+L'audit du run complet `budget=5` après correctif officiel a montré que A4
+émettait des signaux (`signal_emitted_total=536`) mais n'en appliquait aucun
+aux décisions (`signal_applied_total=0`). Cause : le runner attachait un
+`stigmergic_digest` à l'observation de réparation, mais le provider LLM ne le
+lisait pas dans le prompt.
+
+Correctif :
+
+- `run_stigmergic_blackboard()` attache maintenant le digest via
+  `policy_digest(store)` et émet un `signal.applied` avec
+  `effect=repair_prompt_context` quand ce digest non vide est injecté dans une
+  réparation.
+- `providers_llm._build_repair_user_prompt()` expose un bloc compact
+  `Stigmergic policy digest from prior candidates` avec les top inhibitions,
+  supports et novelties.
+- Le digest est tronqué et compacté pour éviter de gonfler le prompt tout en
+  rendant les signaux exploitables par le LLM.
+
+Validation locale :
+
+```bash
+PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 .venv/bin/python -m pytest \
+  tests/unit/v10/test_strategy_runner_phase6.py \
+  tests/unit/v10/bench/test_telemetry_phase6.py \
+  tests/integration/v10/test_phase6_smoke.py -q
+# 14 passed in 0.12s
+
+PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 .venv/bin/python -m pytest \
+  tests/unit/v10 tests/integration/v10 -q
+# 212 passed in 6.93s
+```

@@ -9,6 +9,7 @@
 - Treat official benchmark rejection as validation feedback while repair budget remains; do not wait until finalization to discover a benchmark-contract failure.
 - If local compile/test/class-version pass but official evaluation fails, classify the candidate as a repairable partial and preserve the official log in `raw_output`/metadata.
 - Prompts should distinguish test deletion from test-summary parsing failures when a benchmark reports sentinel values such as `#tests=-2`.
+- Stigmergic digest injection is a signal application: when prior signals are attached to a repair prompt, record `signal.applied` and include a compact digest that the provider actually reads.
 
 ### External Review Handoff Standard
 - Give external reviewers a falsification-oriented prompt that asks for architecture risks, metric validity, benchmark comparability, telemetry integrity, and thesis narrative gaps.

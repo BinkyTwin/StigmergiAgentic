@@ -3,9 +3,9 @@
 ## 2026-05-05 (Run Official MigrationBench Evaluation During Validation When Repair Is Active)
 
 - `repo_slug`: `stigmergiagentic-33b989`
-- `decision`: Execute the official MigrationBench evaluator inside `MigrationBenchAdapterV10.validate()` when the local chain is green and an evaluator is configured, mapping official rejection to a repairable partial validation.
-- `rationale`: Budgeted A3/A4 runs were stopping after a locally passing candidate and only then discovering `official_success=False` in `finalize()`, wasting the configured candidate/repair budget and making the framework look artificially limited.
-- `alternatives_rejected`: Keep official evaluation only in finalization, increase `BUDGET_CANDS` without changing control flow, or treat `#tests=-2` as an opaque terminal artifact failure.
+- `decision`: Execute the official MigrationBench evaluator inside `MigrationBenchAdapterV10.validate()` when the local chain is green and an evaluator is configured, mapping official rejection to a repairable partial validation. Also treat non-empty stigmergic digest injection into repair prompts as an auditable `signal.applied` event.
+- `rationale`: Budgeted A3/A4 runs were stopping after a locally passing candidate and only then discovering `official_success=False` in `finalize()`, wasting the configured candidate/repair budget and making the framework look artificially limited. A4 also emitted signals without giving them to the LLM repair provider, so its stigmergic layer was measurable but not operationally active.
+- `alternatives_rejected`: Keep official evaluation only in finalization, increase `BUDGET_CANDS` without changing control flow, treat `#tests=-2` as an opaque terminal artifact failure, or count signal emission alone as stigmergic activation.
 - `linked_adr`: `documentation/redisgn_v2/phase_06_budget5_audit.md`
 
 ## 2026-05-05 (Allowlist Selected Raw V10 Campaigns For GPT/GitHub Review)

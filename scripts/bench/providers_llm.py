@@ -489,6 +489,14 @@ def _build_repair_user_prompt(
     target_class = int(observation.data.get("target_class_major", 61))
     project_context = _format_project_context(_collect_dependency_context(files))
     context_block = (project_context + "\n\n") if project_context else ""
+    signal_digest = _format_stigmergic_digest(
+        observation.data.get("stigmergic_digest")
+    )
+    signal_block = (
+        f"Stigmergic policy digest from prior candidates:\n{signal_digest}\n\n"
+        if signal_digest
+        else ""
+    )
     return (
         f"Repository: {observation.data.get('repo_url')}\n"
         f"Target Java: {target_java} (class major {target_class})\n"
@@ -498,6 +506,7 @@ def _build_repair_user_prompt(
         f"Recommended next actions: "
         f"{json.dumps(feedback.recommended_next_actions)}\n"
         f"Anti-actions: {json.dumps(feedback.anti_actions)}\n\n"
+        f"{signal_block}"
         f"{context_block}"
         f"Previous edit set:\n{prior_edits_json}\n\n"
         f"Build/test log tail (last 3.5KB):\n{log_tail}\n\n"
@@ -506,6 +515,34 @@ def _build_repair_user_prompt(
         "Return one JSON object: "
         '{"edits":[…],"rationale":"…","expected_build_command":"mvn clean verify"}'
     )
+
+
+def _format_stigmergic_digest(raw: Any) -> str:
+    if not isinstance(raw, dict):
+        return ""
+    compact: dict[str, list[dict[str, Any]]] = {}
+    for key in ("top_inhibitions", "top_supports", "top_novelties"):
+        rows = raw.get(key)
+        if not isinstance(rows, list):
+            continue
+        cleaned = []
+        for row in rows[:3]:
+            if not isinstance(row, dict):
+                continue
+            cleaned.append(
+                {
+                    "kind": row.get("kind"),
+                    "target": row.get("target"),
+                    "intensity": row.get("intensity"),
+                    "evidence": list(row.get("evidence") or [])[:2],
+                }
+            )
+        if cleaned:
+            compact[key] = cleaned
+    if not compact:
+        return ""
+    text = json.dumps(compact, sort_keys=True)
+    return _truncate(text, 1200)
 
 
 # ---------------------------------------------------------------------------

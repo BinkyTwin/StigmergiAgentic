@@ -9,7 +9,7 @@
 
 ### Outcome
 
-The budget=5 relaunch showed that `branching_repair` could stop after one locally passing candidate, then fail only in `finalize()` when the official MigrationBench evaluator returned `official_success=False` (`#tests=-2`). V10 now runs official evaluation inside `validate()` whenever the local chain is green and an evaluator is configured. Official rejection becomes `ValidationStatus.PARTIAL` with official logs in `raw_output`, structured `metadata.official`, and repair feedback (`fix_official_eval_failure`) instead of a terminal fallback finalization.
+The budget=5 relaunch showed that `branching_repair` could stop after one locally passing candidate, then fail only in `finalize()` when the official MigrationBench evaluator returned `official_success=False` (`#tests=-2`). V10 now runs official evaluation inside `validate()` whenever the local chain is green and an evaluator is configured. Official rejection becomes `ValidationStatus.PARTIAL` with official logs in `raw_output`, structured `metadata.official`, and repair feedback (`fix_official_eval_failure`) instead of a terminal fallback finalization. A4 also now passes the stigmergic digest into repair prompts and records that context injection as `signal.applied`, so emitted signals are no longer passive prompt-external telemetry.
 
 ### Reusable Patterns (1-3)
 
@@ -22,6 +22,7 @@ The budget=5 relaunch showed that `branching_repair` could stop after one locall
 - `adapters_v10/migrationbench/adapter.py`
 - `adapters_v10/migrationbench/verifier.py`
 - `scripts/bench/providers_llm.py`
+- `core_v10/strategy_runner.py`
 - `tests/unit/v10/migrationbench/test_adapter.py`
 - `tests/unit/v10/migrationbench/test_verifier.py`
 - `documentation/redisgn_v2/phase_06_budget5_audit.md`
