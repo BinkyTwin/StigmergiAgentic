@@ -180,6 +180,12 @@ def _arm_payload(arm: AblationArm, summary: Summary) -> dict[str, Any]:
             "pheromone_hit_rate": float(inst.pheromone_hit_rate),
             "feedback_reuse_rate": float(inst.feedback_reuse_rate),
             "repeated_failure_suppression": int(inst.repeated_failure_suppression),
+            "apply_ok_count": int(inst.apply_ok_count),
+            "validation_completed_count": int(inst.validation_completed_count),
+            "validation_passed_count": int(inst.validation_passed_count),
+            "validation_partial_count": int(inst.validation_partial_count),
+            "validation_failed_count": int(inst.validation_failed_count),
+            "validation_error_count": int(inst.validation_error_count),
         }
         for inst in summary.instances
     ]
@@ -205,6 +211,12 @@ def _arm_payload(arm: AblationArm, summary: Summary) -> dict[str, Any]:
         "repeated_failure_suppression_total": int(
             summary.repeated_failure_suppression_total
         ),
+        "apply_ok_total": int(summary.apply_ok_total),
+        "validation_completed_total": int(summary.validation_completed_total),
+        "validation_passed_total": int(summary.validation_passed_total),
+        "validation_partial_total": int(summary.validation_partial_total),
+        "validation_failed_total": int(summary.validation_failed_total),
+        "validation_error_total": int(summary.validation_error_total),
         "instances": instances,
     }
 

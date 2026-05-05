@@ -2841,3 +2841,27 @@ The A1/A2/A3 `main_30` campaign validated Docker execution, EventLog replay pari
 - `scripts/bench/compare_strategies.py`
 - `adapters_v10/migrationbench/verifier.py`
 - `external/MigrationBench/src/migration_bench/eval/final_eval.py`
+
+## 2026-05-05 — Harden V10 MigrationBench Budgeted Ablation Against Workspace Exhaustion
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `impact_score`: `8/10`
+- `confidence`: `high`
+- `scope`: `Stabilize Phase 6 A3/A4 budget=5 campaign relaunch`
+
+### Outcome
+The partial budget=5 A3 run crashed at instance 26/30 because branch and `_verify` workspaces accumulated copied Maven build outputs. V10 now skips generated outputs when copying branches, cleans `_verify/<candidate>` immediately after patch-apply checks, removes branch build outputs after validation/finalization, records branch-copy failures as `ApplyResult` failures instead of campaign crashes, and raises Docker `nofile`/`nproc` limits for V10 MigrationBench services. Telemetry now exposes apply and validation status counters so `partial` validations no longer look like missing validation events.
+
+### Reusable Patterns (1-3)
+1. Budgeted branch-search campaigns must treat verification checkouts and build outputs as disposable resources, not durable evidence.
+2. Final score signals and validation-progress counters should be separate telemetry channels; strict success stays score-derived, while partial progress remains auditable.
+3. Infrastructure failures in branch materialization should become typed per-candidate failures whenever possible, preserving campaign denominator and EventLog continuity.
+
+### Evidence
+- `adapters_v10/migrationbench/workspace.py`
+- `adapters_v10/migrationbench/adapter.py`
+- `scripts/bench/telemetry.py`
+- `docker-compose.campaign.yml`
+- `documentation/redisgn_v2/phase_06_budget5_audit.md`
+- `tests/unit/v10`
+- `tests/integration/v10`

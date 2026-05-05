@@ -164,3 +164,63 @@ Memory A6** (cross-run signal accumulation) si budget=5 confirme que
 l'effet stigmergique reste marginal. C'est en Phase 8 que la stigmergie
 prend toute sa puissance (une instance résolue dépose un SUPPORT qui
 guide les 29 suivantes).
+
+## 7. Correctif appliqué — hardening relance budget=5 (2026-05-05 soir)
+
+Le crash ENFILE a été traité côté code avant relance :
+
+- `MigrationBenchWorkspaceV10.branch_workspace()` et
+  `fork_branch_workspace()` copient désormais les branches en excluant les
+  sorties générées (`target/`, `build/`, `out/`, `.gradle/`) tout en gardant
+  `.git/`, nécessaire à `git diff --binary`.
+- `MigrationBenchAdapterV10.validate()` nettoie le checkout `_verify/<candidate>`
+  immédiatement après le `git apply --check`.
+- `validate()` et `finalize()` suppriment aussi les sorties Maven de la branche
+  candidate après vérification, pour éviter de recopier des arbres `target/`
+  dans les repairs.
+- `apply()` transforme une erreur de création de branche en `ApplyResult`
+  explicite (`branch_workspace_error:*`) au lieu de laisser crasher toute la
+  campagne.
+- Les services Docker V10 MigrationBench ont maintenant `ulimits.nofile=65536`
+  et `nproc=8192` comme garde-fou supplémentaire.
+
+L'anomalie des 4 instances `val_pass=val_fail=0` était un faux signal d'audit :
+les events `validation.completed` existaient, mais avec `status=partial`. La
+télémétrie expose maintenant `apply_ok_total`, `validation_completed_total`,
+`validation_passed_total`, `validation_partial_total`, `validation_failed_total`
+et `validation_error_total`, au niveau résumé et au niveau instance. Le champ
+`by_signal` reste strictement réservé aux signaux de score final
+(`score.completed`) afin de préserver l'invariant de succès strict.
+
+Replay du run A3 crashé avec la nouvelle télémétrie :
+
+```text
+apply_ok_total=172
+validation_completed_total=182
+validation_passed_total=8
+validation_partial_total=52
+validation_failed_total=112
+validation_error_total=10
+```
+
+Validation locale :
+
+```bash
+PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 .venv/bin/python -m pytest \
+  tests/unit/v10 tests/integration/v10 -q
+# 211 passed in 17.64s
+
+docker compose -f docker-compose.campaign.yml config --quiet
+# OK, warnings attendus : OPENROUTER_API_KEY_2 absent et attribut version obsolète
+```
+
+Relance recommandée :
+
+```bash
+DEEPSEEK_API_KEY=$(grep DEEPSEEK_API_KEY .env | cut -d= -f2) \
+MIGRATION_OUT_DIR=campaign_results/v10/ablation_a3_vs_a4_budget5_retry \
+BUDGET_CANDS=5 \
+BUDGET_ROUNDS=1 \
+BUDGET_REPAIRS=5 \
+  docker compose -f docker-compose.campaign.yml up ablation-a3-vs-a4-budget
+```

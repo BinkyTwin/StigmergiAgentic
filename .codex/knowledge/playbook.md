@@ -618,3 +618,8 @@
 - Before interpreting an ablation score, verify that each arm actually activated the mechanism it claims to test: candidate fan-out for branching, non-empty repair proposals for repair loops, and blackboard events for typed coordination.
 - Report execution validity separately from scientific validity; Docker `exit 0`, full denominators, and replay parity prove the harness, not the treatment.
 - Align local verifier gates with official benchmark semantics, then keep stricter local-only checks as diagnostics rather than pre-official blockers unless the benchmark contract explicitly requires them.
+
+### Budgeted Branch-Search Workspace Hygiene Standard
+- Exclude generated build outputs when copying candidate branches; keep VCS metadata only when patch export still depends on it.
+- Delete disposable verification workspaces immediately after their verdict is serialized, and scrub branch build outputs before repairs fork from them.
+- Keep strict-success metrics score-derived, but add separate apply/validation counters so partial progress remains visible in failed or non-finalized runs.

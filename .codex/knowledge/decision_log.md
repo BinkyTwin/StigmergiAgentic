@@ -983,3 +983,11 @@
 - `rationale`: A2 and A3 used a no-op repair provider and the same deterministic single-candidate POM provider as A1; A3 produced no fan-out, no dedup, and no repeat-failure suppression. The zero strict-success result is therefore not an interpretable comparison of repair or stigmergic coordination.
 - `alternatives_rejected`: Promote the run as Phase 6-ready evidence, tune prompts on top of the current no-op repair loop, or explain the zero result as only benchmark difficulty without checking mechanism activation.
 - `linked_adr`: `campaign_results/v10/ablation_main30/comparison.json`
+
+## 2026-05-05 (Clean Disposable MigrationBench Workspaces During Budgeted V10 Runs)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: Treat `_verify/<candidate>` checkouts and Maven build outputs as disposable runtime resources in V10 MigrationBench; clean them during validation/finalization and expose validation-progress counters separately from final score signals.
+- `rationale`: The Phase 6 budget=5 A3 campaign crashed with `ENFILE` after hundreds of branch and verification copies accumulated. Separately, partial validations were present in the EventLog but invisible in summary-level final-score counters, creating a false audit anomaly.
+- `alternatives_rejected`: Only raise Docker file-descriptor limits, keep all branch build outputs for post-hoc inspection, merge validation partials into `by_signal`, or rerun budget=10 before budget=5 completes cleanly.
+- `linked_adr`: `documentation/redisgn_v2/phase_06_budget5_audit.md`

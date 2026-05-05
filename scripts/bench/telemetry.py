@@ -10,8 +10,9 @@ Strict invariant:
 - ``strict_success`` is True for an instance iff the most recent
   ``score.completed`` event for that instance carries
   ``strict_success=True``;
-- the summary never invents a metric: every count is reconstructible from
-  the ``score.completed`` payload (and only from it).
+- the summary never invents a metric: final score signals are reconstructed
+  from ``score.completed`` events, while apply/validation counters are
+  reconstructed from their own EventLog records.
 """
 
 from __future__ import annotations
@@ -31,6 +32,8 @@ DEDUPED_EVENT = "candidate.deduped"
 REPEAT_FAILURE_EVENT = "candidate.repeat_failure_suppressed"
 SIGNAL_EMITTED_EVENT = "signal.emitted"
 SIGNAL_APPLIED_EVENT = "signal.applied"
+CANDIDATE_APPLIED_EVENT = "candidate.applied"
+VALIDATION_EVENT = "validation.completed"
 
 
 @dataclass(frozen=True)
@@ -53,6 +56,12 @@ class InstanceSummary:
     pheromone_hit_rate: float = 0.0
     feedback_reuse_rate: float = 0.0
     repeated_failure_suppression: int = 0
+    apply_ok_count: int = 0
+    validation_completed_count: int = 0
+    validation_passed_count: int = 0
+    validation_partial_count: int = 0
+    validation_failed_count: int = 0
+    validation_error_count: int = 0
 
 
 @dataclass(frozen=True)
@@ -74,6 +83,12 @@ class Summary:
     pheromone_hit_rate: float = 0.0
     feedback_reuse_rate: float = 0.0
     repeated_failure_suppression_total: int = 0
+    apply_ok_total: int = 0
+    validation_completed_total: int = 0
+    validation_passed_total: int = 0
+    validation_partial_total: int = 0
+    validation_failed_total: int = 0
+    validation_error_total: int = 0
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -93,6 +108,12 @@ class Summary:
             "repeated_failure_suppression_total": int(
                 self.repeated_failure_suppression_total
             ),
+            "apply_ok_total": int(self.apply_ok_total),
+            "validation_completed_total": int(self.validation_completed_total),
+            "validation_passed_total": int(self.validation_passed_total),
+            "validation_partial_total": int(self.validation_partial_total),
+            "validation_failed_total": int(self.validation_failed_total),
+            "validation_error_total": int(self.validation_error_total),
         }
 
 
@@ -220,6 +241,27 @@ def _instance_summary(
         int(repeat_failure_suppressed) + int(signal_driven_drops)
     )
 
+    apply_ok_count = sum(
+        1
+        for e in instance_events
+        if e.event_type == CANDIDATE_APPLIED_EVENT
+        and bool((e.payload.get("apply_result") or {}).get("applied"))
+    )
+    validation_events = [
+        e for e in instance_events if e.event_type == VALIDATION_EVENT
+    ]
+    validation_status_counts = {
+        "passed": 0,
+        "partial": 0,
+        "failed": 0,
+        "error": 0,
+    }
+    for event in validation_events:
+        validation = event.payload.get("validation") or {}
+        status = str(validation.get("status") or "").lower()
+        if status in validation_status_counts:
+            validation_status_counts[status] += 1
+
     return InstanceSummary(
         instance_id=instance_id,
         strategy_name=strategy_name,
@@ -236,6 +278,12 @@ def _instance_summary(
         pheromone_hit_rate=float(pheromone_hit_rate),
         feedback_reuse_rate=float(feedback_reuse_rate),
         repeated_failure_suppression=int(repeated_failure_suppression),
+        apply_ok_count=int(apply_ok_count),
+        validation_completed_count=len(validation_events),
+        validation_passed_count=int(validation_status_counts["passed"]),
+        validation_partial_count=int(validation_status_counts["partial"]),
+        validation_failed_count=int(validation_status_counts["failed"]),
+        validation_error_count=int(validation_status_counts["error"]),
     )
 
 
@@ -260,6 +308,12 @@ def build_summary(
     pheromone_hit_sum = 0.0
     feedback_reuse_sum = 0.0
     repeated_failure_suppression_total = 0
+    apply_ok_total = 0
+    validation_completed_total = 0
+    validation_passed_total = 0
+    validation_partial_total = 0
+    validation_failed_total = 0
+    validation_error_total = 0
     for instance_id in instance_ids:
         events = events_by_instance.get(instance_id, [])
         summary = _instance_summary(
@@ -277,6 +331,12 @@ def build_summary(
         pheromone_hit_sum += summary.pheromone_hit_rate
         feedback_reuse_sum += summary.feedback_reuse_rate
         repeated_failure_suppression_total += summary.repeated_failure_suppression
+        apply_ok_total += summary.apply_ok_count
+        validation_completed_total += summary.validation_completed_count
+        validation_passed_total += summary.validation_passed_count
+        validation_partial_total += summary.validation_partial_count
+        validation_failed_total += summary.validation_failed_count
+        validation_error_total += summary.validation_error_count
         for key, value in summary.signals.items():
             if value is True:
                 by_signal[key] = by_signal.get(key, 0) + 1
@@ -297,6 +357,12 @@ def build_summary(
         pheromone_hit_rate=pheromone_hit_sum / float(n),
         feedback_reuse_rate=feedback_reuse_sum / float(n),
         repeated_failure_suppression_total=repeated_failure_suppression_total,
+        apply_ok_total=apply_ok_total,
+        validation_completed_total=validation_completed_total,
+        validation_passed_total=validation_passed_total,
+        validation_partial_total=validation_partial_total,
+        validation_failed_total=validation_failed_total,
+        validation_error_total=validation_error_total,
     )
 
 
@@ -345,6 +411,7 @@ def replay_summary_from_dir(out_dir: Path | str) -> Summary:
 
 __all__ = [
     "DEDUPED_EVENT",
+    "CANDIDATE_APPLIED_EVENT",
     "InstanceSummary",
     "REPEAT_FAILURE_EVENT",
     "RUN_COMPLETED_EVENT",
@@ -353,6 +420,7 @@ __all__ = [
     "SIGNAL_APPLIED_EVENT",
     "SIGNAL_EMITTED_EVENT",
     "Summary",
+    "VALIDATION_EVENT",
     "build_summary",
     "read_events",
     "replay_summary_from_dir",

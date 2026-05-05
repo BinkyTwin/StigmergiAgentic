@@ -49,6 +49,16 @@ pheromones/*.db-shm
 pheromones/*.db-wal
 pheromones/*/
 logs/
+.claude/*.lock
+
+# Local harness scratch workspaces
+/a/
+/b/
+/demo-*/
+/i-*/
+/only/
+/x/
+/z/
 
 # Metrics output
 metrics/output/
@@ -62,6 +72,23 @@ seed*.log
 *.tmp
 *.bak
 *.cache
+texput.log
+
+# LaTeX generated artifacts
+*.aux
+*.bbl
+*.bcf
+*.blg
+*.fdb_latexmk
+*.fls
+*.lof
+*.log
+*.lot
+*.out
+*.run.xml
+*.synctex.gz
+*.toc
+*.xdv
 
 # OS
 .DS_Store

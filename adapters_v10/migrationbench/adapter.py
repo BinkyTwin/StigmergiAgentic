@@ -14,7 +14,9 @@ verifier signal is True. There is no diagnostic fallback. The legacy V7
 
 from __future__ import annotations
 
+import gc
 import json
+import shutil
 from dataclasses import asdict
 from pathlib import Path
 from typing import Any
@@ -203,7 +205,17 @@ class MigrationBenchAdapterV10(DomainAdapterV10):
                 errors=[f"invalid_edit_payload:{exc}"],
             )
 
-        branch = self._open_branch(candidate, workspace)
+        try:
+            branch = self._open_branch(candidate, workspace)
+        except Exception as exc:  # noqa: BLE001
+            reason = f"branch_workspace_error:{type(exc).__name__}:{exc}"
+            return ApplyResult(
+                candidate_id=candidate.candidate_id,
+                applied=False,
+                workspace=workspace,
+                summary=reason,
+                errors=[reason],
+            )
         application: EditApplicationResult = branch.apply_typed_edits(edits)
         if not application.applied:
             return ApplyResult(
@@ -249,10 +261,14 @@ class MigrationBenchAdapterV10(DomainAdapterV10):
             root_dir=verification_root,
             timeout_seconds=self.timeout_seconds,
         )
-        apply_check = self.verifier.verify_patch_applies(
-            patch_path=patch_path,
-            verification_workspace=verification,
-        )
+        try:
+            apply_check = self.verifier.verify_patch_applies(
+                patch_path=patch_path,
+                verification_workspace=verification,
+            )
+        finally:
+            verification_cleaned = self._cleanup_path(verification_root)
+        build_outputs_removed = branch.cleanup_build_outputs()
         signals = self.verifier.build_signals(
             patch_stats=patch_stats,
             patch_apply=apply_check,
@@ -275,6 +291,8 @@ class MigrationBenchAdapterV10(DomainAdapterV10):
                 "patch_apply": _apply_check_to_dict(apply_check),
                 "branch_root": str(branch.root_dir),
                 "verification_root": str(verification_root),
+                "verification_cleaned": verification_cleaned,
+                "build_outputs_removed": build_outputs_removed,
             }
         )
         return ValidationResult(
@@ -374,10 +392,13 @@ class MigrationBenchAdapterV10(DomainAdapterV10):
             root_dir=verification_root,
             timeout_seconds=self.timeout_seconds,
         )
-        apply_check = self.verifier.verify_patch_applies(
-            patch_path=patch_path,
-            verification_workspace=verification,
-        )
+        try:
+            apply_check = self.verifier.verify_patch_applies(
+                patch_path=patch_path,
+                verification_workspace=verification,
+            )
+        finally:
+            verification_cleaned = self._cleanup_path(verification_root)
 
         local = self.verifier.verify_local(branch)
         official: OfficialVerificationResult | None = None
@@ -388,13 +409,18 @@ class MigrationBenchAdapterV10(DomainAdapterV10):
             and local.test_success
             and self.verifier.official_evaluator is not None
         ):
-            official_dir = self._artifacts_dir_or_default(workspace) / candidate.candidate_id / "official"
+            official_dir = (
+                self._artifacts_dir_or_default(workspace)
+                / candidate.candidate_id
+                / "official"
+            )
             official = self.verifier.verify_official(
                 instance=instance,
                 patch_path=patch_path,
                 output_dir=official_dir,
             )
 
+        build_outputs_removed = branch.cleanup_build_outputs()
         signals = self.verifier.build_signals(
             patch_stats=patch_stats,
             patch_apply=apply_check,
@@ -431,6 +457,8 @@ class MigrationBenchAdapterV10(DomainAdapterV10):
             },
             "candidate_id": candidate.candidate_id,
             "branch_id": self._branch_id(candidate),
+            "verification_cleaned": verification_cleaned,
+            "build_outputs_removed": build_outputs_removed,
         }
 
         return ArtifactResult(
@@ -531,7 +559,9 @@ class MigrationBenchAdapterV10(DomainAdapterV10):
         return base.branch_workspace(branch_id)
 
     def _candidate_patch_path(self, candidate: Candidate) -> Path:
-        artifacts_dir = self._artifacts_dir or Path(self._require_base_workspace().root_dir / "artifacts")
+        artifacts_dir = self._artifacts_dir or Path(
+            self._require_base_workspace().root_dir / "artifacts"
+        )
         artifacts_dir.mkdir(parents=True, exist_ok=True)
         candidate_dir = artifacts_dir / candidate.candidate_id
         candidate_dir.mkdir(parents=True, exist_ok=True)
@@ -548,6 +578,17 @@ class MigrationBenchAdapterV10(DomainAdapterV10):
         fallback = Path(self._require_base_workspace().root_dir) / "artifacts"
         fallback.mkdir(parents=True, exist_ok=True)
         return fallback
+
+    @staticmethod
+    def _cleanup_path(path: Path) -> bool:
+        """Best-effort removal for disposable verification workspaces."""
+
+        path = Path(path)
+        if not path.exists():
+            return False
+        shutil.rmtree(path, ignore_errors=True)
+        gc.collect()
+        return not path.exists()
 
     def _require_instance(self) -> MigrationBenchInstance:
         if self._instance is None:

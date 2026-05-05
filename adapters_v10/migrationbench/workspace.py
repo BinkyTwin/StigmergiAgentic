@@ -17,6 +17,7 @@ Differences from the legacy ``adapters/migrationbench/workspace.py``:
 
 from __future__ import annotations
 
+import os
 import re
 import shutil
 from dataclasses import dataclass, field
@@ -35,6 +36,21 @@ from adapters_v10.migrationbench.schemas import (
 
 class WorkspaceError(RuntimeError):
     """Raised when workspace setup or patch handling fails."""
+
+
+_COPY_IGNORE_NAMES: tuple[str, ...] = (
+    "target",
+    "build",
+    "out",
+    ".gradle",
+    ".idea",
+    ".DS_Store",
+)
+"""Generated workspace paths that must not be duplicated between branches."""
+
+
+_BUILD_OUTPUT_DIRS: frozenset[str] = frozenset({"target", "build", "out", ".gradle"})
+"""Directory names removed after Maven verification."""
 
 
 @dataclass(slots=True)
@@ -143,7 +159,11 @@ class MigrationBenchWorkspaceV10:
         )
         if not branch.repo_dir.exists():
             branch_root.mkdir(parents=True, exist_ok=True)
-            shutil.copytree(self.repo_dir, branch.repo_dir)
+            shutil.copytree(
+                self.repo_dir,
+                branch.repo_dir,
+                ignore=shutil.ignore_patterns(*_COPY_IGNORE_NAMES),
+            )
             branch.checkout_base()
         return branch
 
@@ -167,8 +187,41 @@ class MigrationBenchWorkspaceV10:
         )
         if not branch.repo_dir.exists():
             branch_root.mkdir(parents=True, exist_ok=True)
-            shutil.copytree(source.repo_dir, branch.repo_dir)
+            shutil.copytree(
+                source.repo_dir,
+                branch.repo_dir,
+                ignore=shutil.ignore_patterns(*_COPY_IGNORE_NAMES),
+            )
         return branch
+
+    def cleanup_build_outputs(self) -> list[str]:
+        """Remove generated Maven/build directories from this workspace.
+
+        Verification may leave large ``target/`` trees behind. Those trees are
+        never part of the patch contract and copying them into repair branches
+        can exhaust file descriptors on long budgeted campaigns. The cleanup is
+        conservative: it never descends into ``.git`` and only removes common
+        generated directory names.
+        """
+
+        if not self.repo_dir.exists():
+            return []
+
+        removed: list[str] = []
+        for current, dirs, _files in os.walk(self.repo_dir):
+            dirs[:] = [name for name in dirs if name != ".git"]
+            for name in list(dirs):
+                if name not in _BUILD_OUTPUT_DIRS:
+                    continue
+                path = Path(current) / name
+                try:
+                    rel = path.relative_to(self.repo_dir).as_posix()
+                except ValueError:
+                    rel = str(path)
+                shutil.rmtree(path, ignore_errors=True)
+                removed.append(rel)
+                dirs.remove(name)
+        return sorted(removed)
 
     # ----- file IO -------------------------------------------------------
 

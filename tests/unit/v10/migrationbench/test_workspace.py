@@ -113,6 +113,43 @@ def test_fork_branch_workspace_copies_from_source_branch(
     assert b1.read_file("MARKER.txt") == "b1-was-here"
 
 
+def test_fork_branch_workspace_skips_generated_build_outputs(
+    upstream_repo: tuple[Path, str], tmp_path: Path
+) -> None:
+    repo, sha = upstream_repo
+    ws = MigrationBenchWorkspaceV10(
+        instance=_instance(repo, sha), root_dir=tmp_path / "ws"
+    )
+    b1 = ws.branch_workspace("b1")
+    (b1.repo_dir / "target" / "classes").mkdir(parents=True)
+    (b1.repo_dir / "target" / "classes" / "A.class").write_bytes(b"\xca\xfe")
+
+    b2 = ws.fork_branch_workspace(source_branch_id="b1", branch_id="b2")
+
+    assert not (b2.repo_dir / "target").exists()
+    assert (b2.repo_dir / ".git").exists()
+
+
+def test_cleanup_build_outputs_removes_targets_without_touching_git(
+    upstream_repo: tuple[Path, str], tmp_path: Path
+) -> None:
+    repo, sha = upstream_repo
+    ws = MigrationBenchWorkspaceV10(
+        instance=_instance(repo, sha), root_dir=tmp_path / "ws"
+    )
+    branch = ws.branch_workspace("b1")
+    (branch.repo_dir / "target").mkdir()
+    (branch.repo_dir / "target" / "generated.txt").write_text("x", encoding="utf-8")
+    (branch.repo_dir / "module" / "build").mkdir(parents=True)
+
+    removed = branch.cleanup_build_outputs()
+
+    assert "target" in removed
+    assert "module/build" in removed
+    assert not (branch.repo_dir / "target").exists()
+    assert (branch.repo_dir / ".git").exists()
+
+
 def test_apply_typed_edits_replace_text_count_must_match(
     upstream_repo: tuple[Path, str], tmp_path: Path
 ) -> None:

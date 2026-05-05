@@ -85,6 +85,66 @@ def test_build_summary_counts_strict_success(tmp_path: Path) -> None:
     assert summary.instances[1].stop_reason == "artifact_contract_failed"
 
 
+def test_build_summary_counts_partial_validations_without_score(tmp_path: Path) -> None:
+    event_path = tmp_path / "events" / "partial" / "eventlog.jsonl"
+    event_path.parent.mkdir(parents=True)
+    log = JsonlEventLog(event_path)
+    log.append(
+        run_id="run:partial",
+        instance_id="partial",
+        event_type="run.started",
+        actor="strategy_runner",
+        payload={"strategy": "branching_repair"},
+    )
+    log.append(
+        run_id="run:partial",
+        instance_id="partial",
+        event_type="candidate.applied",
+        actor="adapter",
+        hypothesis_id="h1",
+        payload={"apply_result": {"applied": True}},
+    )
+    log.append(
+        run_id="run:partial",
+        instance_id="partial",
+        event_type="validation.completed",
+        actor="verifier",
+        hypothesis_id="h1",
+        payload={
+            "validation": {
+                "status": "partial",
+                "signals": {
+                    "compile_success": True,
+                    "test_success": False,
+                    "strict_success": False,
+                },
+                "summary": "test_failure",
+            }
+        },
+    )
+    log.append(
+        run_id="run:partial",
+        instance_id="partial",
+        event_type="run.completed",
+        actor="strategy_runner",
+        payload={"strategy": "branching_repair", "stop_reason": "repair_exhausted"},
+    )
+
+    summary = build_summary(
+        campaign_id="c1",
+        adapter_name="migrationbench",
+        strategy_name="branching_repair",
+        instance_ids=["partial"],
+        events_by_instance={"partial": log.read_all()},
+    )
+
+    assert summary.strict_success_count == 0
+    assert summary.apply_ok_total == 1
+    assert summary.validation_completed_total == 1
+    assert summary.validation_partial_total == 1
+    assert summary.instances[0].validation_partial_count == 1
+
+
 def test_replay_summary_from_dir_matches_live_summary(tmp_path: Path) -> None:
     e_a = tmp_path / "events" / "a" / "eventlog.jsonl"
     e_a.parent.mkdir(parents=True)

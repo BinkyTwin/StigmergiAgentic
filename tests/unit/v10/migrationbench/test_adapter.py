@@ -201,6 +201,8 @@ def test_adapter_validate_returns_partial_when_compile_ok_but_official_absent(
     assert val.signals["strict_success"] is False
     # patch_applies might be True (we exported a real diff)
     assert val.metadata["patch_path"].endswith("patch.diff")
+    assert val.metadata["verification_cleaned"] is True
+    assert not Path(val.metadata["verification_root"]).exists()
 
 
 def test_adapter_diagnose_emits_recommendations_for_compile_error(
@@ -279,6 +281,7 @@ def test_adapter_finalize_strict_success_full_chain(
     artifact = adapter.finalize(cand, apply_result.workspace)
     assert artifact.status == ArtifactStatus.DELIVERED
     assert artifact.metadata["signals"]["strict_success"] is True
+    assert artifact.metadata["verification_cleaned"] is True
     score = adapter.score(artifact)
     assert score.strict_success is True
     assert score.metrics["official_success"] is True
