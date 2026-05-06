@@ -390,18 +390,75 @@ class MigrationBenchAdapterV10(DomainAdapterV10):
                 }
             )
         if signals.get("patch_applies") and not signals.get("compile_success"):
+            lowered_output = (validation.raw_output or "").lower()
+            if any(
+                token in lowered_output
+                for token in (
+                    "lombok",
+                    "delombok",
+                    "illegalaccesserror",
+                    "jdk.compiler",
+                    "com.sun.tools.javac",
+                )
+            ):
+                recommended.append(
+                    {
+                        "action": "upgrade_lombok_for_target_java",
+                        "rationale": failure_type,
+                    }
+                )
+            if any(
+                token in lowered_output
+                for token in (
+                    "javafx.application.application",
+                    "javafx.stage.stage",
+                    "javafx.scene",
+                    "textfield",
+                    "pane",
+                )
+            ):
+                recommended.append(
+                    {
+                        "action": "add_javafx_dependencies",
+                        "rationale": failure_type,
+                    }
+                )
+            if "sun.misc.base64" in lowered_output or "base64encoder" in lowered_output:
+                recommended.append(
+                    {
+                        "action": "replace_sun_misc_base64",
+                        "rationale": failure_type,
+                    }
+                )
             recommended.append(
                 {"action": "fix_compile_error", "rationale": failure_type}
             )
             anti.append("do not repeat the same edit signature on the same files")
         if signals.get("compile_success") and not signals.get("test_success"):
+            lowered_output = (validation.raw_output or "").lower()
+            if any(
+                token in lowered_output
+                for token in (
+                    "maven-bundle-plugin",
+                    "org.apache.felix",
+                    "bundleplugin",
+                    "bnd",
+                    "concurrentmodificationexception",
+                )
+            ):
+                recommended.append(
+                    {
+                        "action": "upgrade_bundle_plugin",
+                        "rationale": failure_type,
+                    }
+                )
             recommended.append(
                 {"action": "fix_test_failure", "rationale": failure_type}
             )
         if signals.get("compile_success") and signals.get("class_version_ok") is False:
             recommended.append(
                 {
-                    "action": "raise_target_release",
+                    "action": "ensure_maven_compiler_release",
                     "rationale": "compiled class major version mismatches target",
                 }
             )
@@ -425,7 +482,7 @@ class MigrationBenchAdapterV10(DomainAdapterV10):
             if "#tests" in (validation.raw_output or ""):
                 recommended.append(
                     {
-                        "action": "preserve_test_count_and_maven_test_summary",
+                        "action": "fix_official_test_summary",
                         "rationale": (
                             "official evaluator rejected the patch while counting "
                             "tests; keep tests intact and ensure mvn test reports "

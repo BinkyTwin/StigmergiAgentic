@@ -181,6 +181,27 @@ migration mode, dependency policy and framework hints.
 
 Prompts, affordances, deterministic fallback and typed Maven operators consume
 that context. Operator IDs stay target-neutral (`MavenEnsureCompilerRelease`,
-`MavenUpgradeLombok`, `MavenUpgradeSpringBoot`) while
+`MavenUpgradeLombokForTargetJava`,
+`MavenAddOrUpgradeSurefireForTargetJava`, `MavenAddJavaFxDependencies`) while
 `JavaCompatibilityProfile` selects target-specific compiler, surefire, Lombok,
 JavaFX and JAXB thresholds.
+
+## Operator-Unavailable Hardening
+
+The first guarded `main_30` audit grouped `operator.unavailable` into a small
+set of failure families. V11 now handles the high-frequency safe families with
+target-aware operators and leaves unsafe framework/private-repository cases as
+diagnostics:
+
+- specific affordances replace generic `fix_compile_error` when logs indicate
+  Lombok/javac internals, JavaFX removal, Felix bundle plugin failures,
+  Surefire summary failures, removed `sun.misc` Base64 APIs, missing external
+  artifacts, or bytecode-reader incompatibility;
+- `MavenEnsureCompilerRelease`, `MavenAddOrUpgradeSurefireForTargetJava`,
+  `MavenUpgradeLombokForTargetJava`, `MavenUpgradeBundlePlugin` and
+  `MavenAddJavaFxDependencies` all consume `MigrationContext`;
+- Spring/ASM class-major failures are diagnostic-only at this stage rather than
+  an automatic Spring Boot upgrade;
+- scheduler inhibition no longer treats `failure_type:*` signals as worker
+  inhibition, so diagnostic dependency affordances can win over generic compile
+  actions.

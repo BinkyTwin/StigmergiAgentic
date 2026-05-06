@@ -87,7 +87,32 @@ def affordances_from_feedback(
             priority=0.15,
         )
 
-    if any(token in full_text for token in ("class_version_error", "source_target", "release")):
+    if _looks_like_lombok_failure(full_text):
+        add(
+            action_type="upgrade_lombok_for_target_java",
+            target="pom.xml",
+            reason=failure_type or "lombok_target_java_incompatibility",
+            worker="maven_compiler_operator",
+            priority=0.26,
+            metadata={
+                **migration_metadata,
+                "operator_family": "lombok",
+            },
+        )
+
+    if _looks_like_bytecode_reader_incompatibility(full_text):
+        add(
+            action_type="diagnose_bytecode_reader_incompatibility",
+            target="maven_build",
+            reason=failure_type or "unsupported_class_file_major_version",
+            worker="operator_selector",
+            priority=0.24,
+            metadata={
+                **migration_metadata,
+                "diagnostic": "framework_bytecode_reader_upgrade_required",
+            },
+        )
+    elif any(token in full_text for token in ("class_version_error", "source_target", "release")):
         add(
             action_type="ensure_maven_compiler_release",
             target="pom.xml",
@@ -95,6 +120,45 @@ def affordances_from_feedback(
             worker="maven_compiler_operator",
             priority=0.15,
             metadata=migration_metadata,
+        )
+
+    if _looks_like_bundle_failure(full_text):
+        add(
+            action_type="upgrade_bundle_plugin",
+            target="pom.xml",
+            reason=failure_type or "maven_bundle_plugin_incompatibility",
+            worker="maven_compiler_operator",
+            priority=0.22,
+            metadata={
+                **migration_metadata,
+                "operator_family": "maven_bundle_plugin",
+            },
+        )
+
+    if _looks_like_javafx_failure(full_text):
+        add(
+            action_type="add_javafx_dependencies",
+            target="pom.xml",
+            reason=failure_type or "javafx_missing_dependencies",
+            worker="dependency_operator",
+            priority=0.22,
+            metadata={
+                **migration_metadata,
+                "dependency_family": "javafx",
+            },
+        )
+
+    if _looks_like_sun_misc_base64_failure(full_text):
+        add(
+            action_type="replace_sun_misc_base64",
+            target="java_sources",
+            reason=failure_type or "removed_jdk_internal_api",
+            worker="java_source_operator",
+            priority=0.22,
+            metadata={
+                **migration_metadata,
+                "replacement": "java.util.Base64",
+            },
         )
 
     if any(token in full_text for token in ("compile_error", "compilation failure", "source option")):
@@ -107,7 +171,19 @@ def affordances_from_feedback(
             metadata=migration_metadata,
         )
 
-    if any(token in full_text for token in ("dependency_resolution", "could not resolve", "javax.xml.bind", "jaxb")):
+    if _looks_like_internal_dependency_failure(full_text):
+        add(
+            action_type="classify_missing_external_dependency",
+            target="dependency_graph",
+            reason=failure_type or "missing_internal_or_snapshot_dependency",
+            worker="dependency_operator",
+            priority=0.24,
+            metadata={
+                **migration_metadata,
+                "diagnostic": "external_artifact_unavailable",
+            },
+        )
+    elif any(token in full_text for token in ("dependency_resolution", "could not resolve", "javax.xml.bind", "jaxb")):
         add(
             action_type="add_missing_dependency",
             target="pom.xml",
@@ -125,6 +201,17 @@ def affordances_from_feedback(
         )
 
     if "official_eval_failed" in full_text or "#tests=-2" in full_text or "test summary" in full_text:
+        add(
+            action_type="fix_official_test_summary",
+            target="pom.xml",
+            reason=failure_type or "official_eval_failed",
+            worker="surefire_operator",
+            priority=0.24,
+            metadata={
+                **migration_metadata,
+                "operator_family": "maven_surefire",
+            },
+        )
         add(
             action_type="interpret_official_eval",
             target="official_eval",
@@ -191,10 +278,14 @@ def _first_location_path(feedback: FeedbackDigest) -> str | None:
 
 def _worker_for_action(action: str) -> str:
     action = action.lower()
-    if any(token in action for token in ("dependency", "jaxb", "javax")):
+    if any(token in action for token in ("javafx", "dependency", "jaxb", "javax")):
         return "dependency_operator"
+    if any(token in action for token in ("lombok", "bundle", "bytecode")):
+        return "maven_compiler_operator"
+    if "sun_misc_base64" in action or "java_source" in action:
+        return "java_source_operator"
     if any(token in action for token in ("surefire", "official", "test_summary")):
-        return "official_eval_interpreter"
+        return "surefire_operator"
     if "test" in action or "preserve" in action:
         return "test_preservation_checker"
     if any(token in action for token in ("compile", "maven", "release", "source", "target")):
@@ -222,6 +313,85 @@ def _migration_metadata_from_feedback(feedback: FeedbackDigest) -> JsonDict:
         )
         if key in raw
     }
+
+
+def _looks_like_lombok_failure(full_text: str) -> bool:
+    return any(
+        token in full_text
+        for token in (
+            "lombok",
+            "delombok",
+            "illegalaccesserror",
+            "jdk.compiler",
+            "com.sun.tools.javac",
+            "javacprocessingenvironment",
+        )
+    )
+
+
+def _looks_like_bundle_failure(full_text: str) -> bool:
+    return any(
+        token in full_text
+        for token in (
+            "maven-bundle-plugin",
+            "org.apache.felix",
+            "bundleplugin",
+            "bnd",
+            "concurrentmodificationexception",
+        )
+    )
+
+
+def _looks_like_javafx_failure(full_text: str) -> bool:
+    return any(
+        token in full_text
+        for token in (
+            "javafx.application.application",
+            "javafx.stage.stage",
+            "javafx.scene",
+            "stagestyle",
+            "observablevalue",
+            "observablevaluebase",
+            "invalidationlistener",
+            "changelistener",
+            "listchangelistener",
+            "mapchangelistener",
+            "loadexception",
+            "textfield",
+            "pane",
+            "javafx_missing",
+        )
+    )
+
+
+def _looks_like_sun_misc_base64_failure(full_text: str) -> bool:
+    return (
+        "sun.misc.base64" in full_text
+        or "base64encoder" in full_text
+        or "base64decoder" in full_text
+    )
+
+
+def _looks_like_bytecode_reader_incompatibility(full_text: str) -> bool:
+    return (
+        "unsupported class file major version" in full_text
+        and any(token in full_text for token in ("spring", "asm", "cglib", "bytecode"))
+    )
+
+
+def _looks_like_internal_dependency_failure(full_text: str) -> bool:
+    if "dependency_resolution" not in full_text and "could not resolve" not in full_text:
+        return False
+    return any(
+        token in full_text
+        for token in (
+            "snapshot",
+            "internal",
+            "private",
+            "camunda-bpm-junit5",
+            "spring-boot-hashids",
+        )
+    )
 
 
 __all__ = ["affordances_from_feedback"]

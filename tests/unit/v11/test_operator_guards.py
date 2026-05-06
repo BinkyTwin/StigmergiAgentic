@@ -6,12 +6,15 @@ import adapters_v10.migrationbench.operators as operators
 from adapters_v10.migrationbench.context import MigrationContext
 from adapters_v10.migrationbench.operators import (
     maven_add_jaxb_dependency_edits,
+    maven_add_javafx_dependencies_edits,
+    maven_add_or_upgrade_surefire_for_target_java_edits,
     maven_compiler_release_edits,
     maven_upgrade_bundle_plugin_edits,
     maven_upgrade_compiler_plugin_edits,
+    maven_upgrade_lombok_for_target_java_edits,
     maven_upgrade_lombok_edits,
-    maven_upgrade_spring_boot_edits,
     migrationbench_operator_candidates,
+    replace_sun_misc_base64_edits,
     target_java_replacements,
 )
 from core_v10.contracts import (
@@ -33,7 +36,7 @@ def _context(target_java: int = 17) -> MigrationContext:
         source_version=8,
         target_language="java",
         target_version=target_java,
-        target_class_major={11: 55, 17: 61, 21: 65}[target_java],
+        target_class_major={8: 52, 11: 55, 17: 61, 21: 65}[target_java],
         build_system="maven",
         migration_mode="minimal",
         dependency_policy="minimal",
@@ -146,6 +149,66 @@ def test_maven_plugin_upgrade_is_scoped_to_matching_plugin_block() -> None:
     assert "<artifactId>not-a-plugin</artifactId>" not in edits[0]["old"]
 
 
+def test_maven_ensure_compiler_release_inserts_property_without_marker() -> None:
+    pom = "<project><modelVersion>4.0.0</modelVersion></project>"
+
+    edits = maven_compiler_release_edits({"pom.xml": pom}, _context(21))
+
+    joined_new = "\n".join(str(edit["new"]) for edit in edits)
+    assert "<maven.compiler.release>21</maven.compiler.release>" in joined_new
+    assert "17" not in joined_new
+
+
+def test_maven_ensure_compiler_release_updates_scoped_plugin_config() -> None:
+    pom = """<project>
+  <build>
+    <plugins>
+      <plugin>
+        <artifactId>maven-compiler-plugin</artifactId>
+        <version>3.1</version>
+        <configuration>
+          <source>1.8</source>
+        </configuration>
+      </plugin>
+    </plugins>
+  </build>
+</project>"""
+
+    edits = maven_compiler_release_edits({"pom.xml": pom}, _context(11))
+
+    plugin_edits = [edit for edit in edits if "maven-compiler-plugin" in edit["old"]]
+    assert len(plugin_edits) == 1
+    assert "<version>3.8.1</version>" in plugin_edits[0]["new"]
+    assert "<release>11</release>" in plugin_edits[0]["new"]
+
+
+def test_surefire_target_operator_adds_plugin_when_absent() -> None:
+    pom = "<project><build></build></project>"
+
+    edits = maven_add_or_upgrade_surefire_for_target_java_edits(
+        {"pom.xml": pom},
+        _context(21),
+    )
+
+    assert len(edits) == 1
+    assert "<artifactId>maven-surefire-plugin</artifactId>" in edits[0]["new"]
+    assert "<version>3.2.5</version>" in edits[0]["new"]
+
+
+def test_surefire_target_operator_creates_build_plugins_when_absent() -> None:
+    pom = "<project><modelVersion>4.0.0</modelVersion></project>"
+
+    edits = maven_add_or_upgrade_surefire_for_target_java_edits(
+        {"pom.xml": pom},
+        _context(17),
+    )
+
+    assert len(edits) == 1
+    assert "<build>" in edits[0]["new"]
+    assert "<plugins>" in edits[0]["new"]
+    assert "<artifactId>maven-surefire-plugin</artifactId>" in edits[0]["new"]
+
+
 def test_lombok_target_operator_upgrades_properties_and_plugin_block() -> None:
     pom = """<project>
   <properties>
@@ -170,7 +233,7 @@ def test_lombok_target_operator_upgrades_properties_and_plugin_block() -> None:
   </build>
 </project>"""
 
-    edits = maven_upgrade_lombok_edits({"pom.xml": pom}, _context())
+    edits = maven_upgrade_lombok_for_target_java_edits({"pom.xml": pom}, _context())
 
     joined_new = "\n".join(str(edit["new"]) for edit in edits)
     assert "<lombok.version>1.18.30</lombok.version>" in joined_new
@@ -179,7 +242,29 @@ def test_lombok_target_operator_upgrades_properties_and_plugin_block() -> None:
     assert "<version>1.18.30</version>" in joined_new
 
 
-def test_spring_boot_target_operator_upgrades_parent_without_raw_asm_text() -> None:
+def test_lombok_target_operator_uses_target_profile_versions() -> None:
+    pom = """<project>
+  <properties>
+    <lombok.version>1.18.8</lombok.version>
+  </properties>
+</project>"""
+
+    edits_11 = maven_upgrade_lombok_edits({"pom.xml": pom}, _context(11))
+    edits_17 = maven_upgrade_lombok_edits({"pom.xml": pom}, _context(17))
+    edits_21 = maven_upgrade_lombok_edits({"pom.xml": pom}, _context(21))
+
+    assert "<lombok.version>1.18.20</lombok.version>" in edits_11[0]["new"]
+    assert "<lombok.version>1.18.30</lombok.version>" in edits_17[0]["new"]
+    assert "<lombok.version>1.18.32</lombok.version>" in edits_21[0]["new"]
+
+
+def test_lombok_target_operator_returns_empty_when_lombok_absent() -> None:
+    pom = "<project><properties><java.version>1.8</java.version></properties></project>"
+
+    assert maven_upgrade_lombok_edits({"pom.xml": pom}, _context()) == []
+
+
+def test_bytecode_reader_incompatibility_does_not_emit_compiler_release_patch() -> None:
     pom = """<project>
   <parent>
     <groupId>org.springframework.boot</groupId>
@@ -188,17 +273,15 @@ def test_spring_boot_target_operator_upgrades_parent_without_raw_asm_text() -> N
   </parent>
 </project>"""
 
-    direct_edits = maven_upgrade_spring_boot_edits({"pom.xml": pom}, _context())
-    assert len(direct_edits) == 1
-    assert "<version>2.7.18</version>" in direct_edits[0]["new"]
-
     candidates = migrationbench_operator_candidates(
         feedback=FeedbackDigest(
             candidate_id="c1",
             failure_type="class_version_error",
             severity="warning",
             summary="class_version_error",
-            evidence=["BeanDefinitionStore Failed to read candidate component"],
+            evidence=[
+                "Unsupported class file major version 61 in Spring ASM ClassReader"
+            ],
         ),
         original=Candidate(
             candidate_id="c1",
@@ -217,20 +300,15 @@ def test_spring_boot_target_operator_upgrades_parent_without_raw_asm_text() -> N
         ),
         affordance=Affordance(
             affordance_id="aff-spring",
-            action_type="ensure_maven_compiler_release",
-            target="pom.xml",
+            action_type="diagnose_bytecode_reader_incompatibility",
+            target="maven_build",
             reason="class_version_error",
             priority=1.0,
-            expected_worker_kind="maven_compiler_operator",
+            expected_worker_kind="operator_selector",
         ),
     )
 
-    assert len(candidates) == 1
-    invocation = candidates[0].metadata["operator_invocation"]
-    assert invocation["operator_id"] == "MavenUpgradeSpringBoot"
-    edits = candidates[0].payload["edit_set"]["edits"]
-    assert "<artifactId>spring-boot-starter-parent</artifactId>" in edits[0]["old"]
-    assert "<version>2.7.18</version>" in edits[0]["new"]
+    assert candidates == ()
 
 
 def test_no_operator_name_contains_17() -> None:
@@ -263,6 +341,93 @@ def test_bundle_plugin_operator_scopes_felix_upgrade() -> None:
     assert "<artifactId>maven-bundle-plugin</artifactId>" in edits[0]["old"]
     assert "<version>5.1.9</version>" in edits[0]["new"]
     assert "<artifactId>bundle-like-dependency</artifactId>" not in edits[0]["old"]
+
+
+def test_bundle_plugin_operator_returns_empty_when_plugin_absent() -> None:
+    pom = "<project><dependencies><dependency><artifactId>bndlib</artifactId></dependency></dependencies></project>"
+
+    assert maven_upgrade_bundle_plugin_edits({"pom.xml": pom}, _context()) == []
+
+
+def test_javafx_operator_uses_target_profile_and_target_gate() -> None:
+    pom = "<project><dependencies>\n  </dependencies></project>"
+
+    assert maven_add_javafx_dependencies_edits({"pom.xml": pom}, _context(8)) == []
+
+    edits_11 = maven_add_javafx_dependencies_edits(
+        {"pom.xml": pom},
+        _context(11),
+        feedback_text="javafx.application.Application javafx.fxml.FXMLLoader",
+    )
+    edits_17 = maven_add_javafx_dependencies_edits(
+        {"pom.xml": pom},
+        _context(17),
+        feedback_text="javafx.scene.control.TextField",
+    )
+    edits_21 = maven_add_javafx_dependencies_edits(
+        {"pom.xml": pom},
+        _context(21),
+        feedback_text="javafx.stage.Stage",
+    )
+
+    assert "<artifactId>javafx-controls</artifactId>" in edits_11[0]["new"]
+    assert "<artifactId>javafx-fxml</artifactId>" in edits_11[0]["new"]
+    assert "<version>11.0.2</version>" in edits_11[0]["new"]
+    assert "<version>17.0.2</version>" in edits_17[0]["new"]
+    assert "<version>21.0.2</version>" in edits_21[0]["new"]
+
+
+def test_javafx_operator_adds_dependencies_block_when_absent() -> None:
+    pom = "<project><modelVersion>4.0.0</modelVersion></project>"
+
+    edits = maven_add_javafx_dependencies_edits(
+        {"pom.xml": pom},
+        _context(17),
+        feedback_text="javafx.scene.layout.Pane",
+    )
+
+    assert len(edits) == 1
+    assert "<dependencies>" in edits[0]["new"]
+    assert "<artifactId>javafx-controls</artifactId>" in edits[0]["new"]
+
+
+def test_replace_sun_misc_base64_exact_patterns_only() -> None:
+    java = """package demo;
+
+import sun.misc.BASE64Encoder;
+import sun.misc.BASE64Decoder;
+
+class Demo {
+  String e(byte[] data) {
+    return new BASE64Encoder().encode(data);
+  }
+  byte[] d(String text) throws Exception {
+    return new BASE64Decoder().decodeBuffer(text);
+  }
+}
+"""
+
+    edits = replace_sun_misc_base64_edits({"src/main/java/Demo.java": java}, _context(17))
+
+    assert len(edits) == 1
+    assert "import java.util.Base64;" in edits[0]["new"]
+    assert "Base64.getEncoder().encodeToString(data)" in edits[0]["new"]
+    assert "Base64.getDecoder().decode(text)" in edits[0]["new"]
+    assert "BASE64Encoder" not in edits[0]["new"]
+
+
+def test_replace_sun_misc_base64_noops_for_complex_or_old_target() -> None:
+    complex_java = """import sun.misc.BASE64Encoder;
+class Demo {
+  String e(byte[] data) {
+    BASE64Encoder encoder = new BASE64Encoder();
+    return encoder.encode(data);
+  }
+}
+"""
+
+    assert replace_sun_misc_base64_edits({"Demo.java": complex_java}, _context(17)) == []
+    assert replace_sun_misc_base64_edits({"Demo.java": complex_java}, _context(8)) == []
 
 
 def test_migrationbench_operator_candidate_is_child_of_original_candidate() -> None:

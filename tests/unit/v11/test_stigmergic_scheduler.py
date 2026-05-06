@@ -111,3 +111,46 @@ def test_scheduler_scores_all_worker_affordance_pairs() -> None:
         ("exact_edit_guard", "aff-answer"),
         ("maven_compiler_operator", "aff-compile"),
     }
+
+
+def test_scheduler_does_not_inhibit_worker_from_failure_type_signal() -> None:
+    diagnostic = Affordance(
+        affordance_id="aff-dependency-diagnostic",
+        action_type="classify_missing_external_dependency",
+        target="dependency_graph",
+        reason="dependency_resolution_error",
+        priority=0.9,
+        expected_worker_kind="dependency_operator",
+    )
+    generic = Affordance(
+        affordance_id="aff-generic-compile",
+        action_type="fix_compile_error",
+        target="fix_compile_error",
+        reason="dependency_resolution_error",
+        priority=0.7,
+        expected_worker_kind="maven_compiler_operator",
+    )
+    feedback = FeedbackDigest(
+        candidate_id="c1",
+        failure_type="dependency_resolution_error",
+        severity="blocking",
+        summary="Could not resolve internal snapshot artifact",
+    )
+    store = SignalStore()
+    failure_signal = store.emit(
+        kind=SignalKind.INHIBIT,
+        target="failure_type:dependency_resolution_error",
+        intensity=0.8,
+        now_seq=1,
+    )
+
+    activation = StigmergicScheduler().select(
+        decision_id="dec-dependency",
+        affordances=(diagnostic, generic),
+        signals=(failure_signal,),
+        feedback=feedback,
+    )
+
+    assert activation.worker.worker_id == "dependency_operator"
+    assert activation.affordance == diagnostic
+    assert activation.score_terms["inhibition"] == 0.0

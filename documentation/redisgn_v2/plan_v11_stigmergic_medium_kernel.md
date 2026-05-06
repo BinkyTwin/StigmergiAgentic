@@ -884,12 +884,16 @@ class PatchOperator(Protocol):
 ```text
 ExactReplaceText
 MavenEnsureCompilerRelease
-MavenSetSourceTarget
 MavenUpgradeCompilerPlugin
-MavenUpgradeSurefirePlugin
-MavenUpgradeJUnit
+MavenAddOrUpgradeSurefireForTargetJava
+MavenUpgradeLombokForTargetJava
+MavenUpgradeBundlePlugin
+MavenAddJavaFxDependencies
 MavenAddDependency
 MavenAddJaxbDependency
+ReplaceSunMiscBase64WithJavaUtilBase64
+ClassifyMissingExternalDependency
+DiagnoseBytecodeReaderIncompatibility
 MavenRunEffectivePomInspection
 JakartaImportMigration
 PreserveExistingTestsGuard
@@ -903,6 +907,14 @@ et les operators appliquent des actions paramétrées depuis ce contexte. Aucun
 operator ne doit encoder Java 17 dans son nom ou dans sa logique métier ; les
 seuils Maven/JAXB/Lombok sont sélectionnés via un profil de compatibilité par
 cible Java.
+
+Après l'audit `operator.unavailable`, les affordances doivent être spécifiques
+avant d'être génériques. `fix_compile_error` reste un secours, mais les logs
+Lombok/javac internals, JavaFX, Felix bundle plugin, Surefire `#tests=-2`,
+`sun.misc.BASE64*`, dépendances snapshot/internes et Spring/ASM class-major
+doivent créer respectivement des actions target-aware ou diagnostiques. Les
+cas Spring/ASM restent diagnostic-only tant qu'un upgrade framework sûr n'est
+pas spécifié.
 
 ### 13.4 Règle d’or
 

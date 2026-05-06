@@ -54,6 +54,9 @@ def test_official_failure_creates_interpreter_and_test_preservation_affordances(
     )
 
     by_action = {aff.action_type: aff for aff in affordances}
+    assert by_action["fix_official_test_summary"].expected_worker_kind == (
+        "surefire_operator"
+    )
     assert by_action["interpret_official_eval"].expected_worker_kind == (
         "official_eval_interpreter"
     )
@@ -94,3 +97,96 @@ def test_compile_affordance_carries_migration_context_metadata() -> None:
     affordance = by_action["ensure_maven_compiler_release"]
     assert affordance.metadata["target_java"] == 21
     assert affordance.metadata["build_system"] == "maven"
+
+
+def test_specific_operator_unavailable_families_create_specific_affordances() -> None:
+    feedback = FeedbackDigest(
+        candidate_id="c1",
+        failure_type="compile_error",
+        severity="blocking",
+        summary=(
+            "IllegalAccessError lombok com.sun.tools.javac jdk.compiler "
+            "javafx.application.Application sun.misc.BASE64Encoder"
+        ),
+        metadata={
+            "migration_context": {
+                "source_java": 8,
+                "target_java": 17,
+                "target_class_major": 61,
+                "build_system": "maven",
+            }
+        },
+    )
+
+    affordances = affordances_from_feedback(
+        feedback=feedback,
+        signals=(),
+        source_event_ids=("evt-specific",),
+        now_seq=2,
+    )
+
+    by_action = {aff.action_type: aff for aff in affordances}
+    assert "upgrade_lombok_for_target_java" in by_action
+    assert by_action["upgrade_lombok_for_target_java"].metadata["target_java"] == 17
+    assert "add_javafx_dependencies" in by_action
+    assert "replace_sun_misc_base64" in by_action
+
+
+def test_javafx_affordance_handles_symbol_only_compile_logs() -> None:
+    feedback = FeedbackDigest(
+        candidate_id="c1",
+        failure_type="compile_error",
+        severity="blocking",
+        summary="cannot find symbol class StageStyle ObservableValue ChangeListener",
+    )
+
+    affordances = affordances_from_feedback(
+        feedback=feedback,
+        signals=(),
+        source_event_ids=(),
+        now_seq=1,
+    )
+
+    by_action = {aff.action_type: aff for aff in affordances}
+    assert by_action["add_javafx_dependencies"].priority > by_action[
+        "select_compile_operator"
+    ].priority
+
+
+def test_bytecode_reader_and_internal_dependency_are_classified_not_generic() -> None:
+    bytecode_feedback = FeedbackDigest(
+        candidate_id="c1",
+        failure_type="class_version_error",
+        severity="blocking",
+        summary="Unsupported class file major version 61 Spring ASM ClassReader",
+    )
+    dependency_feedback = FeedbackDigest(
+        candidate_id="c2",
+        failure_type="dependency_resolution_error",
+        severity="blocking",
+        summary="Could not resolve internal snapshot spring-boot-hashids",
+    )
+
+    bytecode_actions = {
+        aff.action_type
+        for aff in affordances_from_feedback(
+            feedback=bytecode_feedback,
+            signals=(),
+            source_event_ids=(),
+            now_seq=1,
+        )
+    }
+    dependency_actions = {
+        aff.action_type
+        for aff in affordances_from_feedback(
+            feedback=dependency_feedback,
+            signals=(),
+            source_event_ids=(),
+            now_seq=1,
+        )
+    }
+
+    assert "diagnose_bytecode_reader_incompatibility" in bytecode_actions
+    assert "ensure_maven_compiler_release" not in bytecode_actions
+    assert "classify_missing_external_dependency" in dependency_actions
+    assert "add_missing_dependency" not in dependency_actions

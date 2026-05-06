@@ -43,6 +43,9 @@ def default_worker_specs() -> tuple[WorkerSpec, ...]:
                 "class_version_error",
                 "ensure_maven_compiler_release",
                 "select_compile_operator",
+                "upgrade_lombok_for_target_java",
+                "upgrade_bundle_plugin",
+                "diagnose_bytecode_reader_incompatibility",
             ),
             cost=0.15,
             risk=0.2,
@@ -52,7 +55,15 @@ def default_worker_specs() -> tuple[WorkerSpec, ...]:
             worker_kind="dependency_operator",
             reads=common_reads,
             writes=("repair_region",),
-            handles=("dependency_resolution_error", "javax_missing", "jaxb", "add_missing_dependency"),
+            handles=(
+                "dependency_resolution_error",
+                "compile_error",
+                "javax_missing",
+                "jaxb",
+                "add_missing_dependency",
+                "add_javafx_dependencies",
+                "classify_missing_external_dependency",
+            ),
             cost=0.2,
             risk=0.25,
         ),
@@ -61,8 +72,27 @@ def default_worker_specs() -> tuple[WorkerSpec, ...]:
             worker_kind="surefire_operator",
             reads=common_reads,
             writes=("repair_region",),
-            handles=("official_eval_failed", "test_summary_missing", "interpret_official_eval"),
+            handles=(
+                "official_eval_failed",
+                "test_summary_missing",
+                "interpret_official_eval",
+                "fix_official_test_summary",
+                "preserve_test_count_and_maven_test_summary",
+            ),
             cost=0.18,
+            risk=0.18,
+        ),
+        WorkerSpec(
+            worker_id="java_source_operator",
+            worker_kind="java_source_operator",
+            reads=common_reads,
+            writes=("repair_region",),
+            handles=(
+                "compile_error",
+                "removed_jdk_internal_api",
+                "replace_sun_misc_base64",
+            ),
+            cost=0.16,
             risk=0.18,
         ),
         WorkerSpec(
@@ -203,12 +233,14 @@ def _activation_score(
     inhibition = _inhibition_score(worker, affordance, signals)
     novelty = _novelty_score(signals)
     affinity = _affinity_score(worker, signals)
+    affordance_priority = float(affordance.priority) if affordance is not None else 0.0
     cost = float(worker.cost)
     risk = float(worker.risk)
     score = (
         0.35 * capability
         + 0.20 * signal_support
         + 0.15 * failure_relevance
+        + 0.10 * affordance_priority
         + 0.10 * affinity
         + 0.10 * novelty
         - 0.15 * inhibition
@@ -219,6 +251,7 @@ def _activation_score(
         "capability_match": capability,
         "signal_support": signal_support,
         "failure_relevance": failure_relevance,
+        "affordance_priority": affordance_priority,
         "affinity": affinity,
         "novelty": novelty,
         "inhibition": inhibition,
@@ -254,11 +287,12 @@ def _inhibition_score(
     targets = {f"worker:{worker.worker_id}", f"worker:{worker.worker_kind}"}
     if affordance is not None:
         targets.add(f"action:{affordance.action_type}")
+        targets.add(f"affordance:{affordance.affordance_id}")
     values = [
         record.intensity
         for record in signals
         if record.kind == SignalKind.INHIBIT
-        and (record.target in targets or any(handle in record.target for handle in worker.handles))
+        and record.target in targets
     ]
     return max(values) if values else 0.0
 
