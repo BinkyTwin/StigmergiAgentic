@@ -240,7 +240,7 @@ def _activation_score(
         0.35 * capability
         + 0.20 * signal_support
         + 0.15 * failure_relevance
-        + 0.10 * affordance_priority
+        + 0.20 * affordance_priority
         + 0.10 * affinity
         + 0.10 * novelty
         - 0.15 * inhibition

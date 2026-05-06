@@ -154,3 +154,38 @@ def test_scheduler_does_not_inhibit_worker_from_failure_type_signal() -> None:
     assert activation.worker.worker_id == "dependency_operator"
     assert activation.affordance == diagnostic
     assert activation.score_terms["inhibition"] == 0.0
+
+
+def test_scheduler_prioritizes_specific_operator_affordance_over_low_cost_guard() -> None:
+    bundle = Affordance(
+        affordance_id="aff-bundle",
+        action_type="upgrade_bundle_plugin",
+        target="pom.xml",
+        reason="test_failure",
+        priority=0.72,
+        expected_worker_kind="maven_compiler_operator",
+    )
+    guard_tests = Affordance(
+        affordance_id="aff-tests",
+        action_type="guard_existing_tests",
+        target="tests",
+        reason="anti_action:preserve_existing_tests",
+        priority=0.58,
+        expected_worker_kind="test_preservation_checker",
+    )
+    feedback = FeedbackDigest(
+        candidate_id="c1",
+        failure_type="test_failure",
+        severity="blocking",
+        summary="maven-bundle-plugin ConcurrentModificationException",
+    )
+
+    activation = StigmergicScheduler().select(
+        decision_id="dec-bundle",
+        affordances=(bundle, guard_tests),
+        signals=(),
+        feedback=feedback,
+    )
+
+    assert activation.worker.worker_id == "maven_compiler_operator"
+    assert activation.affordance == bundle
