@@ -79,6 +79,7 @@ def validate_edit_set_against_workspace(
         )
 
     issues: list[GuardedEditIssue] = []
+    file_cache: dict[str, str] = {}
     for index, item in enumerate(edits):
         if not isinstance(item, dict):
             issues.append(
@@ -122,7 +123,10 @@ def validate_edit_set_against_workspace(
                     )
                 )
                 continue
-            text = _read_workspace_file(workspace, safe_path)
+            if safe_path in file_cache:
+                text = file_cache[safe_path]
+            else:
+                text = _read_workspace_file(workspace, safe_path)
             if text is None:
                 issues.append(
                     GuardedEditIssue(
@@ -163,6 +167,8 @@ def validate_edit_set_against_workspace(
                         edit_type=edit_type,
                     )
                 )
+                continue
+            file_cache[safe_path] = text.replace(old, str(item.get("new") or ""))
         elif edit_type == "write_file":
             parent = _resolve_workspace_path(workspace, safe_path)
             if parent is None or not parent.parent.exists():
@@ -174,6 +180,8 @@ def validate_edit_set_against_workspace(
                         edit_type=edit_type,
                     )
                 )
+                continue
+            file_cache[safe_path] = str(item.get("content") or "")
         else:
             issues.append(
                 GuardedEditIssue(

@@ -54,6 +54,37 @@ def test_guard_rejects_old_span_absent_in_real_workspace() -> None:
     assert result.issues[0].actual_replacements == 0
 
 
+def test_guard_rejects_sequential_duplicate_replace_that_adapter_would_fail() -> None:
+    result = validate_edit_set_against_workspace(
+        {
+            "edits": [
+                {
+                    "type": "replace_text",
+                    "path": "pom.xml",
+                    "old": "<plugin.version>1</plugin.version>",
+                    "new": "<plugin.version>2</plugin.version>",
+                    "expected_replacements": 1,
+                    "allow_multiple": True,
+                },
+                {
+                    "type": "replace_text",
+                    "path": "pom.xml",
+                    "old": "<plugin.version>1</plugin.version>",
+                    "new": "<plugin.version>3</plugin.version>",
+                    "expected_replacements": 1,
+                    "allow_multiple": True,
+                },
+            ]
+        },
+        StubWorkspace({"pom.xml": "<plugin.version>1</plugin.version>"}),
+    )
+
+    assert result.ok is False
+    assert result.issues[0].index == 1
+    assert result.issues[0].reason == "old_span_absent"
+    assert result.issues[0].actual_replacements == 0
+
+
 def test_guard_rejects_path_traversal() -> None:
     result = validate_edit_set_against_workspace(
         {
