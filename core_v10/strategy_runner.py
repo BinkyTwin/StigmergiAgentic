@@ -1849,7 +1849,7 @@ def _attach_live_files(
     provider, just refreshed from the parent workspace.
     """
 
-    if parent_workspace is None or not hasattr(parent_workspace, "read_file"):
+    if parent_workspace is None:
         return observation
     pom_files = list(observation.data.get("pom_files") or [])
     java_files = list(observation.data.get("java_files_sample") or [])
@@ -1857,7 +1857,21 @@ def _attach_live_files(
     live: dict[str, str] = {}
     for rel in rel_paths:
         try:
-            text = parent_workspace.read_file(rel, max_bytes=_LIVE_FILES_MAX_BYTES)
+            if hasattr(parent_workspace, "read_file"):
+                text = parent_workspace.read_file(
+                    rel, max_bytes=_LIVE_FILES_MAX_BYTES
+                )
+            else:
+                root = getattr(parent_workspace, "root", None)
+                if root is None:
+                    continue
+                path = Path(root) / str(rel)
+                if not path.is_file():
+                    continue
+                text = path.read_text(
+                    encoding="utf-8",
+                    errors="replace",
+                )[:_LIVE_FILES_MAX_BYTES]
         except Exception:  # noqa: BLE001
             continue
         live[str(rel)] = str(text)

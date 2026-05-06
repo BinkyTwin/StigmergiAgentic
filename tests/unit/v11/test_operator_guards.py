@@ -14,7 +14,9 @@ from core_v10.contracts import (
     FeedbackDigest,
     Observation,
     RunInstance,
+    WorkspaceHandle,
 )
+from core_v10.strategy_runner import _attach_live_files
 from core_v10.operators import ExactReplaceText
 from core_v10.stigmergy.records import Affordance
 
@@ -149,3 +151,60 @@ def test_migrationbench_operator_candidate_is_child_of_original_candidate() -> N
     assert len(candidates) == 1
     assert candidates[0].parent_id == original.candidate_id
     assert candidates[0].payload["parent_branch_id"] == "root-branch"
+
+
+def test_operator_provider_can_read_live_poms_from_workspace_handle(tmp_path) -> None:
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    (repo / "pom.xml").write_text(
+        "<project><dependencies>\n</dependencies></project>",
+        encoding="utf-8",
+    )
+    observation = Observation(
+        summary="pom",
+        data={"pom_files": ["pom.xml"], "java_files_sample": []},
+    )
+    workspace = WorkspaceHandle(root=repo, instance_id="repo__case")
+
+    live_observation = _attach_live_files(observation, workspace)
+
+    feedback = FeedbackDigest(
+        candidate_id="root-c0",
+        failure_type="dependency_resolution_error",
+        severity="blocking",
+        summary="Could not resolve javax.xml.bind",
+        evidence=["javax.xml.bind missing"],
+    )
+    original = Candidate(
+        candidate_id="root-c0",
+        kind=CandidateKind.PATCH,
+        payload={"branch_id": "root-branch"},
+        origin="seed",
+    )
+    affordance = Affordance(
+        affordance_id="aff-dependency",
+        action_type="add_missing_dependency",
+        target="pom.xml",
+        reason="dependency_resolution_error",
+        priority=1.0,
+        expected_worker_kind="dependency_operator",
+    )
+
+    candidates = migrationbench_operator_candidates(
+        feedback=feedback,
+        original=original,
+        observation=live_observation,
+        instance=RunInstance(
+            instance_id="repo__case",
+            adapter_name="migrationbench",
+            objective="migrate",
+        ),
+        affordance=affordance,
+    )
+
+    assert len(candidates) == 1
+    assert candidates[0].origin == "v11_operator_search"
+    assert (
+        candidates[0].metadata["operator_invocation"]["operator_id"]
+        == "MavenAddJaxbDependency"
+    )
