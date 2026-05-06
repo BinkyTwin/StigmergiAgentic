@@ -83,6 +83,41 @@ def test_prepare_clones_and_checkouts_base(
     assert (ws.repo_dir / "src/main/java/A.java").exists()
 
 
+def test_prepare_resets_existing_checkout_before_reuse(
+    upstream_repo: tuple[Path, str], tmp_path: Path
+) -> None:
+    repo, sha = upstream_repo
+    ws = MigrationBenchWorkspaceV10(
+        instance=_instance(repo, sha), root_dir=tmp_path / "ws"
+    )
+    ws.prepare()
+    ws.write_file("pom.xml", "STALE TARGET JAVA PATCH")
+    ws.write_file("untracked.txt", "stale")
+
+    ws.prepare()
+
+    assert "STALE TARGET JAVA PATCH" not in ws.read_file("pom.xml")
+    assert not (ws.repo_dir / "untracked.txt").exists()
+    assert (ws.repo_dir / "pom.xml").read_text(encoding="utf-8").startswith("<project>")
+
+
+def test_prepare_can_remove_stale_candidate_branches(
+    upstream_repo: tuple[Path, str], tmp_path: Path
+) -> None:
+    repo, sha = upstream_repo
+    ws = MigrationBenchWorkspaceV10(
+        instance=_instance(repo, sha), root_dir=tmp_path / "ws"
+    )
+    stale = ws.branch_workspace("c1_llm")
+    stale.write_file("pom.xml", "STALE BRANCH PATCH")
+
+    ws.prepare(reset_branches=True)
+    fresh = ws.branch_workspace("c1_llm")
+
+    assert "STALE BRANCH PATCH" not in fresh.read_file("pom.xml")
+    assert fresh.read_file("pom.xml").startswith("<project>")
+
+
 def test_branch_workspace_is_isolated_copy(
     upstream_repo: tuple[Path, str], tmp_path: Path
 ) -> None:

@@ -106,13 +106,16 @@ class MigrationBenchWorkspaceV10:
 
     # ----- clone / branching --------------------------------------------
 
-    def prepare(self, *, force: bool = False) -> None:
+    def prepare(self, *, force: bool = False, reset_branches: bool = False) -> None:
         """Clone the repository (if needed) and checkout the base commit."""
 
         if force and self.root_dir.exists():
             shutil.rmtree(self.root_dir)
         self.root_dir.mkdir(parents=True, exist_ok=True)
         if self.repo_dir.exists():
+            self.checkout_base()
+            if reset_branches:
+                shutil.rmtree(self.root_dir / "branches", ignore_errors=True)
             return
 
         clone = run_command(
@@ -125,6 +128,8 @@ class MigrationBenchWorkspaceV10:
                 f"{clone.stderr[-2000:]}"
             )
         self.checkout_base()
+        if reset_branches:
+            shutil.rmtree(self.root_dir / "branches", ignore_errors=True)
 
     def checkout_base(self) -> None:
         """Reset the repository to the registered base commit."""

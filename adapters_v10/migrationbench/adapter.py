@@ -107,7 +107,7 @@ class MigrationBenchAdapterV10(DomainAdapterV10):
             timeout_seconds=self.timeout_seconds,
         )
         if instance.metadata.get("prepare", True):
-            base.prepare()
+            base.prepare(reset_branches=True)
 
         self._instance = mb_instance
         self._base_workspace = base
