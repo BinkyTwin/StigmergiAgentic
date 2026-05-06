@@ -167,15 +167,21 @@ def run_comparison(
     used_registry = registry or default_registry()
     arm_summaries: dict[str, Summary] = {}
     arm_payloads: list[dict[str, Any]] = []
+    base_extras = dict(extras or {})
 
     for arm in arms:
+        arm_extras = _extras_for_arm(
+            base_extras,
+            arm=arm,
+            arm_out_dir=out_dir / arm.arm_id,
+        )
         options = arm.options(
             adapter_name=adapter_name,
             subset_path=subset_path,
             out_dir=out_dir,
             seed=seed,
             limit=limit,
-            extras=extras,
+            extras=arm_extras,
         )
         summary = BenchHarness(options, used_registry).run()
         arm_summaries[arm.arm_id] = summary
@@ -195,6 +201,22 @@ def run_comparison(
         encoding="utf-8",
     )
     return comparison
+
+
+def _extras_for_arm(
+    extras: dict[str, Any],
+    *,
+    arm: AblationArm,
+    arm_out_dir: Path,
+) -> dict[str, Any]:
+    """Return arm-scoped extras so workspaces/artifacts cannot cross-contaminate."""
+
+    scoped = dict(extras)
+    scoped["out_dir"] = str(arm_out_dir)
+    for key in ("workspace_root_root", "artifacts_root"):
+        if scoped.get(key):
+            scoped[key] = str(Path(str(scoped[key])) / arm.arm_id)
+    return scoped
 
 
 def _arm_payload(arm: AblationArm, summary: Summary) -> dict[str, Any]:
@@ -236,6 +258,13 @@ def _arm_payload(arm: AblationArm, summary: Summary) -> dict[str, Any]:
             "validation_partial_count": int(inst.validation_partial_count),
             "validation_failed_count": int(inst.validation_failed_count),
             "validation_error_count": int(inst.validation_error_count),
+            "feedback_count": int(inst.feedback_count),
+            "replacement_count_too_low_count": int(
+                inst.replacement_count_too_low_count
+            ),
+            "replacement_count_too_low_rate": float(
+                inst.replacement_count_too_low_rate
+            ),
         }
         for inst in summary.instances
     ]
@@ -285,6 +314,13 @@ def _arm_payload(arm: AblationArm, summary: Summary) -> dict[str, Any]:
         "validation_partial_total": int(summary.validation_partial_total),
         "validation_failed_total": int(summary.validation_failed_total),
         "validation_error_total": int(summary.validation_error_total),
+        "feedback_total": int(summary.feedback_total),
+        "replacement_count_too_low_total": int(
+            summary.replacement_count_too_low_total
+        ),
+        "replacement_count_too_low_rate": float(
+            summary.replacement_count_too_low_rate
+        ),
         "instances": instances,
     }
 

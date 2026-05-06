@@ -115,6 +115,14 @@ relance pour garder `live==replay` dans Docker. Validation hardening : 15 tests
 V11 verts, 41 tests runner/harness ciblés, 40 tests V10 signal/strategy/imports
 verts, Docker `v11-smoke` vert après rebuild.
 
+Gate MigrationBench `main_30` (2026-05-06) : lancer V11 via
+`scripts/v11/run_v11_migrationbench_campaign.py` ou Docker
+`v11-migrationbench-main30`. Le script nettoie son workspace, isole
+workspaces/artifacts par bras B2/B5/B6, vérifie `summary==replay`, écrit
+`v11_readiness_report.json`, calcule la divergence pairwise B2-vs-B5/B6 et
+expose `replacement_count_too_low_total/rate`. Commande full :
+`DEEPSEEK_API_KEY=$(grep DEEPSEEK_API_KEY .env | cut -d= -f2) docker compose -f docker-compose.campaign.yml up v11-migrationbench-main30`.
+
 ## Sprint 9 Complete Status (2026-04-21) — legacy `core/`
 
 ## Sprint 9 Complete Status (2026-04-21)

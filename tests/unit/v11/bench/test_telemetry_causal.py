@@ -7,6 +7,7 @@ from scripts.bench.telemetry import (
     AFFORDANCE_CONSUMED_EVENT,
     AFFORDANCE_CREATED_EVENT,
     DECISION_INFLUENCED_EVENT,
+    FEEDBACK_EVENT,
     SIGNAL_READ_EVENT,
     TRAJECTORY_DIVERGED_EVENT,
     WORKER_ACTIVATED_EVENT,
@@ -96,6 +97,19 @@ def test_summary_reconstructs_v11_causal_counts(tmp_path) -> None:
     log.append(
         run_id="r1",
         instance_id="i1",
+        event_type=FEEDBACK_EVENT,
+        actor="diagnoser",
+        payload={
+            "feedback": {
+                "failure_type": "replacement_count_too_low:pom.xml",
+                "summary": "edit old span was not present",
+                "evidence": [],
+            }
+        },
+    )
+    log.append(
+        run_id="r1",
+        instance_id="i1",
         event_type="run.completed",
         actor="strategy_runner",
         payload={
@@ -123,4 +137,8 @@ def test_summary_reconstructs_v11_causal_counts(tmp_path) -> None:
     assert inst.unused_signal_rate == 0.0
     assert inst.unused_affordance_rate == 0.0
     assert inst.signal_harm_rate == 1.0
+    assert inst.feedback_count == 1
+    assert inst.replacement_count_too_low_count == 1
+    assert summary.replacement_count_too_low_total == 1
+    assert summary.replacement_count_too_low_rate == 1.0
     assert summary.stigmergic_causality_rate == 1.0

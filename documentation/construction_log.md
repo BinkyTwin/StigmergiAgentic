@@ -1569,3 +1569,63 @@ docker compose -f docker-compose.campaign.yml build v11-smoke
 docker compose -f docker-compose.campaign.yml run --rm v11-smoke
 # status ok, campaign_results/v11/smoke/v11_smoke_summary.json
 ```
+
+---
+
+## 2026-05-06 — Gate V11 MigrationBench main_30
+
+**Objectif** : rendre V11 directement testable sur MigrationBench et fournir
+un chemin Docker prêt pour `main_30`, avec rapport de readiness avant toute
+interprétation scientifique.
+
+**Livré** :
+
+- `scripts/v11/run_v11_migrationbench_campaign.py` : runner B2/B5/B6 dédié
+  MigrationBench, nettoyage workspace, isolation par bras, replay parity,
+  `v11_readiness_report.json`.
+- `scripts/bench/compare_strategies.py` : extras scopés par `arm_id`
+  (`workspace_root_root`, `artifacts_root`, `out_dir`) pour éviter toute
+  contamination entre B2/B5/B6.
+- `scripts/bench/telemetry.py` : compteurs
+  `feedback_total`, `replacement_count_too_low_total`,
+  `replacement_count_too_low_rate`.
+- `docker-compose.campaign.yml` : services `v11-migrationbench-smoke` et
+  `v11-migrationbench-main30`.
+
+**Validation** :
+
+```bash
+uv run pytest tests/unit/v11 tests/integration/v11/test_toy_patch_repair.py \
+  tests/unit/v10/bench/test_telemetry_phase6.py \
+  tests/unit/v10/bench/test_compare_strategies_phase6.py \
+  tests/unit/v10/bench/test_harness_migrationbench.py \
+  tests/unit/v10/bench/test_compare_strategies.py -q
+# 33 passed
+
+uv run python -m scripts.v11.run_v11_migrationbench_campaign \
+  --subset fixtures/migrationbench/subsets/smoke_5.jsonl \
+  --out-dir campaign_results/v11/migrationbench_smoke_local \
+  --workspace-root workspaces/migrationbench_v11_local \
+  --limit 1
+# ready_for_main30_launch=true
+
+docker compose -f docker-compose.campaign.yml build v11-migrationbench-smoke
+docker compose -f docker-compose.campaign.yml run --rm v11-migrationbench-smoke
+# ready_for_main30_launch=true
+
+V11_MIGRATION_LIMIT=1 V11_OFFICIAL_EVAL=false V11_USE_LLM_PROVIDERS=false \
+V11_OUT_DIR=campaign_results/v11/migrationbench_main30_dryrun \
+  docker compose -f docker-compose.campaign.yml run --build --rm \
+  v11-migrationbench-main30
+# ready_for_main30_launch=true
+```
+
+**Commande main_30 complète** :
+
+```bash
+DEEPSEEK_API_KEY=$(grep DEEPSEEK_API_KEY .env | cut -d= -f2) \
+  docker compose -f docker-compose.campaign.yml up v11-migrationbench-main30
+```
+
+**Statut** : version lançable en `main_30`. Les résultats produits devront
+encore être audités avant tout claim de performance.

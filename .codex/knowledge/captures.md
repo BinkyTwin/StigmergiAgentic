@@ -3026,3 +3026,26 @@ V11 now scores all `(worker, affordance)` pairs, replays affordance lifecycle an
 - `scripts/v11/run_v11_smoke.py`
 - `tests/unit/v11`
 - `tests/integration/v11/test_toy_patch_repair.py`
+
+## 2026-05-06 — Make V11 MigrationBench main30 Launchable
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `impact_score`: `8/10`
+- `confidence`: `high`
+- `scope`: `Add replay-gated V11 B2/B5/B6 MigrationBench smoke/main30 launch path`
+
+### Outcome
+V11 now has a dedicated MigrationBench runner and Docker services for controlled smoke and `main_30`. The runner cleans owned workspaces, scopes workspace/artifact/output extras per arm to prevent cross-arm branch contamination, verifies live summaries against replay, writes `v11_readiness_report.json`, reports pairwise B2-vs-B5/B6 divergence, and exposes `replacement_count_too_low_total/rate`. Docker `v11-migrationbench-smoke` passed on two smoke instances, and `v11-migrationbench-main30` passed a limit=1 dry-run with `ready_for_main30_launch=true`.
+
+### Reusable Patterns (1-3)
+1. Multi-arm benchmark runners must scope workspaces and artifact roots by arm id, even when the user passes a shared root.
+2. A main-campaign launch gate should validate replay parity and denominator integrity before interpreting strict-success metrics.
+3. Causal activation gates should be conditional on repairable failures; local-green instances should not fail readiness just because no repair was needed.
+
+### Evidence
+- `scripts/v11/run_v11_migrationbench_campaign.py`
+- `docker-compose.campaign.yml`
+- `scripts/bench/compare_strategies.py`
+- `scripts/bench/telemetry.py`
+- `campaign_results/v11/migrationbench_smoke/v11_readiness_report.json`
+- `campaign_results/v11/migrationbench_main30_dryrun/v11_readiness_report.json`

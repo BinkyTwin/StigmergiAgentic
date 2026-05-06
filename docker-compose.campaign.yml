@@ -355,6 +355,114 @@ services:
         fi
         /opt/venv/bin/python -m scripts.v11.run_v11_smoke $${ARGS}
 
+  # ---- V11 MigrationBench controlled smoke (B2/B5/B6, replay-gated) ----
+  v11-migrationbench-smoke:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: stigmergiagentic-v11-migrationbench-smoke
+    environment:
+      DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:-}
+      PYTHONUNBUFFERED: "1"
+      PYTHONWARNINGS: "ignore"
+      V11_MIGRATION_SUBSET: ${V11_MIGRATION_SUBSET:-fixtures/migrationbench/subsets/smoke_5.jsonl}
+      V11_MIGRATION_LIMIT: ${V11_MIGRATION_LIMIT:-2}
+      V11_OUT_DIR: ${V11_OUT_DIR:-campaign_results/v11/migrationbench_smoke}
+      V11_WORKSPACE_ROOT: ${V11_WORKSPACE_ROOT:-workspaces/migrationbench_v11}
+      V11_SEED: ${V11_SEED:-42}
+      V11_OFFICIAL_EVAL: ${V11_OFFICIAL_EVAL:-false}
+      V11_USE_LLM_PROVIDERS: ${V11_USE_LLM_PROVIDERS:-false}
+      V11_OFFICIAL_TIMEOUT_SECONDS: ${V11_OFFICIAL_TIMEOUT_SECONDS:-1800}
+      V11_LLM_INITIAL_CANDIDATES: ${V11_LLM_INITIAL_CANDIDATES:-2}
+      V11_LLM_REPAIR_CANDIDATES: ${V11_LLM_REPAIR_CANDIDATES:-2}
+      V11_MAX_CANDIDATES: ${V11_MAX_CANDIDATES:-2}
+      V11_MAX_REPAIR_ROUNDS: ${V11_MAX_REPAIR_ROUNDS:-1}
+      V11_MAX_REPAIRS_PER_CANDIDATE: ${V11_MAX_REPAIRS_PER_CANDIDATE:-2}
+    volumes:
+      - ./campaign_results/v11:/app/campaign_results/v11
+      - ./workspaces/migrationbench_v11:/app/workspaces/migrationbench_v11
+      - ./external:/app/external
+    working_dir: /app
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 65536
+      nproc: 8192
+    command:
+      - bash
+      - -lc
+      - |
+        set -e
+        if [ ! -d external/MigrationBench/.git ]; then
+          mkdir -p external
+          git clone --depth 1 https://github.com/amazon-science/MigrationBench.git external/MigrationBench
+        fi
+        ARGS="--subset $${V11_MIGRATION_SUBSET} --out-dir $${V11_OUT_DIR} --workspace-root $${V11_WORKSPACE_ROOT} --migrationbench-root external/MigrationBench --seed $${V11_SEED} --official-timeout-seconds $${V11_OFFICIAL_TIMEOUT_SECONDS} --llm-initial-candidates $${V11_LLM_INITIAL_CANDIDATES} --llm-repair-candidates $${V11_LLM_REPAIR_CANDIDATES} --max-candidates $${V11_MAX_CANDIDATES} --max-repair-rounds $${V11_MAX_REPAIR_ROUNDS} --max-repairs-per-candidate $${V11_MAX_REPAIRS_PER_CANDIDATE}"
+        if [ -n "$${V11_MIGRATION_LIMIT}" ]; then
+          ARGS="$${ARGS} --limit $${V11_MIGRATION_LIMIT}"
+        fi
+        if [ "$${V11_OFFICIAL_EVAL}" = "true" ]; then
+          ARGS="$${ARGS} --official-eval"
+        fi
+        if [ "$${V11_USE_LLM_PROVIDERS}" = "true" ]; then
+          ARGS="$${ARGS} --use-llm-providers"
+        fi
+        /opt/venv/bin/python -m scripts.v11.run_v11_migrationbench_campaign $${ARGS}
+
+  # ---- V11 MigrationBench main_30 launch path (B2/B5/B6) ----
+  v11-migrationbench-main30:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: stigmergiagentic-v11-migrationbench-main30
+    environment:
+      DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:-}
+      PYTHONUNBUFFERED: "1"
+      PYTHONWARNINGS: "ignore"
+      V11_MIGRATION_SUBSET: ${V11_MIGRATION_SUBSET:-fixtures/migrationbench/subsets/main_30.jsonl}
+      V11_MIGRATION_LIMIT: ${V11_MIGRATION_LIMIT:-}
+      V11_OUT_DIR: ${V11_OUT_DIR:-campaign_results/v11/migrationbench_main30}
+      V11_WORKSPACE_ROOT: ${V11_WORKSPACE_ROOT:-workspaces/migrationbench_v11}
+      V11_SEED: ${V11_SEED:-42}
+      V11_OFFICIAL_EVAL: ${V11_OFFICIAL_EVAL:-true}
+      V11_USE_LLM_PROVIDERS: ${V11_USE_LLM_PROVIDERS:-true}
+      V11_OFFICIAL_TIMEOUT_SECONDS: ${V11_OFFICIAL_TIMEOUT_SECONDS:-1800}
+      V11_LLM_INITIAL_CANDIDATES: ${V11_LLM_INITIAL_CANDIDATES:-2}
+      V11_LLM_REPAIR_CANDIDATES: ${V11_LLM_REPAIR_CANDIDATES:-2}
+      V11_MAX_CANDIDATES: ${V11_MAX_CANDIDATES:-2}
+      V11_MAX_REPAIR_ROUNDS: ${V11_MAX_REPAIR_ROUNDS:-1}
+      V11_MAX_REPAIRS_PER_CANDIDATE: ${V11_MAX_REPAIRS_PER_CANDIDATE:-2}
+    volumes:
+      - ./campaign_results/v11:/app/campaign_results/v11
+      - ./workspaces/migrationbench_v11:/app/workspaces/migrationbench_v11
+      - ./external:/app/external
+    working_dir: /app
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 65536
+      nproc: 8192
+    command:
+      - bash
+      - -lc
+      - |
+        set -e
+        if [ ! -d external/MigrationBench/.git ]; then
+          mkdir -p external
+          git clone --depth 1 https://github.com/amazon-science/MigrationBench.git external/MigrationBench
+        fi
+        ARGS="--subset $${V11_MIGRATION_SUBSET} --out-dir $${V11_OUT_DIR} --workspace-root $${V11_WORKSPACE_ROOT} --migrationbench-root external/MigrationBench --seed $${V11_SEED} --official-timeout-seconds $${V11_OFFICIAL_TIMEOUT_SECONDS} --llm-initial-candidates $${V11_LLM_INITIAL_CANDIDATES} --llm-repair-candidates $${V11_LLM_REPAIR_CANDIDATES} --max-candidates $${V11_MAX_CANDIDATES} --max-repair-rounds $${V11_MAX_REPAIR_ROUNDS} --max-repairs-per-candidate $${V11_MAX_REPAIRS_PER_CANDIDATE}"
+        if [ -n "$${V11_MIGRATION_LIMIT}" ]; then
+          ARGS="$${ARGS} --limit $${V11_MIGRATION_LIMIT}"
+        fi
+        if [ "$${V11_OFFICIAL_EVAL}" = "true" ]; then
+          ARGS="$${ARGS} --official-eval"
+        fi
+        if [ "$${V11_USE_LLM_PROVIDERS}" = "true" ]; then
+          ARGS="$${ARGS} --use-llm-providers"
+        fi
+        /opt/venv/bin/python -m scripts.v11.run_v11_migrationbench_campaign $${ARGS}
+
   # ---- Phase 6 — A3 vs A4 ablation (smoke) ----
   ablation-a3-vs-a4-smoke:
     build:

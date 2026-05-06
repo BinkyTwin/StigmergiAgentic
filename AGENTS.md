@@ -94,6 +94,20 @@ Durcissement post-audit (2026-05-06) :
   40 tests V10 signal/strategy/imports verts, Docker `v11-smoke` vert après
   rebuild.
 
+Gate MigrationBench `main_30` (2026-05-06) :
+- `scripts/v11/run_v11_migrationbench_campaign.py` est le chemin de lancement
+  B2/B5/B6 : nettoyage workspace, isolation par bras, replay parity, rapport
+  `v11_readiness_report.json`, divergence pairwise B2-vs-B5/B6.
+- `scripts/bench/compare_strategies.py` scope automatiquement
+  `workspace_root_root`, `artifacts_root` et `out_dir` par `arm_id`.
+- `scripts/bench/telemetry.py` expose
+  `replacement_count_too_low_total/rate`.
+- Services Docker : `v11-migrationbench-smoke` (smoke contrôlé) et
+  `v11-migrationbench-main30` (subset `main_30`, official eval + LLM par
+  défaut).
+- Commande main_30 :
+  `DEEPSEEK_API_KEY=$(grep DEEPSEEK_API_KEY .env | cut -d= -f2) docker compose -f docker-compose.campaign.yml up v11-migrationbench-main30`.
+
 Limites assumées :
 - B3/B4 passifs et B7 memory verifier-gated restent des follow-ups.
 - Aucun claim MigrationBench `main_30` V11 n'est formulé avant smoke causal

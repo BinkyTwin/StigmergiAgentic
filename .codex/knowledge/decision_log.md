@@ -1039,3 +1039,11 @@
 - `rationale`: The audit found that causal events existed, but several implementation shortcuts could inflate causality, break replay state, or misapply Maven edits on real POMs. Fixing those mechanics preserves the claim boundary while making the next benchmark smoke meaningful.
 - `alternatives_rejected`: Treat the initial V11 commit as complete, jump directly to MigrationBench `main_30`, or add B7 memory before the causal MVP is mechanically robust.
 - `linked_adr`: `documentation/decisions/20260506-v11-stigmergic-medium-kernel.md`
+
+## 2026-05-06 (Launch V11 main30 Only Through Replay-Gated Runner)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: Run V11 MigrationBench `main_30` through `scripts/v11/run_v11_migrationbench_campaign.py` or Docker `v11-migrationbench-main30`, with arm-scoped workspaces/artifacts and a readiness report.
+- `rationale`: A local smoke exposed cross-arm branch contamination when B2/B5/B6 shared the same workspace root. A dedicated launch gate prevents that class of false `replacement_count_too_low` result and ensures replay parity before the long campaign starts.
+- `alternatives_rejected`: Continue launching `compare_strategies` manually with shared extras, rely on post-hoc cleanup, or require causal activation on local-green instances where no repair decision exists.
+- `linked_adr`: `documentation/decisions/20260506-v11-stigmergic-medium-kernel.md`

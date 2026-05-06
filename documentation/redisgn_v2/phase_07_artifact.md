@@ -157,6 +157,63 @@ docker compose -f docker-compose.campaign.yml run --rm v11-smoke
 # {"status": "ok", "summary_path": "campaign_results/v11/smoke/v11_smoke_summary.json"}
 ```
 
+## Gate MigrationBench main_30
+
+La V11 dispose maintenant d'un chemin de lancement MigrationBench dédié :
+
+- `scripts/v11/run_v11_migrationbench_campaign.py` exécute B2/B5/B6 sur le
+  même subset, nettoie son workspace, force l'isolation
+  workspace/artifacts par bras, vérifie `summary.json == replay_summary`, puis
+  écrit `v11_readiness_report.json`.
+- `scripts/bench/compare_strategies.py` scope désormais automatiquement
+  `workspace_root_root`, `artifacts_root` et `out_dir` par `arm_id` pour éviter
+  qu'un bras réutilise une branche créée par un autre bras.
+- `scripts/bench/telemetry.py` expose `feedback_total`,
+  `replacement_count_too_low_total` et `replacement_count_too_low_rate`.
+- Docker expose deux services :
+  `v11-migrationbench-smoke` et `v11-migrationbench-main30`.
+
+Validation exécutée :
+
+```bash
+uv run python -m scripts.v11.run_v11_migrationbench_campaign \
+  --subset fixtures/migrationbench/subsets/smoke_5.jsonl \
+  --out-dir campaign_results/v11/migrationbench_smoke_local \
+  --workspace-root workspaces/migrationbench_v11_local \
+  --limit 1
+# ready_for_main30_launch=true
+
+docker compose -f docker-compose.campaign.yml build v11-migrationbench-smoke
+docker compose -f docker-compose.campaign.yml run --rm v11-migrationbench-smoke
+# ready_for_main30_launch=true, limit=2 by default
+
+V11_MIGRATION_LIMIT=1 V11_OFFICIAL_EVAL=false V11_USE_LLM_PROVIDERS=false \
+V11_OUT_DIR=campaign_results/v11/migrationbench_main30_dryrun \
+  docker compose -f docker-compose.campaign.yml run --build --rm \
+  v11-migrationbench-main30
+# ready_for_main30_launch=true
+```
+
+Commande de lancement `main_30` complète :
+
+```bash
+DEEPSEEK_API_KEY=$(grep DEEPSEEK_API_KEY .env | cut -d= -f2) \
+  docker compose -f docker-compose.campaign.yml up v11-migrationbench-main30
+```
+
+Sorties attendues :
+
+- `campaign_results/v11/migrationbench_main30/comparison.json`
+- `campaign_results/v11/migrationbench_main30/v11_readiness_report.json`
+- un sous-arbre par bras : `B2_branching_repair`,
+  `B5_stigmergic_scheduler`, `B6_operator_search`.
+
+Le gate `ready_for_main30_launch` vérifie la replay parity, le dénominateur
+complet, la présence de la surface operator et l'activation causale seulement
+lorsqu'un bras rencontre une validation failed/error/partial. Un cas local
+green sans official eval ne doit donc pas échouer simplement parce qu'aucune
+réparation V11 n'était nécessaire.
+
 ## Commandes utiles
 
 ```bash

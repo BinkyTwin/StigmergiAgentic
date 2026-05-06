@@ -49,6 +49,7 @@ DECISION_INFLUENCED_EVENT = "decision.influenced"
 TRAJECTORY_DIVERGED_EVENT = "trajectory.diverged"
 CANDIDATE_APPLIED_EVENT = "candidate.applied"
 VALIDATION_EVENT = "validation.completed"
+FEEDBACK_EVENT = "feedback.created"
 
 
 @dataclass(frozen=True)
@@ -101,6 +102,9 @@ class InstanceSummary:
     validation_partial_count: int = 0
     validation_failed_count: int = 0
     validation_error_count: int = 0
+    feedback_count: int = 0
+    replacement_count_too_low_count: int = 0
+    replacement_count_too_low_rate: float = 0.0
 
 
 @dataclass(frozen=True)
@@ -152,6 +156,9 @@ class Summary:
     validation_partial_total: int = 0
     validation_failed_total: int = 0
     validation_error_total: int = 0
+    feedback_total: int = 0
+    replacement_count_too_low_total: int = 0
+    replacement_count_too_low_rate: float = 0.0
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -201,6 +208,13 @@ class Summary:
             "validation_partial_total": int(self.validation_partial_total),
             "validation_failed_total": int(self.validation_failed_total),
             "validation_error_total": int(self.validation_error_total),
+            "feedback_total": int(self.feedback_total),
+            "replacement_count_too_low_total": int(
+                self.replacement_count_too_low_total
+            ),
+            "replacement_count_too_low_rate": float(
+                self.replacement_count_too_low_rate
+            ),
         }
 
 
@@ -258,6 +272,28 @@ def _has_harmful_delta(value) -> bool:
     if isinstance(value, (list, tuple)):
         return any(_has_harmful_delta(item) for item in value)
     return str(value).lower() in harmful_values
+
+
+def _feedback_text(event: EventRecord) -> str:
+    feedback = event.payload.get("feedback") or {}
+    if not isinstance(feedback, dict):
+        return ""
+    fields: list[str] = []
+    for key in ("failure_type", "summary"):
+        if feedback.get(key) is not None:
+            fields.append(str(feedback.get(key)))
+    for key in ("evidence", "anti_actions"):
+        values = feedback.get(key) or ()
+        if isinstance(values, (list, tuple)):
+            fields.extend(str(value) for value in values)
+    actions = feedback.get("recommended_next_actions") or ()
+    if isinstance(actions, (list, tuple)):
+        for action in actions:
+            if isinstance(action, dict):
+                fields.extend(str(value) for value in action.values())
+            else:
+                fields.append(str(action))
+    return "\n".join(fields).lower()
 
 
 def _instance_summary(
@@ -490,6 +526,19 @@ def _instance_summary(
     validation_events = [
         e for e in instance_events if e.event_type == VALIDATION_EVENT
     ]
+    feedback_events = [
+        e for e in instance_events if e.event_type == FEEDBACK_EVENT
+    ]
+    replacement_count_too_low_count = sum(
+        1
+        for event in feedback_events
+        if "replacement_count_too_low" in _feedback_text(event)
+    )
+    replacement_count_too_low_rate = (
+        replacement_count_too_low_count / float(len(feedback_events))
+        if feedback_events
+        else 0.0
+    )
     validation_status_counts = {
         "passed": 0,
         "partial": 0,
@@ -548,6 +597,9 @@ def _instance_summary(
         validation_partial_count=int(validation_status_counts["partial"]),
         validation_failed_count=int(validation_status_counts["failed"]),
         validation_error_count=int(validation_status_counts["error"]),
+        feedback_count=len(feedback_events),
+        replacement_count_too_low_count=int(replacement_count_too_low_count),
+        replacement_count_too_low_rate=float(replacement_count_too_low_rate),
     )
 
 
@@ -602,6 +654,9 @@ def build_summary(
     validation_partial_total = 0
     validation_failed_total = 0
     validation_error_total = 0
+    feedback_total = 0
+    replacement_count_too_low_total = 0
+    replacement_count_too_low_rate_sum = 0.0
     for instance_id in instance_ids:
         events = events_by_instance.get(instance_id, [])
         summary = _instance_summary(
@@ -649,6 +704,9 @@ def build_summary(
         validation_partial_total += summary.validation_partial_count
         validation_failed_total += summary.validation_failed_count
         validation_error_total += summary.validation_error_count
+        feedback_total += summary.feedback_count
+        replacement_count_too_low_total += summary.replacement_count_too_low_count
+        replacement_count_too_low_rate_sum += summary.replacement_count_too_low_rate
         for key, value in summary.signals.items():
             if value is True:
                 by_signal[key] = by_signal.get(key, 0) + 1
@@ -699,6 +757,9 @@ def build_summary(
         validation_partial_total=validation_partial_total,
         validation_failed_total=validation_failed_total,
         validation_error_total=validation_error_total,
+        feedback_total=feedback_total,
+        replacement_count_too_low_total=replacement_count_too_low_total,
+        replacement_count_too_low_rate=replacement_count_too_low_rate_sum / float(n),
     )
 
 
@@ -753,6 +814,7 @@ __all__ = [
     "AFFORDANCE_INHIBITED_EVENT",
     "CANDIDATE_APPLIED_EVENT",
     "DECISION_INFLUENCED_EVENT",
+    "FEEDBACK_EVENT",
     "InstanceSummary",
     "OPERATOR_APPLIED_EVENT",
     "OPERATOR_FAILED_EVENT",

@@ -646,3 +646,8 @@
 - Reconstruct active medium state from lifecycle events, not just aggregate counters; consumed, expired, inhibited, retired, and decayed records need replay tests.
 - Score affordance-worker pairs rather than selecting workers against a single top affordance.
 - Make deterministic smoke scripts idempotent by cleaning only their owned output subtrees before each run.
+
+### Main Campaign Launch Gate Standard
+- Scope every multi-arm workspace and artifact root by arm id before running the first instance.
+- Treat replay parity, full denominator, and owned-output cleanup as launch gates, not post-hoc nice-to-haves.
+- Require causal activation only for instances or arms with repairable validation failures; no-repair local-green paths should remain launch-valid.

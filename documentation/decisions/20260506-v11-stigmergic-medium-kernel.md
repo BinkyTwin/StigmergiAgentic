@@ -132,3 +132,20 @@ output directories.
 
 This still does not promote V11 to a MigrationBench claim. It makes the toy
 causal MVP mechanically safer before the next controlled MigrationBench smoke.
+
+## Main30 Launch Gate
+
+The V11 MigrationBench launch path is now explicit and replay-gated. The
+accepted rule is that `main_30` must be launched through
+`scripts/v11/run_v11_migrationbench_campaign.py` or the Docker service
+`v11-migrationbench-main30`, not by hand-assembling `compare_strategies`
+arguments.
+
+The gate writes `v11_readiness_report.json` and checks full denominator,
+`summary == replay_summary_from_dir(...)`, arm-isolated workspaces/artifacts,
+causal activation on repairable failures, pairwise B2-vs-treatment divergence,
+and the `replacement_count_too_low` rate. Causal activation is not required on
+instances that pass local validation without a repair opportunity.
+
+This makes the branch launchable for `main_30`; it still does not make the
+result a performance claim until the completed campaign is inspected.
