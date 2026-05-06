@@ -25,7 +25,9 @@ import logging
 import os
 import re
 import time
+from datetime import datetime, timezone
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any, Sequence
 
 from core_v10.contracts import (
@@ -71,6 +73,7 @@ class LLMConfig:
     timeout_seconds: float = _DEFAULT_TIMEOUT_SECONDS
     max_tokens: int = _DEFAULT_MAX_TOKENS
     extra_headers: dict[str, str] = field(default_factory=dict)
+    trace_dir: Path | None = None
 
     @classmethod
     def from_extras(cls, extras: dict[str, Any]) -> "LLMConfig | None":
@@ -96,6 +99,13 @@ class LLMConfig:
             "deepseek": "https://api.deepseek.com/v1",
             "openrouter": "https://openrouter.ai/api/v1",
         }
+        trace_enabled = bool(
+            llm.get("trace_enabled", extras.get("llm_trace_enabled", True))
+        )
+        trace_dir_raw = llm.get("trace_dir") or extras.get("llm_trace_dir")
+        if trace_dir_raw is None and extras.get("out_dir"):
+            trace_dir_raw = Path(str(extras["out_dir"])) / "llm_traces"
+        trace_dir = Path(str(trace_dir_raw)) if trace_enabled and trace_dir_raw else None
         return cls(
             provider=provider,
             model=str(llm.get("model", "deepseek-chat")),
@@ -104,7 +114,29 @@ class LLMConfig:
             timeout_seconds=float(llm.get("timeout_seconds", _DEFAULT_TIMEOUT_SECONDS)),
             max_tokens=int(llm.get("max_tokens", _DEFAULT_MAX_TOKENS)),
             extra_headers=dict(llm.get("extra_headers") or {}),
+            trace_dir=trace_dir,
         )
+
+
+class LLMJsonResponse(dict):
+    """Parsed LLM JSON plus raw call metadata for audit traces."""
+
+    def __init__(
+        self,
+        parsed: dict[str, Any] | None,
+        *,
+        raw_response: str | None = None,
+        error: str | None = None,
+        duration_seconds: float | None = None,
+        finish_reason: str | None = None,
+        usage: Any | None = None,
+    ) -> None:
+        super().__init__(parsed or {})
+        self.raw_response = raw_response
+        self.error = error
+        self.duration_seconds = duration_seconds
+        self.finish_reason = finish_reason
+        self.usage = usage
 
 
 def _call_llm_json(
@@ -114,13 +146,13 @@ def _call_llm_json(
     user: str,
     temperature: float,
 ) -> dict[str, Any] | None:
-    """Call the chat completion endpoint and return parsed JSON or ``None``."""
+    """Call chat completion and return parsed JSON with raw trace metadata."""
 
     try:
         from openai import OpenAI  # local import keeps unit tests light
     except Exception as exc:  # noqa: BLE001
         LOGGER.warning("openai SDK not importable: %s", exc)
-        return None
+        return LLMJsonResponse(None, error=f"openai_sdk_not_importable: {exc}")
 
     client = OpenAI(
         api_key=config.api_key,
@@ -141,20 +173,170 @@ def _call_llm_json(
             response_format={"type": "json_object"},
         )
     except Exception as exc:  # noqa: BLE001
+        elapsed = time.time() - started
         LOGGER.warning(
             "providers_llm: API call failed in %.1fs (temperature=%.2f): %s",
-            time.time() - started,
+            elapsed,
             temperature,
             exc,
         )
-        return None
+        return LLMJsonResponse(
+            None,
+            error=f"api_call_failed: {exc}",
+            duration_seconds=elapsed,
+        )
 
     if not completion.choices:
         LOGGER.warning("providers_llm: empty choices")
-        return None
+        return LLMJsonResponse(
+            None,
+            error="empty_choices",
+            duration_seconds=time.time() - started,
+            usage=getattr(completion, "usage", None),
+        )
 
-    raw = completion.choices[0].message.content or ""
-    return _safe_json_parse(raw)
+    choice = completion.choices[0]
+    raw = choice.message.content or ""
+    parsed = _safe_json_parse(raw)
+    return LLMJsonResponse(
+        parsed,
+        raw_response=raw,
+        error=None if parsed is not None else "json_parse_failed",
+        duration_seconds=time.time() - started,
+        finish_reason=getattr(choice, "finish_reason", None),
+        usage=getattr(completion, "usage", None),
+    )
+
+
+def _jsonable(value: Any) -> Any:
+    """Convert SDK/Pydantic objects to JSON-safe values without secrets."""
+
+    if value is None or isinstance(value, (str, int, float, bool)):
+        return value
+    if isinstance(value, dict):
+        return {str(k): _jsonable(v) for k, v in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_jsonable(v) for v in value]
+    if hasattr(value, "model_dump"):
+        try:
+            return _jsonable(value.model_dump())
+        except Exception:  # noqa: BLE001
+            pass
+    if hasattr(value, "dict"):
+        try:
+            return _jsonable(value.dict())
+        except Exception:  # noqa: BLE001
+            pass
+    return str(value)
+
+
+def _safe_trace_name(value: str) -> str:
+    cleaned = re.sub(r"[^A-Za-z0-9_.-]+", "_", value.strip())
+    return cleaned[:180] or "unknown"
+
+
+def _response_trace_metadata(response: dict[str, Any] | None) -> dict[str, Any]:
+    if isinstance(response, LLMJsonResponse):
+        return {
+            "raw_response": response.raw_response,
+            "call_error": response.error,
+            "duration_seconds": response.duration_seconds,
+            "finish_reason": response.finish_reason,
+            "usage": _jsonable(response.usage),
+        }
+    return {
+        "raw_response": None,
+        "call_error": "no_response" if response is None else None,
+        "duration_seconds": None,
+        "finish_reason": None,
+        "usage": None,
+    }
+
+
+def _write_llm_trace(config: LLMConfig, record: dict[str, Any]) -> None:
+    """Persist one audit record per LLM call under ``<out_dir>/llm_traces``."""
+
+    if config.trace_dir is None:
+        return
+    trace_dir = config.trace_dir
+    instance_id = str(record.get("instance_id") or "unknown")
+    payload = {
+        "schema_version": "v11.llm_trace.v1",
+        "timestamp_utc": datetime.now(timezone.utc).isoformat(),
+        **record,
+    }
+    try:
+        trace_dir.mkdir(parents=True, exist_ok=True)
+        paths = [
+            trace_dir / "calls.jsonl",
+            trace_dir / f"{_safe_trace_name(instance_id)}.jsonl",
+        ]
+        line = json.dumps(_jsonable(payload), ensure_ascii=False, sort_keys=True) + "\n"
+        for path in paths:
+            with path.open("a", encoding="utf-8") as fh:
+                fh.write(line)
+    except Exception as exc:  # noqa: BLE001
+        LOGGER.warning("providers_llm: could not write LLM trace: %s", exc)
+
+
+def _trace_llm_call(
+    config: LLMConfig,
+    *,
+    call_kind: str,
+    instance: RunInstance,
+    system_prompt: str,
+    user_prompt: str,
+    temperature: float,
+    slot_index: int,
+    response: dict[str, Any] | None,
+    normalized_edits: list[dict[str, Any]],
+    candidate_id: str,
+    candidate_emitted: bool,
+    dropped_reason: str | None,
+    files: dict[str, str],
+    parent_candidate_id: str | None = None,
+    feedback_failure_type: str | None = None,
+) -> None:
+    parsed_response = dict(response) if isinstance(response, dict) else None
+    meta = _response_trace_metadata(response)
+    _write_llm_trace(
+        config,
+        {
+            "call_kind": call_kind,
+            "instance_id": instance.instance_id,
+            "provider": config.provider,
+            "model": config.model,
+            "base_url": config.base_url,
+            "temperature": temperature,
+            "max_tokens": config.max_tokens,
+            "timeout_seconds": config.timeout_seconds,
+            "slot_index": slot_index,
+            "candidate_id": candidate_id,
+            "parent_candidate_id": parent_candidate_id,
+            "feedback_failure_type": feedback_failure_type,
+            "candidate_emitted": candidate_emitted,
+            "dropped_reason": dropped_reason,
+            "parse_ok": parsed_response is not None and meta.get("call_error") is None,
+            "system_prompt": system_prompt,
+            "user_prompt": user_prompt,
+            "system_prompt_chars": len(system_prompt),
+            "user_prompt_chars": len(user_prompt),
+            "files_shown": sorted(files),
+            "files_shown_chars": {
+                path: len(text) for path, text in sorted(files.items())
+            },
+            "parsed_response": parsed_response,
+            "raw_response": meta["raw_response"],
+            "raw_response_chars": len(meta["raw_response"] or ""),
+            "normalized_edits": normalized_edits,
+            "normalized_edit_count": len(normalized_edits),
+            "call_error": meta["call_error"],
+            "duration_seconds": meta["duration_seconds"],
+            "finish_reason": meta["finish_reason"],
+            "usage": meta["usage"],
+        },
+    )
+
 
 
 _FENCE_RE = re.compile(r"```(?:json)?\s*(.+?)```", re.DOTALL)
@@ -708,6 +890,7 @@ def make_migrationbench_llm_initial_provider(
         # available as a fallback below if the API stays silent.
         for k in range(n_target):
             temperature = _TEMPERATURES[k]
+            candidate_id = f"{instance.instance_id}-c{k+1}-llm{int(temperature*10)}"
             variation = (
                 "Conservative POM-only edits."
                 if k == 0
@@ -727,6 +910,21 @@ def make_migrationbench_llm_initial_provider(
             )
             edits = _normalize_edits(response, files=files)
             if not edits:
+                _trace_llm_call(
+                    config,
+                    call_kind="initial",
+                    instance=instance,
+                    system_prompt=_SYSTEM_PROMPT_INITIAL,
+                    user_prompt=user,
+                    temperature=temperature,
+                    slot_index=k,
+                    response=response,
+                    normalized_edits=edits,
+                    candidate_id=candidate_id,
+                    candidate_emitted=False,
+                    dropped_reason="empty_or_invalid_edits",
+                    files=files,
+                )
                 LOGGER.info(
                     "providers_llm: empty/invalid edits for %s slot=%d",
                     instance.instance_id,
@@ -735,11 +933,26 @@ def make_migrationbench_llm_initial_provider(
                 continue
             sig = _signature(edits)
             if sig in signatures:
+                _trace_llm_call(
+                    config,
+                    call_kind="initial",
+                    instance=instance,
+                    system_prompt=_SYSTEM_PROMPT_INITIAL,
+                    user_prompt=user,
+                    temperature=temperature,
+                    slot_index=k,
+                    response=response,
+                    normalized_edits=edits,
+                    candidate_id=candidate_id,
+                    candidate_emitted=False,
+                    dropped_reason="duplicate_signature",
+                    files=files,
+                )
                 continue
             signatures.add(sig)
             candidates.append(
                 Candidate(
-                    candidate_id=f"{instance.instance_id}-c{k+1}-llm{int(temperature*10)}",
+                    candidate_id=candidate_id,
                     kind=CandidateKind.PATCH,
                     payload={
                         "branch_id": f"c{k+1}_llm",
@@ -761,6 +974,21 @@ def make_migrationbench_llm_initial_provider(
                         "provider": config.provider,
                     },
                 )
+            )
+            _trace_llm_call(
+                config,
+                call_kind="initial",
+                instance=instance,
+                system_prompt=_SYSTEM_PROMPT_INITIAL,
+                user_prompt=user,
+                temperature=temperature,
+                slot_index=k,
+                response=response,
+                normalized_edits=edits,
+                candidate_id=candidate_id,
+                candidate_emitted=True,
+                dropped_reason=None,
+                files=files,
             )
         if not candidates:
             # API silent or all responses unparseable: fall back to a single
@@ -839,6 +1067,7 @@ def make_migrationbench_llm_repair_provider(
         signatures: set[str] = set()
         for k in range(n_target):
             temperature = _TEMPERATURES[k]
+            candidate_id = f"{original.candidate_id}-r{k}-llm{int(temperature*10)}"
             user = _build_repair_user_prompt(
                 instance, observation, files, feedback, original
             )
@@ -850,16 +1079,48 @@ def make_migrationbench_llm_repair_provider(
             )
             edits = _normalize_edits(response, files=files)
             if not edits:
+                _trace_llm_call(
+                    config,
+                    call_kind="repair",
+                    instance=instance,
+                    system_prompt=_SYSTEM_PROMPT_REPAIR,
+                    user_prompt=user,
+                    temperature=temperature,
+                    slot_index=k,
+                    response=response,
+                    normalized_edits=edits,
+                    candidate_id=candidate_id,
+                    candidate_emitted=False,
+                    dropped_reason="empty_or_invalid_edits",
+                    files=files,
+                    parent_candidate_id=original.candidate_id,
+                    feedback_failure_type=feedback.failure_type,
+                )
                 continue
             sig = _signature(edits)
             if sig in signatures:
+                _trace_llm_call(
+                    config,
+                    call_kind="repair",
+                    instance=instance,
+                    system_prompt=_SYSTEM_PROMPT_REPAIR,
+                    user_prompt=user,
+                    temperature=temperature,
+                    slot_index=k,
+                    response=response,
+                    normalized_edits=edits,
+                    candidate_id=candidate_id,
+                    candidate_emitted=False,
+                    dropped_reason="duplicate_signature",
+                    files=files,
+                    parent_candidate_id=original.candidate_id,
+                    feedback_failure_type=feedback.failure_type,
+                )
                 continue
             signatures.add(sig)
             repairs.append(
                 Candidate(
-                    candidate_id=(
-                        f"{original.candidate_id}-r{k}-llm{int(temperature*10)}"
-                    ),
+                    candidate_id=candidate_id,
                     kind=CandidateKind.PATCH,
                     payload={
                         "branch_id": f"{original.payload.get('branch_id','c')}_r{k}",
@@ -885,6 +1146,23 @@ def make_migrationbench_llm_repair_provider(
                     },
                 )
             )
+            _trace_llm_call(
+                config,
+                call_kind="repair",
+                instance=instance,
+                system_prompt=_SYSTEM_PROMPT_REPAIR,
+                user_prompt=user,
+                temperature=temperature,
+                slot_index=k,
+                response=response,
+                normalized_edits=edits,
+                candidate_id=candidate_id,
+                candidate_emitted=True,
+                dropped_reason=None,
+                files=files,
+                parent_candidate_id=original.candidate_id,
+                feedback_failure_type=feedback.failure_type,
+            )
         return repairs
 
     return provide
@@ -901,6 +1179,7 @@ def _signature(edits: list[dict[str, Any]]) -> str:
 
 __all__ = [
     "LLMConfig",
+    "LLMJsonResponse",
     "make_migrationbench_llm_initial_provider",
     "make_migrationbench_llm_repair_provider",
 ]

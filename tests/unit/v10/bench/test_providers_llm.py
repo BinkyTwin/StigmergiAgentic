@@ -7,6 +7,7 @@ candidate dedup, fallback semantics, repair feedback usage).
 
 from __future__ import annotations
 
+import json
 from typing import Any
 
 import pytest
@@ -158,6 +159,19 @@ def test_llm_config_resolves_deepseek_defaults(
     assert config.base_url.startswith("https://api.deepseek.com")
     assert config.model == "deepseek-chat"
     assert config.api_key == "sk-key"
+    assert config.trace_dir is None
+
+
+def test_llm_config_defaults_trace_dir_to_out_dir(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path,
+) -> None:
+    monkeypatch.setenv("DEEPSEEK_API_KEY", "sk-key")
+    config = LLMConfig.from_extras(
+        {"use_llm_providers": True, "out_dir": str(tmp_path)}
+    )
+    assert config is not None
+    assert config.trace_dir == tmp_path / "llm_traces"
 
 
 # ---------------------------------------------------------------------------
@@ -313,6 +327,68 @@ def test_initial_provider_emits_distinct_llm_candidates(
     assert len(candidates) == 2
     seen = {_signature(c.payload["edit_set"]["edits"]) for c in candidates}
     assert len(seen) == len(candidates)
+
+
+def test_initial_provider_writes_full_llm_trace_for_each_call(
+    adapter_factory,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path,
+) -> None:
+    monkeypatch.setenv("DEEPSEEK_API_KEY", "sk-key")
+    pom = (
+        "<project>\n"
+        "  <maven.compiler.source>1.8</maven.compiler.source>\n"
+        "</project>\n"
+    )
+    adapter = adapter_factory({"pom.xml": pom})
+    valid_response = providers_llm.LLMJsonResponse(
+        {
+            "edits": [
+                {
+                    "type": "replace_text",
+                    "path": "pom.xml",
+                    "old": "<maven.compiler.source>1.8</maven.compiler.source>",
+                    "new": "<maven.compiler.source>17</maven.compiler.source>",
+                }
+            ],
+            "rationale": "trace me",
+        },
+        raw_response='{"edits":[{"type":"replace_text"}],"rationale":"trace me"}',
+        duration_seconds=0.2,
+        finish_reason="stop",
+        usage={"prompt_tokens": 10, "completion_tokens": 5},
+    )
+    responses = iter([valid_response, valid_response, None])
+    monkeypatch.setattr(providers_llm, "_call_llm_json", lambda *a, **k: next(responses))
+
+    provide = make_migrationbench_llm_initial_provider(
+        adapter,
+        {
+            "use_llm_providers": True,
+            "llm_initial_candidates": 3,
+            "out_dir": str(tmp_path),
+        },
+    )
+    candidates = list(provide(_make_observation(), _make_instance()))
+
+    assert len(candidates) == 1
+    trace_path = tmp_path / "llm_traces" / "calls.jsonl"
+    rows = [
+        json.loads(line)
+        for line in trace_path.read_text(encoding="utf-8").splitlines()
+    ]
+    assert [row["candidate_emitted"] for row in rows] == [True, False, False]
+    assert rows[1]["dropped_reason"] == "duplicate_signature"
+    assert rows[2]["dropped_reason"] == "empty_or_invalid_edits"
+    first = rows[0]
+    assert first["call_kind"] == "initial"
+    assert first["instance_id"] == "demo__repo"
+    assert "You are a senior Java/Maven build engineer" in first["system_prompt"]
+    assert "Target Java: 17" in first["user_prompt"]
+    assert first["raw_response"].startswith('{"edits"')
+    assert first["parsed_response"]["rationale"] == "trace me"
+    assert first["normalized_edits"][0]["path"] == "pom.xml"
+    assert first["usage"] == {"prompt_tokens": 10, "completion_tokens": 5}
 
 
 def test_initial_provider_falls_back_to_deterministic_when_llm_silent(
