@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from typing import Any, Iterable, Sequence
 
 from core_v10.contracts import (
@@ -52,6 +53,14 @@ JAXB_DEPENDENCY_XML = """    <dependency>
 """
 
 
+JAVAX_JAXB_DEPENDENCY_XML = """    <dependency>
+      <groupId>javax.xml.bind</groupId>
+      <artifactId>jaxb-api</artifactId>
+      <version>2.3.1</version>
+    </dependency>
+"""
+
+
 def migrationbench_operator_candidates(
     *,
     feedback: FeedbackDigest,
@@ -93,7 +102,14 @@ def migrationbench_operator_candidates(
     if action == "add_missing_dependency" or any(
         token in full_text for token in ("javax.xml.bind", "jaxb", "dependency_resolution")
     ):
-        dependency_edits = maven_add_jaxb_dependency_edits(pom_texts)
+        dependency_edits = maven_add_jaxb_dependency_edits(
+            pom_texts,
+            binding_namespace=(
+                "javax"
+                if "javax.xml.bind" in full_text and "jakarta.xml.bind" not in full_text
+                else "jakarta"
+            ),
+        )
         if dependency_edits:
             edits.extend(dependency_edits)
             operator_ids.append("MavenAddJaxbDependency")
@@ -142,7 +158,7 @@ def migrationbench_operator_candidates(
                 },
             },
             origin="v11_operator_search",
-            parent_id=original.parent_id,
+            parent_id=original.candidate_id,
             metadata={
                 "operator_invocation": invocation.to_dict(),
                 "source_affordance_id": source_affordance_id,
@@ -210,12 +226,22 @@ def maven_upgrade_surefire_plugin_edits(
 
 def maven_add_jaxb_dependency_edits(
     pom_texts: dict[str, str],
+    *,
+    binding_namespace: str = "jakarta",
 ) -> list[dict[str, Any]]:
-    """Insert Jakarta JAXB API dependency when an existing dependencies block exists."""
+    """Insert JAXB API dependency when an existing dependencies block exists."""
 
     edits: list[dict[str, Any]] = []
+    dependency_xml = (
+        JAVAX_JAXB_DEPENDENCY_XML
+        if binding_namespace == "javax"
+        else JAXB_DEPENDENCY_XML
+    )
+    dependency_marker = (
+        "jaxb-api" if binding_namespace == "javax" else "jakarta.xml.bind-api"
+    )
     for path, text in pom_texts.items():
-        if "jakarta.xml.bind-api" in text:
+        if dependency_marker in text:
             continue
         old = "  </dependencies>"
         if old not in text:
@@ -223,7 +249,7 @@ def maven_add_jaxb_dependency_edits(
         result = ExactReplaceText().apply(
             current_text=text,
             old=old,
-            new=f"{JAXB_DEPENDENCY_XML}{old}",
+            new=f"{dependency_xml}{old}",
             expected_replacements=1,
             allow_multiple=False,
         )
@@ -234,7 +260,7 @@ def maven_add_jaxb_dependency_edits(
                 "type": "replace_text",
                 "path": path,
                 "old": old,
-                "new": f"{JAXB_DEPENDENCY_XML}{old}",
+                "new": f"{dependency_xml}{old}",
                 "expected_replacements": 1,
                 "allow_multiple": False,
             }
@@ -252,30 +278,50 @@ def _plugin_version_edits(
     edits: list[dict[str, Any]] = []
     artifact_marker = f"<artifactId>{plugin_artifact}</artifactId>"
     for path, text in pom_texts.items():
-        if artifact_marker not in text:
-            continue
-        for old, new in replacements:
-            result = ExactReplaceText().apply(
-                current_text=text,
-                old=old,
-                new=new,
-                expected_replacements=1,
-                allow_multiple=False,
-            )
-            if not result.applied:
-                continue
-            edits.append(
-                {
-                    "type": "replace_text",
-                    "path": path,
-                    "old": old,
-                    "new": new,
-                    "expected_replacements": 1,
-                    "allow_multiple": False,
-                }
-            )
-            break
+        for block in _plugin_blocks_for_artifact(text, artifact_marker):
+            for old, new in replacements:
+                result = ExactReplaceText().apply(
+                    current_text=block,
+                    old=old,
+                    new=new,
+                    expected_replacements=1,
+                    allow_multiple=False,
+                )
+                if not result.applied:
+                    continue
+                upgraded_block = result.text
+                text_result = ExactReplaceText().apply(
+                    current_text=text,
+                    old=block,
+                    new=upgraded_block,
+                    expected_replacements=1,
+                    allow_multiple=False,
+                )
+                if not text_result.applied:
+                    continue
+                edits.append(
+                    {
+                        "type": "replace_text",
+                        "path": path,
+                        "old": block,
+                        "new": upgraded_block,
+                        "expected_replacements": 1,
+                        "allow_multiple": False,
+                    }
+                )
+                break
+            if edits and edits[-1]["path"] == path:
+                break
     return edits
+
+
+def _plugin_blocks_for_artifact(text: str, artifact_marker: str) -> tuple[str, ...]:
+    blocks: list[str] = []
+    for match in re.finditer(r"<plugin\b[^>]*>.*?</plugin>", text, flags=re.DOTALL):
+        block = match.group(0)
+        if artifact_marker in block:
+            blocks.append(block)
+    return tuple(blocks)
 
 
 def _pom_texts(observation: Observation) -> dict[str, str]:

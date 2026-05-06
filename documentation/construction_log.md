@@ -1521,3 +1521,51 @@ et applique un operator typé. `live==replay` reste l'invariant central.
 
 **Limites** : pas de claim MigrationBench V11 `main_30` ; B7 memory
 verifier-gated et B8 search restent hors scope de cet incrément.
+
+---
+
+## 2026-05-06 — Durcissement post-audit V11 MVP
+
+**Objectif** : intégrer les retours d'audit sur le MVP V11 sans élargir le
+claim scientifique au-delà du toy causal.
+
+**Corrections livrées** :
+
+- Scheduler V11 : scoring de tous les couples `(worker, affordance)` au lieu
+  d'une décision basée uniquement sur la première affordance visible.
+- Medium replay : reconstruction des affordances consommées, expirées et
+  inhibées, des signaux retirés et des records `signal.decayed`.
+- Operators MigrationBench : `parent_id=original.candidate_id`, upgrades
+  Maven compiler/surefire scopés au bloc `<plugin>`, ajout JAXB `javax` ou
+  `jakarta` selon le feedback.
+- Télémétrie : `decision.influenced` ne compte que `changed=true` ; le harm est
+  détecté dans les `downstream_delta` structurés.
+- Smoke V11 : nettoyage des sous-répertoires de sortie avant relance pour
+  éviter l'accumulation d'events et préserver `live==replay`.
+
+**Validation** :
+
+```bash
+uv run pytest tests/unit/v11 tests/integration/v11/test_toy_patch_repair.py -q
+# 15 passed
+
+uv run pytest tests/integration/v11/test_toy_patch_repair.py \
+  tests/unit/v10/bench/test_harness_toy.py \
+  tests/unit/v10/bench/test_harness_migrationbench.py \
+  tests/unit/v10/bench/test_compare_strategies.py \
+  tests/unit/v10/bench/test_compare_strategies_phase6.py \
+  tests/unit/v10/test_strategy_runner_phase6.py \
+  tests/unit/v10/migrationbench/test_adapter.py \
+  tests/unit/v10/migrationbench/test_workspace.py -q
+# 41 passed
+
+uv run pytest tests/unit/v10/test_import_boundaries.py \
+  tests/unit/v10/test_signal_store.py tests/unit/v10/test_signal_policy.py \
+  tests/unit/v10/test_strategy_runner.py \
+  tests/unit/v10/bench/test_telemetry_phase6.py -q
+# 40 passed
+
+docker compose -f docker-compose.campaign.yml build v11-smoke
+docker compose -f docker-compose.campaign.yml run --rm v11-smoke
+# status ok, campaign_results/v11/smoke/v11_smoke_summary.json
+```

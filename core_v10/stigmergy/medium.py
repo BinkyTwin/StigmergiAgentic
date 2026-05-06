@@ -14,12 +14,20 @@ from core_v10.event_log import EventRecord
 from core_v10.signal_policy import (
     PolicyEffect,
     reinforce_origin,
+    SIGNAL_EMITTED_EVENT,
     store_from_events,
     update_from_feedback,
 )
 from core_v10.signals import SignalRecord, SignalStore
 from core_v10.stigmergy.affordances import affordances_from_feedback
-from core_v10.stigmergy.events import AFFORDANCE_CREATED_EVENT
+from core_v10.stigmergy.events import (
+    AFFORDANCE_CONSUMED_EVENT,
+    AFFORDANCE_CREATED_EVENT,
+    AFFORDANCE_EXPIRED_EVENT,
+    AFFORDANCE_INHIBITED_EVENT,
+    SIGNAL_DECAYED_EVENT,
+    SIGNAL_RETIRED_EVENT,
+)
 from core_v10.stigmergy.records import (
     Affordance,
     DecisionInfluence,
@@ -34,6 +42,8 @@ class StigmergicMediumKernel:
         self.signal_store = signal_store or SignalStore()
         self._affordances: dict[str, Affordance] = {}
         self._consumed_affordances: set[str] = set()
+        self._expired_affordances: set[str] = set()
+        self._inhibited_affordances: set[str] = set()
         self._retired_signals: set[str] = set()
 
     def emit_from_feedback(
@@ -158,6 +168,18 @@ class StigmergicMediumKernel:
             self._consumed_affordances.add(affordance_id)
         return affordance
 
+    def expire_affordance(self, affordance_id: str) -> Affordance | None:
+        affordance = self._affordances.get(affordance_id)
+        if affordance is not None:
+            self._expired_affordances.add(affordance_id)
+        return affordance
+
+    def inhibit_affordance(self, affordance_id: str) -> Affordance | None:
+        affordance = self._affordances.get(affordance_id)
+        if affordance is not None:
+            self._inhibited_affordances.add(affordance_id)
+        return affordance
+
     def top_signals(self, *, top_k: int = 3) -> tuple[SignalRecord, ...]:
         records = [
             record
@@ -174,7 +196,7 @@ class StigmergicMediumKernel:
         active = [
             affordance
             for affordance in self._affordances.values()
-            if affordance.affordance_id not in self._consumed_affordances
+            if affordance.affordance_id not in self._inactive_affordance_ids()
         ]
         return tuple(
             sorted(active, key=lambda aff: (-aff.priority, aff.affordance_id))[
@@ -182,11 +204,20 @@ class StigmergicMediumKernel:
             ]
         )
 
+    def _inactive_affordance_ids(self) -> set[str]:
+        return (
+            set(self._consumed_affordances)
+            | set(self._expired_affordances)
+            | set(self._inhibited_affordances)
+        )
+
     def snapshot(self) -> JsonDict:
         return {
             "signals": self.signal_store.to_dict(),
             "affordances": [aff.to_dict() for aff in self.top_affordances(top_k=10_000)],
             "consumed_affordance_ids": sorted(self._consumed_affordances),
+            "expired_affordance_ids": sorted(self._expired_affordances),
+            "inhibited_affordance_ids": sorted(self._inhibited_affordances),
             "retired_signal_ids": sorted(self._retired_signals),
         }
 
@@ -197,16 +228,61 @@ class StigmergicMediumKernel:
         ordered = sorted(list(events), key=lambda event: event.sequence)
         medium = cls(signal_store=store_from_events(ordered))
         for event in ordered:
-            if event.event_type != AFFORDANCE_CREATED_EVENT:
-                continue
             payload = event.payload or {}
-            data = payload.get("affordance") or payload
-            try:
-                affordance = Affordance.from_dict(data)
-            except (KeyError, TypeError, ValueError):
-                continue
-            medium._affordances[affordance.affordance_id] = affordance
+            if event.event_type == AFFORDANCE_CREATED_EVENT:
+                data = payload.get("affordance") or payload
+                try:
+                    affordance = Affordance.from_dict(data)
+                except (KeyError, TypeError, ValueError):
+                    continue
+                medium._affordances[affordance.affordance_id] = affordance
+            elif event.event_type == AFFORDANCE_CONSUMED_EVENT:
+                _remember_affordance_lifecycle(
+                    medium._consumed_affordances,
+                    payload,
+                )
+            elif event.event_type == AFFORDANCE_EXPIRED_EVENT:
+                _remember_affordance_lifecycle(
+                    medium._expired_affordances,
+                    payload,
+                )
+            elif event.event_type == AFFORDANCE_INHIBITED_EVENT:
+                _remember_affordance_lifecycle(
+                    medium._inhibited_affordances,
+                    payload,
+                )
+            elif event.event_type == SIGNAL_RETIRED_EVENT:
+                signal_id = _signal_id_from_payload(payload)
+                if signal_id:
+                    medium._retired_signals.add(signal_id)
+            elif event.event_type in {SIGNAL_DECAYED_EVENT, SIGNAL_EMITTED_EVENT}:
+                record_data = payload.get("record")
+                if isinstance(record_data, dict):
+                    try:
+                        record = SignalRecord.from_dict(record_data)
+                    except (KeyError, TypeError, ValueError):
+                        continue
+                    medium.signal_store._records[(record.kind, record.target)] = record  # type: ignore[attr-defined]
         return medium
+
+
+def _remember_affordance_lifecycle(target: set[str], payload: JsonDict) -> None:
+    affordance_id = str(payload.get("affordance_id") or "")
+    if not affordance_id:
+        affordance = payload.get("affordance")
+        if isinstance(affordance, dict):
+            affordance_id = str(affordance.get("affordance_id") or "")
+    if affordance_id:
+        target.add(affordance_id)
+
+
+def _signal_id_from_payload(payload: JsonDict) -> str:
+    if payload.get("signal_id"):
+        return str(payload["signal_id"])
+    record = payload.get("record")
+    if isinstance(record, dict) and record.get("signal_id"):
+        return str(record["signal_id"])
+    return ""
 
 
 __all__ = ["StigmergicMediumKernel"]

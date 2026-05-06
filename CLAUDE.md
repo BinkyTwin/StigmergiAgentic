@@ -105,6 +105,16 @@ worker activation, influence et divergence ; B6 invoque/applique des
 operators typés sur toy avec `live==replay`. B7 memory et tout claim
 MigrationBench main_30 V11 restent hors scope.
 
+Durcissement post-audit (2026-05-06) : le scheduler score tous les couples
+`(worker, affordance)`, le médium rejoue les affordances
+`consumed/expired/inhibited` et les signaux `retired/decayed`, les candidates
+operators MigrationBench sont enfants de l'hypothèse originale, les upgrades
+Maven plugin remplacent le bloc `<plugin>` ciblé, et la télémétrie ne compte
+que les influences `changed=true`. Le smoke V11 nettoie ses sorties avant
+relance pour garder `live==replay` dans Docker. Validation hardening : 15 tests
+V11 verts, 41 tests runner/harness ciblés, 40 tests V10 signal/strategy/imports
+verts, Docker `v11-smoke` vert après rebuild.
+
 ## Sprint 9 Complete Status (2026-04-21) — legacy `core/`
 
 ## Sprint 9 Complete Status (2026-04-21)

@@ -15,6 +15,7 @@ from scripts.bench.telemetry import (
     WORKER_ACTIVATED_EVENT,
     replay_summary_from_dir,
 )
+from scripts.v11.run_v11_smoke import run_toy_smoke
 
 
 def _write_subset(path: Path) -> None:
@@ -101,3 +102,16 @@ def test_v11_operator_search_produces_causal_chain_and_replay_parity(
     assert created_from["hypothesis_id"] == "toy-v11-a-c0"
     assert created_from["verifier_status"] == "failed"
     assert created_from["failure_type"] == "answer_mismatch"
+
+
+def test_v11_toy_smoke_is_idempotent_for_reused_output_dir(tmp_path: Path) -> None:
+    out_dir = tmp_path / "v11_smoke"
+
+    first = run_toy_smoke(out_dir)
+    second = run_toy_smoke(out_dir)
+
+    assert first["arms"][0]["instance_count"] == second["arms"][0]["instance_count"]
+    for arm in second["arms"]:
+        arm_dir = out_dir / "toy" / arm["arm_id"]
+        live = json.loads((arm_dir / "summary.json").read_text(encoding="utf-8"))
+        assert live == replay_summary_from_dir(arm_dir).to_dict()

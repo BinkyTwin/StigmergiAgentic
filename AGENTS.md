@@ -79,6 +79,21 @@ Invariants prouvés :
 - 9 tests V11 verts, 40 tests Phase 6 V10 verts, 43 tests ciblés
   harness/MigrationBench/import-boundaries verts.
 
+Durcissement post-audit (2026-05-06) :
+- `StigmergicScheduler` score tous les couples `(worker, affordance)`.
+- `StigmergicMediumKernel.from_events()` rejoue
+  `affordance.consumed/expired/inhibited`, `signal.retired` et
+  `signal.decayed`.
+- Les operator candidates MigrationBench ont `parent_id=original.candidate_id`;
+  les upgrades Maven plugin sont scopés au bloc `<plugin>`.
+- La télémétrie V11 compte seulement les influences `changed=true` et détecte
+  les harms dans les deltas structurés.
+- `scripts/v11/run_v11_smoke.py` nettoie les sorties réutilisées pour préserver
+  `live==replay`.
+- Validation hardening : 15 tests V11 verts, 41 tests runner/harness ciblés,
+  40 tests V10 signal/strategy/imports verts, Docker `v11-smoke` vert après
+  rebuild.
+
 Limites assumées :
 - B3/B4 passifs et B7 memory verifier-gated restent des follow-ups.
 - Aucun claim MigrationBench `main_30` V11 n'est formulé avant smoke causal

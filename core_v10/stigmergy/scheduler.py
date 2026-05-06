@@ -130,29 +130,42 @@ class StigmergicScheduler:
         signals: Sequence[SignalRecord],
         feedback: FeedbackDigest,
     ) -> WorkerActivation:
-        affordance = affordances[0] if affordances else None
-        eligible = self.eligible_workers(affordance=affordance, feedback=feedback)
-        scored: list[tuple[float, WorkerSpec, JsonDict]] = []
-        for worker in eligible:
-            score, terms = _activation_score(worker, affordance, signals, feedback)
-            scored.append((score, worker, terms))
-        scored.sort(key=lambda item: (-item[0], item[1].worker_id))
-        best_score, best_worker, best_terms = scored[0]
+        scored: list[tuple[float, WorkerSpec, Affordance | None, JsonDict]] = []
+        candidate_affordances: tuple[Affordance | None, ...] = (
+            tuple(affordances) if affordances else (None,)
+        )
+        for affordance in candidate_affordances:
+            for worker in self.eligible_workers(affordance=affordance, feedback=feedback):
+                score, terms = _activation_score(worker, affordance, signals, feedback)
+                scored.append((score, worker, affordance, terms))
+        scored.sort(
+            key=lambda item: (
+                -item[0],
+                item[1].worker_id,
+                item[2].affordance_id if item[2] is not None else "",
+            )
+        )
+        best_score, best_worker, best_affordance, best_terms = scored[0]
         signal_ids = tuple(record.signal_id for record in signals)
         return WorkerActivation(
             decision_id=decision_id,
             worker=best_worker,
-            affordance=affordance,
+            affordance=best_affordance,
             activation_score=best_score,
             score_terms=best_terms,
             source_signal_ids=signal_ids,
             competitors=tuple(
                 {
                     "worker_id": worker.worker_id,
+                    "affordance_id": (
+                        pair_affordance.affordance_id
+                        if pair_affordance is not None
+                        else None
+                    ),
                     "activation_score": float(score),
                     "score_terms": dict(terms),
                 }
-                for score, worker, terms in scored
+                for score, worker, pair_affordance, terms in scored
             ),
         )
 

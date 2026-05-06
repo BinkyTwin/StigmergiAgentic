@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import shutil
 import sys
 from pathlib import Path
 from typing import Sequence
@@ -30,6 +31,13 @@ def _write_toy_subset(path: Path) -> None:
     )
 
 
+def _clean_child(path: Path) -> None:
+    if path.is_dir():
+        shutil.rmtree(path)
+    elif path.exists():
+        path.unlink()
+
+
 def _assert_replay_parity(out_dir: Path, arm_ids: Sequence[str]) -> None:
     for arm_id in arm_ids:
         arm_dir = out_dir / arm_id
@@ -41,6 +49,7 @@ def _assert_replay_parity(out_dir: Path, arm_ids: Sequence[str]) -> None:
 
 
 def run_toy_smoke(out_dir: Path) -> dict:
+    _clean_child(out_dir / "toy")
     subset = out_dir / "_inputs" / "toy_v11.jsonl"
     _write_toy_subset(subset)
     comparison = run_comparison(
@@ -75,6 +84,7 @@ def run_migrationbench_smoke(
     limit: int | None,
     official_eval: bool,
 ) -> dict:
+    _clean_child(out_dir / "migrationbench")
     comparison = run_comparison(
         adapter_name="migrationbench",
         subset_path=subset_path,

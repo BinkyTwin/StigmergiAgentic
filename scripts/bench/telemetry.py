@@ -246,9 +246,18 @@ def _signal_harm_rate(events: Sequence[EventRecord]) -> float:
         delta = event.payload.get("downstream_delta") or {}
         if not isinstance(delta, dict):
             continue
-        if str(delta.get("effect") or "").lower() in {"worse", "regressed", "harm"}:
+        if _has_harmful_delta(delta):
             harmful += 1
     return harmful / float(len(events))
+
+
+def _has_harmful_delta(value) -> bool:
+    harmful_values = {"worse", "regressed", "harm"}
+    if isinstance(value, dict):
+        return any(_has_harmful_delta(item) for item in value.values())
+    if isinstance(value, (list, tuple)):
+        return any(_has_harmful_delta(item) for item in value)
+    return str(value).lower() in harmful_values
 
 
 def _instance_summary(
@@ -364,7 +373,10 @@ def _instance_summary(
         e for e in instance_events if e.event_type == SIGNAL_READ_EVENT
     ]
     decision_influenced_events = [
-        e for e in instance_events if e.event_type == DECISION_INFLUENCED_EVENT
+        e
+        for e in instance_events
+        if e.event_type == DECISION_INFLUENCED_EVENT
+        and bool(e.payload.get("changed", True))
     ]
     trajectory_diverged_events = [
         e for e in instance_events if e.event_type == TRAJECTORY_DIVERGED_EVENT

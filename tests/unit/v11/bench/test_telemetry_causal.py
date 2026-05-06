@@ -76,9 +76,22 @@ def test_summary_reconstructs_v11_causal_counts(tmp_path) -> None:
     log.append(
         run_id="r1",
         instance_id="i1",
+        event_type=DECISION_INFLUENCED_EVENT,
+        actor="scheduler",
+        payload={"decision_id": "dec-noop", "changed": False},
+    )
+    log.append(
+        run_id="r1",
+        instance_id="i1",
         event_type=TRAJECTORY_DIVERGED_EVENT,
         actor="scheduler",
-        payload={"decision_id": "dec-a"},
+        payload={
+            "decision_id": "dec-a",
+            "downstream_delta": {
+                "compile_success": "worse",
+                "test_success": "same",
+            },
+        },
     )
     log.append(
         run_id="r1",
@@ -109,4 +122,5 @@ def test_summary_reconstructs_v11_causal_counts(tmp_path) -> None:
     assert inst.affordance_consumed_count == 1
     assert inst.unused_signal_rate == 0.0
     assert inst.unused_affordance_rate == 0.0
+    assert inst.signal_harm_rate == 1.0
     assert summary.stigmergic_causality_rate == 1.0

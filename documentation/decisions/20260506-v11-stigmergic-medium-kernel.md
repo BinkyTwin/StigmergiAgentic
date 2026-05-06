@@ -113,3 +113,22 @@ V11 can now be evaluated as a causal medium, not as signal logging. The next
 work should run controlled MigrationBench smokes before any `main_30` claim,
 then add B7 memory only with `memory_disabled`, `memory_correct`, and
 `memory_shuffled` baselines.
+
+## Post-Audit Hardening
+
+The first implementation review surfaced four MVP risks: scheduler decisions
+were tied to the first affordance, medium replay ignored part of the affordance
+lifecycle, MigrationBench operator lineage and Maven plugin edits were too
+loose, and causal telemetry could count no-op influences or miss structured
+harm deltas.
+
+The accepted hardening keeps the same B2/B5/B6 scope but tightens the contract:
+score all `(worker, affordance)` pairs, replay
+`affordance.consumed/expired/inhibited`, `signal.retired`, and
+`signal.decayed`, emit operator candidates as children of the original
+hypothesis, replace Maven plugin blocks instead of global version spans, count
+only `changed=true` influences, and make the V11 smoke idempotent for reused
+output directories.
+
+This still does not promote V11 to a MigrationBench claim. It makes the toy
+causal MVP mechanically safer before the next controlled MigrationBench smoke.

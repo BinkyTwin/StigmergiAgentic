@@ -3002,3 +3002,27 @@ The partial budget=5 A3 run crashed at instance 26/30 because branch and `_verif
 - `documentation/redisgn_v2/phase_06_budget5_audit.md`
 - `tests/unit/v10`
 - `tests/integration/v10`
+
+## 2026-05-06 — Harden V11 Causal Medium MVP After Implementation Audit
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `impact_score`: `8/10`
+- `confidence`: `high`
+- `scope`: `V11 Stigmergic Medium Kernel MVP hardening on branch codex/v11-stigmergic-medium-kernel`
+
+### Outcome
+V11 now scores all `(worker, affordance)` pairs, replays affordance lifecycle and signal retirement/decay into the medium snapshot, preserves operator-candidate lineage as children of the original hypothesis, scopes Maven plugin upgrades to the matching `<plugin>` block, filters no-op `decision.influenced` telemetry, detects structured harm deltas, and makes the V11 smoke idempotent for reused output directories. Validation: 15 V11 tests, 41 targeted runner/harness tests, 40 V10 signal/strategy/import tests, and Docker `v11-smoke` after rebuild.
+
+### Reusable Patterns (1-3)
+1. A causal medium replay contract must reconstruct active state, not only summary counters; lifecycle events need projection tests.
+2. Affordance schedulers should score action-worker pairs, because worker-only scoring can hide the affordance that actually caused the decision.
+3. Reusable campaign smoke scripts should clean their owned output subtrees before writing, otherwise replay parity can fail from historical event accumulation.
+
+### Evidence
+- `core_v10/stigmergy/medium.py`
+- `core_v10/stigmergy/scheduler.py`
+- `adapters_v10/migrationbench/operators/maven.py`
+- `scripts/bench/telemetry.py`
+- `scripts/v11/run_v11_smoke.py`
+- `tests/unit/v11`
+- `tests/integration/v11/test_toy_patch_repair.py`

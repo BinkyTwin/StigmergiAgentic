@@ -1031,3 +1031,11 @@
 - `rationale`: The Phase 6 budget=5 A3 campaign crashed with `ENFILE` after hundreds of branch and verification copies accumulated. Separately, partial validations were present in the EventLog but invisible in summary-level final-score counters, creating a false audit anomaly.
 - `alternatives_rejected`: Only raise Docker file-descriptor limits, keep all branch build outputs for post-hoc inspection, merge validation partials into `by_signal`, or rerun budget=10 before budget=5 completes cleanly.
 - `linked_adr`: `documentation/redisgn_v2/phase_06_budget5_audit.md`
+
+## 2026-05-06 (Harden V11 MVP Before MigrationBench Claims)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: Keep V11 scoped as a toy-validated causal MVP, but harden scheduler pair scoring, medium lifecycle replay, operator lineage, Maven plugin block edits, no-op influence filtering, structured harm detection, and smoke idempotence before any MigrationBench smoke or `main_30` interpretation.
+- `rationale`: The audit found that causal events existed, but several implementation shortcuts could inflate causality, break replay state, or misapply Maven edits on real POMs. Fixing those mechanics preserves the claim boundary while making the next benchmark smoke meaningful.
+- `alternatives_rejected`: Treat the initial V11 commit as complete, jump directly to MigrationBench `main_30`, or add B7 memory before the causal MVP is mechanically robust.
+- `linked_adr`: `documentation/decisions/20260506-v11-stigmergic-medium-kernel.md`

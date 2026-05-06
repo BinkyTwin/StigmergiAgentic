@@ -641,3 +641,8 @@
 - Exclude generated build outputs when copying candidate branches; keep VCS metadata only when patch export still depends on it.
 - Delete disposable verification workspaces immediately after their verdict is serialized, and scrub branch build outputs before repairs fork from them.
 - Keep strict-success metrics score-derived, but add separate apply/validation counters so partial progress remains visible in failed or non-finalized runs.
+
+### Causal Medium Replay Standard
+- Reconstruct active medium state from lifecycle events, not just aggregate counters; consumed, expired, inhibited, retired, and decayed records need replay tests.
+- Score affordance-worker pairs rather than selecting workers against a single top affordance.
+- Make deterministic smoke scripts idempotent by cleaning only their owned output subtrees before each run.

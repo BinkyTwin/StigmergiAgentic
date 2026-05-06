@@ -112,6 +112,51 @@ Sur toy repair avec premier candidat forcé faux :
   la chaîne V11 est validée mécaniquement sur toy et les operators Maven sont
   unit-testés, mais le gain benchmark n'est pas encore revendiqué.
 
+## Durcissement post-audit du 2026-05-06
+
+Une passe de revue externe a identifié quatre risques du MVP initial. Ils sont
+corrigés sans élargir le claim expérimental :
+
+- le scheduler score désormais tous les couples `(worker, affordance)` au lieu
+  de figer la décision sur `affordances[0]` ;
+- `StigmergicMediumKernel.from_events()` rejoue aussi les affordances
+  `consumed/expired/inhibited`, les signaux `retired` et les records
+  `signal.decayed` ;
+- les candidates operators MigrationBench gardent le lineage
+  `parent_id=original.candidate_id` et les upgrades Maven compiler/surefire
+  remplacent le bloc `<plugin>...</plugin>` ciblé, pas un `<version>` global ;
+- la télémétrie ne compte plus les `decision.influenced` avec `changed=false`
+  et détecte `signal_harm_rate` dans les deltas structurés ;
+- `scripts/v11/run_v11_smoke.py` nettoie les sous-répertoires de sortie avant
+  relance pour préserver `live==replay` dans un `out_dir` réutilisé.
+
+Validation de cette passe :
+
+```bash
+uv run pytest tests/unit/v11 tests/integration/v11/test_toy_patch_repair.py -q
+# 15 passed
+
+uv run pytest tests/integration/v11/test_toy_patch_repair.py \
+  tests/unit/v10/bench/test_harness_toy.py \
+  tests/unit/v10/bench/test_harness_migrationbench.py \
+  tests/unit/v10/bench/test_compare_strategies.py \
+  tests/unit/v10/bench/test_compare_strategies_phase6.py \
+  tests/unit/v10/test_strategy_runner_phase6.py \
+  tests/unit/v10/migrationbench/test_adapter.py \
+  tests/unit/v10/migrationbench/test_workspace.py -q
+# 41 passed
+
+uv run pytest tests/unit/v10/test_import_boundaries.py \
+  tests/unit/v10/test_signal_store.py tests/unit/v10/test_signal_policy.py \
+  tests/unit/v10/test_strategy_runner.py \
+  tests/unit/v10/bench/test_telemetry_phase6.py -q
+# 40 passed
+
+docker compose -f docker-compose.campaign.yml build v11-smoke
+docker compose -f docker-compose.campaign.yml run --rm v11-smoke
+# {"status": "ok", "summary_path": "campaign_results/v11/smoke/v11_smoke_summary.json"}
+```
+
 ## Commandes utiles
 
 ```bash

@@ -62,3 +62,52 @@ def test_scheduler_falls_back_to_generic_repairer_without_affordance() -> None:
 
     assert activation.worker.worker_id == "generic_repairer"
     assert activation.affordance is None
+
+
+def test_scheduler_scores_all_worker_affordance_pairs() -> None:
+    first_affordance = Affordance(
+        affordance_id="aff-answer",
+        action_type="replace_answer",
+        target="answer.txt",
+        reason="answer_mismatch",
+        priority=0.9,
+        expected_worker_kind="exact_edit_guard",
+    )
+    second_affordance = Affordance(
+        affordance_id="aff-compile",
+        action_type="set_maven_compiler_release",
+        target="pom.xml",
+        reason="compile_error",
+        priority=0.7,
+        expected_worker_kind="maven_compiler_operator",
+    )
+    feedback = FeedbackDigest(
+        candidate_id="c1",
+        failure_type="compile_error",
+        severity="blocking",
+        summary="source option 5 is no longer supported",
+    )
+    store = SignalStore()
+    signal = store.emit(
+        kind=SignalKind.SUPPORT,
+        target="worker:maven_compiler_operator",
+        intensity=0.8,
+        now_seq=1,
+    )
+
+    activation = StigmergicScheduler().select(
+        decision_id="dec-3",
+        affordances=(first_affordance, second_affordance),
+        signals=(signal,),
+        feedback=feedback,
+    )
+
+    assert activation.worker.worker_id == "maven_compiler_operator"
+    assert activation.affordance == second_affordance
+    assert {
+        (item["worker_id"], item["affordance_id"])
+        for item in activation.competitors
+    } >= {
+        ("exact_edit_guard", "aff-answer"),
+        ("maven_compiler_operator", "aff-compile"),
+    }
