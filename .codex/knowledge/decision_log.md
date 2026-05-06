@@ -1,5 +1,13 @@
 # Decision Log
 
+## 2026-05-06 (Build V11 Around A Causal Stigmergic Medium Before Memory/Search)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: Implement V11 as a causal medium layer over V10 with affordances, worker scheduling, `signal.read`, `decision.influenced`, `trajectory.diverged`, and typed operators before adding B7 memory or B8 search.
+- `rationale`: Phase 6 proved signal visibility but not strong causal use. Memory or tree search added now would make attribution harder; the framework first needs a replayable chain showing which verified traces changed which decisions and trajectories.
+- `alternatives_rejected`: Extend A4 only with more `signal.applied`, add cross-run memory immediately, introduce MCTS/search before affordances and workers, or keep free-form patch generation as B6's primary path.
+- `linked_adr`: `documentation/decisions/20260506-v11-stigmergic-medium-kernel.md`
+
 ## 2026-05-05 (Run Official MigrationBench Evaluation During Validation When Repair Is Active)
 
 - `repo_slug`: `stigmergiagentic-33b989`

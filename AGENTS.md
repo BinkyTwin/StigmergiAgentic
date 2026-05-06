@@ -43,6 +43,50 @@ Limites assumées :
 ADR : `documentation/decisions/20260504-phase5-a3-branching-repair.md`.
 Artifact : `documentation/redisgn_v2/phase_05_artifact.md`.
 
+### Phase 7 V11 livrée (2026-05-06) — Stigmergic Medium Kernel MVP
+
+V11 garde V10 comme socle de vérification/replay et ajoute un médium
+stigmergique causal actif, conformément à
+`documentation/redisgn_v2/plan_v11_stigmergic_medium_kernel.md`.
+
+Modules ajoutés :
+- `core_v10/stigmergy/{events,records,affordances,medium,scheduler}.py` :
+  `StigmergicMediumKernel`, `Affordance`, `SignalRead`,
+  `DecisionInfluence`, `TrajectoryDivergence`, `WorkerActivation`.
+- `core_v10/operators/text_operator.py` : `ExactReplaceText` guardé
+  (aucun replace_text si l'ancien span n'est pas présent).
+- `adapters_v10/migrationbench/operators/maven.py` : operators Maven
+  exact-match (`MavenSetCompilerRelease`, compiler/surefire upgrades,
+  JAXB dependency insertion).
+- `core_v10/strategy_runner.py` : nouveaux bras
+  `run_stigmergic_scheduler()` (B5) et `run_operator_search()` (B6),
+  events `signal.read`, `affordance.created/consumed`,
+  `worker.eligible/selected/activated/output`, `decision.influenced`,
+  `trajectory.diverged`, `operator.invoked/applied/failed`.
+- `scripts/bench/telemetry.py` : métriques causales replayables
+  (`signal_read_total`, `decision_influenced_total`,
+  `trajectory_divergence_total`, `stigmergic_causality_rate`,
+  `unused_signal_rate`, `unused_affordance_rate`, `operator_*`).
+- `scripts/bench/compare_strategies.py --ladder v11` : ladder B2/B5/B6.
+- `scripts/v11/run_v11_smoke.py` + service Docker `v11-smoke`.
+
+Invariants prouvés :
+- B2 contrôle sans événements causaux V11 ; B5/B6 produisent la chaîne
+  `signal.emitted -> signal.read -> worker.activated ->
+  decision.influenced -> trajectory.diverged`.
+- B6 invoque et applique des operators typés sur le microbench toy, avec
+  `live_summary == replay_summary_from_dir(out_dir)`.
+- 9 tests V11 verts, 40 tests Phase 6 V10 verts, 43 tests ciblés
+  harness/MigrationBench/import-boundaries verts.
+
+Limites assumées :
+- B3/B4 passifs et B7 memory verifier-gated restent des follow-ups.
+- Aucun claim MigrationBench `main_30` V11 n'est formulé avant smoke causal
+  réel et comparaison contrôlée.
+
+ADR : `documentation/decisions/20260506-v11-stigmergic-medium-kernel.md`.
+Artifact : `documentation/redisgn_v2/phase_07_artifact.md`.
+
 ## Sprint 9 Complete (Legacy `core/`)
 
 ## Current Scope (Sprint 9 Complete — C1/C2/C3)

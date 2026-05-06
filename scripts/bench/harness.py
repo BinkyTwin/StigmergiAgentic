@@ -49,6 +49,7 @@ AdapterFactory = Callable[[dict[str, Any]], DomainAdapterV10]
 
 CandidateProviderFactory = Callable[[DomainAdapterV10, dict[str, Any]], Any]
 RepairProviderFactory = Callable[[DomainAdapterV10, dict[str, Any]], Any]
+OperatorProviderFactory = Callable[[DomainAdapterV10, dict[str, Any]], Any]
 RunInstanceFactory = Callable[[dict[str, Any], dict[str, Any]], RunInstance]
 
 
@@ -75,6 +76,7 @@ class HarnessRegistry:
     adapter_factories: dict[str, AdapterFactory]
     candidate_provider_factories: dict[str, CandidateProviderFactory]
     repair_provider_factories: dict[str, RepairProviderFactory]
+    operator_provider_factories: dict[str, OperatorProviderFactory]
     run_instance_factories: dict[str, RunInstanceFactory]
 
 
@@ -104,6 +106,7 @@ class BenchHarness:
         instance_factory = self.registry.run_instance_factories[opts.adapter_name]
         candidate_factory = self.registry.candidate_provider_factories.get(opts.adapter_name)
         repair_factory = self.registry.repair_provider_factories.get(opts.adapter_name)
+        operator_factory = self.registry.operator_provider_factories.get(opts.adapter_name)
         adapter_factory = self.registry.adapter_factories[opts.adapter_name]
 
         campaign_id = uuid.uuid4().hex
@@ -142,6 +145,11 @@ class BenchHarness:
                 if candidate_factory
                 else None
             )
+            operator_provider = (
+                operator_factory(adapter, campaign_extras)
+                if operator_factory
+                else None
+            )
             if candidate_provider is None:
                 raise KeyError(
                     f"no candidate_provider factory for adapter: {opts.adapter_name}"
@@ -155,7 +163,12 @@ class BenchHarness:
             )
 
             run_id = f"{campaign_id}:{instance_id}"
-            if opts.strategy_name in ("branching_repair", "stigmergic_blackboard"):
+            if opts.strategy_name in (
+                "branching_repair",
+                "stigmergic_blackboard",
+                "stigmergic_scheduler",
+                "operator_search",
+            ):
                 if repair_factory is None:
                     raise KeyError(
                         f"no repair_provider factory for adapter: {opts.adapter_name}"
@@ -167,6 +180,24 @@ class BenchHarness:
                         instance=run_instance,
                         candidate_provider=candidate_provider,
                         repair_provider=repair_provider,
+                        config=config,
+                    )
+                elif opts.strategy_name == "stigmergic_scheduler":
+                    result = runner.run_stigmergic_scheduler(
+                        run_id=run_id,
+                        instance=run_instance,
+                        candidate_provider=candidate_provider,
+                        repair_provider=repair_provider,
+                        operator_provider=operator_provider,
+                        config=config,
+                    )
+                elif opts.strategy_name == "operator_search":
+                    result = runner.run_operator_search(
+                        run_id=run_id,
+                        instance=run_instance,
+                        candidate_provider=candidate_provider,
+                        repair_provider=repair_provider,
+                        operator_provider=operator_provider,
                         config=config,
                     )
                 else:
@@ -257,8 +288,10 @@ def _toy_adapter_factory(_extras: dict[str, Any]):
 
 
 def _toy_run_instance_factory(record: dict[str, Any], extras: dict[str, Any]) -> RunInstance:
-    workspace_root = Path(extras.get("workspace_root_root", "")).expanduser()
-    if not str(workspace_root):
+    raw_workspace_root = str(extras.get("workspace_root_root", "") or "").strip()
+    if raw_workspace_root:
+        workspace_root = Path(raw_workspace_root).expanduser()
+    else:
         workspace_root = Path(extras.get("out_dir", ".")) / "_toy_ws"
     workspace_root = Path(workspace_root) / str(record["instance_id"])
     workspace_root.mkdir(parents=True, exist_ok=True)
@@ -278,11 +311,16 @@ def _toy_candidate_provider_factory(adapter, extras: dict[str, Any]):
 
     def provide(observation, instance):
         expected = observation.data.get("expected", "")
+        answer = (
+            str(extras.get("toy_wrong_answer", "__wrong__"))
+            if extras.get("toy_initial_wrong", False)
+            else expected
+        )
         return [
             Candidate(
                 candidate_id=f"{instance.instance_id}-c0",
                 kind=CandidateKind.TEXT,
-                payload={"answer": expected},
+                payload={"answer": answer},
                 origin="builtin_toy",
             )
         ]
@@ -304,6 +342,12 @@ def _toy_repair_provider_factory(adapter, extras: dict[str, Any]):
         ]
 
     return provide
+
+
+def _toy_operator_provider_factory(adapter, extras: dict[str, Any]):
+    from scripts.bench.providers import make_toy_exact_answer_operator_provider
+
+    return make_toy_exact_answer_operator_provider(adapter, extras)
 
 
 def _migrationbench_adapter_factory(extras: dict[str, Any]):
@@ -391,6 +435,12 @@ def _migrationbench_repair_provider_factory(adapter, extras: dict[str, Any]):
     return make_migrationbench_noop_repair_provider(adapter, extras)
 
 
+def _migrationbench_operator_provider_factory(adapter, extras: dict[str, Any]):
+    from scripts.bench.providers import make_migrationbench_operator_provider
+
+    return make_migrationbench_operator_provider(adapter, extras)
+
+
 def default_registry() -> HarnessRegistry:
     """Return the built-in registry wired with the toy and MigrationBench adapters."""
 
@@ -406,6 +456,10 @@ def default_registry() -> HarnessRegistry:
         repair_provider_factories={
             "toy": _toy_repair_provider_factory,
             "migrationbench": _migrationbench_repair_provider_factory,
+        },
+        operator_provider_factories={
+            "toy": _toy_operator_provider_factory,
+            "migrationbench": _migrationbench_operator_provider_factory,
         },
         run_instance_factories={
             "toy": _toy_run_instance_factory,
@@ -425,7 +479,13 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--strategy",
         default="agentless_basic",
-        choices=("agentless_basic", "branching_repair", "stigmergic_blackboard"),
+        choices=(
+            "agentless_basic",
+            "branching_repair",
+            "stigmergic_blackboard",
+            "stigmergic_scheduler",
+            "operator_search",
+        ),
     )
     parser.add_argument("--subset", required=True, type=Path, help="Path to a JSONL subset.")
     parser.add_argument("--out-dir", required=True, type=Path, help="Campaign output directory.")

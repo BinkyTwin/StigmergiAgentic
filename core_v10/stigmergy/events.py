@@ -1,0 +1,58 @@
+"""V11 causal stigmergy EventLog event names."""
+
+from __future__ import annotations
+
+
+SIGNAL_READ_EVENT = "signal.read"
+SIGNAL_DECAYED_EVENT = "signal.decayed"
+SIGNAL_RETIRED_EVENT = "signal.retired"
+
+AFFORDANCE_CREATED_EVENT = "affordance.created"
+AFFORDANCE_CONSUMED_EVENT = "affordance.consumed"
+AFFORDANCE_EXPIRED_EVENT = "affordance.expired"
+AFFORDANCE_INHIBITED_EVENT = "affordance.inhibited"
+
+WORKER_ELIGIBLE_EVENT = "worker.eligible"
+WORKER_SELECTED_EVENT = "worker.selected"
+WORKER_ACTIVATED_EVENT = "worker.activated"
+WORKER_OUTPUT_EVENT = "worker.output"
+WORKER_REJECTED_EVENT = "worker.rejected"
+
+OPERATOR_INVOKED_EVENT = "operator.invoked"
+OPERATOR_APPLIED_EVENT = "operator.applied"
+OPERATOR_REJECTED_EVENT = "operator.rejected"
+OPERATOR_FAILED_EVENT = "operator.failed"
+
+DECISION_INFLUENCED_EVENT = "decision.influenced"
+TRAJECTORY_DIVERGED_EVENT = "trajectory.diverged"
+
+MEMORY_PROMOTED_EVENT = "memory.promoted"
+MEMORY_READ_EVENT = "memory.read"
+MEMORY_USED_EVENT = "memory.used"
+MEMORY_INFLUENCED_EVENT = "memory.influenced"
+
+
+__all__ = [
+    "AFFORDANCE_CONSUMED_EVENT",
+    "AFFORDANCE_CREATED_EVENT",
+    "AFFORDANCE_EXPIRED_EVENT",
+    "AFFORDANCE_INHIBITED_EVENT",
+    "DECISION_INFLUENCED_EVENT",
+    "MEMORY_INFLUENCED_EVENT",
+    "MEMORY_PROMOTED_EVENT",
+    "MEMORY_READ_EVENT",
+    "MEMORY_USED_EVENT",
+    "OPERATOR_APPLIED_EVENT",
+    "OPERATOR_FAILED_EVENT",
+    "OPERATOR_INVOKED_EVENT",
+    "OPERATOR_REJECTED_EVENT",
+    "SIGNAL_DECAYED_EVENT",
+    "SIGNAL_READ_EVENT",
+    "SIGNAL_RETIRED_EVENT",
+    "TRAJECTORY_DIVERGED_EVENT",
+    "WORKER_ACTIVATED_EVENT",
+    "WORKER_ELIGIBLE_EVENT",
+    "WORKER_OUTPUT_EVENT",
+    "WORKER_REJECTED_EVENT",
+    "WORKER_SELECTED_EVENT",
+]

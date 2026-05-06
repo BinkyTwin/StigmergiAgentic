@@ -36,12 +36,37 @@ from core_v10.signal_policy import (
     update_from_feedback,
 )
 from core_v10.signals import SignalKind, SignalStore
+from core_v10.stigmergy.events import (
+    AFFORDANCE_CONSUMED_EVENT,
+    AFFORDANCE_CREATED_EVENT,
+    DECISION_INFLUENCED_EVENT,
+    OPERATOR_APPLIED_EVENT,
+    OPERATOR_FAILED_EVENT,
+    OPERATOR_INVOKED_EVENT,
+    SIGNAL_READ_EVENT,
+    TRAJECTORY_DIVERGED_EVENT,
+    WORKER_ACTIVATED_EVENT,
+    WORKER_ELIGIBLE_EVENT,
+    WORKER_OUTPUT_EVENT,
+    WORKER_SELECTED_EVENT,
+)
+from core_v10.stigmergy.medium import StigmergicMediumKernel
+from core_v10.stigmergy.records import (
+    Affordance,
+    OperatorInvocation,
+    TrajectoryDivergence,
+)
+from core_v10.stigmergy.scheduler import StigmergicScheduler
 from core_v10.verifier import FinalizationReport, VerifierLoop, VerifierReport
 
 
 CandidateProvider = Callable[[Observation, RunInstance], Sequence[Candidate]]
 RepairProvider = Callable[
     [FeedbackDigest, Candidate, Observation, RunInstance],
+    Sequence[Candidate],
+]
+OperatorProvider = Callable[
+    [FeedbackDigest, Candidate, Observation, RunInstance, Affordance | None],
     Sequence[Candidate],
 ]
 
@@ -112,6 +137,13 @@ class StrategyResult:
     signal_emitted_count: int = 0
     signal_applied_count: int = 0
     signal_store_snapshot: JsonDict | None = None
+    signal_read_count: int = 0
+    decision_influenced_count: int = 0
+    trajectory_divergence_count: int = 0
+    affordance_created_count: int = 0
+    affordance_consumed_count: int = 0
+    worker_activated_count: int = 0
+    operator_invoked_count: int = 0
 
     @property
     def strict_success(self) -> bool:
@@ -760,6 +792,625 @@ class StrategyRunner:
             signal_store_snapshot=store.to_dict(),
         )
 
+    def run_stigmergic_scheduler(
+        self,
+        *,
+        run_id: str,
+        instance: RunInstance,
+        candidate_provider: CandidateProvider,
+        repair_provider: RepairProvider,
+        operator_provider: OperatorProvider | None = None,
+        config: StrategyConfig | None = None,
+    ) -> StrategyResult:
+        """Run B5: signals + affordances select local workers before repair."""
+
+        config = config or StrategyConfig(name="stigmergic_scheduler")
+        return self._run_v11_medium_strategy(
+            run_id=run_id,
+            instance=instance,
+            candidate_provider=candidate_provider,
+            repair_provider=repair_provider,
+            operator_provider=operator_provider,
+            config=config,
+            prefer_operator_provider=False,
+            control_arm="B2_branching_repair",
+            treatment_arm="B5_stigmergic_scheduler",
+        )
+
+    def run_operator_search(
+        self,
+        *,
+        run_id: str,
+        instance: RunInstance,
+        candidate_provider: CandidateProvider,
+        repair_provider: RepairProvider,
+        operator_provider: OperatorProvider | None = None,
+        config: StrategyConfig | None = None,
+    ) -> StrategyResult:
+        """Run B6: V11 scheduler whose selected worker invokes typed operators."""
+
+        config = config or StrategyConfig(name="operator_search")
+        return self._run_v11_medium_strategy(
+            run_id=run_id,
+            instance=instance,
+            candidate_provider=candidate_provider,
+            repair_provider=repair_provider,
+            operator_provider=operator_provider,
+            config=config,
+            prefer_operator_provider=True,
+            control_arm="B2_branching_repair",
+            treatment_arm="B6_operator_search",
+        )
+
+    def _run_v11_medium_strategy(
+        self,
+        *,
+        run_id: str,
+        instance: RunInstance,
+        candidate_provider: CandidateProvider,
+        repair_provider: RepairProvider,
+        operator_provider: OperatorProvider | None,
+        config: StrategyConfig,
+        prefer_operator_provider: bool,
+        control_arm: str,
+        treatment_arm: str,
+    ) -> StrategyResult:
+        """Shared B5/B6 implementation of the V11 causal medium loop."""
+
+        self.graph = HypothesisGraph()
+        store = SignalStore()
+        medium = StigmergicMediumKernel(signal_store=store)
+        scheduler = StigmergicScheduler()
+
+        signal_emitted_count = 0
+        signal_applied_count = 0
+        signal_read_count = 0
+        decision_influenced_count = 0
+        trajectory_divergence_count = 0
+        affordance_created_count = 0
+        affordance_consumed_count = 0
+        worker_activated_count = 0
+        operator_invoked_count = 0
+
+        self.event_log.append(
+            run_id=run_id,
+            instance_id=instance.instance_id,
+            event_type="run.started",
+            actor="strategy_runner",
+            payload={
+                "strategy": config.name,
+                "adapter": self.adapter.name,
+                "v11_medium": True,
+                "prefer_operator_provider": bool(prefer_operator_provider),
+            },
+        )
+        workspace = self.adapter.setup(instance)
+        observation = self.adapter.observe(workspace)
+        self.event_log.append(
+            run_id=run_id,
+            instance_id=instance.instance_id,
+            event_type="observation.created",
+            actor="adapter",
+            payload={"observation": observation},
+        )
+
+        signature_tracker = _SignatureTracker()
+        dedup_skipped = 0
+        repeat_failure_suppressed = 0
+
+        def _emit_signals(
+            effects: Sequence[PolicyEffect],
+            *,
+            report: VerifierReport | None = None,
+            signature: str | None = None,
+        ) -> None:
+            nonlocal signal_emitted_count
+            for effect in effects:
+                record = store.get(effect.kind, effect.target)
+                created_from: JsonDict = {}
+                if report is not None:
+                    created_from = {
+                        "event_ids": list(report.event_ids),
+                        "hypothesis_id": report.hypothesis_id,
+                        "candidate_id": report.candidate_id,
+                        "verifier_status": report.validation.status.value,
+                        "failure_type": report.feedback.failure_type,
+                        "signature": signature,
+                    }
+                self.event_log.append(
+                    run_id=run_id,
+                    instance_id=instance.instance_id,
+                    event_type=SIGNAL_EMITTED_EVENT,
+                    actor="stigmergic_medium",
+                    hypothesis_id=report.hypothesis_id if report is not None else None,
+                    payload={
+                        "record": record.to_dict() if record is not None else {},
+                        "op": effect.op,
+                        "rationale": effect.rationale,
+                        "created_from": created_from,
+                    },
+                )
+                signal_emitted_count += 1
+
+        def _emit_signal_applied(
+            *,
+            kind: SignalKind,
+            target: str,
+            effect: str,
+            hypothesis_id: str | None,
+            rationale: str,
+            intensity: float,
+            decision_id: str | None = None,
+        ) -> None:
+            nonlocal signal_applied_count
+            self.event_log.append(
+                run_id=run_id,
+                instance_id=instance.instance_id,
+                event_type=SIGNAL_APPLIED_EVENT,
+                actor="stigmergic_scheduler",
+                hypothesis_id=hypothesis_id,
+                payload={
+                    "kind": kind.value,
+                    "target": target,
+                    "effect": effect,
+                    "rationale": rationale,
+                    "intensity": float(intensity),
+                    "decision_id": decision_id,
+                },
+            )
+            signal_applied_count += 1
+
+        raw_candidates = list(candidate_provider(observation, instance))[
+            : config.max_candidates
+        ]
+        accepted_initial: list[Candidate] = []
+        for cand in raw_candidates:
+            sig = signature_tracker.signature(cand)
+            duplicate_of = signature_tracker.first_seen_id(sig)
+            if duplicate_of is not None:
+                dedup_skipped += 1
+                self._emit_dedup_event(
+                    run_id=run_id,
+                    instance_id=instance.instance_id,
+                    candidate=cand,
+                    signature=sig,
+                    duplicate_of=duplicate_of,
+                    parent_id=None,
+                )
+                continue
+            signature_tracker.mark_seen(sig, cand.candidate_id)
+            accepted_initial.append(cand)
+
+        if not accepted_initial:
+            stop_reason = (
+                StopReason.NO_CANDIDATE_GENERATED
+                if not raw_candidates
+                else StopReason.ALL_CANDIDATES_INVALID
+            )
+            return self._complete(
+                run_id=run_id,
+                instance_id=instance.instance_id,
+                config=config,
+                observation=observation,
+                stop_reason=stop_reason,
+                candidate_count=0,
+                selected_hypothesis_id=None,
+                selection_rationale=SelectionRationale(
+                    selected_hypothesis_id=None,
+                    reason=stop_reason.value,
+                ),
+                dedup_skipped=dedup_skipped,
+                repeat_failure_suppressed=repeat_failure_suppressed,
+                signal_emitted_count=signal_emitted_count,
+                signal_applied_count=signal_applied_count,
+                signal_store_snapshot=medium.snapshot(),
+            )
+
+        verifier = VerifierLoop(
+            adapter=self.adapter,
+            event_log=self.event_log,
+            graph=self.graph,
+            run_id=run_id,
+            instance_id=instance.instance_id,
+        )
+        reports: list[VerifierReport] = []
+        frontier = list(accepted_initial)
+
+        for round_index in range(config.max_repair_rounds + 1):
+            current_reports: list[VerifierReport] = []
+            for candidate in frontier:
+                verify_workspace = _workspace_for_candidate(
+                    candidate,
+                    graph=self.graph,
+                    fallback=workspace,
+                )
+                report = verifier.verify(candidate, verify_workspace)
+                node = self.graph.get(report.hypothesis_id)
+                signature = signature_tracker.signature(candidate)
+                node.metadata["signature"] = signature
+                current_reports.append(report)
+                _emit_operator_result_if_needed(
+                    self.event_log,
+                    run_id=run_id,
+                    instance_id=instance.instance_id,
+                    report=report,
+                    candidate=candidate,
+                )
+
+                now_seq = max(0, self.event_log.next_sequence() - 1)
+                event_context = {
+                    "event_ids": list(report.event_ids),
+                    "hypothesis_id": report.hypothesis_id,
+                    "verifier_status": report.validation.status.value,
+                    "failure_type": report.feedback.failure_type,
+                }
+                if report.passed and node.validation is not None:
+                    effects = medium.emit_from_success(
+                        validation=node.validation,
+                        candidate=candidate,
+                        event_context=event_context,
+                        now_seq=now_seq,
+                    )
+                    _emit_signals(effects, report=report, signature=signature)
+                else:
+                    effects = medium.emit_from_feedback(
+                        feedback=report.feedback,
+                        candidate=candidate,
+                        event_context=event_context,
+                        now_seq=now_seq,
+                    )
+                    _emit_signals(effects, report=report, signature=signature)
+                    sig_effect = inhibit_signature(
+                        store,
+                        signature=signature,
+                        evidence_id=report.hypothesis_id,
+                        now_seq=now_seq,
+                    )
+                    _emit_signals((sig_effect,), report=report, signature=signature)
+                    created = medium.create_affordances(
+                        feedback=report.feedback,
+                        signals=medium.top_signals(top_k=5),
+                        context={"source_event_ids": report.event_ids},
+                        now_seq=now_seq,
+                    )
+                    for affordance in created:
+                        self.event_log.append(
+                            run_id=run_id,
+                            instance_id=instance.instance_id,
+                            event_type=AFFORDANCE_CREATED_EVENT,
+                            actor="stigmergic_medium",
+                            hypothesis_id=report.hypothesis_id,
+                            payload={"affordance": affordance.to_dict()},
+                        )
+                        affordance_created_count += 1
+
+            reports.extend(current_reports)
+            for report in current_reports:
+                if not report.passed:
+                    sig = self.graph.get(report.hypothesis_id).metadata.get(
+                        "signature"
+                    )
+                    if sig:
+                        signature_tracker.mark_failed(sig)
+            if any(report.passed for report in current_reports):
+                break
+            if round_index >= config.max_repair_rounds:
+                break
+
+            repairs: list[Candidate] = []
+            for report in current_reports:
+                if report.passed:
+                    continue
+                parent_node = self.graph.get(report.hypothesis_id)
+                original = parent_node.candidate
+                digest = policy_digest(store)
+                aug_observation = _attach_digest(observation, digest=digest)
+                aug_observation = _attach_live_files(
+                    aug_observation, parent_node.workspace
+                )
+                decision_id = f"dec_{self.event_log.next_sequence():06d}_{report.hypothesis_id}"
+                read = medium.read(
+                    actor="stigmergic_scheduler",
+                    decision_id=decision_id,
+                    region="affordance_region",
+                    query={"failure_type": report.feedback.failure_type},
+                    top_k=3,
+                )
+                self.event_log.append(
+                    run_id=run_id,
+                    instance_id=instance.instance_id,
+                    event_type=SIGNAL_READ_EVENT,
+                    actor="stigmergic_scheduler",
+                    hypothesis_id=report.hypothesis_id,
+                    payload=read.to_dict(),
+                )
+                signal_read_count += 1
+
+                visible_signals = medium.top_signals(top_k=3)
+                visible_affordances = medium.top_affordances(top_k=3)
+                activation = scheduler.select(
+                    decision_id=decision_id,
+                    affordances=visible_affordances,
+                    signals=visible_signals,
+                    feedback=report.feedback,
+                )
+                eligible = scheduler.eligible_workers(
+                    affordance=activation.affordance,
+                    feedback=report.feedback,
+                )
+                self.event_log.append(
+                    run_id=run_id,
+                    instance_id=instance.instance_id,
+                    event_type=WORKER_ELIGIBLE_EVENT,
+                    actor="stigmergic_scheduler",
+                    hypothesis_id=report.hypothesis_id,
+                    payload={
+                        "decision_id": decision_id,
+                        "workers": [worker.to_dict() for worker in eligible],
+                        "affordance_id": (
+                            activation.affordance.affordance_id
+                            if activation.affordance is not None
+                            else None
+                        ),
+                    },
+                )
+                self.event_log.append(
+                    run_id=run_id,
+                    instance_id=instance.instance_id,
+                    event_type=WORKER_SELECTED_EVENT,
+                    actor="stigmergic_scheduler",
+                    hypothesis_id=report.hypothesis_id,
+                    payload=activation.to_dict(),
+                )
+                self.event_log.append(
+                    run_id=run_id,
+                    instance_id=instance.instance_id,
+                    event_type=WORKER_ACTIVATED_EVENT,
+                    actor="stigmergic_scheduler",
+                    hypothesis_id=report.hypothesis_id,
+                    payload=activation.to_dict(),
+                )
+                worker_activated_count += 1
+
+                if activation.affordance is not None:
+                    medium.consume_affordance(activation.affordance.affordance_id)
+                    self.event_log.append(
+                        run_id=run_id,
+                        instance_id=instance.instance_id,
+                        event_type=AFFORDANCE_CONSUMED_EVENT,
+                        actor=activation.worker.worker_id,
+                        hypothesis_id=report.hypothesis_id,
+                        payload={
+                            "affordance_id": activation.affordance.affordance_id,
+                            "worker_id": activation.worker.worker_id,
+                            "decision_id": decision_id,
+                            "result": "worker_activated",
+                        },
+                    )
+                    affordance_consumed_count += 1
+
+                baseline_choice = {
+                    "selected_worker": "generic_repairer",
+                    "candidate_source": "repair_provider",
+                }
+                stigmergic_choice = {
+                    "selected_worker": activation.worker.worker_id,
+                    "candidate_source": (
+                        "operator_provider"
+                        if prefer_operator_provider and operator_provider is not None
+                        else "repair_provider"
+                    ),
+                    "affordance_id": (
+                        activation.affordance.affordance_id
+                        if activation.affordance is not None
+                        else None
+                    ),
+                }
+                influence = medium.influence(
+                    decision_id=decision_id,
+                    decision_kind="worker_activation",
+                    actor="stigmergic_scheduler",
+                    baseline_choice=baseline_choice,
+                    stigmergic_choice=stigmergic_choice,
+                    signals_used=read.signals_seen,
+                    affordances_used=read.affordances_seen,
+                    effect="worker_selected",
+                )
+                if influence.changed:
+                    self.event_log.append(
+                        run_id=run_id,
+                        instance_id=instance.instance_id,
+                        event_type=DECISION_INFLUENCED_EVENT,
+                        actor="stigmergic_scheduler",
+                        hypothesis_id=report.hypothesis_id,
+                        payload=influence.to_dict(),
+                    )
+                    decision_influenced_count += 1
+                    divergence = TrajectoryDivergence(
+                        instance_id=instance.instance_id,
+                        control_arm=control_arm,
+                        treatment_arm=treatment_arm,
+                        divergence_point="worker_activation",
+                        decision_id=decision_id,
+                        cause="signal_read",
+                        signals_used=read.signals_seen,
+                        affordances_used=read.affordances_seen,
+                        downstream_delta={
+                            "parent_validation_status": report.validation.status.value,
+                            "next_step": stigmergic_choice["candidate_source"],
+                        },
+                    )
+                    self.event_log.append(
+                        run_id=run_id,
+                        instance_id=instance.instance_id,
+                        event_type=TRAJECTORY_DIVERGED_EVENT,
+                        actor="stigmergic_scheduler",
+                        hypothesis_id=report.hypothesis_id,
+                        payload=divergence.to_dict(),
+                    )
+                    trajectory_divergence_count += 1
+                    if read.signals_seen:
+                        _emit_signal_applied(
+                            kind=SignalKind.SUPPORT,
+                            target="stigmergic_worker_activation",
+                            effect="worker_selected",
+                            hypothesis_id=report.hypothesis_id,
+                            rationale="signal_and_affordance_driven_worker_activation",
+                            intensity=max(
+                                (record.intensity for record in visible_signals),
+                                default=0.0,
+                            ),
+                            decision_id=decision_id,
+                        )
+
+                suggested: Sequence[Candidate] = ()
+                if prefer_operator_provider and operator_provider is not None:
+                    suggested = operator_provider(
+                        report.feedback,
+                        original,
+                        aug_observation,
+                        instance,
+                        activation.affordance,
+                    )
+                if not suggested:
+                    suggested = repair_provider(
+                        report.feedback,
+                        original,
+                        aug_observation,
+                        instance,
+                    )
+                annotated = [
+                    _annotate_v11_candidate(
+                        candidate,
+                        parent_id=report.hypothesis_id,
+                        worker_id=activation.worker.worker_id,
+                        decision_id=decision_id,
+                        affordance=activation.affordance,
+                    )
+                    for candidate in list(suggested)[: config.max_repairs_per_candidate]
+                ]
+                self.event_log.append(
+                    run_id=run_id,
+                    instance_id=instance.instance_id,
+                    event_type=WORKER_OUTPUT_EVENT,
+                    actor=activation.worker.worker_id,
+                    hypothesis_id=report.hypothesis_id,
+                    payload={
+                        "decision_id": decision_id,
+                        "worker_id": activation.worker.worker_id,
+                        "candidate_ids": [candidate.candidate_id for candidate in annotated],
+                        "affordance_id": (
+                            activation.affordance.affordance_id
+                            if activation.affordance is not None
+                            else None
+                        ),
+                    },
+                )
+
+                for r_cand in annotated:
+                    invocation = _operator_invocation_from_candidate(r_cand)
+                    if invocation is not None:
+                        self.event_log.append(
+                            run_id=run_id,
+                            instance_id=instance.instance_id,
+                            event_type=OPERATOR_INVOKED_EVENT,
+                            actor=activation.worker.worker_id,
+                            hypothesis_id=report.hypothesis_id,
+                            payload={"operator_invocation": invocation.to_dict()},
+                        )
+                        operator_invoked_count += 1
+                    r_sig = signature_tracker.signature(r_cand)
+                    if signature_tracker.failure_count(r_sig) > 0:
+                        repeat_failure_suppressed += 1
+                        self._emit_repeat_failure_event(
+                            run_id=run_id,
+                            instance_id=instance.instance_id,
+                            candidate=r_cand,
+                            signature=r_sig,
+                            parent_id=report.hypothesis_id,
+                            previous_failures=signature_tracker.failure_count(r_sig),
+                        )
+                        continue
+                    duplicate_of = signature_tracker.first_seen_id(r_sig)
+                    if duplicate_of is not None:
+                        dedup_skipped += 1
+                        self._emit_dedup_event(
+                            run_id=run_id,
+                            instance_id=instance.instance_id,
+                            candidate=r_cand,
+                            signature=r_sig,
+                            duplicate_of=duplicate_of,
+                            parent_id=report.hypothesis_id,
+                        )
+                        continue
+                    signature_tracker.mark_seen(r_sig, r_cand.candidate_id)
+                    repairs.append(r_cand)
+            if not repairs:
+                break
+            frontier = repairs
+
+        candidate_ids = tuple(report.hypothesis_id for report in reports)
+        selected = self.graph.select_best(candidate_ids)
+        if selected is None:
+            rationale = self._rationale_for_invalid_set(candidate_ids)
+            return self._complete(
+                run_id=run_id,
+                instance_id=instance.instance_id,
+                config=config,
+                observation=observation,
+                stop_reason=StopReason.REPAIR_EXHAUSTED,
+                candidate_count=len(reports),
+                selected_hypothesis_id=None,
+                verifier_reports=tuple(reports),
+                selection_rationale=replace(
+                    rationale, reason=StopReason.REPAIR_EXHAUSTED.value
+                ),
+                dedup_skipped=dedup_skipped,
+                repeat_failure_suppressed=repeat_failure_suppressed,
+                signal_emitted_count=signal_emitted_count,
+                signal_applied_count=signal_applied_count,
+                signal_store_snapshot=medium.snapshot(),
+                signal_read_count=signal_read_count,
+                decision_influenced_count=decision_influenced_count,
+                trajectory_divergence_count=trajectory_divergence_count,
+                affordance_created_count=affordance_created_count,
+                affordance_consumed_count=affordance_consumed_count,
+                worker_activated_count=worker_activated_count,
+                operator_invoked_count=operator_invoked_count,
+            )
+
+        finalization = self._finalize_best_validated(verifier, candidate_ids)
+        stop_reason = _stop_reason_from_finalization(finalization)
+        rationale = self._rationale_for_finalization(
+            hypothesis_ids=candidate_ids,
+            finalization=finalization,
+            store=store,
+        )
+        return self._complete(
+            run_id=run_id,
+            instance_id=instance.instance_id,
+            config=config,
+            observation=observation,
+            stop_reason=stop_reason,
+            candidate_count=len(reports),
+            selected_hypothesis_id=finalization.hypothesis_id,
+            verifier_reports=tuple(reports),
+            finalization=finalization,
+            selection_rationale=rationale,
+            dedup_skipped=dedup_skipped,
+            repeat_failure_suppressed=repeat_failure_suppressed,
+            signal_emitted_count=signal_emitted_count,
+            signal_applied_count=signal_applied_count,
+            signal_store_snapshot=medium.snapshot(),
+            signal_read_count=signal_read_count,
+            decision_influenced_count=decision_influenced_count,
+            trajectory_divergence_count=trajectory_divergence_count,
+            affordance_created_count=affordance_created_count,
+            affordance_consumed_count=affordance_consumed_count,
+            worker_activated_count=worker_activated_count,
+            operator_invoked_count=operator_invoked_count,
+        )
+
     def _emit_dedup_event(
         self,
         *,
@@ -964,6 +1615,13 @@ class StrategyRunner:
         signal_emitted_count: int = 0,
         signal_applied_count: int = 0,
         signal_store_snapshot: JsonDict | None = None,
+        signal_read_count: int = 0,
+        decision_influenced_count: int = 0,
+        trajectory_divergence_count: int = 0,
+        affordance_created_count: int = 0,
+        affordance_consumed_count: int = 0,
+        worker_activated_count: int = 0,
+        operator_invoked_count: int = 0,
     ) -> StrategyResult:
         if selection_rationale is not None:
             self.event_log.append(
@@ -988,6 +1646,13 @@ class StrategyRunner:
                 "repeat_failure_suppressed": int(repeat_failure_suppressed),
                 "signal_emitted_count": int(signal_emitted_count),
                 "signal_applied_count": int(signal_applied_count),
+                "signal_read_count": int(signal_read_count),
+                "decision_influenced_count": int(decision_influenced_count),
+                "trajectory_divergence_count": int(trajectory_divergence_count),
+                "affordance_created_count": int(affordance_created_count),
+                "affordance_consumed_count": int(affordance_consumed_count),
+                "worker_activated_count": int(worker_activated_count),
+                "operator_invoked_count": int(operator_invoked_count),
             },
         )
         return StrategyResult(
@@ -1011,6 +1676,13 @@ class StrategyRunner:
             signal_emitted_count=int(signal_emitted_count),
             signal_applied_count=int(signal_applied_count),
             signal_store_snapshot=signal_store_snapshot,
+            signal_read_count=int(signal_read_count),
+            decision_influenced_count=int(decision_influenced_count),
+            trajectory_divergence_count=int(trajectory_divergence_count),
+            affordance_created_count=int(affordance_created_count),
+            affordance_consumed_count=int(affordance_consumed_count),
+            worker_activated_count=int(worker_activated_count),
+            operator_invoked_count=int(operator_invoked_count),
         )
 
 
@@ -1018,6 +1690,68 @@ def _with_parent(candidate: Candidate, *, parent_id: str) -> Candidate:
     """Return a candidate attached to a repair parent."""
 
     return replace(candidate, parent_id=parent_id)
+
+
+def _annotate_v11_candidate(
+    candidate: Candidate,
+    *,
+    parent_id: str,
+    worker_id: str,
+    decision_id: str,
+    affordance: Affordance | None,
+) -> Candidate:
+    """Attach V11 causal metadata while preserving provider payloads."""
+
+    metadata = dict(candidate.metadata)
+    metadata.setdefault("worker_id", worker_id)
+    metadata.setdefault("decision_id", decision_id)
+    if affordance is not None:
+        metadata.setdefault("source_affordance_id", affordance.affordance_id)
+    return replace(candidate, parent_id=parent_id, metadata=metadata)
+
+
+def _operator_invocation_from_candidate(
+    candidate: Candidate,
+) -> OperatorInvocation | None:
+    """Read an operator invocation from candidate metadata or payload."""
+
+    return OperatorInvocation.from_any(
+        candidate.metadata.get("operator_invocation")
+        or candidate.payload.get("operator_invocation")
+    )
+
+
+def _emit_operator_result_if_needed(
+    event_log: JsonlEventLog,
+    *,
+    run_id: str,
+    instance_id: str,
+    report: VerifierReport,
+    candidate: Candidate,
+) -> None:
+    """Emit operator.applied/operator.failed after verifier apply step."""
+
+    invocation = _operator_invocation_from_candidate(candidate)
+    if invocation is None:
+        return
+    event_log.append(
+        run_id=run_id,
+        instance_id=instance_id,
+        event_type=(
+            OPERATOR_APPLIED_EVENT
+            if report.apply_result.applied
+            else OPERATOR_FAILED_EVENT
+        ),
+        actor=str(candidate.metadata.get("worker_id") or "operator_worker"),
+        hypothesis_id=report.hypothesis_id,
+        payload={
+            "operator_invocation": invocation.to_dict(),
+            "candidate_id": candidate.candidate_id,
+            "applied": bool(report.apply_result.applied),
+            "summary": report.apply_result.summary,
+            "errors": list(report.apply_result.errors),
+        },
+    )
 
 
 def _workspace_for_candidate(

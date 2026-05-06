@@ -1,5 +1,42 @@
 # Project Captures
 
+## 2026-05-06 — Implement V11 Stigmergic Medium Kernel MVP
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `impact_score`: `9/10`
+- `confidence`: `high`
+- `scope`: `V11 causal medium, scheduler, affordances, typed operators, telemetry, smoke automation`
+
+### Outcome
+
+V11 now adds an active causal medium on top of V10: verified feedback emits
+signals, signals create affordances, the scheduler reads the medium, activates
+workers, records `decision.influenced` and `trajectory.diverged`, and B6 can
+invoke typed operators before falling back to repair providers. Telemetry
+reconstructs all new causal metrics from EventLog, `compare_strategies` exposes
+a B2/B5/B6 V11 ladder, and `scripts/v11/run_v11_smoke.py` validates toy replay
+parity end to end.
+
+### Reusable Patterns (1-3)
+
+1. **Causal mechanism claims need a full event chain, not just signal presence**: require read, worker activation, influenced decision, divergence, and verifier outcome.
+2. **Affordances are the bridge from feedback to action**: translate typed failures into concrete worker/operator opportunities before scoring workers.
+3. **Operator guards should prove edit preconditions before candidate emission**: exact replacement operators must reject absent old spans before the adapter mutates a workspace.
+
+### Evidence
+
+- `core_v10/stigmergy/`
+- `core_v10/operators/text_operator.py`
+- `adapters_v10/migrationbench/operators/maven.py`
+- `core_v10/strategy_runner.py`
+- `scripts/bench/telemetry.py`
+- `scripts/bench/compare_strategies.py`
+- `scripts/v11/run_v11_smoke.py`
+- `tests/unit/v11/`
+- `tests/integration/v11/test_toy_patch_repair.py`
+- `documentation/decisions/20260506-v11-stigmergic-medium-kernel.md`
+- `documentation/redisgn_v2/phase_07_artifact.md`
+
 ## 2026-05-05 — Feed MigrationBench Official Failures Back Into V10 Repair
 
 - `repo_slug`: `stigmergiagentic-33b989`

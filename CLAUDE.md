@@ -62,6 +62,49 @@ DEEPSEEK_API_KEY=$(grep DEEPSEEK_API_KEY .env | cut -d= -f2) \
 
 Le `comparison.json` final est écrit dans `campaign_results/v10/ablation_a3_vs_a4_<smoke|main30>/`.
 
+### Phase 7 V11 livrée (2026-05-06) — Stigmergic Medium Kernel MVP
+
+V11 est maintenant implémentée comme couche causale au-dessus de V10 :
+`feedback vérifié -> signal.emitted -> affordance.created -> signal.read ->
+worker.activated -> decision.influenced -> trajectory.diverged -> candidate /
+operator -> verifier`.
+
+Surface ajoutée :
+- `core_v10/stigmergy/{events,records,affordances,medium,scheduler}.py`
+  (`StigmergicMediumKernel`, affordances, reads, influences, divergences,
+  scheduler déterministe).
+- `core_v10/operators/text_operator.py` (`ExactReplaceText` guardé).
+- `adapters_v10/migrationbench/operators/maven.py` (operators Maven
+  exact-match Java 17 / compiler plugin / surefire / JAXB).
+- `StrategyRunner.run_stigmergic_scheduler()` (B5) et
+  `StrategyRunner.run_operator_search()` (B6).
+- `scripts/bench/compare_strategies.py --ladder v11` (B2/B5/B6),
+  `scripts/v11/run_v11_smoke.py`, service Docker `v11-smoke`.
+- `scripts/bench/telemetry.py` reconstruit les métriques causales V11 :
+  `signal_read_total`, `decision_influenced_total`,
+  `trajectory_divergence_total`, `stigmergic_causality_rate`,
+  `unused_signal_rate`, `unused_affordance_rate`, `operator_*`.
+
+Validation ciblée :
+```bash
+uv run pytest tests/unit/v11 tests/integration/v11/test_toy_patch_repair.py -q
+uv run pytest tests/unit/v10/test_signal_store.py tests/unit/v10/test_signal_policy.py \
+  tests/unit/v10/test_strategy_runner_phase6.py \
+  tests/unit/v10/bench/test_telemetry_phase6.py \
+  tests/unit/v10/bench/test_compare_strategies_phase6.py \
+  tests/integration/v10/test_phase6_smoke.py -q
+uv run pytest tests/unit/v10/test_import_boundaries.py tests/unit/v10/test_strategy_runner.py \
+  tests/unit/v10/bench/test_harness_toy.py tests/unit/v10/bench/test_harness_migrationbench.py \
+  tests/unit/v10/bench/test_compare_strategies.py tests/unit/v10/migrationbench/test_adapter.py \
+  tests/unit/v10/migrationbench/test_workspace.py -q
+uv run python -m scripts.v11.run_v11_smoke --out-dir /tmp/v11_smoke_script
+```
+
+Résultat : B2 reste contrôle sans causalité V11 ; B5/B6 produisent lectures,
+worker activation, influence et divergence ; B6 invoque/applique des
+operators typés sur toy avec `live==replay`. B7 memory et tout claim
+MigrationBench main_30 V11 restent hors scope.
+
 ## Sprint 9 Complete Status (2026-04-21) — legacy `core/`
 
 ## Sprint 9 Complete Status (2026-04-21)

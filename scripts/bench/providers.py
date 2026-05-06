@@ -122,9 +122,63 @@ def make_migrationbench_noop_repair_provider(_adapter, _extras: dict[str, Any]):
     return provide
 
 
+def make_toy_exact_answer_operator_provider(_adapter, _extras: dict[str, Any]):
+    """Return a V11 toy operator provider that writes the expected answer."""
+
+    def provide(feedback, original, observation, instance, affordance):
+        if feedback.failure_type != "answer_mismatch":
+            return []
+        expected = str(observation.data.get("expected", ""))
+        source_affordance_id = (
+            affordance.affordance_id if affordance is not None else None
+        )
+        return [
+            Candidate(
+                candidate_id=f"{original.candidate_id}-exact-answer",
+                kind=CandidateKind.TEXT,
+                payload={"answer": expected},
+                origin="v11_exact_answer_operator",
+                metadata={
+                    "operator_invocation": {
+                        "operator_id": "ExactAnswerWrite",
+                        "params": {"expected": expected},
+                        "target_files": ["answer.txt"],
+                        "rationale": "Verifier reported answer_mismatch.",
+                        "source_affordance_id": source_affordance_id,
+                    },
+                    "source_affordance_id": source_affordance_id,
+                    "worker_id": "exact_edit_guard",
+                },
+            )
+        ]
+
+    return provide
+
+
+def make_migrationbench_operator_provider(_adapter, _extras: dict[str, Any]):
+    """Return a V11 MigrationBench typed-operator provider."""
+
+    from adapters_v10.migrationbench.operators import (
+        migrationbench_operator_candidates,
+    )
+
+    def provide(feedback, original, observation, instance, affordance):
+        return migrationbench_operator_candidates(
+            feedback=feedback,
+            original=original,
+            observation=observation,
+            instance=instance,
+            affordance=affordance,
+        )
+
+    return provide
+
+
 __all__ = [
     "JAVA17_POM_REPLACEMENTS",
     "deterministic_pom17_edits",
     "make_migrationbench_deterministic_provider",
     "make_migrationbench_noop_repair_provider",
+    "make_migrationbench_operator_provider",
+    "make_toy_exact_answer_operator_provider",
 ]

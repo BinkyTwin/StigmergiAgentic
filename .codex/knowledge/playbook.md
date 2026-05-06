@@ -5,6 +5,11 @@
 
 ## Active Practices
 
+### V11 Causal Medium Standard
+- Do not count `signal.emitted` as stigmergic evidence by itself; require at least `signal.read`, worker activation, `decision.influenced`, and `trajectory.diverged` before claiming causal coordination.
+- Convert verifier feedback into affordances before selecting workers; a signal should become an actionable gradient, not only prompt context.
+- Keep typed operators guarded: prove old spans or insertion anchors exist before emitting a candidate edit, and log operator invocation/application through EventLog.
+
 ### Official-In-Loop Repair Standard
 - Treat official benchmark rejection as validation feedback while repair budget remains; do not wait until finalization to discover a benchmark-contract failure.
 - If local compile/test/class-version pass but official evaluation fails, classify the candidate as a repairable partial and preserve the official log in `raw_output`/metadata.

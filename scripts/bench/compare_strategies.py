@@ -117,6 +117,39 @@ DEFAULT_ARMS: tuple[AblationArm, ...] = (
 )
 
 
+V11_ARMS: tuple[AblationArm, ...] = (
+    AblationArm(
+        arm_id="B2_branching_repair",
+        strategy_name="branching_repair",
+        max_candidates=2,
+        max_repair_rounds=1,
+        max_repairs_per_candidate=2,
+        description="B2 — V11 control: branching repair without active medium.",
+    ),
+    AblationArm(
+        arm_id="B5_stigmergic_scheduler",
+        strategy_name="stigmergic_scheduler",
+        max_candidates=2,
+        max_repair_rounds=1,
+        max_repairs_per_candidate=2,
+        description=(
+            "B5 — active medium: feedback creates affordances and the "
+            "scheduler activates workers through signal reads."
+        ),
+    ),
+    AblationArm(
+        arm_id="B6_operator_search",
+        strategy_name="operator_search",
+        max_candidates=2,
+        max_repair_rounds=1,
+        max_repairs_per_candidate=2,
+        description=(
+            "B6 — B5 plus typed operator candidates before free repair fallback."
+        ),
+    ),
+)
+
+
 def run_comparison(
     *,
     adapter_name: str,
@@ -177,6 +210,23 @@ def _arm_payload(arm: AblationArm, summary: Summary) -> dict[str, Any]:
             "selection_rationale": inst.selection_rationale,
             "signal_emitted_count": int(inst.signal_emitted_count),
             "signal_applied_count": int(inst.signal_applied_count),
+            "signal_read_count": int(inst.signal_read_count),
+            "unique_signal_read_count": int(inst.unique_signal_read_count),
+            "signal_read_rate": float(inst.signal_read_rate),
+            "decision_influenced_count": int(inst.decision_influenced_count),
+            "decision_influence_rate": float(inst.decision_influence_rate),
+            "trajectory_divergence_count": int(inst.trajectory_divergence_count),
+            "trajectory_divergence_rate": float(inst.trajectory_divergence_rate),
+            "affordance_created_count": int(inst.affordance_created_count),
+            "affordance_consumed_count": int(inst.affordance_consumed_count),
+            "unused_signal_rate": float(inst.unused_signal_rate),
+            "unused_affordance_rate": float(inst.unused_affordance_rate),
+            "cosmetic_signal_rate": float(inst.cosmetic_signal_rate),
+            "stigmergic_causality_rate": float(inst.stigmergic_causality_rate),
+            "worker_activated_count": int(inst.worker_activated_count),
+            "operator_invoked_count": int(inst.operator_invoked_count),
+            "operator_applied_count": int(inst.operator_applied_count),
+            "operator_failed_count": int(inst.operator_failed_count),
             "pheromone_hit_rate": float(inst.pheromone_hit_rate),
             "feedback_reuse_rate": float(inst.feedback_reuse_rate),
             "repeated_failure_suppression": int(inst.repeated_failure_suppression),
@@ -206,6 +256,24 @@ def _arm_payload(arm: AblationArm, summary: Summary) -> dict[str, Any]:
         "repeat_failure_suppressed_total": int(summary.repeat_failure_suppressed_total),
         "signal_emitted_total": int(summary.signal_emitted_total),
         "signal_applied_total": int(summary.signal_applied_total),
+        "signal_read_total": int(summary.signal_read_total),
+        "unique_signal_read_total": int(summary.unique_signal_read_total),
+        "signal_read_rate": float(summary.signal_read_rate),
+        "decision_influenced_total": int(summary.decision_influenced_total),
+        "decision_influence_rate": float(summary.decision_influence_rate),
+        "trajectory_divergence_total": int(summary.trajectory_divergence_total),
+        "trajectory_divergence_rate": float(summary.trajectory_divergence_rate),
+        "affordance_created_total": int(summary.affordance_created_total),
+        "affordance_consumed_total": int(summary.affordance_consumed_total),
+        "unused_signal_rate": float(summary.unused_signal_rate),
+        "unused_affordance_rate": float(summary.unused_affordance_rate),
+        "cosmetic_signal_rate": float(summary.cosmetic_signal_rate),
+        "stigmergic_causality_rate": float(summary.stigmergic_causality_rate),
+        "signal_harm_rate": float(summary.signal_harm_rate),
+        "worker_activated_total": int(summary.worker_activated_total),
+        "operator_invoked_total": int(summary.operator_invoked_total),
+        "operator_applied_total": int(summary.operator_applied_total),
+        "operator_failed_total": int(summary.operator_failed_total),
         "pheromone_hit_rate": float(summary.pheromone_hit_rate),
         "feedback_reuse_rate": float(summary.feedback_reuse_rate),
         "repeated_failure_suppression_total": int(
@@ -251,6 +319,12 @@ def build_parser() -> argparse.ArgumentParser:
         help="JSON dict forwarded to each arm's adapter factory.",
     )
     parser.add_argument(
+        "--ladder",
+        choices=("v10", "v11"),
+        default="v10",
+        help="Choose the default ablation ladder when --arms is omitted.",
+    )
+    parser.add_argument(
         "--arms",
         nargs="*",
         default=None,
@@ -280,13 +354,14 @@ def build_parser() -> argparse.ArgumentParser:
 def main(argv: Sequence[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     extras = json.loads(args.extras or "{}")
-    arms = DEFAULT_ARMS
+    default_arms = V11_ARMS if args.ladder == "v11" else DEFAULT_ARMS
+    arms = default_arms
     if args.arms:
         wanted = set(args.arms)
-        unknown = wanted - {arm.arm_id for arm in DEFAULT_ARMS}
+        unknown = wanted - {arm.arm_id for arm in default_arms}
         if unknown:
             raise SystemExit(f"unknown arm_ids: {sorted(unknown)}")
-        arms = tuple(arm for arm in DEFAULT_ARMS if arm.arm_id in wanted)
+        arms = tuple(arm for arm in default_arms if arm.arm_id in wanted)
     if (
         args.max_candidates is not None
         or args.max_repair_rounds is not None
@@ -334,6 +409,7 @@ if __name__ == "__main__":
 __all__ = [
     "AblationArm",
     "DEFAULT_ARMS",
+    "V11_ARMS",
     "build_parser",
     "main",
     "run_comparison",

@@ -10,6 +10,7 @@ __pycache__/
 
 # Git
 .git/
+.git.corrupt-*/
 
 # IDE
 .vscode/

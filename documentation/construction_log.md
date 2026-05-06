@@ -1457,3 +1457,67 @@ Phase 6 (StigmergicBlackboard A4 = cœur thèse H2).
 
 ---
 
+
+## 2026-05-06 — Phase 7 V11 Stigmergic Medium Kernel MVP
+
+**Objectif** : implémenter le plan V11 comme noyau causal actif au-dessus de
+V10, sans casser le socle EventLog/HypothesisGraph/VerifierLoop.
+
+**Livré** :
+
+- `core_v10/stigmergy/` : records, events, affordance policy,
+  `StigmergicMediumKernel`, scheduler déterministe.
+- `core_v10/operators/text_operator.py` : guard `ExactReplaceText`.
+- `adapters_v10/migrationbench/operators/maven.py` : operators Maven
+  exact-match pour Java 17, compiler/surefire plugins et JAXB.
+- `StrategyRunner.run_stigmergic_scheduler()` (B5) et
+  `run_operator_search()` (B6).
+- `scripts/bench/compare_strategies.py --ladder v11` avec B2/B5/B6.
+- `scripts/bench/telemetry.py` : métriques V11 reconstructibles depuis
+  EventLog (`signal_read_total`, `decision_influenced_total`,
+  `trajectory_divergence_total`, `stigmergic_causality_rate`,
+  `unused_signal_rate`, `unused_affordance_rate`, `operator_*`).
+- `scripts/v11/run_v11_smoke.py` + service Docker `v11-smoke`.
+- Documentation : ADR `20260506-v11-stigmergic-medium-kernel.md`,
+  artefact `phase_07_artifact.md`, `AGENTS.md`, `CLAUDE.md`, index ADR.
+
+**Validation** :
+
+```bash
+uv run python -m py_compile core_v10/stigmergy/*.py core_v10/operators/*.py \
+  adapters_v10/migrationbench/operators/*.py core_v10/strategy_runner.py \
+  scripts/bench/harness.py scripts/bench/telemetry.py \
+  scripts/bench/compare_strategies.py scripts/bench/providers.py scripts/v11/*.py
+
+uv run pytest tests/unit/v11 tests/integration/v11/test_toy_patch_repair.py -q
+# 9 passed
+
+uv run pytest tests/unit/v10/test_signal_store.py tests/unit/v10/test_signal_policy.py \
+  tests/unit/v10/test_strategy_runner_phase6.py \
+  tests/unit/v10/bench/test_telemetry_phase6.py \
+  tests/unit/v10/bench/test_compare_strategies_phase6.py \
+  tests/integration/v10/test_phase6_smoke.py -q
+# 40 passed
+
+uv run pytest tests/unit/v10/test_import_boundaries.py tests/unit/v10/test_strategy_runner.py \
+  tests/unit/v10/bench/test_harness_toy.py \
+  tests/unit/v10/bench/test_harness_migrationbench.py \
+  tests/unit/v10/bench/test_compare_strategies.py \
+  tests/unit/v10/migrationbench/test_adapter.py \
+  tests/unit/v10/migrationbench/test_workspace.py -q
+# 43 passed
+
+uv run python -m scripts.v11.run_v11_smoke --out-dir /tmp/v11_smoke_script
+# status ok, replay parity checked
+
+docker compose -f docker-compose.campaign.yml run --rm v11-smoke
+# status ok, campaign_results/v11/smoke/v11_smoke_summary.json
+```
+
+**Résultat** : le microbench toy prouve le différentiel attendu :
+B2 ne produit aucune causalité V11 ; B5/B6 produisent `signal.read`,
+`worker.activated`, `decision.influenced`, `trajectory.diverged`; B6 invoque
+et applique un operator typé. `live==replay` reste l'invariant central.
+
+**Limites** : pas de claim MigrationBench V11 `main_30` ; B7 memory
+verifier-gated et B8 search restent hors scope de cet incrément.

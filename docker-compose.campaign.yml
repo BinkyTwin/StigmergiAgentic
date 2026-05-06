@@ -311,6 +311,50 @@ services:
           --max-repair-rounds "$${MIGRATION_MAX_REPAIR_ROUNDS}" \
           --extras "$${EXTRAS}"
 
+  # ---- V11 causal medium smoke (toy by default, optional MigrationBench) ----
+  v11-smoke:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: stigmergiagentic-v11-smoke
+    environment:
+      PYTHONUNBUFFERED: "1"
+      PYTHONWARNINGS: "ignore"
+      V11_OUT_DIR: ${V11_OUT_DIR:-campaign_results/v11/smoke}
+      V11_MIGRATION_SUBSET: ${V11_MIGRATION_SUBSET:-}
+      V11_MIGRATION_LIMIT: ${V11_MIGRATION_LIMIT:-}
+      V11_OFFICIAL_EVAL: ${V11_OFFICIAL_EVAL:-false}
+    volumes:
+      - ./campaign_results/v11:/app/campaign_results/v11
+      - ./workspaces/migrationbench_v11:/app/workspaces/migrationbench_v11
+      - ./external:/app/external
+    working_dir: /app
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 65536
+      nproc: 8192
+    command:
+      - bash
+      - -lc
+      - |
+        set -e
+        ARGS="--out-dir $${V11_OUT_DIR}"
+        if [ -n "$${V11_MIGRATION_SUBSET}" ]; then
+          if [ ! -d external/MigrationBench/.git ]; then
+            mkdir -p external
+            git clone --depth 1 https://github.com/amazon-science/MigrationBench.git external/MigrationBench
+          fi
+          ARGS="$${ARGS} --migrationbench-subset $${V11_MIGRATION_SUBSET}"
+          if [ -n "$${V11_MIGRATION_LIMIT}" ]; then
+            ARGS="$${ARGS} --migrationbench-limit $${V11_MIGRATION_LIMIT}"
+          fi
+          if [ "$${V11_OFFICIAL_EVAL}" = "true" ]; then
+            ARGS="$${ARGS} --official-eval"
+          fi
+        fi
+        /opt/venv/bin/python -m scripts.v11.run_v11_smoke $${ARGS}
+
   # ---- Phase 6 — A3 vs A4 ablation (smoke) ----
   ablation-a3-vs-a4-smoke:
     build:
