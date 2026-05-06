@@ -1284,6 +1284,7 @@ class StrategyRunner:
                     fallback=workspace,
                 )
                 report = verifier.verify(candidate, verify_workspace)
+                best_observed.update(report)
                 node = self.graph.get(report.hypothesis_id)
                 signature = signature_tracker.signature(candidate)
                 node.metadata["signature"] = signature
@@ -1601,6 +1602,7 @@ class StrategyRunner:
                     _annotate_v11_candidate(
                         candidate,
                         parent_id=report.hypothesis_id,
+                        parent_candidate=original,
                         worker_id=activation.worker.worker_id,
                         decision_id=decision_id,
                         affordance=activation.affordance,
@@ -2127,18 +2129,27 @@ def _annotate_v11_candidate(
     candidate: Candidate,
     *,
     parent_id: str,
+    parent_candidate: Candidate,
     worker_id: str,
     decision_id: str,
     affordance: Affordance | None,
 ) -> Candidate:
     """Attach V11 causal metadata while preserving provider payloads."""
 
+    payload = dict(candidate.payload)
+    parent_branch_id = str(parent_candidate.payload.get("branch_id") or "").strip()
+    if (
+        parent_branch_id
+        and payload.get("branch_id")
+        and not str(payload.get("parent_branch_id") or "").strip()
+    ):
+        payload["parent_branch_id"] = parent_branch_id
     metadata = dict(candidate.metadata)
     metadata.setdefault("worker_id", worker_id)
     metadata.setdefault("decision_id", decision_id)
     if affordance is not None:
         metadata.setdefault("source_affordance_id", affordance.affordance_id)
-    return replace(candidate, parent_id=parent_id, metadata=metadata)
+    return replace(candidate, parent_id=parent_id, payload=payload, metadata=metadata)
 
 
 def _operator_invocation_from_candidate(

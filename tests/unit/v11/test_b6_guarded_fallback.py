@@ -23,6 +23,7 @@ from core_v10.contracts import (
 )
 from core_v10.stigmergy.events import OPERATOR_UNAVAILABLE_EVENT
 from core_v10.strategy_runner import StopReason, StrategyConfig, StrategyRunner
+from core_v10.strategy_runner import _annotate_v11_candidate
 
 
 class GuardedFallbackAdapter(DomainAdapterV10):
@@ -170,6 +171,7 @@ def test_b6_rejects_invalid_llm_fallback_before_adapter_validation(tmp_path: Pat
     event_types = [event.event_type for event in events]
 
     assert result.stop_reason == StopReason.REPAIR_EXHAUSTED
+    assert result.selected_hypothesis_id is None
     assert adapter.applied_candidate_ids == ["llm-initial"]
     assert adapter.validated_candidate_ids == ["llm-initial"]
     assert OPERATOR_UNAVAILABLE_EVENT in event_types
@@ -193,3 +195,113 @@ def test_b6_rejects_invalid_llm_fallback_before_adapter_validation(tmp_path: Pat
     assert "origin:llm_repair_fallback_no_operator_candidate" in signal_targets
     assert "action:free_replace_text" in signal_targets
     assert "worker:exact_edit_guard" in signal_targets
+
+
+def test_b6_exports_best_partial_for_non_terminal_funnel_progress(tmp_path: Path) -> None:
+    class PartialAdapter(GuardedFallbackAdapter):
+        def validate(
+            self, candidate: Candidate, workspace: WorkspaceHandle
+        ) -> ValidationResult:
+            self.validated_candidate_ids.append(candidate.candidate_id)
+            return ValidationResult(
+                candidate_id=candidate.candidate_id,
+                status=ValidationStatus.PARTIAL,
+                validator_name="guarded-unit",
+                signals={"compile_success": True},
+                summary="compile succeeded but tests still fail",
+            )
+
+        def diagnose(
+            self, validation: ValidationResult, workspace: WorkspaceHandle
+        ) -> FeedbackDigest:
+            return FeedbackDigest(
+                candidate_id=validation.candidate_id,
+                failure_type="test_failure",
+                severity="blocking",
+                summary="tests still fail",
+            )
+
+    adapter = PartialAdapter(tmp_path / "workspace")
+    runner = StrategyRunner(
+        adapter=adapter,
+        event_log_path=tmp_path / "events.jsonl",
+    )
+    instance = RunInstance(
+        instance_id="inst-b6-partial",
+        adapter_name="guarded-fallback",
+        objective="track partial funnel progress",
+    )
+
+    result = runner.run_operator_search(
+        run_id="run-b6-partial",
+        instance=instance,
+        candidate_provider=lambda _observation, _instance: [
+            Candidate(
+                candidate_id="llm-initial",
+                kind=CandidateKind.PATCH,
+                payload={},
+                origin="llm_initial",
+            )
+        ],
+        repair_provider=lambda _feedback, _candidate, _observation, _instance: [],
+        operator_provider=lambda _feedback, _candidate, _observation, _instance, _affordance: [],
+        config=StrategyConfig(
+            name="operator_search",
+            max_candidates=1,
+            max_repair_rounds=1,
+            max_repairs_per_candidate=1,
+            fallback_policy="guarded_only",
+        ),
+    )
+
+    events = runner.event_log.for_run("run-b6-partial")
+    assert result.stop_reason == StopReason.REPAIR_EXHAUSTED
+    assert result.selected_hypothesis_id == "llm-initial"
+    assert result.best_observed["best_candidate_id"] == "llm-initial"
+    assert result.best_observed["best_funnel_score"] == 40
+    assert result.best_observed["best_stage"] == "compile_success"
+    assert any(
+        event.event_type == "artifact.best_partial"
+        and event.hypothesis_id == "llm-initial"
+        for event in events
+    )
+
+
+def test_b6_annotation_preserves_adapter_parent_branch_for_repairs() -> None:
+    parent = Candidate(
+        candidate_id="inst-c1-llm0",
+        kind=CandidateKind.PATCH,
+        payload={"branch_id": "c1_llm0"},
+        origin="llm_initial",
+    )
+    repair = Candidate(
+        candidate_id="inst-c1-llm0-r0-llm0",
+        kind=CandidateKind.PATCH,
+        payload={
+            "branch_id": "c1_llm_r0",
+            "edit_set": {
+                "edits": [
+                    {
+                        "type": "replace_text",
+                        "path": "pom.xml",
+                        "old": "<java.version>17</java.version>",
+                        "new": "<java.version>17</java.version>",
+                    }
+                ]
+            },
+        },
+        origin="llm_repair_deepseek-chat_t0",
+    )
+
+    annotated = _annotate_v11_candidate(
+        repair,
+        parent_id=parent.candidate_id,
+        parent_candidate=parent,
+        worker_id="maven_compiler_operator",
+        decision_id="dec-1",
+        affordance=None,
+    )
+
+    assert annotated.parent_id == parent.candidate_id
+    assert annotated.payload["branch_id"] == "c1_llm_r0"
+    assert annotated.payload["parent_branch_id"] == "c1_llm0"
