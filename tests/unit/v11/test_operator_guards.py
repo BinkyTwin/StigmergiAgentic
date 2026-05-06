@@ -3,9 +3,13 @@
 from __future__ import annotations
 
 from adapters_v10.migrationbench.operators import (
+    BUNDLE_PLUGIN_VERSION_TARGET,
     maven_add_jaxb_dependency_edits,
     maven_compiler_release_edits,
+    maven_upgrade_bundle_plugin_edits,
     maven_upgrade_compiler_plugin_edits,
+    maven_upgrade_lombok_java17_edits,
+    maven_upgrade_spring_boot_java17_edits,
     migrationbench_operator_candidates,
 )
 from core_v10.contracts import (
@@ -99,6 +103,118 @@ def test_maven_plugin_upgrade_is_scoped_to_matching_plugin_block() -> None:
     assert "<artifactId>maven-compiler-plugin</artifactId>" in edits[0]["old"]
     assert "<version>3.11.0</version>" in edits[0]["new"]
     assert "<artifactId>not-a-plugin</artifactId>" not in edits[0]["old"]
+
+
+def test_lombok_java17_operator_upgrades_properties_and_plugin_block() -> None:
+    pom = """<project>
+  <properties>
+    <lombok.version>1.18.8</lombok.version>
+    <lombok.plugin.version>1.18.6.0</lombok.plugin.version>
+  </properties>
+  <dependencies>
+    <dependency>
+      <groupId>org.projectlombok</groupId>
+      <artifactId>lombok</artifactId>
+      <version>1.18.8</version>
+    </dependency>
+  </dependencies>
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.projectlombok</groupId>
+        <artifactId>lombok-maven-plugin</artifactId>
+        <version>1.18.6.0</version>
+      </plugin>
+    </plugins>
+  </build>
+</project>"""
+
+    edits = maven_upgrade_lombok_java17_edits({"pom.xml": pom})
+
+    joined_new = "\n".join(str(edit["new"]) for edit in edits)
+    assert "<lombok.version>1.18.30</lombok.version>" in joined_new
+    assert "<lombok.plugin.version>1.18.20.0</lombok.plugin.version>" in joined_new
+    assert "<artifactId>lombok</artifactId>" in joined_new
+    assert "<version>1.18.30</version>" in joined_new
+
+
+def test_spring_boot_java17_operator_upgrades_parent_without_raw_asm_text() -> None:
+    pom = """<project>
+  <parent>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-parent</artifactId>
+    <version>2.1.5.RELEASE</version>
+  </parent>
+</project>"""
+
+    direct_edits = maven_upgrade_spring_boot_java17_edits({"pom.xml": pom})
+    assert len(direct_edits) == 1
+    assert "<version>2.7.18</version>" in direct_edits[0]["new"]
+
+    candidates = migrationbench_operator_candidates(
+        feedback=FeedbackDigest(
+            candidate_id="c1",
+            failure_type="class_version_error",
+            severity="warning",
+            summary="class_version_error",
+            evidence=["BeanDefinitionStore Failed to read candidate component"],
+        ),
+        original=Candidate(
+            candidate_id="c1",
+            kind=CandidateKind.PATCH,
+            payload={"branch_id": "c1_branch"},
+            origin="seed",
+        ),
+        observation=Observation(summary="pom", data={"pom_texts": {"pom.xml": pom}}),
+        instance=RunInstance(
+            instance_id="spring__case",
+            adapter_name="migrationbench",
+            objective="migrate",
+        ),
+        affordance=Affordance(
+            affordance_id="aff-spring",
+            action_type="set_maven_compiler_release",
+            target="pom.xml",
+            reason="class_version_error",
+            priority=1.0,
+            expected_worker_kind="maven_compiler_operator",
+        ),
+    )
+
+    assert len(candidates) == 1
+    invocation = candidates[0].metadata["operator_invocation"]
+    assert invocation["operator_id"] == "MavenUpgradeSpringBootJava17"
+    edits = candidates[0].payload["edit_set"]["edits"]
+    assert "<artifactId>spring-boot-starter-parent</artifactId>" in edits[0]["old"]
+    assert "<version>2.7.18</version>" in edits[0]["new"]
+
+
+def test_bundle_plugin_operator_scopes_felix_upgrade() -> None:
+    pom = """<project>
+  <dependencies>
+    <dependency>
+      <groupId>demo</groupId>
+      <artifactId>bundle-like-dependency</artifactId>
+      <version>2.5.3</version>
+    </dependency>
+  </dependencies>
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.apache.felix</groupId>
+        <artifactId>maven-bundle-plugin</artifactId>
+        <version>2.5.3</version>
+      </plugin>
+    </plugins>
+  </build>
+</project>"""
+
+    edits = maven_upgrade_bundle_plugin_edits({"pom.xml": pom})
+
+    assert len(edits) == 1
+    assert "<artifactId>maven-bundle-plugin</artifactId>" in edits[0]["old"]
+    assert f"<version>{BUNDLE_PLUGIN_VERSION_TARGET}</version>" in edits[0]["new"]
+    assert "<artifactId>bundle-like-dependency</artifactId>" not in edits[0]["old"]
 
 
 def test_migrationbench_operator_candidate_is_child_of_original_candidate() -> None:
