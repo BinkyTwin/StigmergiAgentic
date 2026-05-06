@@ -216,7 +216,10 @@ class BenchHarness:
                     config=config,
                 )
 
-            self._persist_graph(opts.out_dir, instance_id, graph)
+            # StrategyRunner resets its graph at strategy start, so persist
+            # the runner-owned graph after execution rather than the initially
+            # injected object.
+            self._persist_graph(opts.out_dir, instance_id, runner.graph)
             row = self._make_row(result, runner.event_log)
             rows.append(row)
             events_by_instance[instance_id] = runner.event_log.for_run(run_id)
