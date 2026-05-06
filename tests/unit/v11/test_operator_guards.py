@@ -208,3 +208,28 @@ def test_operator_provider_can_read_live_poms_from_workspace_handle(tmp_path) ->
         candidates[0].metadata["operator_invocation"]["operator_id"]
         == "MavenAddJaxbDependency"
     )
+
+
+def test_operator_provider_reads_migrationbench_repo_dir_workspace(tmp_path) -> None:
+    branch_root = tmp_path / "branch"
+    repo = branch_root / "repo"
+    repo.mkdir(parents=True)
+    (repo / "pom.xml").write_text(
+        "<project><dependencies>\n</dependencies></project>",
+        encoding="utf-8",
+    )
+    observation = Observation(
+        summary="pom",
+        data={"pom_files": ["pom.xml"], "java_files_sample": []},
+    )
+    workspace = WorkspaceHandle(
+        root=branch_root,
+        instance_id="repo__case",
+        metadata={"repo_dir": str(repo)},
+    )
+
+    live_observation = _attach_live_files(observation, workspace)
+
+    assert live_observation.data["__live_files__"]["pom.xml"].startswith(
+        "<project>"
+    )

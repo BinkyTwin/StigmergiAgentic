@@ -1862,11 +1862,8 @@ def _attach_live_files(
                     rel, max_bytes=_LIVE_FILES_MAX_BYTES
                 )
             else:
-                root = getattr(parent_workspace, "root", None)
-                if root is None:
-                    continue
-                path = Path(root) / str(rel)
-                if not path.is_file():
+                path = _workspace_relative_path(parent_workspace, str(rel))
+                if path is None:
                     continue
                 text = path.read_text(
                     encoding="utf-8",
@@ -1880,6 +1877,27 @@ def _attach_live_files(
     new_data = dict(observation.data or {})
     new_data["__live_files__"] = live
     return replace(observation, data=new_data)
+
+
+def _workspace_relative_path(parent_workspace, rel_path: str) -> Path | None:
+    """Resolve a repository-relative path from an opaque workspace handle."""
+
+    roots: list[Path] = []
+    metadata = getattr(parent_workspace, "metadata", None)
+    if isinstance(metadata, dict):
+        repo_dir = metadata.get("repo_dir")
+        if repo_dir:
+            roots.append(Path(repo_dir))
+    root = getattr(parent_workspace, "root", None)
+    if root is not None:
+        root_path = Path(root)
+        roots.append(root_path / "repo")
+        roots.append(root_path)
+    for base in roots:
+        path = base / rel_path
+        if path.is_file():
+            return path
+    return None
 
 
 def _validated_nodes_in_priority_order(
