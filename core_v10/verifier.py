@@ -229,6 +229,17 @@ class VerifierLoop:
 
 def _score_from_validation(validation: ValidationResult) -> HypothesisScore:
     signals = validation.signals
+    funnel_score = _funnel_score_from_validation(validation)
+    if funnel_score != 0:
+        return HypothesisScore(
+            quality=max(0.0, funnel_score / 100.0),
+            confidence=1.0 if validation.passed else 0.0,
+            cost=_as_float(
+                signals.get("cost", validation.metadata.get("cost", 0.0)),
+                default=0.0,
+            ),
+            risk=0.0 if funnel_score > 0 else 0.2,
+        )
     raw_quality = signals.get("quality", signals.get("score"))
     raw_confidence = signals.get("confidence")
     raw_cost = signals.get("cost", validation.metadata.get("cost", 0.0))
@@ -247,6 +258,28 @@ def _score_from_validation(validation: ValidationResult) -> HypothesisScore:
         cost=_as_float(raw_cost, default=0.0),
         risk=risk,
     )
+
+
+def _funnel_score_from_validation(validation: ValidationResult) -> int:
+    haystack = "\n".join(
+        [validation.summary or "", *[str(err) for err in validation.errors]]
+    )
+    if "replacement_count_too_low" in haystack:
+        return -20
+    signals = dict(validation.signals or {})
+    for key, score in (
+        ("strict_success", 100),
+        ("official_success", 80),
+        ("test_success", 60),
+        ("class_version_ok", 50),
+        ("compile_success", 40),
+        ("patch_applies", 20),
+        ("patch_delivered", 10),
+        ("applied", 10),
+    ):
+        if bool(signals.get(key)):
+            return score
+    return 0
 
 
 def _as_float(value, *, default: float) -> float:

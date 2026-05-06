@@ -22,10 +22,15 @@ from core_v10.contracts import (
     JsonDict,
     Observation,
     RunInstance,
+    ValidationResult,
     to_jsonable,
 )
 from core_v10.event_log import JsonlEventLog, ReplaySnapshot
 from core_v10.hypothesis_graph import HypothesisGraph, HypothesisNode
+from core_v10.operators import (
+    GuardedEditSetResult,
+    validate_edit_set_against_workspace,
+)
 from core_v10.signal_policy import (
     SIGNAL_APPLIED_EVENT,
     SIGNAL_EMITTED_EVENT,
@@ -43,6 +48,8 @@ from core_v10.stigmergy.events import (
     OPERATOR_APPLIED_EVENT,
     OPERATOR_FAILED_EVENT,
     OPERATOR_INVOKED_EVENT,
+    OPERATOR_REJECTED_EVENT,
+    OPERATOR_UNAVAILABLE_EVENT,
     SIGNAL_READ_EVENT,
     TRAJECTORY_DIVERGED_EVENT,
     WORKER_ACTIVATED_EVENT,
@@ -89,6 +96,7 @@ class StrategyConfig:
     max_candidates: int = 1
     max_repair_rounds: int = 1
     max_repairs_per_candidate: int = 1
+    fallback_policy: str = "guarded_only"  # disabled | guarded_only | free_llm
 
 
 @dataclass(frozen=True)
@@ -144,12 +152,113 @@ class StrategyResult:
     affordance_consumed_count: int = 0
     worker_activated_count: int = 0
     operator_invoked_count: int = 0
+    best_observed: JsonDict | None = None
 
     @property
     def strict_success(self) -> bool:
         """Return whether this run achieved strict success."""
 
         return self.stop_reason == StopReason.STRICT_SUCCESS
+
+
+_FUNNEL_SCORE_BY_STAGE: tuple[tuple[str, int], ...] = (
+    ("strict_success", 100),
+    ("official_success", 80),
+    ("test_success", 60),
+    ("class_version_ok", 50),
+    ("compile_success", 40),
+    ("patch_applies", 20),
+    ("patch_delivered", 10),
+)
+
+
+@dataclass
+class BestObservedTracker:
+    """Track the best non-terminal validation observed during a run."""
+
+    best_report: VerifierReport | None = None
+    best_score: int = 0
+    best_stage: str = "none"
+
+    def update(self, report: VerifierReport) -> None:
+        score, stage = _funnel_score(report.validation)
+        if self.best_report is None or (
+            score,
+            report.hypothesis_id,
+        ) > (
+            self.best_score,
+            self.best_report.hypothesis_id,
+        ):
+            self.best_report = report
+            self.best_score = score
+            self.best_stage = stage
+
+    def snapshot(self) -> JsonDict:
+        if self.best_report is None:
+            return {
+                "best_candidate_id": None,
+                "best_hypothesis_id": None,
+                "best_funnel_score": 0,
+                "best_stage": "none",
+            }
+        validation = self.best_report.validation
+        return {
+            "best_candidate_id": self.best_report.candidate_id,
+            "best_hypothesis_id": self.best_report.hypothesis_id,
+            "best_funnel_score": int(self.best_score),
+            "best_stage": self.best_stage,
+            "best_feedback": self.best_report.feedback.to_dict()
+            if hasattr(self.best_report.feedback, "to_dict")
+            else to_jsonable(self.best_report.feedback),
+            "best_signals": dict(validation.signals),
+            "best_validation_status": validation.status.value,
+        }
+
+
+def _funnel_score(validation: ValidationResult) -> tuple[int, str]:
+    signals = dict(validation.signals or {})
+    if _is_replacement_count_error(validation):
+        return -20, "replacement_error"
+    for stage, score in _FUNNEL_SCORE_BY_STAGE:
+        if bool(signals.get(stage)):
+            return score, stage
+    if bool(signals.get("applied")):
+        return 10, "patch_delivered"
+    return 0, "none"
+
+
+def _is_replacement_count_error(validation: ValidationResult) -> bool:
+    haystack = "\n".join(
+        [validation.summary or "", *[str(err) for err in validation.errors]]
+    )
+    return "replacement_count_too_low" in haystack
+
+
+def _best_repair_sources(reports: Sequence[VerifierReport]) -> list[VerifierReport]:
+    """Prefer repairing the best observed non-terminal parent."""
+
+    non_passed = [report for report in reports if not report.passed]
+    if not non_passed:
+        return []
+    scored = [
+        (*_funnel_score(report.validation), report)
+        for report in non_passed
+    ]
+    best_score = max(score for score, _stage, _report in scored)
+    if best_score > 0:
+        return [
+            report
+            for score, _stage, report in sorted(
+                scored,
+                key=lambda item: (
+                    item[0],
+                    item[2].hypothesis_id,
+                ),
+                reverse=True,
+            )
+            if score == best_score
+        ]
+    return non_passed
 
 
 class StrategyRunner:
@@ -292,6 +401,7 @@ class StrategyRunner:
         signature_tracker = _SignatureTracker()
         dedup_skipped = 0
         repeat_failure_suppressed = 0
+        best_observed = BestObservedTracker()
 
         raw_candidates = list(candidate_provider(observation, instance))[
             : config.max_candidates
@@ -334,6 +444,7 @@ class StrategyRunner:
                 ),
                 dedup_skipped=dedup_skipped,
                 repeat_failure_suppressed=repeat_failure_suppressed,
+                best_observed=best_observed.snapshot(),
             )
 
         verifier = VerifierLoop(
@@ -355,6 +466,7 @@ class StrategyRunner:
                     fallback=workspace,
                 )
                 report = verifier.verify(candidate, verify_workspace)
+                best_observed.update(report)
                 node = self.graph.get(report.hypothesis_id)
                 node.metadata["signature"] = signature_tracker.signature(candidate)
                 current_reports.append(report)
@@ -372,7 +484,8 @@ class StrategyRunner:
                 break
 
             repairs: list[Candidate] = []
-            for report in current_reports:
+            repair_source_reports = _best_repair_sources(current_reports)
+            for report in repair_source_reports:
                 parent_node = self.graph.get(report.hypothesis_id)
                 original = parent_node.candidate
                 repair_observation = _attach_live_files(
@@ -420,7 +533,19 @@ class StrategyRunner:
         candidate_ids = tuple(report.hypothesis_id for report in reports)
         selected = self.graph.select_best(candidate_ids)
         if selected is None:
-            rationale = self._rationale_for_invalid_set(candidate_ids)
+            rationale = self._rationale_for_best_observed(
+                hypothesis_ids=candidate_ids,
+                tracker=best_observed,
+                fallback_reason=StopReason.REPAIR_EXHAUSTED.value,
+            )
+            selected_partial = rationale.selected_hypothesis_id
+            if selected_partial is not None:
+                self._emit_best_partial_event(
+                    run_id=run_id,
+                    instance_id=instance.instance_id,
+                    hypothesis_id=selected_partial,
+                    tracker=best_observed,
+                )
             return self._complete(
                 run_id=run_id,
                 instance_id=instance.instance_id,
@@ -428,13 +553,12 @@ class StrategyRunner:
                 observation=observation,
                 stop_reason=StopReason.REPAIR_EXHAUSTED,
                 candidate_count=len(reports),
-                selected_hypothesis_id=None,
+                selected_hypothesis_id=selected_partial,
                 verifier_reports=tuple(reports),
-                selection_rationale=replace(
-                    rationale, reason=StopReason.REPAIR_EXHAUSTED.value
-                ),
+                selection_rationale=rationale,
                 dedup_skipped=dedup_skipped,
                 repeat_failure_suppressed=repeat_failure_suppressed,
+                best_observed=best_observed.snapshot(),
             )
 
         finalization = self._finalize_best_validated(verifier, candidate_ids)
@@ -456,6 +580,7 @@ class StrategyRunner:
             selection_rationale=rationale,
             dedup_skipped=dedup_skipped,
             repeat_failure_suppressed=repeat_failure_suppressed,
+            best_observed=best_observed.snapshot(),
         )
 
     def run_stigmergic_blackboard(
@@ -871,6 +996,7 @@ class StrategyRunner:
         affordance_consumed_count = 0
         worker_activated_count = 0
         operator_invoked_count = 0
+        best_observed = BestObservedTracker()
 
         self.event_log.append(
             run_id=run_id,
@@ -882,6 +1008,7 @@ class StrategyRunner:
                 "adapter": self.adapter.name,
                 "v11_medium": True,
                 "prefer_operator_provider": bool(prefer_operator_provider),
+                "fallback_policy": config.fallback_policy,
             },
         )
         workspace = self.adapter.setup(instance)
@@ -960,11 +1087,142 @@ class StrategyRunner:
             )
             signal_applied_count += 1
 
+        def _emit_store_signal(
+            *,
+            kind: SignalKind,
+            target: str,
+            intensity: float,
+            evidence: Sequence[str],
+            rationale: str,
+            hypothesis_id: str | None = None,
+        ) -> None:
+            nonlocal signal_emitted_count
+            record = store.emit(
+                kind=kind,
+                target=target,
+                intensity=float(intensity),
+                now_seq=self.event_log.next_sequence(),
+                evidence=tuple(str(e) for e in evidence),
+            )
+            self.event_log.append(
+                run_id=run_id,
+                instance_id=instance.instance_id,
+                event_type=SIGNAL_EMITTED_EVENT,
+                actor="stigmergic_medium",
+                hypothesis_id=hypothesis_id,
+                payload={
+                    "record": record.to_dict(),
+                    "op": "emit",
+                    "rationale": rationale,
+                    "created_from": {
+                        "event": rationale,
+                        "evidence": list(evidence),
+                    },
+                },
+            )
+            signal_emitted_count += 1
+
+        def _emit_candidate_rejected(
+            candidate: Candidate,
+            *,
+            guard: GuardedEditSetResult,
+            reason: str,
+            parent_hypothesis_id: str | None = None,
+            affordance: Affordance | None = None,
+        ) -> None:
+            invocation = _operator_invocation_from_candidate(candidate)
+            is_operator = invocation is not None
+            self.event_log.append(
+                run_id=run_id,
+                instance_id=instance.instance_id,
+                event_type=(
+                    OPERATOR_REJECTED_EVENT if is_operator else "candidate.rejected"
+                ),
+                actor=(
+                    str(candidate.metadata.get("worker_id") or "operator_worker")
+                    if is_operator
+                    else "strategy_runner"
+                ),
+                hypothesis_id=parent_hypothesis_id,
+                payload={
+                    "candidate_id": candidate.candidate_id,
+                    "origin": candidate.origin,
+                    "reason": reason,
+                    "guard": guard.to_dict(),
+                    "operator_invocation": invocation.to_dict()
+                    if invocation is not None
+                    else None,
+                    "source_affordance_id": (
+                        candidate.metadata.get("source_affordance_id")
+                        or (
+                            affordance.affordance_id
+                            if affordance is not None
+                            else None
+                        )
+                    ),
+                },
+            )
+            _emit_store_signal(
+                kind=SignalKind.INHIBIT,
+                target=f"origin:{candidate.origin}",
+                intensity=0.8,
+                evidence=(candidate.candidate_id,),
+                rationale="guard_rejected_origin",
+                hypothesis_id=parent_hypothesis_id,
+            )
+            _emit_store_signal(
+                kind=SignalKind.INHIBIT,
+                target="action:free_replace_text",
+                intensity=0.9,
+                evidence=(candidate.candidate_id,),
+                rationale="guard_rejected_free_replace_text",
+                hypothesis_id=parent_hypothesis_id,
+            )
+            _emit_store_signal(
+                kind=SignalKind.SUPPORT,
+                target="worker:exact_edit_guard",
+                intensity=0.7,
+                evidence=(candidate.candidate_id,),
+                rationale="guard_rejected_support_exact_edit_guard",
+                hypothesis_id=parent_hypothesis_id,
+            )
+
+        def _guard_candidate(
+            candidate: Candidate,
+            candidate_workspace,
+            *,
+            parent_hypothesis_id: str | None = None,
+            affordance: Affordance | None = None,
+        ) -> bool:
+            if not prefer_operator_provider:
+                return True
+            if config.fallback_policy == "free_llm":
+                return True
+            edit_set = candidate.payload.get("edit_set")
+            if not isinstance(edit_set, dict):
+                return True
+            guard = validate_edit_set_against_workspace(
+                edit_set,
+                candidate_workspace,
+            )
+            if guard.ok:
+                return True
+            _emit_candidate_rejected(
+                candidate,
+                guard=guard,
+                reason="guarded_edit_set_invalid",
+                parent_hypothesis_id=parent_hypothesis_id,
+                affordance=affordance,
+            )
+            return False
+
         raw_candidates = list(candidate_provider(observation, instance))[
             : config.max_candidates
         ]
         accepted_initial: list[Candidate] = []
         for cand in raw_candidates:
+            if not _guard_candidate(cand, workspace):
+                continue
             sig = signature_tracker.signature(cand)
             duplicate_of = signature_tracker.first_seen_id(sig)
             if duplicate_of is not None:
@@ -1004,6 +1262,7 @@ class StrategyRunner:
                 signal_emitted_count=signal_emitted_count,
                 signal_applied_count=signal_applied_count,
                 signal_store_snapshot=medium.snapshot(),
+                best_observed=best_observed.snapshot(),
             )
 
         verifier = VerifierLoop(
@@ -1264,6 +1523,7 @@ class StrategyRunner:
                         )
 
                 suggested: Sequence[Candidate] = ()
+                operator_unavailable = False
                 if prefer_operator_provider and operator_provider is not None:
                     suggested = operator_provider(
                         report.feedback,
@@ -1272,13 +1532,71 @@ class StrategyRunner:
                         instance,
                         activation.affordance,
                     )
-                if not suggested:
+                    operator_unavailable = not bool(suggested)
+                    if operator_unavailable:
+                        affordance_id = (
+                            activation.affordance.affordance_id
+                            if activation.affordance is not None
+                            else None
+                        )
+                        action_type = (
+                            activation.affordance.action_type
+                            if activation.affordance is not None
+                            else None
+                        )
+                        self.event_log.append(
+                            run_id=run_id,
+                            instance_id=instance.instance_id,
+                            event_type=OPERATOR_UNAVAILABLE_EVENT,
+                            actor=activation.worker.worker_id,
+                            hypothesis_id=report.hypothesis_id,
+                            payload={
+                                "decision_id": decision_id,
+                                "worker_id": activation.worker.worker_id,
+                                "affordance_id": affordance_id,
+                                "action_type": action_type,
+                                "reason": "no_operator_candidate",
+                                "fallback_policy": config.fallback_policy,
+                            },
+                        )
+                        if affordance_id:
+                            _emit_store_signal(
+                                kind=SignalKind.INHIBIT,
+                                target=f"affordance:{affordance_id}",
+                                intensity=0.8,
+                                evidence=(report.hypothesis_id,),
+                                rationale="operator_unavailable_affordance",
+                                hypothesis_id=report.hypothesis_id,
+                            )
+                        if action_type:
+                            _emit_store_signal(
+                                kind=SignalKind.INHIBIT,
+                                target=f"action:{action_type}",
+                                intensity=0.6,
+                                evidence=(report.hypothesis_id,),
+                                rationale="operator_unavailable_action",
+                                hypothesis_id=report.hypothesis_id,
+                            )
+                        _emit_store_signal(
+                            kind=SignalKind.SUPPORT,
+                            target="scheduler:next_best_affordance",
+                            intensity=0.5,
+                            evidence=(report.hypothesis_id,),
+                            rationale="operator_unavailable_try_next_affordance",
+                            hypothesis_id=report.hypothesis_id,
+                        )
+                if not suggested and (
+                    not prefer_operator_provider
+                    or config.fallback_policy in {"guarded_only", "free_llm"}
+                ):
                     suggested = repair_provider(
                         report.feedback,
                         original,
                         aug_observation,
                         instance,
                     )
+                elif not suggested and operator_unavailable:
+                    suggested = ()
                 annotated = [
                     _annotate_v11_candidate(
                         candidate,
@@ -1289,6 +1607,16 @@ class StrategyRunner:
                     )
                     for candidate in list(suggested)[: config.max_repairs_per_candidate]
                 ]
+                guarded_annotated = [
+                    candidate
+                    for candidate in annotated
+                    if _guard_candidate(
+                        candidate,
+                        parent_node.workspace,
+                        parent_hypothesis_id=report.hypothesis_id,
+                        affordance=activation.affordance,
+                    )
+                ]
                 self.event_log.append(
                     run_id=run_id,
                     instance_id=instance.instance_id,
@@ -1298,7 +1626,14 @@ class StrategyRunner:
                     payload={
                         "decision_id": decision_id,
                         "worker_id": activation.worker.worker_id,
-                        "candidate_ids": [candidate.candidate_id for candidate in annotated],
+                        "candidate_ids": [
+                            candidate.candidate_id for candidate in guarded_annotated
+                        ],
+                        "rejected_candidate_ids": [
+                            candidate.candidate_id
+                            for candidate in annotated
+                            if candidate not in guarded_annotated
+                        ],
                         "affordance_id": (
                             activation.affordance.affordance_id
                             if activation.affordance is not None
@@ -1307,7 +1642,7 @@ class StrategyRunner:
                     },
                 )
 
-                for r_cand in annotated:
+                for r_cand in guarded_annotated:
                     invocation = _operator_invocation_from_candidate(r_cand)
                     if invocation is not None:
                         self.event_log.append(
@@ -1352,7 +1687,19 @@ class StrategyRunner:
         candidate_ids = tuple(report.hypothesis_id for report in reports)
         selected = self.graph.select_best(candidate_ids)
         if selected is None:
-            rationale = self._rationale_for_invalid_set(candidate_ids)
+            rationale = self._rationale_for_best_observed(
+                hypothesis_ids=candidate_ids,
+                tracker=best_observed,
+                fallback_reason=StopReason.REPAIR_EXHAUSTED.value,
+            )
+            selected_partial = rationale.selected_hypothesis_id
+            if selected_partial is not None:
+                self._emit_best_partial_event(
+                    run_id=run_id,
+                    instance_id=instance.instance_id,
+                    hypothesis_id=selected_partial,
+                    tracker=best_observed,
+                )
             return self._complete(
                 run_id=run_id,
                 instance_id=instance.instance_id,
@@ -1360,11 +1707,9 @@ class StrategyRunner:
                 observation=observation,
                 stop_reason=StopReason.REPAIR_EXHAUSTED,
                 candidate_count=len(reports),
-                selected_hypothesis_id=None,
+                selected_hypothesis_id=selected_partial,
                 verifier_reports=tuple(reports),
-                selection_rationale=replace(
-                    rationale, reason=StopReason.REPAIR_EXHAUSTED.value
-                ),
+                selection_rationale=rationale,
                 dedup_skipped=dedup_skipped,
                 repeat_failure_suppressed=repeat_failure_suppressed,
                 signal_emitted_count=signal_emitted_count,
@@ -1377,6 +1722,7 @@ class StrategyRunner:
                 affordance_consumed_count=affordance_consumed_count,
                 worker_activated_count=worker_activated_count,
                 operator_invoked_count=operator_invoked_count,
+                best_observed=best_observed.snapshot(),
             )
 
         finalization = self._finalize_best_validated(verifier, candidate_ids)
@@ -1409,6 +1755,7 @@ class StrategyRunner:
             affordance_consumed_count=affordance_consumed_count,
             worker_activated_count=worker_activated_count,
             operator_invoked_count=operator_invoked_count,
+            best_observed=best_observed.snapshot(),
         )
 
     def _emit_dedup_event(
@@ -1520,6 +1867,87 @@ class StrategyRunner:
             competitors=competitors,
         )
 
+    def _rationale_for_best_observed(
+        self,
+        *,
+        hypothesis_ids: tuple[str, ...],
+        tracker: BestObservedTracker,
+        fallback_reason: str,
+    ) -> SelectionRationale:
+        allowed = set(hypothesis_ids)
+        competitors = []
+        for node in self.graph.nodes():
+            if node.hypothesis_id not in allowed:
+                continue
+            funnel_score = 0
+            funnel_stage = "none"
+            if node.validation is not None:
+                funnel_score, funnel_stage = _funnel_score(node.validation)
+            competitors.append(
+                {
+                    "hypothesis_id": node.hypothesis_id,
+                    "score": dict(node.score.to_dict()),
+                    "funnel_score": int(funnel_score),
+                    "funnel_stage": funnel_stage,
+                    "status": node.status.value,
+                    "passed": bool(node.validation and node.validation.passed),
+                }
+            )
+        competitors.sort(
+            key=lambda row: (
+                int(row["funnel_score"]),
+                float(row["score"].get("total", 0.0)),
+                str(row["hypothesis_id"]),
+            ),
+            reverse=True,
+        )
+        best = tracker.snapshot()
+        best_id = (
+            str(best.get("best_hypothesis_id"))
+            if int(best.get("best_funnel_score") or 0) > 0
+            else None
+        )
+        return SelectionRationale(
+            selected_hypothesis_id=best_id,
+            reason=(
+                f"{fallback_reason}_best_partial"
+                if best_id is not None
+                else fallback_reason
+            ),
+            selected_score=(
+                float(best.get("best_funnel_score"))
+                if best_id is not None
+                else None
+            ),
+            competitors=tuple(competitors),
+        )
+
+    def _emit_best_partial_event(
+        self,
+        *,
+        run_id: str,
+        instance_id: str,
+        hypothesis_id: str,
+        tracker: BestObservedTracker,
+    ) -> None:
+        node = self.graph.get(hypothesis_id)
+        validation = node.validation
+        metadata = dict(validation.metadata) if validation is not None else {}
+        self.event_log.append(
+            run_id=run_id,
+            instance_id=instance_id,
+            event_type="artifact.best_partial",
+            actor="strategy_runner",
+            hypothesis_id=hypothesis_id,
+            payload={
+                "candidate_id": node.candidate.candidate_id,
+                "best_observed": tracker.snapshot(),
+                "patch_path": metadata.get("patch_path"),
+                "signals": dict(validation.signals) if validation else {},
+                "benchmark_success": False,
+            },
+        )
+
     def _finalize_best_validated(
         self,
         verifier: VerifierLoop,
@@ -1622,6 +2050,7 @@ class StrategyRunner:
         affordance_consumed_count: int = 0,
         worker_activated_count: int = 0,
         operator_invoked_count: int = 0,
+        best_observed: JsonDict | None = None,
     ) -> StrategyResult:
         if selection_rationale is not None:
             self.event_log.append(
@@ -1653,6 +2082,7 @@ class StrategyRunner:
                 "affordance_consumed_count": int(affordance_consumed_count),
                 "worker_activated_count": int(worker_activated_count),
                 "operator_invoked_count": int(operator_invoked_count),
+                "best_observed": dict(best_observed or {}),
             },
         )
         return StrategyResult(
@@ -1683,6 +2113,7 @@ class StrategyRunner:
             affordance_consumed_count=int(affordance_consumed_count),
             worker_activated_count=int(worker_activated_count),
             operator_invoked_count=int(operator_invoked_count),
+            best_observed=dict(best_observed or {}),
         )
 
 

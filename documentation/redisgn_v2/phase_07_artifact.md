@@ -214,6 +214,55 @@ lorsqu'un bras rencontre une validation failed/error/partial. Un cas local
 green sans official eval ne doit donc pas échouer simplement parce qu'aucune
 réparation V11 n'était nécessaire.
 
+## Hardening B6 post-main30
+
+L'audit du `main_30` V11 a montré que les erreurs
+`replacement_count_too_low` de B6 venaient de candidats LLM
+(`llm_initial` / `llm_repair_fallback_no_operator_candidate`) et non des
+operators typés. Le durcissement suivant a été ajouté :
+
+- `core_v10/operators/guarded_edit_set.py` valide tout `edit_set` libre contre
+  le workspace réel de la branche parent : path sûr, fichier présent,
+  `replace_text.old` présent, `expected_replacements` cohérent et modification
+  de tests justifiée.
+- B6 rejette avant `adapter.apply()` / Maven toute proposition LLM ou operator
+  dont le guard échoue. Les events émis sont `candidate.rejected` pour un
+  fallback libre et `operator.rejected` pour un candidat operator.
+- `operator.unavailable` est émis quand aucun operator n'est disponible pour
+  l'affordance courante ; le médium inhibe alors l'affordance/action et supporte
+  le prochain choix scheduler.
+- `b6_fallback_policy` est disponible via CLI et Docker :
+  `disabled | guarded_only | free_llm`, avec `guarded_only` par défaut.
+  `free_llm` ne doit pas être utilisé pour une campagne scientifique.
+- Le runner maintient un `BestObservedTracker`, répare depuis le meilleur parent
+  non terminal observé, exporte `artifact.best_partial` sans le compter comme
+  succès, et score la recherche interne par funnel (`patch_applies`, `compile`,
+  `test`, `official`, `strict`).
+
+Validation exécutée :
+
+```bash
+uv run pytest tests/unit/v11 tests/integration/v11/test_toy_patch_repair.py \
+  tests/unit/v10/test_repair_live_files.py \
+  tests/unit/v10/test_strategy_runner_phase5.py \
+  tests/unit/v10/test_strategy_runner_phase6.py \
+  tests/unit/v10/test_strategy_runner.py \
+  tests/unit/v10/bench/test_harness_migrationbench.py -q
+# 58 passed
+
+uv run python -m scripts.v11.run_v11_smoke \
+  --out-dir /tmp/v11_guard_smoke
+# {"status": "ok", ...}
+
+V11_MIGRATION_LIMIT=1 V11_OFFICIAL_EVAL=false V11_USE_LLM_PROVIDERS=false \
+V11_B6_FALLBACK_POLICY=disabled \
+V11_OUT_DIR=/tmp/v11_migrationbench_guard_dryrun \
+V11_WORKSPACE_ROOT=/tmp/v11_migrationbench_guard_workspaces \
+  docker compose -f docker-compose.campaign.yml run --rm --build \
+  v11-migrationbench-smoke
+# ready_for_main30_launch=true
+```
+
 ## Commandes utiles
 
 ```bash

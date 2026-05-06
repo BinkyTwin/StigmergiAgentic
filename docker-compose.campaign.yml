@@ -375,6 +375,7 @@ services:
       V11_OFFICIAL_TIMEOUT_SECONDS: ${V11_OFFICIAL_TIMEOUT_SECONDS:-1800}
       V11_LLM_INITIAL_CANDIDATES: ${V11_LLM_INITIAL_CANDIDATES:-2}
       V11_LLM_REPAIR_CANDIDATES: ${V11_LLM_REPAIR_CANDIDATES:-2}
+      V11_B6_FALLBACK_POLICY: ${V11_B6_FALLBACK_POLICY:-guarded_only}
       V11_MAX_CANDIDATES: ${V11_MAX_CANDIDATES:-2}
       V11_MAX_REPAIR_ROUNDS: ${V11_MAX_REPAIR_ROUNDS:-1}
       V11_MAX_REPAIRS_PER_CANDIDATE: ${V11_MAX_REPAIRS_PER_CANDIDATE:-2}
@@ -397,7 +398,7 @@ services:
           mkdir -p external
           git clone --depth 1 https://github.com/amazon-science/MigrationBench.git external/MigrationBench
         fi
-        ARGS="--subset $${V11_MIGRATION_SUBSET} --out-dir $${V11_OUT_DIR} --workspace-root $${V11_WORKSPACE_ROOT} --migrationbench-root external/MigrationBench --seed $${V11_SEED} --official-timeout-seconds $${V11_OFFICIAL_TIMEOUT_SECONDS} --llm-initial-candidates $${V11_LLM_INITIAL_CANDIDATES} --llm-repair-candidates $${V11_LLM_REPAIR_CANDIDATES} --max-candidates $${V11_MAX_CANDIDATES} --max-repair-rounds $${V11_MAX_REPAIR_ROUNDS} --max-repairs-per-candidate $${V11_MAX_REPAIRS_PER_CANDIDATE}"
+        ARGS="--subset $${V11_MIGRATION_SUBSET} --out-dir $${V11_OUT_DIR} --workspace-root $${V11_WORKSPACE_ROOT} --migrationbench-root external/MigrationBench --seed $${V11_SEED} --official-timeout-seconds $${V11_OFFICIAL_TIMEOUT_SECONDS} --llm-initial-candidates $${V11_LLM_INITIAL_CANDIDATES} --llm-repair-candidates $${V11_LLM_REPAIR_CANDIDATES} --b6-fallback-policy $${V11_B6_FALLBACK_POLICY} --max-candidates $${V11_MAX_CANDIDATES} --max-repair-rounds $${V11_MAX_REPAIR_ROUNDS} --max-repairs-per-candidate $${V11_MAX_REPAIRS_PER_CANDIDATE}"
         if [ -n "$${V11_MIGRATION_LIMIT}" ]; then
           ARGS="$${ARGS} --limit $${V11_MIGRATION_LIMIT}"
         fi
@@ -429,6 +430,7 @@ services:
       V11_OFFICIAL_TIMEOUT_SECONDS: ${V11_OFFICIAL_TIMEOUT_SECONDS:-1800}
       V11_LLM_INITIAL_CANDIDATES: ${V11_LLM_INITIAL_CANDIDATES:-2}
       V11_LLM_REPAIR_CANDIDATES: ${V11_LLM_REPAIR_CANDIDATES:-2}
+      V11_B6_FALLBACK_POLICY: ${V11_B6_FALLBACK_POLICY:-guarded_only}
       V11_MAX_CANDIDATES: ${V11_MAX_CANDIDATES:-2}
       V11_MAX_REPAIR_ROUNDS: ${V11_MAX_REPAIR_ROUNDS:-1}
       V11_MAX_REPAIRS_PER_CANDIDATE: ${V11_MAX_REPAIRS_PER_CANDIDATE:-2}
@@ -451,7 +453,7 @@ services:
           mkdir -p external
           git clone --depth 1 https://github.com/amazon-science/MigrationBench.git external/MigrationBench
         fi
-        ARGS="--subset $${V11_MIGRATION_SUBSET} --out-dir $${V11_OUT_DIR} --workspace-root $${V11_WORKSPACE_ROOT} --migrationbench-root external/MigrationBench --seed $${V11_SEED} --official-timeout-seconds $${V11_OFFICIAL_TIMEOUT_SECONDS} --llm-initial-candidates $${V11_LLM_INITIAL_CANDIDATES} --llm-repair-candidates $${V11_LLM_REPAIR_CANDIDATES} --max-candidates $${V11_MAX_CANDIDATES} --max-repair-rounds $${V11_MAX_REPAIR_ROUNDS} --max-repairs-per-candidate $${V11_MAX_REPAIRS_PER_CANDIDATE}"
+        ARGS="--subset $${V11_MIGRATION_SUBSET} --out-dir $${V11_OUT_DIR} --workspace-root $${V11_WORKSPACE_ROOT} --migrationbench-root external/MigrationBench --seed $${V11_SEED} --official-timeout-seconds $${V11_OFFICIAL_TIMEOUT_SECONDS} --llm-initial-candidates $${V11_LLM_INITIAL_CANDIDATES} --llm-repair-candidates $${V11_LLM_REPAIR_CANDIDATES} --b6-fallback-policy $${V11_B6_FALLBACK_POLICY} --max-candidates $${V11_MAX_CANDIDATES} --max-repair-rounds $${V11_MAX_REPAIR_ROUNDS} --max-repairs-per-candidate $${V11_MAX_REPAIRS_PER_CANDIDATE}"
         if [ -n "$${V11_MIGRATION_LIMIT}" ]; then
           ARGS="$${ARGS} --limit $${V11_MIGRATION_LIMIT}"
         fi

@@ -272,6 +272,93 @@ def test_strategy_runner_branching_repair_stops_when_repairs_fail(tmp_path) -> N
     assert result.blackboard.failed_hypotheses == ("cand-bad",)
 
 
+def test_branching_repair_continues_from_best_observed_parent(tmp_path) -> None:
+    class FunnelAdapter(RunnerFakeAdapter):
+        def validate(
+            self, candidate: Candidate, workspace: WorkspaceHandle
+        ) -> ValidationResult:
+            signals = dict(candidate.payload.get("signals", {}))
+            return ValidationResult(
+                candidate_id=candidate.candidate_id,
+                status=ValidationStatus.FAILED,
+                validator_name="unit",
+                signals=signals,
+                summary="not strict yet",
+            )
+
+    runner = StrategyRunner(
+        adapter=FunnelAdapter(),
+        event_log_path=tmp_path / "events.jsonl",
+    )
+    instance = RunInstance(
+        instance_id="inst-001",
+        adapter_name="runner-fake",
+        objective="solve fake task",
+    )
+    repaired_parents: list[str] = []
+
+    def provide(_observation, _instance):
+        return [
+            Candidate(
+                candidate_id="cand-patch",
+                kind=CandidateKind.TEXT,
+                payload={"signals": {"patch_applies": True}},
+                origin="unit-test",
+            ),
+            Candidate(
+                candidate_id="cand-compile",
+                kind=CandidateKind.TEXT,
+                payload={"signals": {"compile_success": True}},
+                origin="unit-test",
+            ),
+        ]
+
+    def repair(_feedback, candidate, _observation, _instance):
+        repaired_parents.append(candidate.candidate_id)
+        return []
+
+    result = runner.run_branching_repair(
+        run_id="run-001",
+        instance=instance,
+        candidate_provider=provide,
+        repair_provider=repair,
+        config=StrategyConfig(
+            name="branching_repair",
+            max_candidates=2,
+            max_repair_rounds=1,
+        ),
+    )
+
+    assert repaired_parents == ["cand-compile"]
+    assert result.stop_reason == StopReason.REPAIR_EXHAUSTED
+    assert result.selected_hypothesis_id == "cand-compile"
+    assert result.best_observed == {
+        "best_candidate_id": "cand-compile",
+        "best_hypothesis_id": "cand-compile",
+        "best_funnel_score": 40,
+        "best_stage": "compile_success",
+        "best_feedback": {
+            "candidate_id": "cand-compile",
+            "failure_type": "failed",
+            "severity": "blocking",
+            "summary": "failed",
+            "locations": [],
+            "evidence": [],
+            "candidate_causes": [],
+            "recommended_next_actions": [],
+            "anti_actions": [],
+            "metadata": {},
+        },
+        "best_signals": {"compile_success": True},
+        "best_validation_status": "failed",
+    }
+    assert any(
+        event.event_type == "artifact.best_partial"
+        and event.hypothesis_id == "cand-compile"
+        for event in runner.event_log.for_run("run-001")
+    )
+
+
 def test_strategy_runner_falls_back_to_next_validated_finalization(tmp_path) -> None:
     class FallbackAdapter(RunnerFakeAdapter):
         def finalize(

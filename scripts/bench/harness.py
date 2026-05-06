@@ -53,6 +53,24 @@ OperatorProviderFactory = Callable[[DomainAdapterV10, dict[str, Any]], Any]
 RunInstanceFactory = Callable[[dict[str, Any], dict[str, Any]], RunInstance]
 
 
+def _fallback_policy_for(extras: dict[str, Any]) -> str:
+    """Resolve B6 fallback policy from flat or nested campaign extras."""
+
+    policy = "guarded_only"
+    nested = extras.get("b6")
+    if isinstance(nested, dict) and nested.get("fallback_policy"):
+        policy = str(nested["fallback_policy"])
+    if extras.get("b6_fallback_policy"):
+        policy = str(extras["b6_fallback_policy"])
+    if extras.get("fallback_policy"):
+        policy = str(extras["fallback_policy"])
+    if policy not in {"disabled", "guarded_only", "free_llm"}:
+        raise ValueError(
+            "fallback_policy must be one of: disabled, guarded_only, free_llm"
+        )
+    return policy
+
+
 @dataclass
 class HarnessOptions:
     """All knobs the harness needs at run time."""
@@ -160,6 +178,7 @@ class BenchHarness:
                 max_candidates=opts.max_candidates,
                 max_repair_rounds=opts.max_repair_rounds,
                 max_repairs_per_candidate=opts.max_repairs_per_candidate,
+                fallback_policy=_fallback_policy_for(campaign_extras),
             )
 
             run_id = f"{campaign_id}:{instance_id}"

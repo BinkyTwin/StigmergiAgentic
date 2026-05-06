@@ -90,6 +90,7 @@ def _build_extras(args: argparse.Namespace) -> dict[str, Any]:
         "use_llm_providers": bool(args.use_llm_providers),
         "llm_initial_candidates": int(args.llm_initial_candidates),
         "llm_repair_candidates": int(args.llm_repair_candidates),
+        "b6_fallback_policy": str(args.b6_fallback_policy),
     }
     if args.use_llm_providers:
         extras["llm"] = {
@@ -298,6 +299,12 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--llm-max-tokens", type=int, default=3000)
     parser.add_argument("--llm-initial-candidates", type=int, default=2)
     parser.add_argument("--llm-repair-candidates", type=int, default=2)
+    parser.add_argument(
+        "--b6-fallback-policy",
+        choices=("disabled", "guarded_only", "free_llm"),
+        default="guarded_only",
+        help="B6 LLM repair fallback policy. Scientific campaigns must not use free_llm.",
+    )
     parser.add_argument("--max-candidates", type=int, default=None)
     parser.add_argument("--max-repair-rounds", type=int, default=None)
     parser.add_argument("--max-repairs-per-candidate", type=int, default=None)

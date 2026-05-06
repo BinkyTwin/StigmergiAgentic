@@ -149,3 +149,22 @@ instances that pass local validation without a repair opportunity.
 
 This makes the branch launchable for `main_30`; it still does not make the
 result a performance claim until the completed campaign is inspected.
+
+## Post-main30 Guarded Fallback Rule
+
+The completed V11 `main_30` audit showed that B6's remaining
+`replacement_count_too_low` errors came from LLM initial/repair fallback
+candidates, not from typed operators. The accepted rule is now stricter:
+
+- free-form B6 `edit_set` candidates must be validated against the real parent
+  branch workspace before adapter apply or Maven validation;
+- invalid guarded edits emit `candidate.rejected` or `operator.rejected` plus
+  inhibition/support signals, rather than becoming validation failures;
+- `operator.unavailable` is recorded when no typed operator covers the current
+  affordance;
+- scientific launches default to `b6_fallback_policy=guarded_only`; `disabled`
+  is available for pure operator-first runs, while `free_llm` is not a
+  scientific default;
+- best-observed funnel progress may guide search and export
+  `artifact.best_partial`, but strict success remains the only benchmark
+  success metric.
