@@ -18,7 +18,10 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from scripts.run_migrationbench_query_export import load_campaign_config, load_instances
+from scripts.run_migrationbench_query_export import (  # noqa: E402
+    load_campaign_config,
+    load_instances,
+)
 
 
 FRAMEWORKS = {
@@ -67,6 +70,11 @@ def extract_last_json(stdout: str) -> dict[str, Any]:
 
 
 def failed_payload(instance: dict[str, Any], framework: str, seed: int, reason: str, runtime: float) -> dict[str, Any]:
+    if instance.get("target_java") is None:
+        raise ValueError(
+            f"MigrationBench instance {instance.get('instance_id', '<unknown>')} "
+            "is missing required target_java"
+        )
     return {
         "instance_id": instance.get("instance_id", ""),
         "framework": framework,
@@ -80,7 +88,7 @@ def failed_payload(instance: dict[str, Any], framework: str, seed: int, reason: 
         "strict_success": False,
         "failure_reason": reason,
         "migration_mode": instance.get("migration_mode", "minimal"),
-        "target_java": int(instance.get("target_java", 17) or 17),
+        "target_java": int(instance["target_java"]),
         "build_success": False,
         "test_success": False,
         "compiled_major_version_ok": None,

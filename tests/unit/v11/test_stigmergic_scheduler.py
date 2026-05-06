@@ -11,7 +11,7 @@ from core_v10.stigmergy.scheduler import StigmergicScheduler
 def test_scheduler_selects_worker_matching_affordance_kind() -> None:
     affordance = Affordance(
         affordance_id="aff-compile",
-        action_type="set_maven_compiler_release",
+        action_type="ensure_maven_compiler_release",
         target="pom.xml",
         reason="compile_error",
         priority=0.8,
@@ -75,7 +75,7 @@ def test_scheduler_scores_all_worker_affordance_pairs() -> None:
     )
     second_affordance = Affordance(
         affordance_id="aff-compile",
-        action_type="set_maven_compiler_release",
+        action_type="ensure_maven_compiler_release",
         target="pom.xml",
         reason="compile_error",
         priority=0.7,

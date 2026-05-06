@@ -28,8 +28,10 @@ Surface livrée :
 - `core_v10/stigmergy/records.py`, `medium.py`, `affordances.py`,
   `scheduler.py`, `events.py` ;
 - `core_v10/operators/text_operator.py` avec `ExactReplaceText` guardé ;
-- `adapters_v10/migrationbench/operators/maven.py` avec operators Maven
-  exact-match (`MavenSetCompilerRelease`, compiler/surefire plugin upgrades,
+- `adapters_v10/migrationbench/{context,compatibility}.py` et
+  `operators/maven.py` avec `MigrationContext` target-aware, profils Java
+  8/11/17/21 et operators Maven exact-match paramétrés
+  (`MavenEnsureCompilerRelease`, compiler/surefire plugin upgrades,
   JAXB dependency insertion) ;
 - `StrategyRunner.run_stigmergic_scheduler()` pour B5 ;
 - `StrategyRunner.run_operator_search()` pour B6 ;
@@ -168,3 +170,17 @@ candidates, not from typed operators. The accepted rule is now stricter:
 - best-observed funnel progress may guide search and export
   `artifact.best_partial`, but strict success remains the only benchmark
   success metric.
+
+## Target-Aware Migration Context
+
+The V11 Maven/operator layer must not encode the current benchmark target as a
+framework constant. MigrationBench instances must now provide `target_java`;
+missing targets fail fast. The adapter projects each instance into a
+`MigrationContext`, carrying source/target Java, class major, build system,
+migration mode, dependency policy and framework hints.
+
+Prompts, affordances, deterministic fallback and typed Maven operators consume
+that context. Operator IDs stay target-neutral (`MavenEnsureCompilerRelease`,
+`MavenUpgradeLombok`, `MavenUpgradeSpringBoot`) while
+`JavaCompatibilityProfile` selects target-specific compiler, surefire, Lombok,
+JavaFX and JAXB thresholds.

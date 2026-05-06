@@ -883,7 +883,7 @@ class PatchOperator(Protocol):
 
 ```text
 ExactReplaceText
-MavenSetCompilerRelease
+MavenEnsureCompilerRelease
 MavenSetSourceTarget
 MavenUpgradeCompilerPlugin
 MavenUpgradeSurefirePlugin
@@ -895,6 +895,14 @@ JakartaImportMigration
 PreserveExistingTestsGuard
 WriteFileWithGuard
 ```
+
+Les operators MigrationBench doivent être **target-aware** : le benchmark
+fournit un `MigrationContext` (`source_java`, `target_java`,
+`target_class_major`, `build_system`, `migration_mode`, `dependency_policy`)
+et les operators appliquent des actions paramétrées depuis ce contexte. Aucun
+operator ne doit encoder Java 17 dans son nom ou dans sa logique métier ; les
+seuils Maven/JAXB/Lombok sont sélectionnés via un profil de compatibilité par
+cible Java.
 
 ### 13.4 Règle d’or
 
@@ -1381,7 +1389,7 @@ Livrables :
 
 ```text
 ExactReplaceText
-MavenSetCompilerRelease
+MavenEnsureCompilerRelease
 MavenUpgradeCompilerPlugin
 MavenUpgradeSurefirePlugin
 MavenAddDependency

@@ -59,6 +59,7 @@ def affordances_from_feedback(
     summary = str(feedback.summary or "")
     evidence_text = "\n".join(str(x) for x in feedback.evidence)
     full_text = f"{failure_type}\n{summary}\n{evidence_text}".lower()
+    migration_metadata = _migration_metadata_from_feedback(feedback)
 
     if failure_type == "answer_mismatch":
         add(
@@ -88,11 +89,12 @@ def affordances_from_feedback(
 
     if any(token in full_text for token in ("class_version_error", "source_target", "release")):
         add(
-            action_type="set_maven_compiler_release",
+            action_type="ensure_maven_compiler_release",
             target="pom.xml",
             reason=failure_type or "class_version_error",
             worker="maven_compiler_operator",
             priority=0.15,
+            metadata=migration_metadata,
         )
 
     if any(token in full_text for token in ("compile_error", "compilation failure", "source option")):
@@ -102,6 +104,7 @@ def affordances_from_feedback(
             reason=failure_type or "compile_error",
             worker="maven_compiler_operator",
             priority=0.1,
+            metadata=migration_metadata,
         )
 
     if any(token in full_text for token in ("dependency_resolution", "could not resolve", "javax.xml.bind", "jaxb")):
@@ -111,7 +114,14 @@ def affordances_from_feedback(
             reason=failure_type or "dependency_resolution_error",
             worker="dependency_operator",
             priority=0.12,
-            metadata={"pattern": "jaxb" if "jaxb" in full_text or "javax.xml.bind" in full_text else "dependency"},
+            metadata={
+                **migration_metadata,
+                "pattern": (
+                    "jaxb"
+                    if "jaxb" in full_text or "javax.xml.bind" in full_text
+                    else "dependency"
+                ),
+            },
         )
 
     if "official_eval_failed" in full_text or "#tests=-2" in full_text or "test summary" in full_text:
@@ -121,6 +131,7 @@ def affordances_from_feedback(
             reason=failure_type or "official_eval_failed",
             worker="official_eval_interpreter",
             priority=0.2,
+            metadata=migration_metadata,
         )
         add(
             action_type="preserve_test_count",
@@ -128,6 +139,7 @@ def affordances_from_feedback(
             reason="preserve_existing_tests",
             worker="test_preservation_checker",
             priority=0.16,
+            metadata=migration_metadata,
         )
 
     if "preserve_existing_tests" in set(feedback.anti_actions):
@@ -137,6 +149,7 @@ def affordances_from_feedback(
             reason="anti_action:preserve_existing_tests",
             worker="test_preservation_checker",
             priority=0.08,
+            metadata=migration_metadata,
         )
 
     for index, recommended in enumerate(feedback.recommended_next_actions):
@@ -151,7 +164,7 @@ def affordances_from_feedback(
             reason=str(recommended.get("rationale") or failure_type or action),
             worker=worker,
             priority=max(0.0, 0.08 - index * 0.02),
-            metadata={"recommended": dict(recommended)},
+            metadata={**migration_metadata, "recommended": dict(recommended)},
         )
 
     # Stable de-duplication by id keeps replay and live snapshots identical.
@@ -189,6 +202,26 @@ def _worker_for_action(action: str) -> str:
     if any(token in action for token in ("replace", "exact", "inspect")):
         return "exact_edit_guard"
     return "operator_selector"
+
+
+def _migration_metadata_from_feedback(feedback: FeedbackDigest) -> JsonDict:
+    raw = feedback.metadata.get("migration_context")
+    if not isinstance(raw, dict):
+        return {}
+    return {
+        key: raw[key]
+        for key in (
+            "source_java",
+            "source_version",
+            "target_java",
+            "target_version",
+            "target_class_major",
+            "build_system",
+            "migration_mode",
+            "dependency_policy",
+        )
+        if key in raw
+    }
 
 
 __all__ = ["affordances_from_feedback"]

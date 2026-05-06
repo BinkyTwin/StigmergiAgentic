@@ -38,7 +38,12 @@ def default_worker_specs() -> tuple[WorkerSpec, ...]:
             worker_kind="maven_compiler_operator",
             reads=common_reads,
             writes=("repair_region",),
-            handles=("compile_error", "class_version_error", "set_maven_compiler_release", "select_compile_operator"),
+            handles=(
+                "compile_error",
+                "class_version_error",
+                "ensure_maven_compiler_release",
+                "select_compile_operator",
+            ),
             cost=0.15,
             risk=0.2,
         ),

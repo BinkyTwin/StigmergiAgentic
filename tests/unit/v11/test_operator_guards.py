@@ -2,15 +2,17 @@
 
 from __future__ import annotations
 
+import adapters_v10.migrationbench.operators as operators
+from adapters_v10.migrationbench.context import MigrationContext
 from adapters_v10.migrationbench.operators import (
-    BUNDLE_PLUGIN_VERSION_TARGET,
     maven_add_jaxb_dependency_edits,
     maven_compiler_release_edits,
     maven_upgrade_bundle_plugin_edits,
     maven_upgrade_compiler_plugin_edits,
-    maven_upgrade_lombok_java17_edits,
-    maven_upgrade_spring_boot_java17_edits,
+    maven_upgrade_lombok_edits,
+    maven_upgrade_spring_boot_edits,
     migrationbench_operator_candidates,
+    target_java_replacements,
 )
 from core_v10.contracts import (
     Candidate,
@@ -23,6 +25,19 @@ from core_v10.contracts import (
 from core_v10.strategy_runner import _attach_live_files
 from core_v10.operators import ExactReplaceText
 from core_v10.stigmergy.records import Affordance
+
+
+def _context(target_java: int = 17) -> MigrationContext:
+    return MigrationContext(
+        source_language="java",
+        source_version=8,
+        target_language="java",
+        target_version=target_java,
+        target_class_major={11: 55, 17: 61, 21: 65}[target_java],
+        build_system="maven",
+        migration_mode="minimal",
+        dependency_policy="minimal",
+    )
 
 
 def test_exact_replace_rejects_absent_old_span() -> None:
@@ -39,7 +54,7 @@ def test_exact_replace_rejects_absent_old_span() -> None:
 
 def test_maven_compiler_operator_emits_only_proven_spans() -> None:
     pom = "<project><properties><maven.compiler.source>1.8</maven.compiler.source></properties></project>"
-    edits = maven_compiler_release_edits({"pom.xml": pom})
+    edits = maven_compiler_release_edits({"pom.xml": pom}, _context())
 
     assert edits == [
         {
@@ -53,21 +68,47 @@ def test_maven_compiler_operator_emits_only_proven_spans() -> None:
     ]
 
 
+def test_target_java_11_replacements() -> None:
+    pom = "<project><properties><java.version>1.8</java.version></properties></project>"
+    edits = maven_compiler_release_edits({"pom.xml": pom}, _context(11))
+
+    assert edits[0]["new"] == "<java.version>11</java.version>"
+    assert ("<java.version>1.8</java.version>", "<java.version>11</java.version>") in (
+        target_java_replacements(_context(11))
+    )
+
+
+def test_target_java_17_replacements() -> None:
+    pom = "<project><properties><release>8</release></properties></project>"
+    edits = maven_compiler_release_edits({"pom.xml": pom}, _context(17))
+
+    assert edits[0]["new"] == "<release>17</release>"
+
+
+def test_target_java_21_replacements() -> None:
+    pom = "<project><properties><maven.compiler.target>1.8</maven.compiler.target></properties></project>"
+    edits = maven_compiler_release_edits({"pom.xml": pom}, _context(21))
+
+    assert edits[0]["new"] == "<maven.compiler.target>21</maven.compiler.target>"
+
+
 def test_maven_add_jaxb_dependency_requires_dependencies_anchor() -> None:
-    assert maven_add_jaxb_dependency_edits({"pom.xml": "<project/>"}) == []
+    assert maven_add_jaxb_dependency_edits({"pom.xml": "<project/>"}, _context()) == []
 
     edits = maven_add_jaxb_dependency_edits(
-        {"pom.xml": "<project><dependencies>\n  </dependencies></project>"}
+        {"pom.xml": "<project><dependencies>\n  </dependencies></project>"},
+        _context(),
     )
 
     assert len(edits) == 1
     assert edits[0]["old"] == "  </dependencies>"
-    assert "jakarta.xml.bind-api" in edits[0]["new"]
+    assert "javax.xml.bind" in edits[0]["new"]
 
 
 def test_maven_add_jaxb_dependency_can_preserve_javax_namespace() -> None:
     edits = maven_add_jaxb_dependency_edits(
         {"pom.xml": "<project><dependencies>\n</dependencies></project>"},
+        _context(),
         binding_namespace="javax",
     )
 
@@ -96,7 +137,7 @@ def test_maven_plugin_upgrade_is_scoped_to_matching_plugin_block() -> None:
   </build>
 </project>"""
 
-    edits = maven_upgrade_compiler_plugin_edits({"pom.xml": pom})
+    edits = maven_upgrade_compiler_plugin_edits({"pom.xml": pom}, _context())
 
     assert len(edits) == 1
     assert edits[0]["old"].lstrip().startswith("<plugin>")
@@ -105,7 +146,7 @@ def test_maven_plugin_upgrade_is_scoped_to_matching_plugin_block() -> None:
     assert "<artifactId>not-a-plugin</artifactId>" not in edits[0]["old"]
 
 
-def test_lombok_java17_operator_upgrades_properties_and_plugin_block() -> None:
+def test_lombok_target_operator_upgrades_properties_and_plugin_block() -> None:
     pom = """<project>
   <properties>
     <lombok.version>1.18.8</lombok.version>
@@ -129,7 +170,7 @@ def test_lombok_java17_operator_upgrades_properties_and_plugin_block() -> None:
   </build>
 </project>"""
 
-    edits = maven_upgrade_lombok_java17_edits({"pom.xml": pom})
+    edits = maven_upgrade_lombok_edits({"pom.xml": pom}, _context())
 
     joined_new = "\n".join(str(edit["new"]) for edit in edits)
     assert "<lombok.version>1.18.30</lombok.version>" in joined_new
@@ -138,7 +179,7 @@ def test_lombok_java17_operator_upgrades_properties_and_plugin_block() -> None:
     assert "<version>1.18.30</version>" in joined_new
 
 
-def test_spring_boot_java17_operator_upgrades_parent_without_raw_asm_text() -> None:
+def test_spring_boot_target_operator_upgrades_parent_without_raw_asm_text() -> None:
     pom = """<project>
   <parent>
     <groupId>org.springframework.boot</groupId>
@@ -147,7 +188,7 @@ def test_spring_boot_java17_operator_upgrades_parent_without_raw_asm_text() -> N
   </parent>
 </project>"""
 
-    direct_edits = maven_upgrade_spring_boot_java17_edits({"pom.xml": pom})
+    direct_edits = maven_upgrade_spring_boot_edits({"pom.xml": pom}, _context())
     assert len(direct_edits) == 1
     assert "<version>2.7.18</version>" in direct_edits[0]["new"]
 
@@ -165,7 +206,10 @@ def test_spring_boot_java17_operator_upgrades_parent_without_raw_asm_text() -> N
             payload={"branch_id": "c1_branch"},
             origin="seed",
         ),
-        observation=Observation(summary="pom", data={"pom_texts": {"pom.xml": pom}}),
+        observation=Observation(
+            summary="pom",
+            data={"pom_texts": {"pom.xml": pom}, "target_java": 17},
+        ),
         instance=RunInstance(
             instance_id="spring__case",
             adapter_name="migrationbench",
@@ -173,7 +217,7 @@ def test_spring_boot_java17_operator_upgrades_parent_without_raw_asm_text() -> N
         ),
         affordance=Affordance(
             affordance_id="aff-spring",
-            action_type="set_maven_compiler_release",
+            action_type="ensure_maven_compiler_release",
             target="pom.xml",
             reason="class_version_error",
             priority=1.0,
@@ -183,10 +227,14 @@ def test_spring_boot_java17_operator_upgrades_parent_without_raw_asm_text() -> N
 
     assert len(candidates) == 1
     invocation = candidates[0].metadata["operator_invocation"]
-    assert invocation["operator_id"] == "MavenUpgradeSpringBootJava17"
+    assert invocation["operator_id"] == "MavenUpgradeSpringBoot"
     edits = candidates[0].payload["edit_set"]["edits"]
     assert "<artifactId>spring-boot-starter-parent</artifactId>" in edits[0]["old"]
     assert "<version>2.7.18</version>" in edits[0]["new"]
+
+
+def test_no_operator_name_contains_17() -> None:
+    assert all("17" not in name for name in operators.__all__)
 
 
 def test_bundle_plugin_operator_scopes_felix_upgrade() -> None:
@@ -209,11 +257,11 @@ def test_bundle_plugin_operator_scopes_felix_upgrade() -> None:
   </build>
 </project>"""
 
-    edits = maven_upgrade_bundle_plugin_edits({"pom.xml": pom})
+    edits = maven_upgrade_bundle_plugin_edits({"pom.xml": pom}, _context())
 
     assert len(edits) == 1
     assert "<artifactId>maven-bundle-plugin</artifactId>" in edits[0]["old"]
-    assert f"<version>{BUNDLE_PLUGIN_VERSION_TARGET}</version>" in edits[0]["new"]
+    assert "<version>5.1.9</version>" in edits[0]["new"]
     assert "<artifactId>bundle-like-dependency</artifactId>" not in edits[0]["old"]
 
 
@@ -234,6 +282,7 @@ def test_migrationbench_operator_candidate_is_child_of_original_candidate() -> N
     observation = Observation(
         summary="pom",
         data={
+            "target_java": 17,
             "pom_texts": {
                 "pom.xml": (
                     "<project><properties>"
@@ -245,7 +294,7 @@ def test_migrationbench_operator_candidate_is_child_of_original_candidate() -> N
     )
     affordance = Affordance(
         affordance_id="aff-compile",
-        action_type="set_maven_compiler_release",
+        action_type="ensure_maven_compiler_release",
         target="pom.xml",
         reason="compile_error",
         priority=1.0,
@@ -278,7 +327,7 @@ def test_operator_provider_can_read_live_poms_from_workspace_handle(tmp_path) ->
     )
     observation = Observation(
         summary="pom",
-        data={"pom_files": ["pom.xml"], "java_files_sample": []},
+        data={"pom_files": ["pom.xml"], "java_files_sample": [], "target_java": 17},
     )
     workspace = WorkspaceHandle(root=repo, instance_id="repo__case")
 
@@ -336,7 +385,7 @@ def test_operator_provider_reads_migrationbench_repo_dir_workspace(tmp_path) -> 
     )
     observation = Observation(
         summary="pom",
-        data={"pom_files": ["pom.xml"], "java_files_sample": []},
+        data={"pom_files": ["pom.xml"], "java_files_sample": [], "target_java": 17},
     )
     workspace = WorkspaceHandle(
         root=branch_root,

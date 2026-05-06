@@ -39,12 +39,11 @@ from core_v10.contracts import (
     WorkspaceHandle,
 )
 
+from adapters_v10.migrationbench.context import migration_context_from_instance
 from adapters_v10.migrationbench.maven import classify_maven_failure
 from adapters_v10.migrationbench.schemas import (
-    JAVA_MAJOR_VERSION,
     MigrationBenchInstance,
     PatchStats,
-    TypedEdit,
     TypedEditSet,
 )
 from adapters_v10.migrationbench.verifier import (
@@ -113,11 +112,13 @@ class MigrationBenchAdapterV10(DomainAdapterV10):
         self._instance = mb_instance
         self._base_workspace = base
         self._artifacts_dir = artifacts_dir
+        migration_context = migration_context_from_instance(mb_instance)
 
         handle = base.as_handle(
             role="base",
             artifacts_dir=str(artifacts_dir),
-            target_class_major=JAVA_MAJOR_VERSION[int(mb_instance.target_java)],
+            target_class_major=migration_context.target_class_major,
+            migration_context=migration_context.to_dict(),
         )
         return handle
 
@@ -125,23 +126,28 @@ class MigrationBenchAdapterV10(DomainAdapterV10):
         instance = self._require_instance()
         base = self._require_base_workspace()
         targets = base.list_targets()
+        migration_context = migration_context_from_instance(instance)
         return Observation(
             summary=(
                 f"Migrate {instance.repo_url}@{instance.base_commit[:8]} from Java "
-                f"{instance.target_java // 10 if instance.target_java >= 10 else 8} "
-                f"to Java {instance.target_java} ({instance.migration_mode})"
+                f"{migration_context.source_java} to Java "
+                f"{migration_context.target_java} ({instance.migration_mode})"
             ),
             data={
                 "instance_id": instance.instance_id,
                 "repo_url": instance.repo_url,
                 "base_commit": instance.base_commit,
                 "target_java": int(instance.target_java),
+                "source_java": migration_context.source_java,
                 "migration_mode": instance.migration_mode,
+                "build_system": migration_context.build_system,
+                "dependency_policy": migration_context.dependency_policy,
+                "migration_context": migration_context.to_dict(),
                 "stats": dict(instance.stats),
                 "stratum": dict(instance.stratum),
                 "pom_files": [t for t in targets if t.endswith("pom.xml")][:40],
                 "java_files_sample": [t for t in targets if t.endswith(".java")][:40],
-                "target_class_major": JAVA_MAJOR_VERSION[int(instance.target_java)],
+                "target_class_major": migration_context.target_class_major,
             },
         )
 
@@ -352,7 +358,12 @@ class MigrationBenchAdapterV10(DomainAdapterV10):
                     if signals.get("strict_success")
                     else (validation.summary or "validation_passed")
                 ),
-                metadata={"signals": signals},
+                metadata={
+                    "signals": signals,
+                    "migration_context": migration_context_from_instance(
+                        self._require_instance()
+                    ).to_dict(),
+                },
             )
 
         failure_type = (
@@ -439,7 +450,12 @@ class MigrationBenchAdapterV10(DomainAdapterV10):
             candidate_causes=[],
             recommended_next_actions=recommended,
             anti_actions=anti,
-            metadata={"signals": signals},
+            metadata={
+                "signals": signals,
+                "migration_context": migration_context_from_instance(
+                    self._require_instance()
+                ).to_dict(),
+            },
         )
 
     def finalize(
@@ -519,6 +535,7 @@ class MigrationBenchAdapterV10(DomainAdapterV10):
                 "base_commit": instance.base_commit,
                 "target_java": int(instance.target_java),
                 "migration_mode": instance.migration_mode,
+                "migration_context": migration_context_from_instance(instance).to_dict(),
             },
             "candidate_id": candidate.candidate_id,
             "branch_id": self._branch_id(candidate),
@@ -582,7 +599,7 @@ class MigrationBenchAdapterV10(DomainAdapterV10):
                 "instance_id": instance.instance_id,
                 "repo_url": meta["repo_url"],
                 "base_commit": meta["base_commit"],
-                "target_java": meta.get("target_java", 17),
+                "target_java": meta.get("target_java"),
                 "migration_mode": meta.get("migration_mode", "minimal"),
                 "stats": meta.get("stats", {}),
                 "stratum": meta.get("stratum", {}),

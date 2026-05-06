@@ -23,6 +23,7 @@ def test_instance_auto_id_is_derived_from_repo_url() -> None:
         instance_id="auto",
         repo_url="https://github.com/foo/bar",
         base_commit="deadbeef",
+        target_java=17,
     )
     assert instance.instance_id == "foo__bar"
 

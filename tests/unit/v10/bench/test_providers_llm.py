@@ -7,12 +7,11 @@ candidate dedup, fallback semantics, repair feedback usage).
 
 from __future__ import annotations
 
-import json
 from typing import Any
-from unittest.mock import MagicMock, patch
 
 import pytest
 
+from adapters_v10.migrationbench.context import MigrationContext
 from core_v10.contracts import (
     Candidate,
     CandidateKind,
@@ -186,7 +185,21 @@ def _make_instance() -> RunInstance:
     return RunInstance(
         instance_id="demo__repo",
         adapter_name="migrationbench_v10",
-        objective="migrate to java 17",
+        objective="migrate to target java",
+        metadata={"instance": {"target_java": 17}},
+    )
+
+
+def _migration_context(target_java: int = 17) -> MigrationContext:
+    return MigrationContext(
+        source_language="java",
+        source_version=8,
+        target_language="java",
+        target_version=target_java,
+        target_class_major={11: 55, 17: 61, 21: 65}[target_java],
+        build_system="maven",
+        migration_mode="minimal",
+        dependency_policy="minimal",
     )
 
 
@@ -242,7 +255,7 @@ def test_initial_provider_falls_back_to_deterministic_when_disabled(
     provide = make_migrationbench_llm_initial_provider(adapter, extras)
     candidates = list(provide(_make_observation(), _make_instance()))
     assert len(candidates) == 1
-    assert candidates[0].origin == "builtin_deterministic_pom17"
+    assert candidates[0].origin == "builtin_deterministic_maven_target_java"
 
 
 def test_initial_provider_emits_distinct_llm_candidates(
@@ -317,8 +330,45 @@ def test_initial_provider_falls_back_to_deterministic_when_llm_silent(
     provide = make_migrationbench_llm_initial_provider(adapter, extras)
     candidates = list(provide(_make_observation(), _make_instance()))
     assert len(candidates) == 1
-    assert candidates[0].origin == "builtin_deterministic_pom17"
+    assert candidates[0].origin == "builtin_deterministic_maven_target_java"
     assert candidates[0].metadata.get("source") == "deterministic_fallback"
+
+
+def test_deterministic_fallback_uses_target_java(
+    adapter_factory,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("DEEPSEEK_API_KEY", "sk-key")
+    pom = (
+        "<project>\n"
+        "  <maven.compiler.release>8</maven.compiler.release>\n"
+        "</project>\n"
+    )
+    adapter = adapter_factory({"pom.xml": pom})
+    monkeypatch.setattr(providers_llm, "_call_llm_json", lambda *a, **k: None)
+    obs = Observation(
+        summary="migrate",
+        data={
+            "instance_id": "demo__repo",
+            "repo_url": "https://github.com/demo/repo",
+            "base_commit": "abcdef",
+            "target_java": 21,
+            "target_class_major": 65,
+            "migration_mode": "minimal",
+            "pom_files": ["pom.xml"],
+            "java_files_sample": [],
+        },
+    )
+
+    provide = make_migrationbench_llm_initial_provider(
+        adapter,
+        {"use_llm_providers": True, "llm_initial_candidates": 1},
+    )
+    candidates = list(provide(obs, _make_instance()))
+
+    edit = candidates[0].payload["edit_set"]["edits"][0]
+    assert edit["new"] == "<maven.compiler.release>21</maven.compiler.release>"
+    assert candidates[0].metadata["migration_context"]["target_java"] == 21
 
 
 def test_initial_provider_dedups_identical_llm_outputs(
@@ -385,7 +435,7 @@ def test_repair_provider_returns_empty_when_disabled(
                 candidate_id="demo__repo-c0-baseline",
                 kind=CandidateKind.PATCH,
                 payload={"branch_id": "c0", "edit_set": {"edits": []}},
-                origin="builtin_deterministic_pom17",
+                origin="builtin_deterministic_maven_target_java",
             ),
             _make_observation(),
             _make_instance(),
@@ -441,7 +491,7 @@ def test_repair_provider_uses_feedback_and_emits_candidate(
                         ]
                     },
                 },
-                origin="builtin_deterministic_pom17",
+                origin="builtin_deterministic_maven_target_java",
             ),
             _make_observation(),
             _make_instance(),
@@ -533,7 +583,16 @@ def test_collect_dependency_context_finds_javax_imports() -> None:
 
 
 def test_format_project_context_returns_empty_when_no_signal() -> None:
-    assert _format_project_context({"top_dependencies": [], "javax_imports": [], "spring_boot_parent_versions": []}) == ""
+    assert (
+        _format_project_context(
+            {
+                "top_dependencies": [],
+                "javax_imports": [],
+                "spring_boot_parent_versions": [],
+            }
+        )
+        == ""
+    )
 
 
 def test_format_project_context_emits_blocks() -> None:
@@ -544,7 +603,7 @@ def test_format_project_context_emits_blocks() -> None:
         ],
         "javax_imports": ["javax.servlet.http.HttpServletRequest"],
     }
-    text = _format_project_context(ctx)
+    text = _format_project_context(ctx, _migration_context(21))
     assert "spring_boot_parent_versions" in text
     assert "g:a:1.0" in text
     assert "javax.servlet.http.HttpServletRequest" in text
@@ -614,6 +673,56 @@ def test_initial_user_prompt_includes_project_context_and_test_rule(
     assert "MigrationBench" in captured["system"] or "official" in captured["system"].lower()
 
 
+def test_prompt_mentions_target_java_not_hardcoded_17(
+    adapter_factory,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("DEEPSEEK_API_KEY", "sk-key")
+    pom_xml = "<project><maven.compiler.source>1.8</maven.compiler.source></project>"
+    adapter = adapter_factory({"pom.xml": pom_xml})
+
+    captured: dict[str, str] = {}
+
+    def fake_call(config, *, system, user, temperature):
+        captured["system"] = system
+        captured["user"] = user
+        return {
+            "edits": [
+                {
+                    "type": "replace_text",
+                    "path": "pom.xml",
+                    "old": "<maven.compiler.source>1.8</maven.compiler.source>",
+                    "new": "<maven.compiler.source>21</maven.compiler.source>",
+                }
+            ]
+        }
+
+    monkeypatch.setattr(providers_llm, "_call_llm_json", fake_call)
+    obs = Observation(
+        summary="x",
+        data={
+            "instance_id": "demo__repo",
+            "repo_url": "https://github.com/demo/repo",
+            "base_commit": "abc",
+            "target_java": 21,
+            "target_class_major": 65,
+            "migration_mode": "minimal",
+            "pom_files": ["pom.xml"],
+            "java_files_sample": [],
+        },
+    )
+
+    provide = make_migrationbench_llm_initial_provider(
+        adapter,
+        {"use_llm_providers": True, "llm_initial_candidates": 1},
+    )
+    list(provide(obs, _make_instance()))
+
+    combined_prompt = f"{captured['system']}\n{captured['user']}"
+    assert "Target Java: 21" in combined_prompt
+    assert "Java 17" not in combined_prompt
+
+
 def test_repair_provider_skips_invalid_llm_response(
     adapter_factory, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -630,7 +739,7 @@ def test_repair_provider_skips_invalid_llm_response(
                 candidate_id="demo__repo-c0-baseline",
                 kind=CandidateKind.PATCH,
                 payload={"branch_id": "c0", "edit_set": {"edits": []}},
-                origin="builtin_deterministic_pom17",
+                origin="builtin_deterministic_maven_target_java",
             ),
             _make_observation(),
             _make_instance(),

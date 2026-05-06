@@ -7,16 +7,29 @@ from pathlib import Path
 import pytest
 
 from adapters_v10.migrationbench.adapter import MigrationBenchAdapterV10
-from core_v10.contracts import CandidateKind, Observation, RunInstance
+from adapters_v10.migrationbench.context import MigrationContext
+from core_v10.contracts import CandidateKind, RunInstance
 from scripts.bench.providers import (
-    JAVA17_POM_REPLACEMENTS,
-    deterministic_pom17_edits,
+    deterministic_maven_target_java_edits,
     make_migrationbench_deterministic_provider,
     make_migrationbench_noop_repair_provider,
 )
 
 
-def test_deterministic_pom17_edits_picks_up_java8_declarations() -> None:
+def _context(target_java: int = 17) -> MigrationContext:
+    return MigrationContext(
+        source_language="java",
+        source_version=8,
+        target_language="java",
+        target_version=target_java,
+        target_class_major={11: 55, 17: 61, 21: 65}[target_java],
+        build_system="maven",
+        migration_mode="minimal",
+        dependency_policy="minimal",
+    )
+
+
+def test_deterministic_target_java_edits_picks_up_source_declarations() -> None:
     pom = (
         "<project>\n"
         "  <maven.compiler.source>1.8</maven.compiler.source>\n"
@@ -24,7 +37,11 @@ def test_deterministic_pom17_edits_picks_up_java8_declarations() -> None:
         "  <java.version>1.8</java.version>\n"
         "</project>\n"
     )
-    edits = deterministic_pom17_edits(["pom.xml"], {"pom.xml": pom})
+    edits = deterministic_maven_target_java_edits(
+        ["pom.xml"],
+        {"pom.xml": pom},
+        _context(17),
+    )
     olds = {edit["old"] for edit in edits}
     expected_olds = {
         "<maven.compiler.source>1.8</maven.compiler.source>",
@@ -38,14 +55,20 @@ def test_deterministic_pom17_edits_picks_up_java8_declarations() -> None:
         assert edit["expected_replacements"] == 1
 
 
-def test_deterministic_pom17_edits_skips_unrelated_pom() -> None:
+def test_deterministic_target_java_edits_skips_unrelated_pom() -> None:
     pom = "<project><groupId>g</groupId></project>"
-    edits = deterministic_pom17_edits(["pom.xml"], {"pom.xml": pom})
+    edits = deterministic_maven_target_java_edits(
+        ["pom.xml"],
+        {"pom.xml": pom},
+        _context(17),
+    )
     assert edits == []
 
 
 def test_deterministic_replacement_table_is_complete() -> None:
-    olds = {old for old, _ in JAVA17_POM_REPLACEMENTS}
+    from adapters_v10.migrationbench.operators import target_java_replacements
+
+    olds = {old for old, _ in target_java_replacements(_context(17))}
     assert "<source>1.8</source>" in olds
     assert "<release>8</release>" in olds
 
@@ -100,7 +123,7 @@ def upstream(tmp_path: Path) -> tuple[Path, str]:
     return repo, sha
 
 
-def test_provider_emits_pom17_candidate_against_real_workspace(
+def test_provider_emits_target_java_candidate_against_real_workspace(
     upstream: tuple[Path, str], tmp_path: Path
 ) -> None:
     repo, sha = upstream
@@ -108,7 +131,7 @@ def test_provider_emits_pom17_candidate_against_real_workspace(
     instance = RunInstance(
         instance_id="t__local",
         adapter_name="migrationbench_v10",
-        objective="migrate to java 17",
+        objective="migrate to target java",
         metadata={
             "workspace_root": str(tmp_path / "ws"),
             "instance": {
@@ -126,7 +149,8 @@ def test_provider_emits_pom17_candidate_against_real_workspace(
     assert len(candidates) == 1
     cand = candidates[0]
     assert cand.kind == CandidateKind.PATCH
-    assert cand.payload["branch_id"] == "pom17"
+    assert cand.payload["branch_id"] == "target_java_17"
+    assert cand.origin == "builtin_deterministic_maven_target_java"
     edit_set = cand.payload["edit_set"]
     assert any(
         e["old"] == "<maven.compiler.source>1.8</maven.compiler.source>"

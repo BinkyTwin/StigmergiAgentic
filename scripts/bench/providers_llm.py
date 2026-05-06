@@ -10,7 +10,7 @@ the A1/A2/A3 ablation actually exercises the strategy ladder:
   truncated build/test log, and the previous edit set, then asks the LLM
   for a corrected :class:`TypedEditSet`.
 
-Both providers fall back to the deterministic POM17 edits from
+Both providers fall back to the deterministic target-Java Maven edits from
 :mod:`scripts.bench.providers` whenever the LLM is unavailable or returns
 unparseable JSON. That guarantees we never regress below the current
 deterministic baseline because of API hiccups — and the fallback path is
@@ -36,8 +36,12 @@ from core_v10.contracts import (
     RunInstance,
 )
 
+from adapters_v10.migrationbench.context import (
+    MigrationContext,
+    migration_context_from_observation,
+)
 from scripts.bench.providers import (
-    deterministic_pom17_edits,
+    deterministic_maven_target_java_edits,
 )
 
 
@@ -225,14 +229,14 @@ _SYSTEM_PROMPT_INITIAL = (
     "`<target>`, `<release>`, or `<java.version>` need to change. The "
     "Project context block below is informational — it does NOT mean you "
     "must migrate javax→jakarta or bump Spring Boot. Touch only what the "
-    "build needs to clear Java 17.\n"
+    "build needs to clear the requested target Java.\n"
     + _VERBATIM_RULE + "\n"
     + _TEST_PRESERVATION_RULE
 )
 
 
 _SYSTEM_PROMPT_REPAIR = (
-    "You are repairing a previous Java 17 migration patch that failed in a "
+    "You are repairing a previous target-Java migration patch that failed in a "
     "Maven build. You will receive the previous edits, the validation "
     "signals, the failure classification, and a tail of the build/test log. "
     "Produce a corrected JSON edit set in the same schema. Address the "
@@ -240,7 +244,7 @@ _SYSTEM_PROMPT_REPAIR = (
     "release/source/target or add missing dependency; test error → revisit "
     "the offending file; class_version_ok=false → align maven.compiler.* "
     "and <release> with the target; dependency_resolution_error → bump "
-    "the offending plugin/dependency to a Java-17-compatible version, "
+    "the offending plugin/dependency to a target-compatible version, "
     "but ONLY if the exact text you want to replace is present verbatim "
     "in the files shown; official_eval_failed/#tests=-2 → keep every test "
     "intact and adjust Maven/Surefire/JUnit configuration so `mvn test -f .` "
@@ -415,7 +419,10 @@ def _collect_dependency_context(
     }
 
 
-def _format_project_context(context: dict[str, Any]) -> str:
+def _format_project_context(
+    context: dict[str, Any],
+    migration_context: MigrationContext | None = None,
+) -> str:
     """Render the project context block for the user prompt."""
 
     parts = ["Project context (parsed passively from poms/java files):"]
@@ -438,9 +445,14 @@ def _format_project_context(context: dict[str, Any]) -> str:
         parts.append(
             f"  javax_imports_used ({len(javax)}): {', '.join(javax)}"
         )
+        target_text = (
+            f"target Java {migration_context.target_java}"
+            if migration_context is not None
+            else "the requested target Java"
+        )
         parts.append(
-            "  hint: with Java 17 + Spring Boot 3.x these javax.* must "
-            "migrate to jakarta.* (servlet, persistence, validation, ws.rs)."
+            f"  hint: with {target_text} and Spring Boot 3.x these javax.* "
+            "must migrate to jakarta.* (servlet, persistence, validation, ws.rs)."
         )
     if len(parts) == 1:
         return ""
@@ -454,15 +466,18 @@ def _build_initial_user_prompt(
     *,
     variation_hint: str,
 ) -> str:
-    target_java = int(observation.data.get("target_java", 17))
-    target_class = int(observation.data.get("target_class_major", 61))
-    project_context = _format_project_context(_collect_dependency_context(files))
+    migration_context = migration_context_from_observation(observation, instance)
+    project_context = _format_project_context(
+        _collect_dependency_context(files),
+        migration_context,
+    )
     context_block = (project_context + "\n\n") if project_context else ""
     return (
         f"Repository: {observation.data.get('repo_url')}\n"
         f"Base commit: {observation.data.get('base_commit')}\n"
-        f"Migration mode: {observation.data.get('migration_mode')}\n"
-        f"Target Java: {target_java} (class file major version {target_class})\n"
+        f"Migration mode: {migration_context.migration_mode}\n"
+        f"Target Java: {migration_context.target_java} "
+        f"(class file major version {migration_context.target_class_major})\n"
         f"Variation hint: {variation_hint}\n\n"
         f"{context_block}"
         "Files (truncated for context):\n\n"
@@ -485,9 +500,11 @@ def _build_repair_user_prompt(
         prior_edits_json = prior_edits_json[:6000] + "\n…[prior_edits truncated]"
     signals = (feedback.metadata or {}).get("signals") or {}
     log_tail = "\n".join(feedback.evidence)[-3500:] if feedback.evidence else ""
-    target_java = int(observation.data.get("target_java", 17))
-    target_class = int(observation.data.get("target_class_major", 61))
-    project_context = _format_project_context(_collect_dependency_context(files))
+    migration_context = migration_context_from_observation(observation, instance)
+    project_context = _format_project_context(
+        _collect_dependency_context(files),
+        migration_context,
+    )
     context_block = (project_context + "\n\n") if project_context else ""
     signal_digest = _format_stigmergic_digest(
         observation.data.get("stigmergic_digest")
@@ -499,7 +516,8 @@ def _build_repair_user_prompt(
     )
     return (
         f"Repository: {observation.data.get('repo_url')}\n"
-        f"Target Java: {target_java} (class major {target_class})\n"
+        f"Target Java: {migration_context.target_java} "
+        f"(class major {migration_context.target_class_major})\n"
         f"Failure type: {feedback.failure_type}\n"
         f"Severity: {feedback.severity}\n"
         f"Signals: {json.dumps(signals)}\n"
@@ -663,7 +681,11 @@ def make_migrationbench_llm_initial_provider(
     n_target = max(1, int(extras.get("llm_initial_candidates", len(_TEMPERATURES))))
     n_target = min(n_target, len(_TEMPERATURES))
 
-    def _deterministic_fallback_edits(observation: Observation) -> list[dict[str, Any]]:
+    def _deterministic_fallback_edits(
+        observation: Observation,
+        instance: RunInstance,
+    ) -> list[dict[str, Any]]:
+        context = migration_context_from_observation(observation, instance)
         workspace = adapter._require_base_workspace()  # type: ignore[attr-defined]
         pom_paths = [t for t in workspace.list_targets() if t.endswith("pom.xml")]
         pom_texts: dict[str, str] = {}
@@ -672,7 +694,7 @@ def make_migrationbench_llm_initial_provider(
                 pom_texts[rel] = workspace.read_file(rel, max_bytes=2_000_000)
             except Exception:  # noqa: BLE001
                 continue
-        return deterministic_pom17_edits(pom_paths, pom_texts)
+        return deterministic_maven_target_java_edits(pom_paths, pom_texts, context)
 
     def provide(observation: Observation, instance: RunInstance) -> Sequence[Candidate]:
         files = _read_target_files(adapter, observation)
@@ -689,7 +711,10 @@ def make_migrationbench_llm_initial_provider(
             variation = (
                 "Conservative POM-only edits."
                 if k == 0
-                else f"Diverse edit attempt {k}: optionally raise plugin versions or fix lombok/javax→jakarta if visible."
+                else (
+                    f"Diverse edit attempt {k}: optionally raise plugin versions "
+                    "or fix lombok/javax→jakarta if visible."
+                )
             )
             user = _build_initial_user_prompt(
                 instance, observation, files, variation_hint=variation
@@ -739,10 +764,11 @@ def make_migrationbench_llm_initial_provider(
             )
         if not candidates:
             # API silent or all responses unparseable: fall back to a single
-            # deterministic POM17 candidate so the run still produces an
+            # deterministic target-Java candidate so the run still produces an
             # auditable artifact. The metadata flags the fallback so post-hoc
             # analysis can separate LLM vs deterministic outcomes.
-            baseline_edits = _deterministic_fallback_edits(observation)
+            context = migration_context_from_observation(observation, instance)
+            baseline_edits = _deterministic_fallback_edits(observation, instance)
             if baseline_edits:
                 candidates.append(
                     Candidate(
@@ -752,12 +778,18 @@ def make_migrationbench_llm_initial_provider(
                             "branch_id": "c0_baseline",
                             "edit_set": {
                                 "edits": baseline_edits,
-                                "rationale": "Deterministic POM17 fallback (LLM produced no usable edits).",
-                                "expected_build_command": "mvn clean verify",
+                                "rationale": (
+                                    "Deterministic target-Java Maven fallback "
+                                    "(LLM produced no usable edits)."
+                                ),
+                                "expected_build_command": context.expected_build_command,
                             },
                         },
-                        origin="builtin_deterministic_pom17",
-                        metadata={"source": "deterministic_fallback"},
+                        origin="builtin_deterministic_maven_target_java",
+                        metadata={
+                            "source": "deterministic_fallback",
+                            "migration_context": context.to_dict(),
+                        },
                     )
                 )
             else:

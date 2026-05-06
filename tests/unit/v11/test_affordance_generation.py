@@ -63,3 +63,34 @@ def test_official_failure_creates_interpreter_and_test_preservation_affordances(
     assert by_action["guard_existing_tests"].reason == (
         "anti_action:preserve_existing_tests"
     )
+
+
+def test_compile_affordance_carries_migration_context_metadata() -> None:
+    feedback = FeedbackDigest(
+        candidate_id="c1",
+        failure_type="class_version_error",
+        severity="blocking",
+        summary="class_version_error release mismatch",
+        metadata={
+            "migration_context": {
+                "source_java": 8,
+                "target_java": 21,
+                "target_class_major": 65,
+                "build_system": "maven",
+                "migration_mode": "minimal",
+                "dependency_policy": "minimal",
+            }
+        },
+    )
+
+    affordances = affordances_from_feedback(
+        feedback=feedback,
+        signals=(),
+        source_event_ids=("evt-3",),
+        now_seq=12,
+    )
+
+    by_action = {aff.action_type: aff for aff in affordances}
+    affordance = by_action["ensure_maven_compiler_release"]
+    assert affordance.metadata["target_java"] == 21
+    assert affordance.metadata["build_system"] == "maven"

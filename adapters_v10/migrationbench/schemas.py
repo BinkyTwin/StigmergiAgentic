@@ -15,9 +15,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
-
-JAVA_MAJOR_VERSION: dict[int, int] = {8: 52, 11: 55, 17: 61, 21: 65}
-"""Mapping from Java SE version to JVM class file ``major_version`` byte."""
+from adapters_v10.migrationbench.compatibility import JAVA_MAJOR_VERSION
 
 
 def stable_instance_id(repo: str) -> str:
@@ -34,7 +32,7 @@ class MigrationBenchInstance(BaseModel):
     instance_id: str
     repo_url: str
     base_commit: str
-    target_java: int = 17
+    target_java: int
     migration_mode: Literal["minimal", "maximal"] = "minimal"
     source: str = "migrationbench_selected"
     stratum: dict[str, Any] = Field(default_factory=dict)

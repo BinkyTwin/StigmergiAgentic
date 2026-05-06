@@ -25,6 +25,7 @@ from pathlib import Path
 
 from core_v10.contracts import WorkspaceHandle
 
+from adapters_v10.migrationbench.context import migration_context_from_instance
 from adapters_v10.migrationbench._runtime import CommandResult, run_command
 from adapters_v10.migrationbench.schemas import (
     MigrationBenchInstance,
@@ -94,6 +95,7 @@ class MigrationBenchWorkspaceV10:
             "base_commit": self.instance.base_commit,
             "target_java": int(self.instance.target_java),
             "repo_dir": str(self.repo_dir),
+            "migration_context": migration_context_from_instance(self.instance).to_dict(),
         }
         metadata.update(extra_metadata)
         return WorkspaceHandle(

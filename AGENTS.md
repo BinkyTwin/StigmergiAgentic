@@ -55,9 +55,11 @@ Modules ajoutés :
   `DecisionInfluence`, `TrajectoryDivergence`, `WorkerActivation`.
 - `core_v10/operators/text_operator.py` : `ExactReplaceText` guardé
   (aucun replace_text si l'ancien span n'est pas présent).
-- `adapters_v10/migrationbench/operators/maven.py` : operators Maven
-  exact-match (`MavenSetCompilerRelease`, compiler/surefire upgrades,
-  JAXB dependency insertion).
+- `adapters_v10/migrationbench/{context,compatibility}.py` et
+  `operators/maven.py` : `MigrationContext` target-aware, profils Java
+  8/11/17/21, operators Maven exact-match paramétrés
+  (`MavenEnsureCompilerRelease`, compiler/surefire upgrades, JAXB dependency
+  insertion).
 - `core_v10/strategy_runner.py` : nouveaux bras
   `run_stigmergic_scheduler()` (B5) et `run_operator_search()` (B6),
   events `signal.read`, `affordance.created/consumed`,
@@ -102,6 +104,16 @@ Gate MigrationBench `main_30` (2026-05-06) :
   `workspace_root_root`, `artifacts_root` et `out_dir` par `arm_id`.
 - `scripts/bench/telemetry.py` expose
   `replacement_count_too_low_total/rate`.
+
+Target-aware migration context (2026-05-06) :
+- MigrationBench n'a plus de fallback silencieux vers Java 17 : chaque instance
+  doit fournir `target_java`, transformé en `MigrationContext`.
+- Prompts, affordances, fallback déterministe et operators Maven consomment
+  `source_java`, `target_java`, `target_class_major`, `build_system`,
+  `migration_mode` et `dependency_policy` depuis ce contexte.
+- Les operators ne portent plus de nom spécifique à Java 17 ; les profils
+  `JavaCompatibilityProfile` sélectionnent les seuils Maven/JAXB/Lombok selon
+  la cible.
 - Services Docker : `v11-migrationbench-smoke` (smoke contrôlé) et
   `v11-migrationbench-main30` (subset `main_30`, official eval + LLM par
   défaut).

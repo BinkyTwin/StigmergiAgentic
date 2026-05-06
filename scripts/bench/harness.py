@@ -392,6 +392,11 @@ def _migrationbench_adapter_factory(extras: dict[str, Any]):
 def _migrationbench_run_instance_factory(
     record: dict[str, Any], extras: dict[str, Any]
 ) -> RunInstance:
+    if record.get("target_java") is None:
+        raise ValueError(
+            f"MigrationBench record {record.get('instance_id', '<unknown>')} "
+            "is missing required target_java"
+        )
     workspace_root = Path(
         extras.get(
             "workspace_root_root",
@@ -414,7 +419,7 @@ def _migrationbench_run_instance_factory(
         objective=str(
             record.get(
                 "objective",
-                f"Migrate {record.get('repo_url', '?')} to Java {record.get('target_java', 17)}",
+                f"Migrate {record.get('repo_url', '?')} to Java {record['target_java']}",
             )
         ),
         metadata={
@@ -424,7 +429,7 @@ def _migrationbench_run_instance_factory(
                 "instance_id": str(record["instance_id"]),
                 "repo_url": str(record["repo_url"]),
                 "base_commit": str(record["base_commit"]),
-                "target_java": int(record.get("target_java", 17)),
+                "target_java": int(record["target_java"]),
                 "migration_mode": str(record.get("migration_mode", "minimal")),
                 "stratum": dict(record.get("stratum") or {}),
                 "stats": dict(record.get("stats") or {}),

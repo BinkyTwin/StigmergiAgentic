@@ -74,8 +74,9 @@ Surface ajoutée :
   (`StigmergicMediumKernel`, affordances, reads, influences, divergences,
   scheduler déterministe).
 - `core_v10/operators/text_operator.py` (`ExactReplaceText` guardé).
-- `adapters_v10/migrationbench/operators/maven.py` (operators Maven
-  exact-match Java 17 / compiler plugin / surefire / JAXB).
+- `adapters_v10/migrationbench/{context,compatibility}.py` et
+  `operators/maven.py` (`MigrationContext` target-aware, profils Java
+  8/11/17/21, operators Maven exact-match paramétrés).
 - `StrategyRunner.run_stigmergic_scheduler()` (B5) et
   `StrategyRunner.run_operator_search()` (B6).
 - `scripts/bench/compare_strategies.py --ladder v11` (B2/B5/B6),
@@ -122,6 +123,14 @@ workspaces/artifacts par bras B2/B5/B6, vérifie `summary==replay`, écrit
 `v11_readiness_report.json`, calcule la divergence pairwise B2-vs-B5/B6 et
 expose `replacement_count_too_low_total/rate`. Commande full :
 `DEEPSEEK_API_KEY=$(grep DEEPSEEK_API_KEY .env | cut -d= -f2) docker compose -f docker-compose.campaign.yml up v11-migrationbench-main30`.
+
+Target-aware migration context (2026-05-06) : MigrationBench échoue désormais
+explicitement si `target_java` est absent. Les prompts LLM, affordances,
+fallback déterministe et operators Maven consomment un `MigrationContext`
+(`source_java`, `target_java`, `target_class_major`, `build_system`,
+`migration_mode`, `dependency_policy`) au lieu de coder Java 17 dans le
+framework. Les operator IDs restent génériques, par exemple
+`MavenEnsureCompilerRelease`.
 
 ## Sprint 9 Complete Status (2026-04-21) — legacy `core/`
 

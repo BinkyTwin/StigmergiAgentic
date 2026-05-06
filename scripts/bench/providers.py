@@ -17,29 +17,24 @@ from core_v10.contracts import (
     RunInstance,
 )
 
-
-JAVA17_POM_REPLACEMENTS: tuple[tuple[str, str], ...] = (
-    ("<maven.compiler.source>1.8</maven.compiler.source>",
-     "<maven.compiler.source>17</maven.compiler.source>"),
-    ("<maven.compiler.target>1.8</maven.compiler.target>",
-     "<maven.compiler.target>17</maven.compiler.target>"),
-    ("<maven.compiler.release>8</maven.compiler.release>",
-     "<maven.compiler.release>17</maven.compiler.release>"),
-    ("<source>1.8</source>", "<source>17</source>"),
-    ("<target>1.8</target>", "<target>17</target>"),
-    ("<release>8</release>", "<release>17</release>"),
-    ("<java.version>1.8</java.version>", "<java.version>17</java.version>"),
-    ("<java.version>8</java.version>", "<java.version>17</java.version>"),
+from adapters_v10.migrationbench.context import (
+    MigrationContext,
+    migration_context_from_observation,
 )
+from adapters_v10.migrationbench.operators import target_java_replacements
 
 
-def deterministic_pom17_edits(pom_paths: Iterable[str], pom_texts: dict[str, str]) -> list[dict[str, Any]]:
-    """Build a list of typed-edit dicts for conservative POM Java 17 updates.
+def deterministic_maven_target_java_edits(
+    pom_paths: Iterable[str],
+    pom_texts: dict[str, str],
+    context: MigrationContext,
+) -> list[dict[str, Any]]:
+    """Build typed-edit dicts for conservative target-Java POM updates.
 
     ``pom_texts`` maps the repository-relative path to the raw content of
-    the corresponding ``pom.xml`` file. Only paths that actually contain
-    one of the known Java 8 declarations contribute edits; that keeps the
-    candidate strictly minimal even on multi-module repos.
+    the corresponding ``pom.xml`` file. Only paths that actually contain a
+    source-version declaration from ``context`` contribute edits; that keeps
+    the candidate strictly minimal even on multi-module repos.
     """
 
     edits: list[dict[str, Any]] = []
@@ -47,7 +42,7 @@ def deterministic_pom17_edits(pom_paths: Iterable[str], pom_texts: dict[str, str
         text = pom_texts.get(rel_path, "")
         if not text:
             continue
-        for old, new in JAVA17_POM_REPLACEMENTS:
+        for old, new in target_java_replacements(context):
             count = text.count(old)
             if count <= 0:
                 continue
@@ -65,11 +60,11 @@ def deterministic_pom17_edits(pom_paths: Iterable[str], pom_texts: dict[str, str
 
 
 def make_migrationbench_deterministic_provider(adapter, _extras: dict[str, Any]):
-    """Return a candidate provider that emits the deterministic Java 17 POM edits.
+    """Return a provider that emits deterministic target-Java POM edits.
 
     The provider walks the active workspace, reads every ``pom.xml`` file,
     and produces *one* candidate carrying a :class:`TypedEditSet` with the
-    minimum edits needed to flip Java 8 declarations to Java 17.
+    minimum edits needed to flip source declarations to the target Java.
     """
 
     from adapters_v10.migrationbench.adapter import MigrationBenchAdapterV10
@@ -81,6 +76,7 @@ def make_migrationbench_deterministic_provider(adapter, _extras: dict[str, Any])
         )
 
     def provide(observation: Observation, instance: RunInstance) -> Sequence[Candidate]:
+        context = migration_context_from_observation(observation, instance)
         workspace = adapter._require_base_workspace()  # type: ignore[attr-defined]
         pom_paths = [t for t in workspace.list_targets() if t.endswith("pom.xml")]
         pom_texts: dict[str, str] = {}
@@ -89,24 +85,33 @@ def make_migrationbench_deterministic_provider(adapter, _extras: dict[str, Any])
                 pom_texts[rel] = workspace.read_file(rel, max_bytes=2_000_000)
             except Exception:  # noqa: BLE001
                 continue
-        edit_dicts = deterministic_pom17_edits(pom_paths, pom_texts)
+        edit_dicts = deterministic_maven_target_java_edits(
+            pom_paths,
+            pom_texts,
+            context,
+        )
         if not edit_dicts:
-            # No Java 8 declarations were found; emit an empty candidate so the
-            # adapter can record the "no migration needed" outcome cleanly.
+            # No matching source declarations were found; the strategy can
+            # record the no-candidate path cleanly.
             return []
+        branch_id = f"target_java_{context.target_java}"
         return [
             Candidate(
-                candidate_id=f"{instance.instance_id}-pom17",
+                candidate_id=f"{instance.instance_id}-{branch_id}",
                 kind=CandidateKind.PATCH,
                 payload={
-                    "branch_id": "pom17",
+                    "branch_id": branch_id,
                     "edit_set": {
                         "edits": edit_dicts,
-                        "rationale": "Conservative Java 17 source/target/release POM updates.",
-                        "expected_build_command": "mvn clean verify",
+                        "rationale": (
+                            "Conservative target-Java source/target/release "
+                            f"POM updates for Java {context.target_java}."
+                        ),
+                        "expected_build_command": context.expected_build_command,
                     },
                 },
-                origin="builtin_deterministic_pom17",
+                origin="builtin_deterministic_maven_target_java",
+                metadata={"migration_context": context.to_dict()},
             )
         ]
 
@@ -175,8 +180,7 @@ def make_migrationbench_operator_provider(_adapter, _extras: dict[str, Any]):
 
 
 __all__ = [
-    "JAVA17_POM_REPLACEMENTS",
-    "deterministic_pom17_edits",
+    "deterministic_maven_target_java_edits",
     "make_migrationbench_deterministic_provider",
     "make_migrationbench_noop_repair_provider",
     "make_migrationbench_operator_provider",

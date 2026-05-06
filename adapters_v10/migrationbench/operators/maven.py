@@ -15,41 +15,10 @@ from core_v10.contracts import (
 from core_v10.operators import ExactReplaceText
 from core_v10.stigmergy.records import Affordance, OperatorInvocation
 
-
-JAVA17_POM_REPLACEMENTS: tuple[tuple[str, str], ...] = (
-    ("<maven.compiler.source>1.8</maven.compiler.source>", "<maven.compiler.source>17</maven.compiler.source>"),
-    ("<maven.compiler.target>1.8</maven.compiler.target>", "<maven.compiler.target>17</maven.compiler.target>"),
-    ("<maven.compiler.release>8</maven.compiler.release>", "<maven.compiler.release>17</maven.compiler.release>"),
-    ("<source>1.8</source>", "<source>17</source>"),
-    ("<target>1.8</target>", "<target>17</target>"),
-    ("<release>8</release>", "<release>17</release>"),
-    ("<java.version>1.8</java.version>", "<java.version>17</java.version>"),
-    ("<java.version>8</java.version>", "<java.version>17</java.version>"),
+from adapters_v10.migrationbench.context import (
+    MigrationContext,
+    migration_context_from_observation,
 )
-
-
-COMPILER_PLUGIN_REPLACEMENTS: tuple[tuple[str, str], ...] = (
-    ("<version>2.3.2</version>", "<version>3.11.0</version>"),
-    ("<version>3.1</version>", "<version>3.11.0</version>"),
-    ("<version>3.5.1</version>", "<version>3.11.0</version>"),
-    ("<version>3.6.0</version>", "<version>3.11.0</version>"),
-    ("<version>3.8.0</version>", "<version>3.11.0</version>"),
-)
-
-
-SUREFIRE_PLUGIN_REPLACEMENTS: tuple[tuple[str, str], ...] = (
-    ("<version>2.12.4</version>", "<version>3.2.5</version>"),
-    ("<version>2.19.1</version>", "<version>3.2.5</version>"),
-    ("<version>2.20.1</version>", "<version>3.2.5</version>"),
-    ("<version>2.22.2</version>", "<version>3.2.5</version>"),
-)
-
-
-LOMBOK_VERSION_TARGET = "1.18.30"
-LOMBOK_MAVEN_PLUGIN_VERSION_TARGET = "1.18.20.0"
-SPRING_BOOT_JAVA17_PARENT_TARGET = "2.7.18"
-BUNDLE_PLUGIN_VERSION_TARGET = "5.1.9"
-
 
 JAXB_DEPENDENCY_XML = """    <dependency>
       <groupId>jakarta.xml.bind</groupId>
@@ -77,6 +46,7 @@ def migrationbench_operator_candidates(
 ) -> Sequence[Candidate]:
     """Return guarded operator candidates for one V11 affordance."""
 
+    context = migration_context_from_observation(observation, instance)
     pom_texts = _pom_texts(observation)
     if not pom_texts:
         return ()
@@ -85,45 +55,46 @@ def migrationbench_operator_candidates(
     action = affordance.action_type if affordance is not None else ""
     full_text = _feedback_text(feedback)
 
-    if _looks_like_lombok_java17_failure(
+    if _looks_like_lombok_target_failure(
         feedback=feedback,
         action=action,
         full_text=full_text,
         pom_texts=pom_texts,
     ):
-        lombok_edits = maven_upgrade_lombok_java17_edits(pom_texts)
+        lombok_edits = maven_upgrade_lombok_edits(pom_texts, context)
         if lombok_edits:
             edits.extend(lombok_edits)
-            operator_ids.append("MavenUpgradeLombokJava17")
+            operator_ids.append("MavenUpgradeLombok")
 
-    if _looks_like_spring_boot_asm_java17_failure(
+    if _looks_like_spring_boot_asm_target_failure(
         feedback=feedback,
         action=action,
         full_text=full_text,
         pom_texts=pom_texts,
+        context=context,
     ):
-        spring_edits = maven_upgrade_spring_boot_java17_edits(pom_texts)
+        spring_edits = maven_upgrade_spring_boot_edits(pom_texts, context)
         if spring_edits:
             edits.extend(spring_edits)
-            operator_ids.append("MavenUpgradeSpringBootJava17")
+            operator_ids.append("MavenUpgradeSpringBoot")
 
     if _looks_like_maven_bundle_felix_failure(
         full_text=full_text,
         pom_texts=pom_texts,
     ):
-        bundle_edits = maven_upgrade_bundle_plugin_edits(pom_texts)
+        bundle_edits = maven_upgrade_bundle_plugin_edits(pom_texts, context)
         if bundle_edits:
             edits.extend(bundle_edits)
             operator_ids.append("MavenUpgradeBundlePlugin")
 
-    if action in {"set_maven_compiler_release", "select_compile_operator"} or any(
+    if action in {"ensure_maven_compiler_release", "select_compile_operator"} or any(
         token in full_text for token in ("compile", "source", "target", "release", "class_version")
     ):
-        new_edits = maven_compiler_release_edits(pom_texts)
+        new_edits = maven_compiler_release_edits(pom_texts, context)
         if new_edits:
             edits.extend(new_edits)
-            operator_ids.append("MavenSetCompilerRelease")
-        plugin_edits = maven_upgrade_compiler_plugin_edits(pom_texts)
+            operator_ids.append("MavenEnsureCompilerRelease")
+        plugin_edits = maven_upgrade_compiler_plugin_edits(pom_texts, context)
         if plugin_edits:
             edits.extend(plugin_edits)
             operator_ids.append("MavenUpgradeCompilerPlugin")
@@ -131,7 +102,7 @@ def migrationbench_operator_candidates(
     if action in {"interpret_official_eval", "preserve_test_count"} or any(
         token in full_text for token in ("official", "#tests=-2", "surefire", "test summary")
     ):
-        surefire_edits = maven_upgrade_surefire_plugin_edits(pom_texts)
+        surefire_edits = maven_upgrade_surefire_plugin_edits(pom_texts, context)
         if surefire_edits:
             edits.extend(surefire_edits)
             operator_ids.append("MavenUpgradeSurefirePlugin")
@@ -141,10 +112,11 @@ def migrationbench_operator_candidates(
     ):
         dependency_edits = maven_add_jaxb_dependency_edits(
             pom_texts,
+            context,
             binding_namespace=(
                 "javax"
                 if "javax.xml.bind" in full_text and "jakarta.xml.bind" not in full_text
-                else "jakarta"
+                else ("jakarta" if "jakarta.xml.bind" in full_text else None)
             ),
         )
         if dependency_edits:
@@ -152,12 +124,12 @@ def migrationbench_operator_candidates(
             operator_ids.append("MavenAddJaxbDependency")
 
     # Last conservative fallback for MigrationBench: if an affordance exists
-    # but no specialized pattern matched, try Java 17 POM declarations only.
+    # but no specialized pattern matched, try target-Java POM declarations only.
     if not edits and affordance is not None:
-        new_edits = maven_compiler_release_edits(pom_texts)
+        new_edits = maven_compiler_release_edits(pom_texts, context)
         if new_edits:
             edits.extend(new_edits)
-            operator_ids.append("MavenSetCompilerRelease")
+            operator_ids.append("MavenEnsureCompilerRelease")
 
     if not edits:
         return ()
@@ -169,6 +141,10 @@ def migrationbench_operator_candidates(
             "failure_type": feedback.failure_type,
             "action_type": action,
             "edit_count": len(edits),
+            "source_java": context.source_java,
+            "target_java": context.target_java,
+            "target_class_major": context.target_class_major,
+            "build_system": context.build_system,
         },
         target_files=tuple(sorted({str(edit["path"]) for edit in edits})),
         rationale=(
@@ -191,7 +167,7 @@ def migrationbench_operator_candidates(
                 "edit_set": {
                     "edits": edits,
                     "rationale": invocation.rationale,
-                    "expected_build_command": "mvn clean verify",
+                    "expected_build_command": context.expected_build_command,
                 },
             },
             origin="v11_operator_search",
@@ -209,12 +185,42 @@ def migrationbench_operator_candidates(
     )
 
 
-def maven_compiler_release_edits(pom_texts: dict[str, str]) -> list[dict[str, Any]]:
-    """Generate exact Java 17 compiler edits only when old spans are present."""
+def target_java_replacements(context: MigrationContext) -> tuple[tuple[str, str], ...]:
+    """Return exact POM replacements for the migration target in ``context``."""
+
+    old_tokens = _java_version_tokens(context.source_java)
+    new_token = str(context.target_java)
+    tags = (
+        "maven.compiler.source",
+        "maven.compiler.target",
+        "maven.compiler.release",
+        "source",
+        "target",
+        "release",
+        "java.version",
+    )
+    replacements: list[tuple[str, str]] = []
+    seen: set[tuple[str, str]] = set()
+    for tag in tags:
+        for old_token in old_tokens:
+            old = f"<{tag}>{old_token}</{tag}>"
+            new = f"<{tag}>{new_token}</{tag}>"
+            if old == new or (old, new) in seen:
+                continue
+            seen.add((old, new))
+            replacements.append((old, new))
+    return tuple(replacements)
+
+
+def maven_compiler_release_edits(
+    pom_texts: dict[str, str],
+    context: MigrationContext,
+) -> list[dict[str, Any]]:
+    """Generate exact target-Java compiler edits only when old spans exist."""
 
     edits: list[dict[str, Any]] = []
     for path, text in pom_texts.items():
-        for old, new in JAVA17_POM_REPLACEMENTS:
+        for old, new in target_java_replacements(context):
             result = ExactReplaceText().apply(
                 current_text=text,
                 old=old,
@@ -239,50 +245,53 @@ def maven_compiler_release_edits(pom_texts: dict[str, str]) -> list[dict[str, An
 
 def maven_upgrade_compiler_plugin_edits(
     pom_texts: dict[str, str],
+    context: MigrationContext,
 ) -> list[dict[str, Any]]:
     """Generate guarded maven-compiler-plugin upgrades."""
 
-    return _plugin_version_edits(
+    return _plugin_version_to_target_edits(
         pom_texts,
         plugin_artifact="maven-compiler-plugin",
-        replacements=COMPILER_PLUGIN_REPLACEMENTS,
+        target_version=context.compatibility.compiler_plugin_min,
     )
 
 
 def maven_upgrade_surefire_plugin_edits(
     pom_texts: dict[str, str],
+    context: MigrationContext,
 ) -> list[dict[str, Any]]:
     """Generate guarded maven-surefire-plugin upgrades."""
 
-    return _plugin_version_edits(
+    return _plugin_version_to_target_edits(
         pom_texts,
         plugin_artifact="maven-surefire-plugin",
-        replacements=SUREFIRE_PLUGIN_REPLACEMENTS,
+        target_version=context.compatibility.surefire_min,
     )
 
 
-def maven_upgrade_lombok_java17_edits(
+def maven_upgrade_lombok_edits(
     pom_texts: dict[str, str],
+    context: MigrationContext,
 ) -> list[dict[str, Any]]:
-    """Upgrade Lombok coordinates known to fail against Java 17 javac internals."""
+    """Upgrade Lombok coordinates known to fail against target javac internals."""
 
     edits = _property_version_edits(
         pom_texts,
         property_names=("lombok.version",),
-        target_version=LOMBOK_VERSION_TARGET,
+        target_version=context.compatibility.lombok_min,
     )
     edits.extend(
         _property_version_edits(
             pom_texts,
             property_names=("lombok.plugin.version",),
-            target_version=LOMBOK_MAVEN_PLUGIN_VERSION_TARGET,
+            target_version=context.compatibility.lombok_maven_plugin_min,
         )
     )
     edits.extend(
         _dependency_version_to_target_edits(
             pom_texts,
             dependency_artifact="lombok",
-            target_version=LOMBOK_VERSION_TARGET,
+            target_version=context.compatibility.lombok_min,
             group_marker="<groupId>org.projectlombok</groupId>",
         )
     )
@@ -290,27 +299,31 @@ def maven_upgrade_lombok_java17_edits(
         _plugin_version_to_target_edits(
             pom_texts,
             plugin_artifact="lombok-maven-plugin",
-            target_version=LOMBOK_MAVEN_PLUGIN_VERSION_TARGET,
+            target_version=context.compatibility.lombok_maven_plugin_min,
         )
     )
     return _dedupe_edits(edits)
 
 
-def maven_upgrade_spring_boot_java17_edits(
+def maven_upgrade_spring_boot_edits(
     pom_texts: dict[str, str],
+    context: MigrationContext,
 ) -> list[dict[str, Any]]:
-    """Upgrade old Spring Boot 2.x parents that cannot read Java 17 class files."""
+    """Upgrade old Spring Boot parents that cannot read target class files."""
 
+    target = context.compatibility.spring_boot_parent_min
+    if not target:
+        return []
     edits = _property_version_edits(
         pom_texts,
         property_names=("spring.boot.version", "spring-boot.version"),
-        target_version=SPRING_BOOT_JAVA17_PARENT_TARGET,
+        target_version=target,
     )
     edits.extend(
         _parent_version_to_target_edits(
             pom_texts,
             parent_artifact="spring-boot-starter-parent",
-            target_version=SPRING_BOOT_JAVA17_PARENT_TARGET,
+            target_version=target,
             group_marker="<groupId>org.springframework.boot</groupId>",
         )
     )
@@ -319,31 +332,34 @@ def maven_upgrade_spring_boot_java17_edits(
 
 def maven_upgrade_bundle_plugin_edits(
     pom_texts: dict[str, str],
+    context: MigrationContext,
 ) -> list[dict[str, Any]]:
-    """Upgrade Felix maven-bundle-plugin for Java 17/bnd test-time failures."""
+    """Upgrade Felix maven-bundle-plugin for target-Java bnd failures."""
 
     return _plugin_version_to_target_edits(
         pom_texts,
         plugin_artifact="maven-bundle-plugin",
-        target_version=BUNDLE_PLUGIN_VERSION_TARGET,
+        target_version=context.compatibility.bundle_plugin_min,
     )
 
 
 def maven_add_jaxb_dependency_edits(
     pom_texts: dict[str, str],
+    context: MigrationContext,
     *,
-    binding_namespace: str = "jakarta",
+    binding_namespace: str | None = None,
 ) -> list[dict[str, Any]]:
     """Insert JAXB API dependency when an existing dependencies block exists."""
 
     edits: list[dict[str, Any]] = []
+    namespace = binding_namespace or context.compatibility.jaxb_namespace_default
     dependency_xml = (
         JAVAX_JAXB_DEPENDENCY_XML
-        if binding_namespace == "javax"
+        if namespace == "javax"
         else JAXB_DEPENDENCY_XML
     )
     dependency_marker = (
-        "jaxb-api" if binding_namespace == "javax" else "jakarta.xml.bind-api"
+        "jaxb-api" if namespace == "javax" else "jakarta.xml.bind-api"
     )
     for path, text in pom_texts.items():
         if dependency_marker in text:
@@ -513,6 +529,10 @@ def _property_version_edits(
                 current_version = match.group(1).strip()
                 if current_version == target_version:
                     continue
+                if current_version.startswith("${") or not _version_less_than(
+                    current_version, target_version
+                ):
+                    continue
                 old = match.group(0)
                 if (path, old) in seen:
                     continue
@@ -555,6 +575,8 @@ def _block_version_to_target_edit(
     current_version = match.group(1).strip()
     if current_version == target_version or current_version.startswith("${"):
         return None
+    if not _version_less_than(current_version, target_version):
+        return None
     old_version_tag = match.group(0)
     new_version_tag = f"<version>{target_version}</version>"
     block_result = ExactReplaceText().apply(
@@ -583,6 +605,27 @@ def _block_version_to_target_edit(
         "expected_replacements": 1,
         "allow_multiple": False,
     }
+
+
+def _version_less_than(current: str, target: str) -> bool:
+    current_parts = _version_key(current)
+    target_parts = _version_key(target)
+    if current_parts is None or target_parts is None:
+        return False
+    return current_parts < target_parts
+
+
+def _version_key(value: str) -> tuple[int, ...] | None:
+    numbers = re.findall(r"\d+", value)
+    if not numbers:
+        return None
+    return tuple(int(part) for part in numbers)
+
+
+def _java_version_tokens(version: int) -> tuple[str, ...]:
+    if int(version) == 8:
+        return ("1.8", "8")
+    return (str(int(version)),)
 
 
 def _dedupe_edits(edits: Iterable[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -634,7 +677,7 @@ def _parent_blocks_for_artifact(
     return tuple(blocks)
 
 
-def _looks_like_lombok_java17_failure(
+def _looks_like_lombok_target_failure(
     *,
     feedback: FeedbackDigest,
     action: str,
@@ -661,21 +704,22 @@ def _looks_like_lombok_java17_failure(
     )
 
 
-def _looks_like_spring_boot_asm_java17_failure(
+def _looks_like_spring_boot_asm_target_failure(
     *,
     feedback: FeedbackDigest,
     action: str,
     full_text: str,
     pom_texts: dict[str, str],
+    context: MigrationContext,
 ) -> bool:
     if not _pom_contains(pom_texts, "spring-boot-starter-parent"):
         return False
-    if "unsupported class file major version 61" in full_text:
+    if f"unsupported class file major version {context.target_class_major}" in full_text:
         return True
     if "asm classreader" in full_text:
         return True
     return (
-        action == "set_maven_compiler_release"
+        action == "ensure_maven_compiler_release"
         and str(feedback.failure_type or "") == "class_version_error"
     )
 
@@ -730,17 +774,13 @@ def _feedback_text(feedback: FeedbackDigest) -> str:
 
 
 __all__ = [
-    "BUNDLE_PLUGIN_VERSION_TARGET",
-    "JAVA17_POM_REPLACEMENTS",
-    "LOMBOK_MAVEN_PLUGIN_VERSION_TARGET",
-    "LOMBOK_VERSION_TARGET",
-    "SPRING_BOOT_JAVA17_PARENT_TARGET",
     "maven_add_jaxb_dependency_edits",
     "maven_compiler_release_edits",
     "maven_upgrade_bundle_plugin_edits",
     "maven_upgrade_compiler_plugin_edits",
-    "maven_upgrade_lombok_java17_edits",
-    "maven_upgrade_spring_boot_java17_edits",
+    "maven_upgrade_lombok_edits",
+    "maven_upgrade_spring_boot_edits",
     "maven_upgrade_surefire_plugin_edits",
     "migrationbench_operator_candidates",
+    "target_java_replacements",
 ]
