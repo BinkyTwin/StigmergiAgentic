@@ -5,6 +5,16 @@
 
 ## Active Practices
 
+### Stigmergic Framework Survey Standard
+- When surveying stigmergic agent frameworks, require explicit evidence for at least shared medium, typed environmental signals, local sensing, decay or reinforcement, and observable/replayable state before calling the system strongly stigmergic.
+- Classify candidates into installable framework, protocol/SDK, hosted coordination substrate, research-only framework, and adjacent blackboard/swarm system.
+- In thesis comparisons, distinguish "managerless coordination trend" from V12's narrower claim: controlled MigrationBench behavior change under identical tools, budgets, models, and verifier contract.
+
+### Third-Party Swarm Framework Comparison Standard
+- Classify field-mediated agent frameworks like Claw-Swarm as close related work when they share stigmergic traces, signal fields, memory, scheduling, resilience, or observability.
+- Do not collapse them into the active V12 contribution unless they also preserve verifier sovereignty, patch-channel separation, S2/V12 tool parity, and ablation-ready causal telemetry.
+- When a third-party project resembles the original ambition, use the comparison to sharpen the thesis claim: V12 is not "a swarm framework" in general, but a controlled verifier-gated experiment on whether stigmergic guidance changes autonomous code-migration behavior.
+
 ### V12 Autonomous-Agent Stigmergy Standard
 - Implement active V12 work under `core_v12/`; reuse V10/V11 verifier, event-log, guarded-edit, and migration-context primitives only as substrate.
 - Keep the medium guidance-only: it may expose pheromones, supported tools/actions, inhibited tools/actions, hot files, and feedback history, but it must never create patches or tool parameters.
@@ -816,6 +826,11 @@
 - Use SD-Feedback as the verifier-gated loop of truth: LLM proposes a patch, the harness guards/applies/verifies, then accepts or reverts.
 - Keep S2 and V12 read-only perception tools identical; the only treatment difference should be compact stigmergic feedback augmentation.
 - Treat invalid patch syntax/old-span failures as syntactic feedback and no-progress verifier outcomes as semantic feedback; do not spend benchmark validation slots on unguarded patch attempts.
+
+### V12.4 Targeted Campaign Audit Standard
+- Run targeted V12.4 from a clean Docker workspace before interpreting S1/S2/V12 deltas; stale partial arms can silently bias best-observed comparisons.
+- Check both LLM text traces and native read-only tool traces: text traces explain patch-format behavior, while tool traces explain perception choices and medium-follow/override metrics.
+- If recommendation metrics are zero while prompts show tool annotations, reconstruct context from `agent.local_view.created` and patch future event emission to include `tool_recommendation_context`.
 
 ### UV Environment Recovery Standard
 - Rebuild `.venv` with `uv venv --python <version>` and `uv pip install -r requirements.txt`, then run `uv pip check` before assuming dependency conflicts remain.

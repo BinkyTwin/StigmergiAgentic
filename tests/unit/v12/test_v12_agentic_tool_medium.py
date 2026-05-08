@@ -474,6 +474,43 @@ def test_tool_recommendation_metrics_track_follow_override_and_forbidden(tmp_pat
     assert metrics.strongly_supported_tool_ignored_count == 1
 
 
+def test_tool_recommendation_metrics_reconstruct_from_local_view_without_context() -> None:
+    metrics = summarize_tool_recommendation_metrics(
+        [
+            {
+                "type": "agent.local_view.created",
+                "payload": {
+                    "local_view": {
+                        "forbidden_tools": {},
+                        "tool_annotations": {
+                            "read_file": {"recommendation": "strong_support"},
+                            "inspect_pom": {"recommendation": "neutral"},
+                        },
+                    }
+                },
+            },
+            {
+                "type": "agent.tool_call.requested",
+                "payload": {
+                    "tool_call": {
+                        "tool_name": "inspect_pom",
+                        "arguments": {"path": "pom.xml"},
+                    }
+                },
+            },
+            {
+                "type": "tool.executed",
+                "payload": {"result": {"status": "success"}},
+            },
+        ]
+    )
+
+    assert metrics.tool_recommendation_follow_rate == 0.0
+    assert metrics.tool_recommendation_override_rate == 1.0
+    assert metrics.successful_override_rate == 1.0
+    assert metrics.strongly_supported_tool_ignored_count == 1
+
+
 def test_llm_traces_capture_full_tool_decisions_without_api_secrets() -> None:
     trace = build_llm_trace_payload(
         call=ToolCall(

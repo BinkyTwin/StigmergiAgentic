@@ -1,5 +1,65 @@
 # Project Captures
 
+## 2026-05-08 — Survey Stigmergy-Based Agent Frameworks
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `impact_score`: `5/10`
+- `confidence`: `medium`
+- `scope`: `Search current web sources for agent frameworks, protocols, and papers explicitly using stigmergy or near-stigmergic shared-medium coordination.`
+
+### Outcome
+
+Current live ecosystem evidence shows an emerging cluster of stigmergic LLM-agent
+systems: Mandible, NetaBresler/stigmergy, SBP, /sync, Anthills, TEMM1E, and
+FETCH-AGI/GraphPalace. The strongest direct comparisons for V12 are Mandible
+and NetaBresler/stigmergy because they implement typed signals, shared media,
+decay, claims, and colonies; SwarmSys and Ledger-State Stigmergy are stronger
+as paper/related-work anchors than as drop-in code substrates.
+
+### Reusable Patterns (1-3)
+
+1. Rank stigmergic frameworks by mechanism fidelity: shared medium, typed signals, decay, local sensing, claim/exclusion, reinforcement, and replayable logs.
+2. Separate installable engineering frameworks from research papers and practitioner projects before citing them in the thesis.
+3. For V12 framing, use these projects to motivate the trend away from manager agents, then emphasize V12's differentiator: verifier-sovereign, benchmark-controlled causal attribution.
+
+### Evidence
+
+- `https://www.mandible.dev/`
+- `https://github.com/NetaBresler/stigmergy`
+- `https://github.com/AdviceNXT/sbp`
+- `https://sync.parc.land/`
+- `https://arxiv.org/abs/2510.10047`
+- `https://arxiv.org/abs/2604.03997`
+
+## 2026-05-08 — Compare Claw-Swarm With V12 Thesis Direction
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `impact_score`: `4/10`
+- `confidence`: `medium`
+- `scope`: `Assess whether DEEP-IOS/claw-swarm matches the original StigmergiAgentic ambition and how it should affect V12 framing.`
+
+### Outcome
+
+Claw-Swarm is a close cousin of the original broad ambition: field-mediated
+multi-agent LLM coordination with pheromone-like traces, memory, scheduling,
+resilience, and observability. It should be treated as related work and design
+pressure, not as a replacement for V12, because V12 is now a narrower
+benchmark-scientific system where the shared medium guides agents, patch
+creation is controlled by explicit channels, and MigrationBench verification is
+the sovereign evidence layer.
+
+### Reusable Patterns (1-3)
+
+1. Separate broad product-framework similarity from thesis evidence: a shared signal field is not enough without verifier-gated causal attribution.
+2. Use Claw-Swarm as a comparison point for field-mediated architecture, observability, and resilience, but preserve V12's S2/V12 parity and benchmark contract.
+3. When comparing third-party swarm frameworks, ask whether they mutate artifacts, how they evaluate success, and whether their medium can be ablated cleanly.
+
+### Evidence
+
+- `https://github.com/DEEP-IOS/claw-swarm/tree/main`
+- `documentation/redisgn_v2/plan_v12_autonomous_agents_over_stigmergic_medium.md`
+- `documentation/decisions/20260508-v12-4-stigmergic-sd-feedback-agent.md`
+
 ## 2026-05-08 — Prepare V12 Thesis Handoff Commit For External GPT Review
 
 - `repo_slug`: `stigmergiagentic-33b989`
@@ -4058,3 +4118,24 @@ Removed and recreated `.venv` with `uv venv --python 3.12`, installed `requireme
 - `.venv/bin/python` reports Python 3.12.13.
 - `uv pip check` reports all installed packages are compatible.
 - Validation: `53 passed` for `tests/unit/v12`; `33 passed` for V11 guarded fallback/operator guard tests.
+
+## 2026-05-08 — V12.4 SD-Feedback Targeted Campaign Audit
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `impact_score`: `8/10`
+- `confidence`: `high`
+- `scope`: `V12.4 targeted MigrationBench SD-Feedback campaign and audit instrumentation.`
+
+### Outcome
+Ran the V12.4 targeted Docker campaign from scratch with exact SD-Feedback arms, read-only tools, DeepSeek traces, official eval, and clean workspaces. The campaign completed with readiness gates green: medium-created patches stayed zero, suggest tools applied no patches, S2/V12 used identical tool registries, and tool traces were present. A live audit found and fixed an attribution bug where recommendation metrics ignored local-view annotations when older events lacked `tool_recommendation_context`.
+
+### Reusable Patterns (1-3)
+1. Preserve exact SD-Feedback semantics for the baseline, then layer read-only tools and compact medium context without changing the patch channel.
+2. Reconstruct recommendation metrics from `agent.local_view.created` when `agent.tool_call.requested` events predate explicit recommendation-context logging.
+3. Treat repeated SD parser failures and old-span misses as behavioral evidence for medium improvement, not as benchmark validation errors.
+
+### Evidence
+- Campaign root: `campaign_results/v12/migrationbench_targeted_sdfeedback_v12_4`.
+- Readiness: `ready_for_targeted_campaign_analysis=true`.
+- Best observed: V12 same as S2 on 5/5, worse on 0/5, better on 0/5; strict success remains 0/5 for all arms.
+- Validation: `62 passed` for `tests/unit/v12`.

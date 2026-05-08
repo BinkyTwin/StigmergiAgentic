@@ -72,13 +72,31 @@ def summarize_tool_recommendation_metrics(
 def _requested_tool_rows(events: Iterable[EventRecord | dict[str, Any]]) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
     pending_index: int | None = None
+    latest_annotations: dict[str, dict[str, Any]] = {}
+    latest_forbidden: set[str] = set()
     for event in events:
         event_type = _event_type(event)
         payload = _payload(event)
-        if event_type == AGENT_TOOL_CALL_REQUESTED_EVENT:
-            context = dict(payload.get("tool_recommendation_context") or {})
-            strong = tuple(context.get("strongly_supported_tools") or ())
+        if event_type == "agent.local_view.created":
+            local_view = payload.get("local_view") or {}
+            latest_annotations = {
+                str(name): dict(annotation or {})
+                for name, annotation in (local_view.get("tool_annotations") or {}).items()
+            }
+            latest_forbidden = set((local_view.get("forbidden_tools") or {}).keys())
+        elif event_type == AGENT_TOOL_CALL_REQUESTED_EVENT:
             selected = str((payload.get("tool_call") or {}).get("tool_name") or "")
+            context = dict(payload.get("tool_recommendation_context") or {})
+            if not context:
+                annotations = latest_annotations
+                if not annotations and payload.get("tool_annotation"):
+                    annotations = {selected: dict(payload.get("tool_annotation") or {})}
+                context = tool_recommendation_context_from_annotations(
+                    annotations=annotations,
+                    selected_tool=selected,
+                    forbidden_tools=latest_forbidden,
+                )
+            strong = tuple(context.get("strongly_supported_tools") or ())
             row = {
                 "selected": selected,
                 "has_strong": bool(strong),
@@ -100,7 +118,7 @@ def _requested_tool_rows(events: Iterable[EventRecord | dict[str, Any]]) -> list
 
 def _event_type(event: EventRecord | dict[str, Any]) -> str:
     if isinstance(event, dict):
-        return str(event.get("event_type") or "")
+        return str(event.get("event_type") or event.get("type") or "")
     return event.event_type
 
 
@@ -114,7 +132,38 @@ def _rate(numerator: int, denominator: int) -> float:
     return float(numerator / denominator) if denominator else 0.0
 
 
+def tool_recommendation_context_from_annotations(
+    *,
+    annotations: dict[str, dict[str, Any]],
+    selected_tool: str,
+    forbidden_tools: Iterable[str] = (),
+) -> dict[str, Any]:
+    """Build a recommendation context from a local-view annotation snapshot."""
+
+    forbidden = set(forbidden_tools)
+    strong = tuple(
+        tool
+        for tool, annotation in annotations.items()
+        if annotation.get("recommendation") == "strong_support"
+    )
+    selected_annotation = annotations.get(selected_tool) or {}
+    selected_recommendation = str(
+        selected_annotation.get("recommendation") or "unannotated"
+    )
+    return {
+        "strongly_supported_tools": list(sorted(strong)),
+        "selected_recommendation": selected_recommendation,
+        "selected_is_inhibited": selected_recommendation in {"caution", "inhibited"}
+        or float(selected_annotation.get("inhibition") or 0.0) > 0.0,
+        "selected_is_forbidden": selected_tool in forbidden,
+        "ignored_strongly_supported_tools": [
+            tool for tool in sorted(strong) if tool != selected_tool
+        ],
+    }
+
+
 __all__ = [
     "ToolRecommendationMetrics",
     "summarize_tool_recommendation_metrics",
+    "tool_recommendation_context_from_annotations",
 ]

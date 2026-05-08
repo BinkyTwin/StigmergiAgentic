@@ -101,16 +101,22 @@ Implemented:
 
 Latest targeted evidence:
 
-- Root: `campaign_results/v12/migrationbench_targeted_agentic_guided_v2`
+- Root: `campaign_results/v12/migrationbench_targeted_sdfeedback_v12_4`
 - Protocol: targeted 5, `official_eval=true`, `use_llm_providers=true`,
-  `max_steps=6`, S1/S2/V12, DeepSeek native tool calls for S2/V12.
+  `max_iterations=6`, `inspection_steps=1`, V12.4 SD-Feedback arms:
+  `S1_sd_feedback_exact`, `S2_sd_feedback_readonly_tools`,
+  `V12_stigmergic_sd_feedback`.
 - Readiness gates green: medium-created patches = 0, suggest-applied patches =
   0, S2/V12 tool registry parity = true, tool traces present.
-- Best-observed V12 vs S2: V12 better on 1 instance
-  (`jodaorg__joda__beans`, `patch_applies -> compile_success`), same on 4,
-  worse on 0.
+- Best-observed V12 vs S2: same on 5 instances, worse on 0, better on 0.
+- V12 and S2 both improve S1 on `camphul__trampoline`
+  (`patch_applies -> class_version_ok`), so the read-only inspection loop helps
+  there; the stigmergic context does not yet outperform S2 on this subset.
+- V12 medium metrics after audit reconstruction: 30 pheromone reads,
+  no forbidden attempts, no harmful overrides, per-instance follow rates between
+  0.0 and 1.0 depending on whether the medium had strong evidence.
 - Strict success remains 0/5 for S1, S2 and V12. This is a targeted
-  non-inferiority/traceability result, not a benchmark success claim.
+  traceability/non-regression result, not a benchmark success claim.
 
 Latest V12.4 code evidence:
 
@@ -125,12 +131,14 @@ Latest V12.4 code evidence:
 Still not ready:
 
 - Do not run or interpret V12 `main_30`.
-- V12.4 has core primitives and tests, but not yet the full Docker campaign
-  runner for `S1_sd_feedback_exact` vs `S2_sd_feedback_readonly_tools` vs
-  `V12_stigmergic_sd_feedback`.
-- The next runner must use read-only tools plus the explicit LLM patch-proposal
-  channel. Do not reuse the V12.3 "LLM tool-calling for everything" runner as
-  the final V12.4 design.
+- V12.4 has a targeted Docker runner and green targeted readiness gates, but no
+  evidence of superiority over S2 yet.
+- Before `main_30`, improve the medium so it produces useful, compact
+  recommendations for `jodaorg__joda__beans`/bundle-plugin style failures and
+  SD parser-format failures, then rerun targeted evidence.
+- Keep using read-only tools plus the explicit LLM SD-Feedback patch channel.
+  Do not reuse the V12.3 "LLM tool-calling for everything" runner as the final
+  V12.4 design.
 
 Archived V11 result:
 
@@ -380,6 +388,17 @@ For V12.4 SD-Feedback core work:
 ```bash
 PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=. pytest tests/unit/v12/test_v12_sd_feedback.py -q --confcutdir=tests/unit/v12
 PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=. pytest tests/unit/v12 -q --confcutdir=tests/unit/v12
+```
+
+For the V12.4 targeted SD-Feedback campaign, use Docker and keep `--clean`
+semantics:
+
+```bash
+docker compose -f docker-compose.campaign.yml build --no-cache v12-sdfeedback-targeted
+docker compose -f docker-compose.campaign.yml up v12-sdfeedback-targeted
+
+PYTHONPATH=. uv run python -m scripts.v12.audit_v12_campaign \
+  --campaign-root campaign_results/v12/migrationbench_targeted_sdfeedback_v12_4
 ```
 
 If the repo-local `.venv` is corrupted, a clean temporary environment is

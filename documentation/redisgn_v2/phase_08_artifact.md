@@ -151,12 +151,13 @@ docker compose -f docker-compose.campaign.yml run --rm --no-deps \
 Latest Docker targeted campaign:
 
 ```text
-campaign_results/v12/migrationbench_targeted_agentic_guided_v2
+campaign_results/v12/migrationbench_targeted_sdfeedback_v12_4
 subset: fixtures/migrationbench/subsets/targeted_v12_agentic_5.jsonl
-arms: S1_sd_feedback_like, S2_tool_feedback_agent, V12_stigmergic_tool_agent
+arms: S1_sd_feedback_exact, S2_sd_feedback_readonly_tools, V12_stigmergic_sd_feedback
 official_eval: true
 use_llm_providers: true
-max_steps: 6
+max_iterations: 6
+inspection_steps: 1
 ```
 
 Readiness gates are green:
@@ -168,14 +169,19 @@ Readiness gates are green:
 
 Best-observed comparison against S2:
 
-- V12 better: 1 instance (`jodaorg__joda__beans`, `patch_applies -> compile_success`)
-- V12 same: 4 instances
+- V12 better: 0 instances
+- V12 same: 5 instances
 - V12 worse: 0 instances
 
+Against S1, both S2 and V12 improve `camphul__trampoline`
+(`patch_applies -> class_version_ok`), showing that the read-only perception
+loop helps there. The medium is safe and traceable but does not yet outperform
+the S2 read-only baseline on the targeted subset.
+
 Strict success is still `0/5` for all three arms on this targeted subset.
-The current result supports the narrower claim that V12 guidance is now
-non-inferior to S2 on best-observed funnel for the targeted subset, while
-preserving the scientific non-negotiables.
+The current result supports only the narrower claim that V12.4 preserves the
+scientific non-negotiables and matches S2 on best-observed funnel for this
+targeted subset. It is not a benchmark success or medium-superiority claim.
 
 ## Known Limits
 
@@ -185,13 +191,12 @@ preserving the scientific non-negotiables.
   SD-Feedback is the verifier-gated loop, read-only tools improve perception,
   the LLM emits an explicit `propose_patch`, and the harness guards, verifies,
   accepts or reverts.
-- V12.4 core primitives are implemented in `core_v12/sd_feedback.py` and
-  `build_sd_feedback_readonly_tool_registry()`. Unit tests cover the patch
-  channel, invalid edit rejection, accept/revert policy, read-only registry,
-  V12.4 arm definitions and compact patch-free medium feedback.
-- V12.4 does not yet have the full Docker runner for
-  `S1_sd_feedback_exact` vs `S2_sd_feedback_readonly_tools` vs
-  `V12_stigmergic_sd_feedback`; do not run or cite a V12 `main_30` until that
-  runner and its targeted subset audit exist.
+- V12.4 core primitives and the targeted Docker runner are implemented. Unit
+  tests cover the patch channel, invalid edit rejection, accept/revert policy,
+  read-only registry, V12.4 arm definitions and compact patch-free medium
+  feedback.
+- V12.4 should not be run as `main_30` until the medium provides stronger
+  useful recommendations for bundle-plugin, parser-format and repeated
+  inspection failures on the targeted subset.
 - V11/B6 artifacts remain useful as historical evidence but are no longer the
   active research direction.

@@ -39,6 +39,7 @@ from core_v10.hypothesis_graph import HypothesisGraph
 from core_v10.verifier import FinalizationReport, VerifierReport
 from core_v12.agent_loop import AgentStep, ToolChoiceError
 from core_v12.medium.local_view import AgentLocalView, V12StigmergicMedium
+from core_v12.metrics import tool_recommendation_context_from_annotations
 from core_v12.sd_feedback import (
     V12_4_EXPERIMENTAL_ARMS,
     funnel_point_from_validation,
@@ -769,6 +770,14 @@ def _run_readonly_inspections(
                 "available_tools": registry.names(),
                 "visible_tool_registry": list(view.tool_registry),
                 "tool_annotation": view.tool_annotations.get(call.tool_name),
+                "tool_recommendation_context": tool_recommendation_context_from_annotations(
+                    annotations={
+                        str(name): dict(annotation or {})
+                        for name, annotation in view.tool_annotations.items()
+                    },
+                    selected_tool=call.tool_name,
+                    forbidden_tools=view.forbidden_tools.keys(),
+                ),
             },
         )
         result = tool_executor.execute(

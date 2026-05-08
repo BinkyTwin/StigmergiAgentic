@@ -10,7 +10,10 @@ from pathlib import Path
 from typing import Any, Iterable, Sequence
 
 from core_v10.event_log import EventRecord, JsonlEventLog
-from core_v12.metrics import summarize_tool_recommendation_metrics
+from core_v12.metrics import (
+    summarize_tool_recommendation_metrics,
+    tool_recommendation_context_from_annotations,
+)
 
 
 ARM_IDS_V12_3 = (
@@ -206,10 +209,33 @@ def _tool_trace_rows(arm_events: dict[str, list[EventRecord]]) -> list[dict[str,
     rows: list[dict[str, Any]] = []
     for arm_id, events in arm_events.items():
         pending: dict[tuple[str, int], dict[str, Any]] = {}
+        local_view_by_instance: dict[str, dict[str, Any]] = {}
         for event in events:
-            if event.event_type == "agent.tool_call.requested":
+            if event.event_type == "agent.local_view.created":
+                local_view_by_instance[event.instance_id] = dict(
+                    event.payload.get("local_view") or {}
+                )
+            elif event.event_type == "agent.tool_call.requested":
                 call = event.payload.get("tool_call") or {}
                 context = event.payload.get("tool_recommendation_context") or {}
+                if not context:
+                    local_view = local_view_by_instance.get(event.instance_id) or {}
+                    annotations = {
+                        str(name): dict(annotation or {})
+                        for name, annotation in (
+                            local_view.get("tool_annotations") or {}
+                        ).items()
+                    }
+                    selected = str(call.get("tool_name") or "")
+                    if not annotations and event.payload.get("tool_annotation"):
+                        annotations = {
+                            selected: dict(event.payload.get("tool_annotation") or {})
+                        }
+                    context = tool_recommendation_context_from_annotations(
+                        annotations=annotations,
+                        selected_tool=selected,
+                        forbidden_tools=(local_view.get("forbidden_tools") or {}).keys(),
+                    )
                 key = (event.instance_id, event.sequence)
                 pending[key] = {
                     "arm_id": arm_id,

@@ -1,5 +1,21 @@
 # Decision Log
 
+## 2026-05-08 (Use Mandible And Stigmergy As Primary Framework Comparators)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: Use Mandible and NetaBresler/stigmergy as the primary current installable framework comparators for stigmergic LLM-agent coordination, with SBP and /sync as protocol/substrate comparators and SwarmSys/Ledger-State Stigmergy as research anchors.
+- `rationale`: These sources most directly expose the mechanisms relevant to V12 framing: shared medium, typed signals/pheromones, decay, local sensing, claims or action invocation, and observability. They support the narrative that the field is moving away from central manager agents, while leaving V12's benchmark-verifier contribution distinct.
+- `alternatives_rejected`: Treat every swarm-branded system as equivalent, cite only academic stigmergy papers, or ignore new 2026 frameworks because they are immature.
+- `linked_adr`: `documentation/decisions/20260508-v12-4-stigmergic-sd-feedback-agent.md`
+
+## 2026-05-08 (Treat Claw-Swarm As Close Related Work, Not V12 Replacement)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: Treat DEEP-IOS/claw-swarm as a close field-mediated swarm-agent related work and design comparison, while keeping V12 focused on verifier-gated MigrationBench experiments rather than adopting a general OpenClaw-style product framework.
+- `rationale`: Claw-Swarm overlaps strongly with the original StigmergiAgentic ambition through signal fields, pheromone-style coordination, memory, scheduling, resilience, and monitoring. The current thesis contribution, however, depends on controlled S2/V12 comparisons, explicit patch proposal channels, read-only perception tools, and verifier-sovereign evidence that Claw-Swarm does not directly provide for MigrationBench.
+- `alternatives_rejected`: Pivot to Claw-Swarm as the implementation substrate, ignore it because it is not MigrationBench-specific, or claim it proves the thesis mechanism without benchmark-compatible ablation evidence.
+- `linked_adr`: `documentation/decisions/20260508-v12-4-stigmergic-sd-feedback-agent.md`
+
 ## 2026-05-08 (Push Reviewable V12 Thesis Handoff Without Raw Campaign Trees)
 
 - `repo_slug`: `stigmergiagentic-33b989`
@@ -1407,3 +1423,11 @@
 - `rationale`: The dependency install succeeded, but validation hung while reading a dataless source file, making the environment look broken even though packages were compatible. Recreating the source file and keeping imports lazy restored deterministic local validation.
 - `alternatives_rejected`: Keep debugging package versions, run tests from a temporary external environment only, or restore the eager package initializer that imports the full MigrationBench verifier stack during simple helper imports.
 - `linked_adr`: `adapters_v10/migrationbench/__init__.py`
+
+## 2026-05-08 (Use Targeted V12.4 Evidence As Non-Superiority Baseline)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: Treat the completed V12.4 targeted campaign as a safety and traceability baseline, not as evidence that the stigmergic medium is superior to S2.
+- `rationale`: The exact SD-Feedback/read-only/medium comparison finished with all readiness gates green, but V12 matched S2 on all five best-observed instances and strict success stayed 0/5 across arms. The medium should be improved on recommendation usefulness before any main_30 claim.
+- `alternatives_rejected`: Claim medium improvement from green gates alone, run main_30 immediately, or interpret S1-to-S2/V12 gains as stigmergic contribution.
+- `linked_adr`: `documentation/redisgn_v2/phase_08_artifact.md`
