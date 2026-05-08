@@ -121,3 +121,30 @@ Thumbs.db
 data/travelplanner/database/
 third_party/travelplanner_official/database
 third_party/travelplanner_official/database*
+
+# Campagnes et artefacts (lourds, régénérables)
+workspaces/
+campaign_results/
+external/
+
+# Caches Python
+__pycache__/
+*.pyc
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Envs
+.venv/
+venv/
+
+# Toy / scratch dirs
+toy-*/
+output/francestudent_api_tests/
+
+# Codex config (local)
+.codex/config.toml
+
+# LaTeX save errors
+*.bbl-SAVE-ERROR
+*.bcf-SAVE-ERROR
