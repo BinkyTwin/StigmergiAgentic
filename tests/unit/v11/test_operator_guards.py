@@ -14,6 +14,7 @@ from adapters_v10.migrationbench.operators import (
     maven_upgrade_lombok_for_target_java_edits,
     maven_upgrade_lombok_edits,
     migrationbench_operator_candidates,
+    replace_jdk_internal_api_edits,
     replace_sun_misc_base64_edits,
     target_java_replacements,
 )
@@ -349,6 +350,23 @@ def test_bundle_plugin_operator_returns_empty_when_plugin_absent() -> None:
     assert maven_upgrade_bundle_plugin_edits({"pom.xml": pom}, _context()) == []
 
 
+def test_bundle_plugin_operator_can_insert_inherited_plugin_override() -> None:
+    pom = "<project><build><plugins>\n  </plugins></build></project>"
+
+    edits = maven_upgrade_bundle_plugin_edits(
+        {"pom.xml": pom},
+        _context(17),
+        feedback_text=(
+            "Failed to execute goal org.apache.felix:maven-bundle-plugin:4.2.0 "
+            "ConcurrentModificationException"
+        ),
+    )
+
+    assert len(edits) == 1
+    assert "<artifactId>maven-bundle-plugin</artifactId>" in edits[0]["new"]
+    assert "<version>5.1.9</version>" in edits[0]["new"]
+
+
 def test_javafx_operator_uses_target_profile_and_target_gate() -> None:
     pom = "<project><dependencies>\n  </dependencies></project>"
 
@@ -407,7 +425,9 @@ class Demo {
 }
 """
 
-    edits = replace_sun_misc_base64_edits({"src/main/java/Demo.java": java}, _context(17))
+    edits = replace_sun_misc_base64_edits(
+        {"src/main/java/Demo.java": java}, _context(17)
+    )
 
     assert len(edits) == 1
     assert "import java.util.Base64;" in edits[0]["new"]
@@ -426,8 +446,42 @@ class Demo {
 }
 """
 
-    assert replace_sun_misc_base64_edits({"Demo.java": complex_java}, _context(17)) == []
+    assert (
+        replace_sun_misc_base64_edits({"Demo.java": complex_java}, _context(17)) == []
+    )
     assert replace_sun_misc_base64_edits({"Demo.java": complex_java}, _context(8)) == []
+
+
+def test_replace_jdk_internal_api_removes_unused_jfr_import_only() -> None:
+    java = """package demo;
+
+import jdk.jfr.events.ExceptionThrownEvent;
+import java.util.List;
+
+class Demo {
+  List<String> names;
+}
+"""
+
+    edits = replace_jdk_internal_api_edits(
+        {"src/main/java/Demo.java": java}, _context(17)
+    )
+
+    assert len(edits) == 1
+    assert "import jdk.jfr.events.ExceptionThrownEvent;" not in edits[0]["new"]
+    assert "import java.util.List;" in edits[0]["new"]
+
+    used_java = java + "class Other { ExceptionThrownEvent event; }\n"
+    assert (
+        replace_jdk_internal_api_edits(
+            {"src/main/java/Demo.java": used_java}, _context(17)
+        )
+        == []
+    )
+    assert (
+        replace_jdk_internal_api_edits({"src/main/java/Demo.java": java}, _context(8))
+        == []
+    )
 
 
 def test_migrationbench_operator_candidate_is_child_of_original_candidate() -> None:
@@ -454,7 +508,7 @@ def test_migrationbench_operator_candidate_is_child_of_original_candidate() -> N
                     "<maven.compiler.source>1.8</maven.compiler.source>"
                     "</properties></project>"
                 )
-            }
+            },
         },
     )
     affordance = Affordance(
@@ -560,6 +614,35 @@ def test_operator_provider_reads_migrationbench_repo_dir_workspace(tmp_path) -> 
 
     live_observation = _attach_live_files(observation, workspace)
 
-    assert live_observation.data["__live_files__"]["pom.xml"].startswith(
-        "<project>"
+    assert live_observation.data["__live_files__"]["pom.xml"].startswith("<project>")
+
+
+def test_attach_live_files_includes_feedback_error_path(tmp_path) -> None:
+    repo = tmp_path / "repo"
+    source = repo / "src/main/java/demo/Demo.java"
+    source.parent.mkdir(parents=True)
+    source.write_text(
+        "package demo;\nimport jdk.jfr.events.ExceptionThrownEvent;\nclass Demo {}\n",
+        encoding="utf-8",
     )
+    observation = Observation(
+        summary="sample",
+        data={"pom_files": [], "java_files_sample": [], "target_java": 17},
+    )
+    workspace = WorkspaceHandle(root=repo, instance_id="repo__case")
+    feedback = FeedbackDigest(
+        candidate_id="c1",
+        failure_type="compile_error",
+        severity="blocking",
+        summary="compile_error",
+        evidence=[
+            "/tmp/work/repo/src/main/java/demo/Demo.java:4: error: "
+            "package jdk.jfr.events is not visible"
+        ],
+    )
+
+    live_observation = _attach_live_files(observation, workspace, feedback=feedback)
+
+    assert live_observation.data["__live_files__"][
+        "src/main/java/demo/Demo.java"
+    ].startswith("package demo;")

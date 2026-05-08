@@ -1,0 +1,17 @@
+{
+  "created_at": "2026-05-06T13:42:07.379319+00:00",
+  "name": "definitions_operatoires_paperbanana",
+  "caption": "Définitions opératoires : agent LLM, système multi-agents LLM, orchestration et médium de coordination. Ne pas écrire cette phrase dans l'image.",
+  "content_file": "/Users/lotfi/Documents/EMLV/Memoire/StigmergiAgentic/documentation/memoire/image_generation/prompts/definitions_operatoires_agent_mas_orchestration_medium.md",
+  "output_path": "/Users/lotfi/Documents/EMLV/Memoire/StigmergiAgentic/documentation/memoire/latex/images/definitions_operatoires_paperbanana.png",
+  "task": "diagram",
+  "aspect_ratio": "16:9",
+  "num_candidates": 1,
+  "max_critic_rounds": 1,
+  "retrieval_setting": "none",
+  "exp_mode": "demo_full",
+  "main_model_name": "gpt-5.5",
+  "image_gen_model_name": "gpt-image-2",
+  "returncode": 0,
+  "stdout": "Initialized OpenAI-compatible Client with base URL: https://api.francestudent.org/v1\nInitialized OpenRouter Client with API Key\n[Retriever] Running retrieval once for all candidates...\n[Retriever] Done. Retrieved 0 references.\n\nProcessing concurrently:   0%|          | 0/1 [00:00<?, ?it/s]\nProcessing concurrently:   0%|          | 0/1 [05:02<?, ?it/s]\nProcessing concurrently: 100%|##########| 1/1 [05:02<00:00, 302.38s/it]\nProcessing concurrently: 100%|##########| 1/1 [05:02<00:00, 302.38s/it]\n[Critic Round 0] No changes needed. Stopping iteration.\n/Users/lotfi/Documents/EMLV/Memoire/StigmergiAgentic/documentation/memoire/latex/images/definitions_operatoires_paperbanana.png\n"
+}

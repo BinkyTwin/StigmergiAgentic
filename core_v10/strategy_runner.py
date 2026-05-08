@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field, replace
 from enum import Enum
@@ -207,9 +208,11 @@ class BestObservedTracker:
             "best_hypothesis_id": self.best_report.hypothesis_id,
             "best_funnel_score": int(self.best_score),
             "best_stage": self.best_stage,
-            "best_feedback": self.best_report.feedback.to_dict()
-            if hasattr(self.best_report.feedback, "to_dict")
-            else to_jsonable(self.best_report.feedback),
+            "best_feedback": (
+                self.best_report.feedback.to_dict()
+                if hasattr(self.best_report.feedback, "to_dict")
+                else to_jsonable(self.best_report.feedback)
+            ),
             "best_signals": dict(validation.signals),
             "best_validation_status": validation.status.value,
         }
@@ -240,10 +243,7 @@ def _best_repair_sources(reports: Sequence[VerifierReport]) -> list[VerifierRepo
     non_passed = [report for report in reports if not report.passed]
     if not non_passed:
         return []
-    scored = [
-        (*_funnel_score(report.validation), report)
-        for report in non_passed
-    ]
+    scored = [(*_funnel_score(report.validation), report) for report in non_passed]
     best_score = max(score for score, _stage, _report in scored)
     if best_score > 0:
         return [
@@ -473,9 +473,7 @@ class StrategyRunner:
             reports.extend(current_reports)
             for report in current_reports:
                 if not report.passed:
-                    sig = self.graph.get(report.hypothesis_id).metadata.get(
-                        "signature"
-                    )
+                    sig = self.graph.get(report.hypothesis_id).metadata.get("signature")
                     if sig:
                         signature_tracker.mark_failed(sig)
             if any(report.passed for report in current_reports):
@@ -489,7 +487,9 @@ class StrategyRunner:
                 parent_node = self.graph.get(report.hypothesis_id)
                 original = parent_node.candidate
                 repair_observation = _attach_live_files(
-                    observation, parent_node.workspace
+                    observation,
+                    parent_node.workspace,
+                    feedback=report.feedback,
                 )
                 suggested = list(
                     repair_provider(
@@ -629,7 +629,9 @@ class StrategyRunner:
         dedup_skipped = 0
         repeat_failure_suppressed = 0
 
-        def _emit_signals(effects: Sequence[PolicyEffect], hyp_id: str | None = None) -> None:
+        def _emit_signals(
+            effects: Sequence[PolicyEffect], hyp_id: str | None = None
+        ) -> None:
             nonlocal signal_emitted_count
             for effect in effects:
                 self.event_log.append(
@@ -639,9 +641,11 @@ class StrategyRunner:
                     actor="signal_policy",
                     hypothesis_id=hyp_id,
                     payload={
-                        "record": store.get(effect.kind, effect.target).to_dict()
-                        if store.get(effect.kind, effect.target)
-                        else {},
+                        "record": (
+                            store.get(effect.kind, effect.target).to_dict()
+                            if store.get(effect.kind, effect.target)
+                            else {}
+                        ),
                         "op": effect.op,
                         "rationale": effect.rationale,
                     },
@@ -783,9 +787,7 @@ class StrategyRunner:
             reports.extend(current_reports)
             for report in current_reports:
                 if not report.passed:
-                    sig = self.graph.get(report.hypothesis_id).metadata.get(
-                        "signature"
-                    )
+                    sig = self.graph.get(report.hypothesis_id).metadata.get("signature")
                     if sig:
                         signature_tracker.mark_failed(sig)
             if any(report.passed for report in current_reports):
@@ -812,7 +814,9 @@ class StrategyRunner:
                         intensity=_digest_max_intensity(digest),
                     )
                 aug_observation = _attach_live_files(
-                    aug_observation, parent_node.workspace
+                    aug_observation,
+                    parent_node.workspace,
+                    feedback=report.feedback,
                 )
                 suggested = list(
                     repair_provider(
@@ -1149,15 +1153,13 @@ class StrategyRunner:
                     "origin": candidate.origin,
                     "reason": reason,
                     "guard": guard.to_dict(),
-                    "operator_invocation": invocation.to_dict()
-                    if invocation is not None
-                    else None,
+                    "operator_invocation": (
+                        invocation.to_dict() if invocation is not None else None
+                    ),
                     "source_affordance_id": (
                         candidate.metadata.get("source_affordance_id")
                         or (
-                            affordance.affordance_id
-                            if affordance is not None
-                            else None
+                            affordance.affordance_id if affordance is not None else None
                         )
                     ),
                 },
@@ -1215,6 +1217,64 @@ class StrategyRunner:
                 affordance=affordance,
             )
             return False
+
+        def _reject_regressed_operator(
+            *,
+            report: VerifierReport,
+            candidate: Candidate,
+        ) -> bool:
+            invocation = _operator_invocation_from_candidate(candidate)
+            if invocation is None or candidate.parent_id is None:
+                return False
+            try:
+                parent_node = self.graph.get(candidate.parent_id)
+            except ValueError:
+                return False
+            if parent_node.validation is None:
+                return False
+            parent_score, parent_stage = _funnel_score(parent_node.validation)
+            operator_score, operator_stage = _funnel_score(report.validation)
+            if operator_score >= parent_score:
+                return False
+            self.graph.discard(report.hypothesis_id, "operator_regressed_funnel")
+            self.event_log.append(
+                run_id=run_id,
+                instance_id=instance.instance_id,
+                event_type=OPERATOR_REJECTED_EVENT,
+                actor=str(candidate.metadata.get("worker_id") or "operator_worker"),
+                hypothesis_id=report.hypothesis_id,
+                payload={
+                    "candidate_id": candidate.candidate_id,
+                    "origin": candidate.origin,
+                    "reason": "operator_regressed_funnel",
+                    "parent_hypothesis_id": parent_node.hypothesis_id,
+                    "parent_candidate_id": parent_node.candidate.candidate_id,
+                    "parent_score": int(parent_score),
+                    "parent_stage": parent_stage,
+                    "operator_score": int(operator_score),
+                    "operator_stage": operator_stage,
+                    "operator_invocation": invocation.to_dict(),
+                },
+            )
+            _emit_store_signal(
+                kind=SignalKind.INHIBIT,
+                target=f"operator:{invocation.operator_id}",
+                intensity=0.85,
+                evidence=(candidate.candidate_id,),
+                rationale="operator_regressed_funnel",
+                hypothesis_id=report.hypothesis_id,
+            )
+            action_type = str(invocation.params.get("action_type") or "").strip()
+            if action_type:
+                _emit_store_signal(
+                    kind=SignalKind.INHIBIT,
+                    target=f"action:{action_type}",
+                    intensity=0.75,
+                    evidence=(candidate.candidate_id,),
+                    rationale="operator_regressed_action",
+                    hypothesis_id=report.hypothesis_id,
+                )
+            return True
 
         raw_candidates = list(candidate_provider(observation, instance))[
             : config.max_candidates
@@ -1288,7 +1348,6 @@ class StrategyRunner:
                 node = self.graph.get(report.hypothesis_id)
                 signature = signature_tracker.signature(candidate)
                 node.metadata["signature"] = signature
-                current_reports.append(report)
                 _emit_operator_result_if_needed(
                     self.event_log,
                     run_id=run_id,
@@ -1296,6 +1355,9 @@ class StrategyRunner:
                     report=report,
                     candidate=candidate,
                 )
+                current_reports.append(report)
+                if _reject_regressed_operator(report=report, candidate=candidate):
+                    continue
 
                 now_seq = max(0, self.event_log.next_sequence() - 1)
                 event_context = {
@@ -1347,9 +1409,7 @@ class StrategyRunner:
             reports.extend(current_reports)
             for report in current_reports:
                 if not report.passed:
-                    sig = self.graph.get(report.hypothesis_id).metadata.get(
-                        "signature"
-                    )
+                    sig = self.graph.get(report.hypothesis_id).metadata.get("signature")
                     if sig:
                         signature_tracker.mark_failed(sig)
             if any(report.passed for report in current_reports):
@@ -1362,13 +1422,22 @@ class StrategyRunner:
                 if report.passed:
                     continue
                 parent_node = self.graph.get(report.hypothesis_id)
+                if (
+                    parent_node.metadata.get("discard_reason")
+                    == "operator_regressed_funnel"
+                ):
+                    continue
                 original = parent_node.candidate
                 digest = policy_digest(store)
                 aug_observation = _attach_digest(observation, digest=digest)
                 aug_observation = _attach_live_files(
-                    aug_observation, parent_node.workspace
+                    aug_observation,
+                    parent_node.workspace,
+                    feedback=report.feedback,
                 )
-                decision_id = f"dec_{self.event_log.next_sequence():06d}_{report.hypothesis_id}"
+                decision_id = (
+                    f"dec_{self.event_log.next_sequence():06d}_{report.hypothesis_id}"
+                )
                 read = medium.read(
                     actor="stigmergic_scheduler",
                     decision_id=decision_id,
@@ -1917,9 +1986,7 @@ class StrategyRunner:
                 else fallback_reason
             ),
             selected_score=(
-                float(best.get("best_funnel_score"))
-                if best_id is not None
-                else None
+                float(best.get("best_funnel_score")) if best_id is not None else None
             ),
             competitors=tuple(competitors),
         )
@@ -2276,6 +2343,8 @@ _LIVE_FILES_MAX_FILES = 10
 def _attach_live_files(
     observation: Observation,
     parent_workspace,
+    *,
+    feedback: FeedbackDigest | None = None,
 ) -> Observation:
     """Attach the parent branch's current file contents to the observation.
 
@@ -2286,23 +2355,26 @@ def _attach_live_files(
 
     The override is stored under ``data["__live_files__"]`` and read back by
     ``scripts/bench/providers_llm._read_target_files``. The set of files is
-    derived from ``observation.data["pom_files"]`` and
-    ``observation.data["java_files_sample"]`` — same shape as the initial
-    provider, just refreshed from the parent workspace.
+    derived from ``observation.data["pom_files"]``,
+    ``observation.data["java_files_sample"]``, and paths cited by the latest
+    feedback. That last category matters for compile errors: the failing Java
+    file is often absent from the initial sample, but the repair/operator must
+    still ground its edit in the real parent branch.
     """
 
     if parent_workspace is None:
         return observation
     pom_files = list(observation.data.get("pom_files") or [])
     java_files = list(observation.data.get("java_files_sample") or [])
-    rel_paths = (pom_files + java_files)[:_LIVE_FILES_MAX_FILES]
+    feedback_files = _feedback_file_paths(feedback) if feedback is not None else []
+    rel_paths = _unique_paths(pom_files + feedback_files + java_files)[
+        :_LIVE_FILES_MAX_FILES
+    ]
     live: dict[str, str] = {}
     for rel in rel_paths:
         try:
             if hasattr(parent_workspace, "read_file"):
-                text = parent_workspace.read_file(
-                    rel, max_bytes=_LIVE_FILES_MAX_BYTES
-                )
+                text = parent_workspace.read_file(rel, max_bytes=_LIVE_FILES_MAX_BYTES)
             else:
                 path = _workspace_relative_path(parent_workspace, str(rel))
                 if path is None:
@@ -2319,6 +2391,48 @@ def _attach_live_files(
     new_data = dict(observation.data or {})
     new_data["__live_files__"] = live
     return replace(observation, data=new_data)
+
+
+def _unique_paths(paths: Sequence[str]) -> list[str]:
+    seen: set[str] = set()
+    result: list[str] = []
+    for path in paths:
+        normalized = str(path).strip().replace("\\", "/")
+        if (
+            not normalized
+            or normalized.startswith("/")
+            or ".." in normalized.split("/")
+        ):
+            continue
+        if normalized in seen:
+            continue
+        seen.add(normalized)
+        result.append(normalized)
+    return result
+
+
+def _feedback_file_paths(feedback: FeedbackDigest) -> list[str]:
+    paths: list[str] = []
+    for location in feedback.locations:
+        if isinstance(location, dict) and location.get("path"):
+            paths.append(str(location["path"]))
+    haystack = "\n".join(
+        [
+            str(feedback.summary or ""),
+            *[str(item) for item in feedback.evidence],
+        ]
+    )
+    patterns = (
+        re.compile(r"(?:^|\s)(?P<path>[\w./-]+\.java):\[\d+,\d+\]"),
+        re.compile(r"(?:^|\s)(?P<path>[\w./-]+\.java):\d+:"),
+    )
+    for pattern in patterns:
+        for match in pattern.finditer(haystack):
+            raw = match.group("path").replace("\\", "/")
+            if "/repo/" in raw:
+                raw = raw.split("/repo/", 1)[1]
+            paths.append(raw)
+    return _unique_paths(paths)
 
 
 def _workspace_relative_path(parent_workspace, rel_path: str) -> Path | None:

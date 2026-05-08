@@ -70,7 +70,10 @@ def affordances_from_feedback(
             priority=0.15,
         )
 
-    if "replacement_count_too_low" in full_text or "replacement_count_mismatch" in full_text:
+    if (
+        "replacement_count_too_low" in full_text
+        or "replacement_count_mismatch" in full_text
+    ):
         target = _first_location_path(feedback) or "current_file"
         add(
             action_type="inspect_current_file",
@@ -112,7 +115,10 @@ def affordances_from_feedback(
                 "diagnostic": "framework_bytecode_reader_upgrade_required",
             },
         )
-    elif any(token in full_text for token in ("class_version_error", "source_target", "release")):
+    elif any(
+        token in full_text
+        for token in ("class_version_error", "source_target", "release")
+    ):
         add(
             action_type="ensure_maven_compiler_release",
             target="pom.xml",
@@ -161,7 +167,23 @@ def affordances_from_feedback(
             },
         )
 
-    if any(token in full_text for token in ("compile_error", "compilation failure", "source option")):
+    if _looks_like_jdk_internal_api_failure(full_text):
+        add(
+            action_type="replace_jdk_internal_api",
+            target="java_sources",
+            reason=failure_type or "removed_jdk_internal_api",
+            worker="java_source_operator",
+            priority=0.28,
+            metadata={
+                **migration_metadata,
+                "operator_family": "jdk_internal_api",
+            },
+        )
+
+    if any(
+        token in full_text
+        for token in ("compile_error", "compilation failure", "source option")
+    ):
         add(
             action_type="select_compile_operator",
             target="maven_build",
@@ -183,7 +205,15 @@ def affordances_from_feedback(
                 "diagnostic": "external_artifact_unavailable",
             },
         )
-    elif any(token in full_text for token in ("dependency_resolution", "could not resolve", "javax.xml.bind", "jaxb")):
+    elif any(
+        token in full_text
+        for token in (
+            "dependency_resolution",
+            "could not resolve",
+            "javax.xml.bind",
+            "jaxb",
+        )
+    ):
         add(
             action_type="add_missing_dependency",
             target="pom.xml",
@@ -200,7 +230,11 @@ def affordances_from_feedback(
             },
         )
 
-    if "official_eval_failed" in full_text or "#tests=-2" in full_text or "test summary" in full_text:
+    if (
+        "official_eval_failed" in full_text
+        or "#tests=-2" in full_text
+        or "test summary" in full_text
+    ):
         add(
             action_type="fix_official_test_summary",
             target="pom.xml",
@@ -282,13 +316,19 @@ def _worker_for_action(action: str) -> str:
         return "dependency_operator"
     if any(token in action for token in ("lombok", "bundle", "bytecode")):
         return "maven_compiler_operator"
-    if "sun_misc_base64" in action or "java_source" in action:
+    if (
+        "sun_misc_base64" in action
+        or "jdk_internal" in action
+        or "java_source" in action
+    ):
         return "java_source_operator"
     if any(token in action for token in ("surefire", "official", "test_summary")):
         return "surefire_operator"
     if "test" in action or "preserve" in action:
         return "test_preservation_checker"
-    if any(token in action for token in ("compile", "maven", "release", "source", "target")):
+    if any(
+        token in action for token in ("compile", "maven", "release", "source", "target")
+    ):
         return "maven_compiler_operator"
     if any(token in action for token in ("replace", "exact", "inspect")):
         return "exact_edit_guard"
@@ -372,15 +412,34 @@ def _looks_like_sun_misc_base64_failure(full_text: str) -> bool:
     )
 
 
+def _looks_like_jdk_internal_api_failure(full_text: str) -> bool:
+    if "sun.misc.base64" in full_text or "base64encoder" in full_text:
+        return False
+    return any(
+        token in full_text
+        for token in (
+            "package jdk.jfr.events is not visible",
+            "import jdk.jfr.events",
+            "jdk.jfr.events.exceptionthrownevent",
+            "module jdk.jfr",
+            "does not export it",
+            "package sun.reflect.misc is not visible",
+            "cannot find symbol\n  symbol:   class callersensitive",
+        )
+    )
+
+
 def _looks_like_bytecode_reader_incompatibility(full_text: str) -> bool:
-    return (
-        "unsupported class file major version" in full_text
-        and any(token in full_text for token in ("spring", "asm", "cglib", "bytecode"))
+    return "unsupported class file major version" in full_text and any(
+        token in full_text for token in ("spring", "asm", "cglib", "bytecode")
     )
 
 
 def _looks_like_internal_dependency_failure(full_text: str) -> bool:
-    if "dependency_resolution" not in full_text and "could not resolve" not in full_text:
+    if (
+        "dependency_resolution" not in full_text
+        and "could not resolve" not in full_text
+    ):
         return False
     return any(
         token in full_text

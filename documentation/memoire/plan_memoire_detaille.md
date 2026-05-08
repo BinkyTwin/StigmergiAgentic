@@ -51,68 +51,62 @@
 
 ---
 
-## Chapitre 2, Revue de littérature (≈ 25 pages)
+## Chapitre 2, Revue de littérature (25 à 35 pages)
 
-2.1 Fondements théoriques de la stigmergie
-   - Grassé et le paradoxe de la coordination
-   - Formalisation algorithmique, intelligence en essaim, ACO
-   - Extension aux systèmes numériques, médium stigmergique
-   - Épistémologie stigmergique et cognition distribuée
-   - Stigmergie cognitive et paradigme Agents & Artifacts
-   - Systèmes adaptatifs complexes (Holland)
-   - Ancrage managérial, théorie de la coordination de Malone et Crowston, capacités dynamiques, routines organisationnelles
+> **Fil rouge inversé** (refonte 2026-05-05) : la stigmergie n'est plus l'objet d'étude principal mais la **réponse technique à un problème managérial préalablement posé** : comment l'entreprise adopte et gouverne des écologies d'agents LLM à grande échelle, et pourquoi les architectures hiérarchiques actuelles n'y suffisent pas.
 
-2.2 Coordination multi-agents et systèmes computationnels
-   - Définitions agents LLM et MAS
-   - Phéromones numériques
-   - Espaces de tuples
-   - Auto-organisation
-   - Stigmergie empirique en open source et Git (Bolici 2016)
-   - Bio-inspiration récente
-   - Panorama frameworks (MetaGPT, CrewAI, AutoGen, LangGraph)
+2.1 Le défi managérial de la GenAI agentique en entreprise (4 à 5 p.) — **section nouvelle**
+   - Industrialisation de la GenAI dans l'entreprise, chiffres d'adoption récents (banque et secteurs régulés en priorité)
+   - Tension architecturale héritée, monolithes versus microservices versus modernisation incrémentale
+   - Promesse et limites des architectures multi-agents centralisées (recyclage MAST Cemri 2025, Agentless Xia 2024, Gao 2025 sous l'angle « pourquoi cette approche déçoit en production »)
+   - Pourquoi le problème est d'abord managérial, modes d'échec comme problèmes de coordination, gouvernance et coût d'orchestration
 
-2.3 Limites des approches multi-agents centralisées
-   - Approche Agentless
-   - Framework MAST et taxonomie d'échecs
-   - Coût-efficacité et érosion de gains
-   - Positions industrielles, principe de simplicité
+2.2 Gouvernance, auditabilité et conformité dans les écologies agentiques (5 à 6 p.) — **renforcée**
+   - Guardrails pour écologies humain-IA (Grisold)
+   - Perspective principal-agent (Jarrahi et Ritala)
+   - EU AI Act Article 14 et traçabilité par construction
+   - Meaningful Human Control (Santoni de Sio et van den Hoven)
+   - Régulation sectorielle banque (RGPD, DORA, supervision ACPR et EBA)
+   - Articulation gouvernance externe régulateur / interne DSI, comité IA, audit
+   - Responsabilité morale distribuée et sécurité des systèmes agentiques
 
-2.4 Migration de code et transformation avec LLM
-   - Validation industrielle (Google, Amazon, IBM)
-   - Coordination multi-agents codage autonome
-   - Traduction cross-language
-   - Évolution et refactoring incrémental
-   - Transformation du rôle développeur
+2.3 Théorie de la coordination organisationnelle et apport au management des SI (4 à 5 p.) — **recyclée et condensée**
+   - Théorie de la coordination de Malone et Crowston (1994), pivot central
+   - Capacités dynamiques (Teece 2007)
+   - Routines organisationnelles (Feldman et Pentland 2003)
+   - Affordances technologiques (Strong et al. 2014)
+   - Définitions opérationnelles agents LLM, MAS, orchestration
 
-2.5 Gouvernance, auditabilité et conformité
-   - Guardrails pour écologies agentiques
-   - Perspective principal-agent
-   - EU AI Act Article 14
-   - Meaningful Human Control
-   - Dimensions organisationnelles, résistance et adoption
-   - Responsabilité morale distribuée
-   - Sécurité des systèmes agentiques
+2.4 La stigmergie comme mécanisme de coordination indirecte (5 à 6 p.) — **fusion et condensation forte**
+   - Origine biologique Grassé 1959, formalisation Bonabeau-Theraulaz-Dorigo 1999, distinction quantitatif/qualitatif
+   - Extension numérique Heylighen 2016 (sématectonique versus marqueurs)
+   - Stigmergie cognitive Ricci 2007, paradigme Agents & Artifacts (pivot vers les agents LLM)
+   - Phéromones numériques, espaces de tuples, auto-organisation (paragraphe synthétique)
+   - Stigmergie empirique en open source et Git, Bolici, Howison et Crowston 2016 (pivot terrain)
+   - Développements récents bio-inspirés 2023 à 2026 (ACO-ToT, SwarmAgentic, Rodriguez)
+   - Panorama frameworks (MetaGPT, CrewAI, AutoGen, LangGraph) en tableau synthétique
 
-2.6 Agentic BPM et workflows
-   - Définition Agentic BPM
-   - Du RPA à l'automatisation cognitive
-   - CAS appliqués aux processus
-   - Process Mining et LLM
+2.5 Transformation de code et workflows agentiques en pratique (3 à 4 p.) — **condensée**
+   - Validation industrielle Google (Ziftci 2025), Amazon Q, IBM COBOL
+   - Coordination multi-agents pour le codage autonome
+   - Traduction cross-language, modernisation legacy, refactoring d'API (paragraphe synthétique)
+   - Du RPA à l'automatisation cognitive, Agentic BPM
+   - Process Mining et LLM (paragraphe court)
 
-2.7 Benchmarks et évaluation
-   - MultiAgentBench, REALM-Bench, TravelPlanner
-   - Métriques génération de code
+2.6 Évaluation des systèmes agentiques et frontière coût-précision (2 à 3 p.) — **condensée**
+   - MultiAgentBench, REALM-Bench, TravelPlanner (un paragraphe par benchmark)
+   - Métriques pour la génération et la transformation de code
    - Coût-efficacité, frontières de Pareto Kapoor 2024
 
-2.8 Cadre conceptuel et identification du gap
-   - Synthèse croisée
-   - Gap théorique
-   - Relations entre blocs conceptuels
-   - Complexity Leadership Theory
-   - Cadre conceptuel proposé
+2.7 Cadre conceptuel et identification du gap (2 à 3 p.) — **réécrite**
+   - Synthèse croisée des blocs précédents
+   - Relations conceptuelles entre coordination, stigmergie, gouvernance, transformation
+   - Complexity Leadership Theory (Uhl-Bien et al. 2007), reconnectée au pivot managérial
+   - Cadre conceptuel proposé (figure récapitulative)
+   - **Gap reformulé** : la coordination stigmergique, identifiée par Malone et Crowston (1994) comme mécanisme à part entière, n'est pas opérationnalisée pour la gouvernance d'écologies agentiques en entreprise, alors même que les exigences d'adoption, d'auditabilité et de conformité (EU AI Act Article 14, régulation sectorielle) la rendent nécessaire.
 
-**Source disponible** : `consigne/revue_litterature_v2_DSR.tex` lignes 238 à 1912 (intégralité de la revue).
-**Statut** : **rédigé à 100 %**, à intégrer tel quel avec relecture finale et mise à jour bibliographique.
+**Source disponible** : `consigne/revue_litterature_v2_DSR.tex` (archive lignes 238 à 1912) ; refonte en cours selon `documentation/memoire/plan_refonte_revue_litterature.md` (validée 2026-05-05).
+**Statut** : **refonte 7 sections (2.1 à 2.7) en cours**, fil rouge inversé : la stigmergie devient la réponse technique à un problème managérial (adoption et gouvernance de la GenAI agentique en entreprise).
 
 ---
 
@@ -140,7 +134,7 @@
 3.5 Sources et collecte de données
    - Source 1, données de conception
    - Source 2, métriques quantitatives (TravelPlanner, MigrationBench)
-   - Source 3, panel d'experts (5 à 8 personnes)
+   - Source 3, test d'utilité FEDS auprès d'un panel de 5 à 8 experts
 
 3.6 Stratégies d'analyse
    - Frontières de Pareto coût-précision
@@ -319,25 +313,24 @@
 
 ---
 
-## Chapitre 7, Évaluation par experts et validation OC5 (≈ 12 pages)
+## Chapitre 7, Test d'utilité FEDS et validation OC5 (≈ 12 pages)
 
-7.1 Justification du protocole d'évaluation par experts
-   - Pourquoi un panel et non des entretiens exploratoires (cadre DSR, FEDS Venable 2016)
+7.1 Justification du test d'utilité au sens FEDS (Venable et al. 2016)
+   - Pourquoi un test d'utilité d'experts et pas de collecte exploratoire qualitative (cadre DSR, FEDS centré sur l'évaluation de l'artefact, pas sur l'élicitation de données primaires)
    - Profils ciblés, architectes logiciels, managers SI, ingénieurs IA, 5 à 8 personnes
 
-7.2 Protocole de l'évaluation
+7.2 Protocole du test d'utilité
    - Présentation du concept stigmergique (15 min)
-   - Démonstration live (20 min, scénario MigrationBench ou TravelPlanner)
-   - Questionnaire Likert (utilité, faisabilité, gouvernabilité, valeur organisationnelle)
-   - Questions ouvertes (résistance organisationnelle, conformité, adoption)
-   - Adaptation possible du `consigne/guide_entretien_complementaire.md`
+   - Démonstration de l'artefact en exécution (20 min, scénario MigrationBench ou TravelPlanner)
+   - Questionnaire Likert structuré sur quatre dimensions (utilité perçue, faisabilité d'implémentation, gouvernabilité, valeur organisationnelle)
+   - Aucune élicitation qualitative, l'évaluation porte sur l'artefact via le questionnaire FEDS
 
 7.3 Résultats quantitatifs Likert
    - **À compléter après collecte**, statistiques descriptives, scores moyens par dimension, dispersion
 
-7.4 Résultats qualitatifs
-   - Synthèse thématique des questions ouvertes
-   - Verbatims représentatifs sur gouvernance, adoption, EU AI Act
+7.4 Observations post-démo structurées
+   - Synthèse des observations recueillies pendant la démonstration (questions techniques, points d'attention soulevés sur la gouvernance, l'adoption, l'EU AI Act)
+   - Pas d'élicitation qualitative, seules les remarques structurées émises lors du test
 
 7.5 Audit trail et conformité Article 14 EU AI Act
    - Démonstration de la traçabilité par audit JSONL
@@ -346,7 +339,7 @@
 
 7.6 Validation OC5
 
-**Source disponible** : `consigne/guide_entretien_complementaire.md`, `documentation/managerial_playbook.md`.
+**Source disponible** : `documentation/managerial_playbook.md`, `documentation/implications_manageriales_et_pratiques.md`.
 **Statut** : **NON démarré** (la collecte panel est le plus gros risque de timeline). À planifier sous 1 à 2 semaines pour avoir les données dans 4 à 6 semaines.
 
 ---
@@ -424,7 +417,7 @@ C. ADR sélectionnés (sprints 1, 5, 7, 8, 9)
 D. Tableau de correspondance OC versus chapitre versus preuve
 E. Configurations YAML (`config/ablation/v6_*.yaml`, `config/migrationbench_v7_repair_colony_deepseek.yaml`)
 F. Extraits de marker traces commentés (TravelPlanner et MigrationBench)
-G. Protocole détaillé du panel d'experts et grille d'entretien
+G. Protocole FEDS et instruments du test d'utilité (questionnaire Likert)
 H. Capture des aggregates V9 (`output/final_campaign_v9_check/aggregates.json`)
 I. Journal complet des itérations V7.1
 J. Reproducibility note (commandes Docker, hashes de configs, modèles utilisés)
@@ -437,7 +430,7 @@ J. Reproducibility note (commandes Docker, hashes de configs, modèles utilisés
 |---|---|---|---|---|
 | 0. Liminaires | matériel partiel | 1 jour | – | basse, fin |
 | 1. Introduction | DSR existant | 1 jour | – | haute, démarrer |
-| 2. Revue littérature | DSR existant | 1 jour relecture | – | haute, intégration |
+| 2. Revue littérature | refonte 7 sections en cours | 25-35 p., réécriture argumentaire | – | **prioritaire** |
 | 3. Méthodologie | DSR existant | 1 jour relecture | – | haute, intégration |
 | 4. Conception artefact | sprint artifacts | 5 à 7 jours | aucune | **prioritaire** |
 | 5. TravelPlanner OC3 | données complètes | 4 à 6 jours | langgraph_supervisor optionnel | **prioritaire** |
@@ -446,7 +439,7 @@ J. Reproducibility note (commandes Docker, hashes de configs, modèles utilisés
 | 8. Discussion | matériel disponible | 3 à 5 jours | OC4 et OC5 partielles | démarrable |
 | 9. Conclusion | – | 1 à 2 jours | tout le reste | dernier |
 
-**Volume total estimé** : 90 à 120 pages corps + 30 à 50 pages annexes.
+**Volume total estimé** : 95 à 125 pages corps + 30 à 50 pages annexes (post-refonte revue 2026-05-05).
 
 ---
 
@@ -465,7 +458,7 @@ J. Reproducibility note (commandes Docker, hashes de configs, modèles utilisés
 
 **Semaine 5 et 6** :
 8. Si main_30 disponible, écrire 6.4 à 6.6
-9. Mener les entretiens du panel
+9. Conduire le test d'utilité FEDS auprès du panel
 10. Démarrer chapitre 8 (discussion)
 
 **Semaine 7 et 8** :
@@ -495,3 +488,21 @@ J. Reproducibility note (commandes Docker, hashes de configs, modèles utilisés
 ## Note finale
 
 Ce plan est compatible avec une soutenance dans 8 à 10 semaines en partant d'aujourd'hui. Les chapitres 1 à 5 et 8 sont rédigeables sans bloquant externe. Les chapitres 6 et 7 portent les deux risques majeurs, l'aboutissement de V7.1 et la disponibilité du panel. La méthodologie DSR autorise à présenter une itération non convergée comme contribution, à condition que le journal soit rigoureux. C'est ton matelas de sécurité.
+
+---
+
+## Changelog
+
+### 2026-05-05 — Refonte de la revue de littérature et retrait des entretiens
+
+Suite au retour oral de la superviseure (transcript du 2026-05-05), trois changements structurants :
+
+1. **Chapitre 2, Revue de littérature** : refonte de 8 à 7 sections (2.1 à 2.7), volume cible 25-35 p. (au lieu de ≈ 25 p.), fil rouge inversé. La stigmergie n'est plus l'objet d'étude principal mais la réponse technique à un problème managérial préalablement posé (adoption et gouvernance de la GenAI agentique en entreprise). Détail dans `documentation/memoire/plan_refonte_revue_litterature.md`. Sections supprimées et fusionnées : ancien 2.3 (Limites MAS) recyclé dans nouveau 2.1 sous l'angle « déception en production » ; ancien 2.6 (Agentic BPM) absorbé par nouveau 2.5 ; ancien 2.4 (Migration code) renuméroté en nouveau 2.5. Section nouvelle : 2.1 Le défi managérial de la GenAI agentique en entreprise.
+
+2. **Chapitre 3, Méthodologie** : Activité 5 du DSRM reformulée en test d'utilité FEDS. Suppression des références aux entretiens semi-directifs exploratoires et aux entretiens complémentaires informels (anciennement L199-205). Items Likert et citation FEDS (Venable et al. 2016) conservés.
+
+3. **Chapitre 7** : titre renommé « Test d'utilité FEDS et validation OC5 ». Suppression des questions ouvertes, des verbatims et des références à la grille d'entretien complémentaire. Annexe G renommée « Protocole FEDS et instruments du test d'utilité (questionnaire Likert) ».
+
+**Hors scope** : pas de rééquilibrage global management/technique au-delà de la pivot GenAI ; pas de conversion BibTeX ; pas de modification des archives `consigne/`.
+
+Volume total estimé ajusté de 90-120 p. à 95-125 p. (corps).

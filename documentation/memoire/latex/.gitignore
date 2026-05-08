@@ -1,0 +1,29 @@
+# Artefacts de compilation LaTeX (régénérés à chaque build)
+*.aux
+*.bbl
+*.bcf
+*.blg
+*.fdb_latexmk
+*.fls
+*.lof
+*.log
+*.lot
+*.out
+*.run.xml
+*.synctex.gz
+*.toc
+*.xdv
+
+# PDF de sortie : à committer ou non selon votre préférence.
+# Pour ne pas tracker le PDF de build local, décommenter :
+# main.pdf
+
+# Sauvegardes éditeurs et duplications Finder macOS
+*.bak
+*.swp
+*.swo
+* 2.*
+* 3.*
+
+# Caches éditeurs
+.DS_Store

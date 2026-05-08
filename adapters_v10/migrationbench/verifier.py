@@ -564,13 +564,20 @@ class MigrationBenchVerifier:
             if path.is_file()
         ][:2000]
         for path in class_files:
-            result = run_command(
-                ["bash", "-lc", f"javap -verbose {json.dumps(str(path))} | grep 'major version:'"],
-                cwd=repo_dir,
-                timeout_seconds=30,
-            )
-            versions |= parse_class_major_versions(result.stdout + result.stderr)
+            major_version = _read_class_major_version(path)
+            if major_version is not None:
+                versions.add(major_version)
         return versions
+
+
+def _read_class_major_version(path: Path) -> int | None:
+    try:
+        header = path.read_bytes()[:8]
+    except OSError:
+        return None
+    if len(header) < 8 or header[:4] != b"\xca\xfe\xba\xbe":
+        return None
+    return int.from_bytes(header[6:8], byteorder="big")
 
 
 def _command_to_dict(result: CommandResult) -> dict[str, Any]:

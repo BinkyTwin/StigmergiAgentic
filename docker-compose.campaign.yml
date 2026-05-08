@@ -465,6 +465,120 @@ services:
         fi
         /opt/venv/bin/python -m scripts.v11.run_v11_migrationbench_campaign $${ARGS}
 
+  # ---- V12.3 MigrationBench targeted agentic comparison (S1/S2/V12) ----
+  v12-migrationbench-targeted:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: stigmergiagentic-v12-migrationbench-targeted
+    environment:
+      DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:-}
+      PYTHONUNBUFFERED: "1"
+      PYTHONWARNINGS: "ignore"
+      V12_MIGRATION_SUBSET: ${V12_MIGRATION_SUBSET:-fixtures/migrationbench/subsets/targeted_v12_agentic_5.jsonl}
+      V12_MIGRATION_LIMIT: ${V12_MIGRATION_LIMIT:-}
+      V12_OUT_DIR: ${V12_OUT_DIR:-campaign_results/v12/migrationbench_targeted_agentic}
+      V12_WORKSPACE_ROOT: ${V12_WORKSPACE_ROOT:-workspaces/migrationbench_v12}
+      V12_SEED: ${V12_SEED:-42}
+      V12_MAX_STEPS: ${V12_MAX_STEPS:-6}
+      V12_OFFICIAL_EVAL: ${V12_OFFICIAL_EVAL:-true}
+      V12_USE_LLM_PROVIDERS: ${V12_USE_LLM_PROVIDERS:-true}
+      V12_OFFICIAL_TIMEOUT_SECONDS: ${V12_OFFICIAL_TIMEOUT_SECONDS:-1800}
+      V12_LLM_TIMEOUT_SECONDS: ${V12_LLM_TIMEOUT_SECONDS:-180}
+      V12_LLM_MAX_TOKENS: ${V12_LLM_MAX_TOKENS:-3000}
+      V12_CLEAN: ${V12_CLEAN:-true}
+    volumes:
+      - ./campaign_results/v12:/app/campaign_results/v12
+      - ./workspaces/migrationbench_v12:/app/workspaces/migrationbench_v12
+      - ./external:/app/external
+    working_dir: /app
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 65536
+      nproc: 8192
+    command:
+      - bash
+      - -lc
+      - |
+        set -e
+        if [ ! -d external/MigrationBench/.git ]; then
+          mkdir -p external
+          git clone --depth 1 https://github.com/amazon-science/MigrationBench.git external/MigrationBench
+        fi
+        if [ "$${V12_CLEAN}" = "true" ]; then
+          rm -rf "$${V12_OUT_DIR}" || true
+          find "$${V12_WORKSPACE_ROOT}" -mindepth 1 -maxdepth 1 -type d -exec rm -rf {} + || true
+        fi
+        mkdir -p "$${V12_WORKSPACE_ROOT}" "$${V12_OUT_DIR}"
+        EXTRAS=$$(python -c 'import json,os; print(json.dumps({"workspace_root_root":os.environ["V12_WORKSPACE_ROOT"],"artifacts_root":os.environ["V12_OUT_DIR"]+"/artifacts","migrationbench_root":"external/MigrationBench","official_eval":os.environ["V12_OFFICIAL_EVAL"].lower()=="true","official_timeout_seconds":float(os.environ["V12_OFFICIAL_TIMEOUT_SECONDS"]),"prepare":True,"out_dir":os.environ["V12_OUT_DIR"],"use_llm_providers":os.environ["V12_USE_LLM_PROVIDERS"].lower()=="true","llm_trace_enabled":True,"llm_initial_candidates":1,"llm_repair_candidates":1,"llm":{"provider":"deepseek","model":"deepseek-chat","base_url":"https://api.deepseek.com/v1","timeout_seconds":float(os.environ["V12_LLM_TIMEOUT_SECONDS"]),"max_tokens":int(os.environ["V12_LLM_MAX_TOKENS"]),"trace_enabled":True},"v12_llm":{"provider":"deepseek","model":"deepseek-v4-flash","timeout_seconds":float(os.environ["V12_LLM_TIMEOUT_SECONDS"]),"max_tokens":int(os.environ["V12_LLM_MAX_TOKENS"]),"strict_tools":True,"trace_enabled":True}}))')
+        ARGS=(--adapter migrationbench --subset "$${V12_MIGRATION_SUBSET}" --out-dir "$${V12_OUT_DIR}" --seed "$${V12_SEED}" --max-steps "$${V12_MAX_STEPS}" --extras "$${EXTRAS}")
+        if [ -n "$${V12_MIGRATION_LIMIT}" ]; then
+          ARGS+=(--limit "$${V12_MIGRATION_LIMIT}")
+        fi
+        if [ "$${V12_CLEAN}" = "true" ]; then
+          ARGS+=(--clean)
+        fi
+        /opt/venv/bin/python -m scripts.v12.run_v12_agentic_comparison "$${ARGS[@]}"
+
+  # ---- V12.4 SD-Feedback exact + read-only tools + stigmergic feedback ----
+  v12-sdfeedback-targeted:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: stigmergiagentic-v12-sdfeedback-targeted
+    environment:
+      DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:-}
+      PYTHONUNBUFFERED: "1"
+      PYTHONWARNINGS: "ignore"
+      V12_4_MIGRATION_SUBSET: ${V12_4_MIGRATION_SUBSET:-fixtures/migrationbench/subsets/targeted_v12_agentic_5.jsonl}
+      V12_4_MIGRATION_LIMIT: ${V12_4_MIGRATION_LIMIT:-}
+      V12_4_OUT_DIR: ${V12_4_OUT_DIR:-campaign_results/v12/migrationbench_targeted_sdfeedback_v12_4}
+      V12_4_WORKSPACE_ROOT: ${V12_4_WORKSPACE_ROOT:-workspaces/migrationbench_v12_4}
+      V12_4_SEED: ${V12_4_SEED:-42}
+      V12_4_MAX_ITERATIONS: ${V12_4_MAX_ITERATIONS:-6}
+      V12_4_INSPECTION_STEPS: ${V12_4_INSPECTION_STEPS:-1}
+      V12_4_OFFICIAL_EVAL: ${V12_4_OFFICIAL_EVAL:-true}
+      V12_4_USE_LLM_PROVIDERS: ${V12_4_USE_LLM_PROVIDERS:-true}
+      V12_4_OFFICIAL_TIMEOUT_SECONDS: ${V12_4_OFFICIAL_TIMEOUT_SECONDS:-1800}
+      V12_4_LLM_TIMEOUT_SECONDS: ${V12_4_LLM_TIMEOUT_SECONDS:-180}
+      V12_4_LLM_MAX_TOKENS: ${V12_4_LLM_MAX_TOKENS:-4000}
+      V12_4_CLEAN: ${V12_4_CLEAN:-true}
+    volumes:
+      - ./campaign_results/v12:/app/campaign_results/v12
+      - ./workspaces/migrationbench_v12_4:/app/workspaces/migrationbench_v12_4
+      - ./external:/app/external
+    working_dir: /app
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 65536
+      nproc: 8192
+    command:
+      - bash
+      - -lc
+      - |
+        set -e
+        if [ ! -d external/MigrationBench/.git ]; then
+          mkdir -p external
+          git clone --depth 1 https://github.com/amazon-science/MigrationBench.git external/MigrationBench
+        fi
+        if [ "$${V12_4_CLEAN}" = "true" ]; then
+          rm -rf "$${V12_4_OUT_DIR}" || true
+          find "$${V12_4_WORKSPACE_ROOT}" -mindepth 1 -maxdepth 1 -type d -exec rm -rf {} + || true
+        fi
+        mkdir -p "$${V12_4_WORKSPACE_ROOT}" "$${V12_4_OUT_DIR}"
+        EXTRAS=$$(python -c 'import json,os; print(json.dumps({"workspace_root_root":os.environ["V12_4_WORKSPACE_ROOT"],"artifacts_root":os.environ["V12_4_OUT_DIR"]+"/artifacts","migrationbench_root":"external/MigrationBench","official_eval":os.environ["V12_4_OFFICIAL_EVAL"].lower()=="true","official_timeout_seconds":float(os.environ["V12_4_OFFICIAL_TIMEOUT_SECONDS"]),"prepare":True,"out_dir":os.environ["V12_4_OUT_DIR"],"use_llm_providers":os.environ["V12_4_USE_LLM_PROVIDERS"].lower()=="true","llm_trace_enabled":True,"v12_4_llm":{"provider":"deepseek","model":"deepseek-v4-flash","base_url":"https://api.deepseek.com","timeout_seconds":float(os.environ["V12_4_LLM_TIMEOUT_SECONDS"]),"max_tokens":int(os.environ["V12_4_LLM_MAX_TOKENS"]),"trace_enabled":True},"v12_llm":{"provider":"deepseek","model":"deepseek-v4-flash","timeout_seconds":float(os.environ["V12_4_LLM_TIMEOUT_SECONDS"]),"max_tokens":int(os.environ["V12_4_LLM_MAX_TOKENS"]),"strict_tools":True,"trace_enabled":True}}))')
+        ARGS=(--adapter migrationbench --subset "$${V12_4_MIGRATION_SUBSET}" --out-dir "$${V12_4_OUT_DIR}" --seed "$${V12_4_SEED}" --max-iterations "$${V12_4_MAX_ITERATIONS}" --inspection-steps "$${V12_4_INSPECTION_STEPS}" --extras "$${EXTRAS}")
+        if [ -n "$${V12_4_MIGRATION_LIMIT}" ]; then
+          ARGS+=(--limit "$${V12_4_MIGRATION_LIMIT}")
+        fi
+        if [ "$${V12_4_CLEAN}" = "true" ]; then
+          ARGS+=(--clean)
+        fi
+        /opt/venv/bin/python -m scripts.v12.run_v12_4_sd_feedback_campaign "$${ARGS[@]}"
+        /opt/venv/bin/python -m scripts.v12.audit_v12_campaign --campaign-root "$${V12_4_OUT_DIR}"
+
   # ---- Phase 6 — A3 vs A4 ablation (smoke) ----
   ablation-a3-vs-a4-smoke:
     build:

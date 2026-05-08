@@ -1,0 +1,393 @@
+\chapter{Chapitre 2 - Revue de la littérature}\label{chapitre-2---revue-de-la-littuxe9rature}
+
+Dans une démarche de Design Science Research, la revue de littérature ne sert pas seulement à recenser des travaux existants. Elle doit aussi construire le problème de recherche, identifier les connaissances disponibles pour y répondre, puis faire apparaître le manque que l'artefact devra combler (Hevner et al., 2004 ; Peffers et al., 2007 ; Gregor et Hevner, 2013). Le fil directeur retenu dans ce chapitre est donc le suivant : les organisations ne cherchent pas uniquement à savoir si des modèles de langage peuvent produire du code ou exécuter des tâches ; elles cherchent à savoir comment organiser, gouverner et évaluer des collectifs hybrides composés d'humains, d'agents LLM et d'artefacts numériques partagés.
+
+Ce déplacement est central. Les premiers usages de l'IA générative ont surtout été analysés sous l'angle de la productivité individuelle, par exemple l'accélération de certaines tâches de développement logiciel ou l'aide à l'exploration de problèmes mal définis (Peng et al., 2023 ; Barke et al., 2023). Mais lorsque ces usages deviennent organisationnels, le problème change de nature. Il ne s'agit plus seulement de produire plus vite ; il s'agit de maintenir une capacité collective à décider, contrôler, corriger, tracer et apprendre. La question devient donc managériale autant que technique : comment bénéficier de l'autonomie agentique sans perdre la maîtrise du système d'information, de ses coûts, de sa conformité et de ses responsabilités ?
+
+Le chapitre progresse en sept temps. La section 2.1 part du défi managérial posé par l'industrialisation de l'IA générative agentique et montre pourquoi les architectures logicielles héritées en constituent un révélateur particulièrement exigeant. La section 2.2 définit les conditions de gouvernabilité d'une écologie agentique : supervision humaine, auditabilité, guardrails, conformité, responsabilité et sécurité. La section 2.3 mobilise les théories de la coordination organisationnelle, des capacités dynamiques, des routines et des affordances pour établir le vocabulaire managérial du problème. La section 2.4 introduit alors la stigmergie, non comme une métaphore biologique isolée, mais comme un mécanisme de coordination indirecte susceptible de répondre aux exigences précédentes. La section 2.5 examine le terrain d'application privilégié de cette recherche, la transformation de code et les workflows agentiques. La section 2.6 discute les méthodes d'évaluation adaptées aux systèmes multi-agents LLM dans une logique DSR. Enfin, la section 2.7 synthétise les apports et formule le gap que le framework StigmergiAgentic vise à combler.
+
+\section{2.1 D'un gain individuel à une capacité organisationnelle : le défi managérial de l'IA générative agentique}\label{dun-gain-individuel-uxe0-une-capacituxe9-organisationnelle-le-duxe9fi-managuxe9rial-de-lia-guxe9nuxe9rative-agentique}
+
+L'IA générative agentique désigne ici des systèmes capables non seulement de générer du texte ou du code, mais aussi de planifier des actions, d'utiliser des outils, de consulter des ressources externes, de modifier des artefacts et de poursuivre un objectif sur plusieurs étapes. Cette évolution crée un changement d'échelle. Tant que l'outil assiste un individu, l'organisation peut le traiter comme un instrument de productivité personnelle. Dès que plusieurs agents interviennent dans des workflows, manipulent des dépôts de code, produisent des décisions intermédiaires et déclenchent des validations automatisées, le sujet devient celui de l'orchestration d'une écologie socio-technique.
+
+Ce point est essentiel pour éviter une entrée trop brutale par l'architecture technique. Les tensions entre monolithes, microservices et modernisation legacy ne sont pas un simple décor informatique ; elles rendent visible un problème plus profond : l'organisation doit coordonner des transformations complexes dans un environnement contraint, où chaque action peut avoir un impact sur la qualité, la sécurité, la conformité et la continuité de service. La littérature sur les agents LLM montre ainsi un paradoxe : les gains potentiels sont importants, mais ils se dégradent lorsque la coordination devient coûteuse, opaque ou difficile à gouverner.
+
+\subsection{2.1.1 L'industrialisation de l'IA générative : productivité, exploration et déplacement du travail}\label{lindustrialisation-de-lia-guxe9nuxe9rative-productivituxe9-exploration-et-duxe9placement-du-travail}
+
+Les premiers résultats empiriques sur l'assistance au développement logiciel confirment que l'IA générative peut améliorer certaines dimensions de la productivité. Peng et al.~(2023) observent, dans une étude contrôlée, une amélioration significative du temps de réalisation de tâches de programmation avec GitHub Copilot. Barke et al.~(2023) montrent que les développeurs interagissent avec les modèles de génération de code selon deux modes complémentaires : un mode d'accélération, lorsque le problème est déjà clair et que l'outil permet de produire plus vite ; et un mode d'exploration, lorsque le développeur utilise le modèle pour clarifier le problème, envisager des pistes ou structurer son raisonnement.
+
+Ces travaux invitent à dépasser une conception purement automatisante de l'IA générative. La valeur ne réside pas seulement dans la substitution d'une production humaine par une production machine. Elle réside aussi dans la recomposition du travail intellectuel : le développeur devient tour à tour auteur, relecteur, superviseur, évaluateur et intégrateur de sorties générées. Dans un contexte agentique, cette recomposition s'intensifie : l'agent ne se contente pas de suggérer une ligne de code, il peut produire un patch, appeler un outil, inspecter un test, modifier une branche ou proposer une stratégie de correction.
+
+Le rôle managérial change en conséquence. La question n'est plus uniquement de former les individus à utiliser un assistant, mais de définir les droits d'action accordés aux agents, les niveaux d'autonomie acceptables, les points de validation humaine, les critères d'escalade et les mécanismes de traçabilité. Autrement dit, l'organisation doit transformer un gain local de productivité en capacité organisationnelle stable. C'est précisément à ce niveau que les difficultés apparaissent.
+
+\subsection{2.1.2 Le passage à l'échelle : coordination, confiance et responsabilité}\label{le-passage-uxe0-luxe9chelle-coordination-confiance-et-responsabilituxe9}
+
+Le passage d'un assistant individuel à une écologie d'agents transforme le problème d'adoption en problème de coordination. Markus (1983) montre que les systèmes d'information échouent rarement pour des raisons exclusivement techniques ; ils échouent souvent parce qu'ils redistribuent le pouvoir, les responsabilités et les mécanismes de contrôle au sein de l'organisation. Cette lecture reste pertinente pour l'IA générative agentique. L'introduction d'agents autonomes modifie la réponse à trois questions structurantes : qui décide, qui exécute et qui porte la responsabilité finale ?
+
+Les travaux sur la confiance dans l'automatisation complètent ce diagnostic. Lee et See (2004) soulignent que la confiance doit être calibrée : une confiance excessive conduit à une supervision insuffisante, tandis qu'une confiance trop faible conduit au rejet d'un système pourtant utile. Dietvorst et al.~(2015, 2018) documentent l'aversion algorithmique, notamment après observation d'erreurs, et montrent que permettre aux utilisateurs d'ajuster même légèrement les résultats algorithmiques réduit cette aversion. Kim et Kankanhalli (2009) analysent, de leur côté, la résistance au changement par les coûts de transition, d'incertitude et de perte perçue. Ces mécanismes sont amplifiés dans les systèmes agentiques, car les sorties sont plus difficiles à anticiper qu'un workflow classique.
+
+L'enjeu est donc de concevoir des dispositifs où l'autonomie agentique reste intelligible et contrôlable. Un système multi-agents ne peut être adopté durablement que si les utilisateurs comprennent ce que les agents peuvent faire, pourquoi une action a été déclenchée, comment une erreur peut être corrigée et quel humain reste responsable des décisions critiques. La gouvernance n'est pas une couche administrative ajoutée après coup ; elle devient une condition d'acceptabilité et donc de performance organisationnelle.
+
+\subsection{2.1.3 L'architecture héritée comme révélateur du problème managérial}\label{larchitecture-huxe9rituxe9e-comme-ruxe9vuxe9lateur-du-probluxe8me-managuxe9rial}
+
+Les architectures héritées rendent ce problème particulièrement visible. Les DSI ne travaillent pas dans un environnement neuf, homogène et parfaitement documenté. Elles composent avec des monolithes anciens, des microservices plus récents, des dépendances externes, des normes de sécurité, des calendriers de mise en production et des contraintes réglementaires. Dans les secteurs bancaires, assurantiels ou industriels, une part importante du coeur métier repose encore sur des systèmes legacy dont la sémantique doit être préservée avec précision. Sneed (2010) souligne depuis longtemps la difficulté des migrations de COBOL vers Java, difficulté qui ne relève pas seulement de la syntaxe des langages, mais aussi de la compréhension des règles métier incorporées dans le code.
+
+Ce point permet de relier architecture technique et management. Un système legacy est une mémoire organisationnelle. Feldman et Pentland (2003) décrivent les routines organisationnelles comme des structures à la fois stables et évolutives ; le code peut être lu comme une matérialisation partielle de ces routines. Modifier un système legacy revient donc à transformer une routine incarnée dans des artefacts techniques. Cela implique de préserver une connaissance tacite, de garantir la continuité opérationnelle, de gérer les dépendances et de documenter les décisions.
+
+La modernisation logicielle devient alors un cas d'école pour l'IA agentique. Les agents peuvent aider à localiser des dépendances, générer des patches, exécuter des tests et documenter des changements. Mais ils ne peuvent être utiles en production que si leur activité est coordonnée avec les artefacts existants : dépôt Git, tickets, pipelines CI/CD, logs, règles d'architecture et procédures de revue. L'architecture héritée ne vient donc pas interrompre le raisonnement ; elle illustre concrètement pourquoi le problème est d'abord celui d'une orchestration gouvernable.
+
+\subsection{2.1.4 Les limites des architectures multi-agents centralisées}\label{les-limites-des-architectures-multi-agents-centralisuxe9es}
+
+La littérature récente sur les agents LLM appelle cependant à la prudence. Les architectures multi-agents sont souvent présentées comme une solution naturelle à la complexité, mais plusieurs travaux montrent que la multiplication des agents peut créer plus de coûts que de bénéfices. Xia et al.~(2024), avec l'approche Agentless, démontrent qu'un pipeline simple et séquentiel peut obtenir des résultats compétitifs sur SWE-bench Lite, avec un coût réduit, en évitant une orchestration agentique complexe. Cette contribution ne disqualifie pas toutes les approches multi-agents, mais elle impose un baseline rigoureux : si plusieurs agents sont utilisés, leur valeur doit dépasser celle d'un processus simple, stable et peu coûteux.
+
+Cemri et al.~(2025), avec le framework MAST, proposent une taxonomie des modes d'échec des systèmes multi-agents LLM. Les défaillances récurrentes concernent notamment le mauvais cadrage des tâches, les incompréhensions entre agents, les erreurs de coordination, la vérification insuffisante et l'accumulation d'erreurs intermédiaires. Kapoor et al.~(2024) ajoutent que la précision seule ne suffit pas à évaluer un agent : un système peut améliorer ses résultats par des stratégies de retry coûteuses, sans progrès scientifique ou organisationnel réel. Gao et al.~(2025) montrent enfin que les gains des systèmes multi-agents diminuent lorsque les modèles de base deviennent plus performants, tandis que les coûts en tokens peuvent augmenter fortement.
+
+Ces travaux convergent vers un même point : le multi-agent n'est pas une fin en soi. Une architecture multi-agents ne devient pertinente que si elle améliore simultanément la performance, le coût, la robustesse et la gouvernabilité. Les systèmes centralisés, où un superviseur ou un agent principal coordonne les autres par messages, peuvent créer des goulots d'étranglement, fragmenter le contexte et rendre les décisions difficiles à auditer. L'enjeu n'est donc pas de choisir abstraitement entre agent unique et multi-agent, mais d'identifier un mécanisme de coordination capable de réduire les coûts de communication, de rendre les traces inspectables et de conserver une forme d'adaptabilité.
+
+\subsection{2.1.5 Synthèse intermédiaire : l'équation managériale}\label{synthuxe8se-intermuxe9diaire-luxe9quation-managuxe9riale}
+
+Le défi peut être résumé sous la forme d'une équation managériale. L'organisation veut bénéficier de l'autonomie des agents pour accélérer des tâches complexes, mais elle doit simultanément maîtriser les coûts d'orchestration, préserver la cohérence des systèmes existants, assurer la conformité, maintenir la responsabilité humaine et éviter une perte de contrôle sur les décisions collectives. Cette équation explique l'ordre du chapitre : avant de défendre une solution stigmergique, il faut d'abord préciser les conditions dans lesquelles une écologie agentique peut être considérée comme gouvernable.
+
+\begin{longtable}[]{@{}
+  >{\raggedright\arraybackslash}p{(\columnwidth - 4\tabcolsep) * \real{0.3333}}
+  >{\raggedright\arraybackslash}p{(\columnwidth - 4\tabcolsep) * \real{0.3333}}
+  >{\raggedright\arraybackslash}p{(\columnwidth - 4\tabcolsep) * \real{0.3333}}@{}}
+\toprule\noalign{}
+\begin{minipage}[b]{\linewidth}\raggedright
+Problème observé
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
+Risque organisationnel
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
+Exigence de design
+\end{minipage} \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+Productivité locale mais passage à l'échelle difficile & Gains non stabilisés au niveau organisationnel & Transformer l'usage individuel en capacité collective \\
+Multiplication des agents et échanges de messages & Fragmentation du contexte, coût élevé, erreurs de coordination & Réduire les dépendances directes entre agents \\
+Transformation de code legacy & Perte de sémantique métier, dette technique, risque opérationnel & Tracer chaque modification et valider automatiquement \\
+Autonomie agentique & Dilution de responsabilité et confiance mal calibrée & Intégrer supervision humaine, auditabilité et points d'escalade \\
+Évaluation centrée sur la précision & Optimisation coûteuse et peu robuste & Mesurer performance, coût, reproductibilité et conformité \\
+\end{longtable}
+
+\section{2.2 Gouvernance, auditabilité et conformité dans les écologies agentiques}\label{gouvernance-auditabilituxe9-et-conformituxe9-dans-les-uxe9cologies-agentiques}
+
+Une écologie agentique ne peut être déployée en entreprise que si elle respecte un ensemble de contraintes qui précèdent le choix technique. Ces contraintes concernent la supervision humaine, l'auditabilité, la sécurité, l'alignement avec les normes internes et la conformité réglementaire. Elles sont particulièrement fortes dans les secteurs régulés, où la production logicielle touche des processus critiques et des données sensibles. Cette section établit donc les critères que toute solution d'orchestration doit satisfaire.
+
+\subsection{2.2.1 Supervision humaine effective et design for oversight}\label{supervision-humaine-effective-et-design-for-oversight}
+
+L'Article 14 de l'EU AI Act impose que les systèmes d'IA à haut risque soient conçus de manière à permettre une supervision humaine effective. Fink (2025) insiste sur le fait que cette supervision ne peut pas être purement symbolique : les humains doivent comprendre les capacités et limites du système, interpréter correctement les sorties, rester conscients du biais d'automation, pouvoir intervenir et pouvoir arrêter le système lorsque nécessaire. Holmström et al.~(2023) distinguent plusieurs configurations de supervision : Human-in-the-loop, lorsque chaque décision exige une validation humaine ; Human-on-the-loop, lorsque le système agit avec surveillance humaine ; et Human-in-command, lorsque l'humain conserve un contrôle stratégique.
+
+Pour les systèmes multi-agents appliqués à la transformation de code, le mode Human-on-the-loop apparaît particulièrement pertinent. Exiger une validation humaine à chaque micro-action rendrait l'automatisation peu utile ; à l'inverse, déléguer entièrement les transformations serait difficilement acceptable dans des environnements critiques. L'objectif est donc de permettre aux agents d'agir localement, tout en rendant leurs actions observables, interrompables et réversibles.
+
+Santoni de Sio et van den Hoven (2018) fournissent un cadre complémentaire avec le Meaningful Human Control. Leur condition de tracking exige que le système reste sensible aux raisons et valeurs humaines pertinentes ; leur condition de tracing exige qu'il soit possible de relier les résultats du système à des humains responsables. Ces deux conditions sont décisives pour une coordination émergente : si les agents interagissent indirectement par des traces, ces traces doivent permettre de reconstituer les chaînes causales et les responsabilités.
+
+\subsection{2.2.2 Guardrails et gouvernance par l'environnement}\label{guardrails-et-gouvernance-par-lenvironnement}
+
+Grisold, Berente et Seidel (2025) introduisent le concept de guardrails pour les écologies humain-IA. Les guardrails désignent des zones de comportement désirable qui encadrent les opérations du système sans supprimer toute autonomie adaptative. Leur approche distingue des normes profondes, liées aux valeurs stables de l'organisation, et des normes de surface, plus opérationnelles et adaptables selon les contextes.
+
+Cette distinction est importante pour l'orchestration agentique. Un agent peut être contraint par des règles inscrites dans son prompt, mais ces règles sont fragiles si elles ne sont pas matérialisées dans l'environnement. À l'inverse, un dépôt Git qui exige des commits signés, une pipeline CI/CD qui bloque un patch échouant aux tests, ou un système de tickets qui impose un lien entre modification et demande métier sont des guardrails environnementaux. Ils ne dépendent pas seulement de la bonne volonté de l'agent ; ils structurent l'espace d'action disponible.
+
+Cette logique prépare directement l'intérêt de la stigmergie. Si les agents se coordonnent par un environnement partagé, cet environnement peut devenir à la fois médium de coordination et dispositif de gouvernance. Les traces laissées par les agents ne servent pas seulement à informer les autres agents ; elles servent aussi à auditer, filtrer, renforcer, corriger ou annuler des actions. La gouvernance n'est plus une couche externe, elle devient une propriété du médium.
+
+\subsection{2.2.3 Perspective principal-agent et accountability organisationnelle}\label{perspective-principal-agent-et-accountability-organisationnelle}
+
+Jarrahi et Ritala (2025) appliquent la théorie principal-agent aux agents IA. Un agent agit pour le compte d'un principal humain ou organisationnel, mais il dispose d'une capacité de traitement et d'action qui peut dépasser celle de l'utilisateur. Cette asymétrie crée des risques classiques : divergence d'intérêts, difficulté de supervision, information incomplète et dilution de responsabilité. Dans un système multi-agents, ces risques sont amplifiés car plusieurs agents peuvent contribuer à un résultat final sans qu'un acteur unique ait une vision complète de la chaîne décisionnelle.
+
+La perspective principal-agent conduit à formuler une exigence forte : toute action agentique doit être rattachable à un objectif, à une autorisation, à un contexte et à un responsable. Dans la transformation de code, cela signifie qu'un patch ne doit pas apparaître comme une sortie isolée d'un modèle. Il doit être relié à une issue, à une hypothèse de modification, à des tests, à des logs d'exécution, à des validations et, le cas échéant, à une revue humaine. L'accountability ne repose donc pas uniquement sur l'identité de l'agent ; elle repose sur l'organisation des traces.
+
+\subsection{2.2.4 Spécificité des secteurs régulés : banque, données et résilience opérationnelle}\label{spuxe9cificituxe9-des-secteurs-ruxe9guluxe9s-banque-donnuxe9es-et-ruxe9silience-opuxe9rationnelle}
+
+Dans les secteurs régulés, les exigences précédentes sont renforcées par des cadres sectoriels. Le RGPD impose la maîtrise des traitements de données et la capacité à justifier certains usages ; le Digital Operational Resilience Act renforce les exigences de résilience numérique pour les institutions financières ; les autorités de supervision sectorielle exigent des dispositifs de contrôle adaptés aux risques opérationnels, aux données sensibles et aux processus critiques. Dans ce contexte, une écologie agentique appliquée au système d'information ne peut pas fonctionner comme une boîte noire expérimentale.
+
+La banque constitue donc un terrain particulièrement exigeant. Les systèmes y sont souvent anciens, interconnectés et soumis à des contraintes fortes de disponibilité. Une erreur de transformation logicielle peut avoir des effets opérationnels, juridiques et réputationnels. Cela justifie de privilégier des mécanismes d'audit append-only, des journaux d'exécution exploitables par les fonctions de contrôle, des validations automatiques reproductibles et des points de décision humaine clairement définis. La solution technique doit être pensée dès l'origine comme compatible avec l'audit interne, la conformité et la continuité d'activité.
+
+\subsection{2.2.5 Responsabilité morale distribuée et travail significatif}\label{responsabilituxe9-morale-distribuuxe9e-et-travail-significatif}
+
+Les systèmes multi-agents posent également un problème de responsabilité morale distribuée. Floridi (2016) montre que des actions moralement significatives peuvent émerger d'interactions locales dont aucune ne semble, prise isolément, porter toute la responsabilité. Dans les systèmes swarm, Winfield et al.~(2025) soulignent que l'émergence n'est pas seulement un bug à supprimer ; elle peut être une propriété recherchée. Mais si l'émergence est recherchée, elle doit être gouvernée.
+
+Cette gouvernance n'est pas seulement juridique. García-Ruiz et Rocchi (2025) rappellent que le travail significatif suppose une forme d'agentivité morale. Si les humains sont réduits à valider mécaniquement des prescriptions algorithmiques, leur rôle se vide de sa substance. Pour un système agentique en entreprise, cela signifie que les points de contrôle humains doivent être réels : ils doivent permettre de comprendre, arbitrer et modifier des trajectoires, et non simplement cliquer sur une validation formelle.
+
+\subsection{2.2.6 Sécurité des environnements partagés}\label{suxe9curituxe9-des-environnements-partaguxe9s}
+
+Enfin, les systèmes multi-agents introduisent des vulnérabilités spécifiques. Chen et al.~(2024) documentent AgentPoison, une attaque qui cible les mémoires ou bases de connaissances utilisées par des agents LLM. Lee et Tiwari (2024) analysent le Prompt Infection, c'est-à-dire la propagation d'instructions malveillantes entre agents interconnectés. Ces travaux sont particulièrement importants pour une approche par environnement partagé : si l'environnement devient le médium de coordination, il devient aussi une surface d'attaque.
+
+La sécurité d'une orchestration stigmergique doit donc inclure l'authentification des traces, la validation de l'intégrité des artefacts, la séparation des permissions, la surveillance des comportements anormaux et la capacité de rollback. Une trace n'est utile que si elle est fiable ; une mémoire partagée n'est gouvernable que si elle peut être protégée contre l'empoisonnement, l'injection et la manipulation.
+
+\subsection{2.2.7 Synthèse intermédiaire}\label{synthuxe8se-intermuxe9diaire}
+
+La gouvernance des écologies agentiques impose une conclusion claire : le système de coordination doit être en même temps un système d'audit. Les agents doivent pouvoir agir, mais leurs actions doivent laisser des traces interprétables ; les humains doivent pouvoir superviser, mais sans bloquer chaque micro-action ; les règles doivent encadrer le comportement, mais sans supprimer toute adaptation. Ces exigences orientent la revue vers les théories de la coordination organisationnelle, car il faut désormais comprendre comment des activités interdépendantes peuvent être organisées sans dépendre d'un superviseur central omniscient.
+
+\section{2.3 Théories de la coordination organisationnelle et management des systèmes d'information}\label{thuxe9ories-de-la-coordination-organisationnelle-et-management-des-systuxe8mes-dinformation}
+
+La littérature sur les agents LLM emploie souvent le terme d'orchestration dans un sens technique : organiser des appels de modèles, répartir des tâches ou définir une topologie d'échanges. Pour un mémoire en management des systèmes d'information, cette notion doit être replacée dans une théorie plus générale de la coordination. Une écologie agentique est un système organisationnel : elle gère des dépendances entre activités, distribue des rôles, produit des artefacts, actualise des routines et transforme des capacités.
+
+\subsection{2.3.1 Coordination comme gestion des dépendances}\label{coordination-comme-gestion-des-duxe9pendances}
+
+Malone et Crowston (1994) définissent la coordination comme la gestion des dépendances entre activités. Cette définition est suffisamment générale pour relier organisation, informatique et systèmes multi-agents. Elle permet de comparer plusieurs mécanismes de coordination : la hiérarchie, où une autorité centrale répartit et contrôle les tâches ; le marché, où les acteurs s'ajustent par des signaux de prix ou d'incitation ; la communication directe, où les acteurs échangent explicitement des messages ; et la coordination indirecte, où les acteurs se coordonnent par l'intermédiaire d'un environnement commun.
+
+Cette dernière forme est décisive pour la présente recherche. Dans une architecture multi-agents centralisée, les dépendances sont souvent gérées par un agent superviseur ou par des échanges directs entre agents. Cela peut fonctionner pour des tâches limitées, mais devient coûteux lorsque le nombre d'agents, d'artefacts et d'états intermédiaires augmente. Une coordination par environnement partagé peut réduire le nombre d'interactions directes, découpler temporellement les activités et rendre les dépendances visibles sous forme de traces.
+
+Bolici, Howison et Crowston (2016) montrent que cette forme de coordination existe déjà dans le développement open source. Les développeurs ne se coordonnent pas uniquement par messages explicites ; ils se coordonnent aussi par commits, issues, pull requests, branches et signaux laissés dans les outils. Ces artefacts déclenchent des actions ultérieures, guident l'attention et permettent de reconstruire l'histoire du travail collectif. Cette observation fournit un pont direct entre théorie organisationnelle et ingénierie logicielle.
+
+\subsection{2.3.2 Capacités dynamiques et transformation logicielle continue}\label{capacituxe9s-dynamiques-et-transformation-logicielle-continue}
+
+Teece (2007) définit les capacités dynamiques comme l'aptitude d'une organisation à détecter les opportunités et menaces, à saisir les occasions, puis à reconfigurer ses actifs pour maintenir un avantage compétitif. La transformation logicielle peut être relue à travers ce cadre. Moderniser un système, migrer une version de langage, réduire une dette technique ou adapter une architecture ne sont pas de simples tâches de maintenance ; ce sont des opérations par lesquelles l'organisation maintient sa capacité à évoluer.
+
+L'IA agentique devient pertinente si elle renforce cette capacité dynamique. Des agents peuvent détecter des zones de dette technique, proposer des modifications, tester des variantes, documenter des changements et accélérer la reconfiguration d'actifs logiciels. Mais cette capacité n'a de valeur que si elle est maîtrisée. Une transformation rapide mais non traçable ou non gouvernable peut augmenter le risque. L'orchestration attendue doit donc permettre une reconfiguration continue, mais contrôlée.
+
+Cette lecture rapproche le travail technique du management stratégique. L'artefact logiciel n'est pas seulement un outil ; il est un actif organisationnel. L'agent LLM n'est pas seulement un générateur ; il devient une ressource d'orchestration. Le manager SI n'est pas seulement un superviseur de projet ; il doit définir les conditions dans lesquelles cette orchestration contribue à la capacité dynamique de l'organisation.
+
+\subsection{2.3.3 Routines organisationnelles, code et mémoire collective}\label{routines-organisationnelles-code-et-muxe9moire-collective}
+
+Feldman et Pentland (2003) montrent que les routines organisationnelles comportent une dimension ostensive, c'est-à-dire le schéma général de la routine, et une dimension performative, c'est-à-dire les exécutions concrètes et situées. Le code peut être compris comme une inscription partielle de ces routines. Il formalise certaines règles métier, automatise des décisions, stabilise des pratiques et conserve une mémoire historique des choix organisationnels.
+
+Cette perspective éclaire les risques de la transformation automatisée. Un agent peut modifier une syntaxe ou adapter une API, mais il peut aussi altérer involontairement une routine métier incorporée dans le code. La qualité d'une migration ne se limite donc pas au passage des tests ; elle exige la préservation d'une signification organisationnelle. Les traces de conception, les logs, les commentaires, les revues et les validations sont nécessaires pour relier une modification technique à une intention métier.
+
+Dans une approche stigmergique, ces traces prennent une importance particulière. Elles ne sont pas seulement des archives ; elles deviennent des stimuli pour l'action future. Un test échoué oriente un agent de réparation, une pull request signale un point de validation, un commentaire de revue modifie la trajectoire d'un patch. Le code et ses artefacts périphériques deviennent ainsi un environnement actif de coordination.
+
+\subsection{2.3.4 Affordances technologiques et actualisation de la valeur}\label{affordances-technologiques-et-actualisation-de-la-valeur}
+
+Strong et al.~(2014) définissent les affordances technologiques comme des possibilités d'action offertes par une technologie à des acteurs situés. Une même technologie peut donc produire des effets différents selon les acteurs, les objectifs, les routines et les contraintes organisationnelles. Cette notion est utile pour éviter un déterminisme technologique : l'IA agentique ne crée pas mécaniquement de valeur ; elle offre des possibilités qui doivent être actualisées dans un contexte.
+
+Les affordances pertinentes pour cette recherche sont notamment la génération de modifications, la localisation de dépendances, la validation automatisée, la documentation, la coordination asynchrone, la traçabilité et l'escalade humaine. Le design de l'artefact doit rendre ces affordances actualisables. Par exemple, un agent capable de générer un patch ne crée de valeur que si le patch peut être relié à une tâche, testé, comparé, revu et intégré dans une chaîne de gouvernance.
+
+L'approche par affordances relie donc directement le choix technique à la valeur managériale. Une architecture stigmergique n'est pertinente que si elle permet aux acteurs organisationnels d'actualiser des possibilités que les architectures centralisées ou purement conversationnelles actualisent mal : coordination asynchrone, auditabilité native, réduction de la charge de supervision et apprentissage à partir des traces.
+
+\subsection{2.3.5 Définitions opératoires : agent LLM, système multi-agents et orchestration}\label{duxe9finitions-opuxe9ratoires-agent-llm-systuxe8me-multi-agents-et-orchestration}
+
+Afin de stabiliser le vocabulaire, cette recherche retient quatre définitions opératoires. Un agent LLM est un composant logiciel fondé sur un modèle de langage, capable d'interpréter un objectif, de produire un raisonnement ou une action, d'utiliser des outils et de modifier ou consulter des artefacts. Un système multi-agents LLM est un ensemble de plusieurs agents spécialisés ou redondants qui contribuent à un objectif commun ou à des objectifs interdépendants. Une orchestration désigne l'organisation des rôles, des dépendances, des règles d'action, des mécanismes de validation et des flux d'information entre ces agents. Enfin, un médium de coordination désigne l'environnement partagé par lequel les agents observent l'état du travail, déposent des traces et déclenchent des actions ultérieures.
+
+Ces définitions permettent de distinguer l'objet de recherche d'un simple chatbot ou d'un pipeline linéaire. Le coeur du problème n'est pas la génération isolée d'une sortie, mais l'organisation d'un collectif agentique dans le temps. C'est à ce niveau que la stigmergie devient une piste théorique et opérationnelle.
+
+\subsection{2.3.6 Synthèse intermédiaire}\label{synthuxe8se-intermuxe9diaire-1}
+
+Les théories mobilisées dans cette section établissent un socle managérial. La coordination est la gestion des dépendances ; la transformation logicielle est une capacité dynamique ; le code porte des routines organisationnelles ; la valeur de l'IA dépend d'affordances effectivement actualisées. Ce socle conduit à une question de design : quel mécanisme de coordination permettrait à des agents LLM de transformer des artefacts logiciels tout en conservant traçabilité, gouvernance et capacité d'adaptation ? La section suivante introduit la stigmergie comme réponse possible.
+
+\section{2.4 La stigmergie comme mécanisme de coordination indirecte}\label{la-stigmergie-comme-muxe9canisme-de-coordination-indirecte}
+
+La stigmergie est souvent présentée à partir de son origine biologique. Pour cette recherche, son intérêt principal n'est pas la métaphore de la fourmi ou du termite, mais le principe abstrait qu'elle révèle : des acteurs peuvent se coordonner indirectement en modifiant un environnement commun. L'environnement conserve des traces de l'activité passée ; ces traces influencent l'activité future ; la coordination collective émerge sans qu'un superviseur central doive prescrire chaque action.
+
+\subsection{2.4.1 Origine biologique et formalisation algorithmique}\label{origine-biologique-et-formalisation-algorithmique}
+
+Grassé (1959) introduit le terme de stigmergie pour expliquer la reconstruction du nid chez les termites. Les individus n'ont pas besoin d'un plan global ; ils réagissent aux traces laissées dans l'environnement par les actions précédentes. Theraulaz et Bonabeau (1999), puis Bonabeau et al.~(1999), étendent ce principe à l'intelligence en essaim et montrent comment des comportements collectifs robustes peuvent émerger d'interactions locales simples.
+
+La formalisation algorithmique de la stigmergie repose généralement sur trois mécanismes : le dépôt de traces, le renforcement des traces utiles et l'évaporation ou la disparition progressive des traces moins utiles. Dans les algorithmes inspirés des colonies de fourmis, ces traces sont souvent modélisées comme des phéromones qui orientent la recherche de chemins. L'intérêt pour les systèmes d'information est double. D'une part, la coordination ne dépend pas d'une communication directe entre tous les acteurs. D'autre part, le système peut s'adapter dynamiquement, car les traces évoluent avec l'activité réelle.
+
+\subsection{2.4.2 Stigmergie numérique et environnement comme abstraction de coordination}\label{stigmergie-numuxe9rique-et-environnement-comme-abstraction-de-coordination}
+
+Heylighen (2016a, 2016b) propose une définition générale de la stigmergie comme mécanisme universel de coordination. Dans cette perspective, les traces ne sont pas nécessairement biologiques ; elles peuvent être des documents, des liens, des données, des tickets, des annotations ou des signaux numériques. Parunak (1997) transpose les principes des systèmes naturels aux systèmes multi-agents : localité de perception, action située, feedback positif, redondance et adaptation collective.
+
+Les espaces de tuples de Gelernter (1985) fournissent une traduction computationnelle de ce principe. Dans le modèle Linda, les processus ne communiquent pas uniquement par messages directs ; ils déposent et récupèrent des tuples dans un espace partagé. Carriero et Gelernter (1992) montrent que cette approche sépare le modèle de calcul du modèle de coordination. Mamei et Zambonelli (2009), avec TOTA, prolongent cette logique vers des environnements distribués où les tuples peuvent se propager. Weyns, Omicini et Odell (2007) défendent de manière plus générale l'environnement comme abstraction de première classe dans les systèmes multi-agents.
+
+Ces travaux sont importants car ils déplacent l'attention. Dans une architecture classique, l'environnement est souvent un simple support d'exécution. Dans une architecture stigmergique, l'environnement devient le lieu principal de la coordination. Pour des agents LLM, cela signifie que les artefacts partagés - dépôt Git, base de tickets, logs, mémoire vectorielle, pipeline CI/CD - ne sont pas seulement des ressources consultées ; ils deviennent des médiateurs actifs du travail collectif.
+
+\subsection{2.4.3 Stigmergie cognitive et paradigme Agents \& Artifacts}\label{stigmergie-cognitive-et-paradigme-agents-artifacts}
+
+Ricci, Omicini, Viroli, Gardelli et Oliva (2007) franchissent une étape décisive avec la notion de stigmergie cognitive. Contrairement aux approches biologiques centrées sur des agents réactifs simples, la stigmergie cognitive concerne des agents capables d'interprétation, de raisonnement et d'action intentionnelle. Leur paradigme Agents \& Artifacts distingue les agents, qui poursuivent des objectifs, et les artefacts, qui offrent des fonctions de médiation, de mémoire, de coordination et de contrôle.
+
+Ce cadre est particulièrement adapté aux agents LLM. Un agent LLM peut lire un ticket, interpréter un diff, analyser un log de test, produire une hypothèse de correction, modifier un fichier et documenter son action. Mais pour que ces capacités deviennent collectivement utiles, elles doivent s'inscrire dans des artefacts conçus pour la coordination. L'artefact n'est pas un simple contenant passif : il structure les possibilités d'action, expose un état partagé, conserve un historique et rend certaines actions acceptables ou impossibles.
+
+La stigmergie cognitive constitue donc le pivot théorique du mémoire. Elle permet de relier les exigences managériales de traçabilité et de supervision aux mécanismes techniques de coordination par traces. Elle explique pourquoi un environnement partagé bien conçu peut réduire les limites des architectures multi-agents centralisées : les agents ne doivent pas tout se transmettre par messages ; ils peuvent lire, écrire et interpréter un état commun gouverné.
+
+\subsection{2.4.4 Validation empirique dans le développement open source}\label{validation-empirique-dans-le-duxe9veloppement-open-source}
+
+Bolici, Howison et Crowston (2016) fournissent une validation empirique majeure en montrant que les équipes de développement open source utilisent déjà des mécanismes stigmergiques. Les commits, les issues, les listes de diffusion, les pull requests et les historiques de version servent de traces qui orientent l'activité future. Une modification de code peut déclencher une revue ; un bug report peut orienter un correctif ; une branche peut signaler un chemin de travail ; un test échoué peut guider une action corrective.
+
+Cette observation est centrale pour la présente recherche, car elle montre que le développement logiciel dispose déjà d'un environnement stigmergique naturel. Git, les trackers d'issues et les pipelines CI/CD forment un substrat de coordination indirecte. Les agents LLM ne doivent donc pas nécessairement être coordonnés par une infrastructure entièrement nouvelle ; ils peuvent être insérés dans des artefacts que les organisations utilisent déjà. Cette continuité réduit la friction d'adoption et renforce l'auditabilité, car les traces produites par les agents s'inscrivent dans des outils connus des équipes et des fonctions de contrôle.
+
+La contribution attendue ne consiste donc pas à inventer la coordination par traces dans le développement logiciel. Elle consiste à l'opérationnaliser pour des agents LLM : définir comment les agents déposent des traces, comment ces traces sont renforcées ou invalidées, comment elles déclenchent d'autres actions, comment elles restent auditables, et comment les humains interviennent aux moments critiques.
+
+\subsection{2.4.5 Développements récents bio-inspirés et prudence conceptuelle}\label{duxe9veloppements-ruxe9cents-bio-inspiruxe9s-et-prudence-conceptuelle}
+
+Plusieurs travaux récents réintroduisent explicitement des mécanismes bio-inspirés dans l'orchestration agentique. Chari et al.~(2025) proposent par exemple une approche combinant modèles de langage et logique de phéromones pour apprendre des chemins de raisonnement. Zhang et al.~(2025), avec SwarmAgentic, explorent la génération de systèmes agentiques via des principes inspirés de l'intelligence en essaim. Rodriguez (2026) formalise une coordination par champs de pression et décroissance temporelle. Ces travaux indiquent un intérêt croissant pour des formes de coordination émergente au-delà des architectures conversationnelles classiques.
+
+Il faut cependant rester prudent. Rahman et al.~(2025) soulignent que le terme swarm peut être conceptuellement extensible lorsqu'il est appliqué à des agents LLM. Les agents biologiques simples ne sont pas équivalents à des agents fondés sur des modèles de langage, capables de raisonner, de manipuler des symboles et d'interagir avec des outils complexes. C'est pourquoi la présente recherche ne se fonde pas sur une transposition naïve de l'intelligence en essaim. Elle privilégie la stigmergie cognitive, plus adaptée à des agents capables d'interpréter des artefacts et d'agir dans des environnements organisationnels.
+
+\subsection{2.4.6 Positionnement face aux frameworks multi-agents existants}\label{positionnement-face-aux-frameworks-multi-agents-existants}
+
+Les frameworks multi-agents contemporains, qu'ils soient issus de la tradition MAS pré-LLM ou conçus pour les modèles de langage, proposent des topologies variées : rôles spécialisés, superviseurs, graphes d'exécution, chaînes de tâches, workflows outillés, agents conversationnels ou équipes simulées. MetaGPT formalise par exemple des Standardized Operating Procedures pour organiser des agents dans des tâches de génie logiciel (Hong et al., 2024). OpenHands propose une plateforme pour évaluer et développer des agents capables d'interagir avec un dépôt, un shell et des tests (Wang et al., 2025). Des frameworks LLM-natifs comme LangGraph, AutoGen ou CrewAI rendent possible la construction de graphes d'agents et l'intégration d'outils.
+
+Ces frameworks sont utiles, mais ils ne résolvent pas entièrement le problème identifié plus haut. Beaucoup restent centrés sur la conversation, la séquence d'appels ou le contrôle par superviseur. Ils intègrent des outils et de la mémoire, mais rarement un médium stigmergique conçu comme système de coordination, d'audit et de gouvernance par construction. Le manque ne se situe donc pas dans l'absence d'agents ou d'outils, mais dans l'absence d'un principe de design unifié reliant coordination indirecte, traces, conformité et évaluation coût-performance.
+
+\subsection{2.4.7 Synthèse intermédiaire}\label{synthuxe8se-intermuxe9diaire-2}
+
+La stigmergie fournit une réponse conceptuelle au problème posé en 2.1 et borné en 2.2. Elle permet d'envisager une coordination sans superviseur central omniscient, tout en conservant des traces exploitables. Sa version cognitive, fondée sur les agents et les artefacts, est compatible avec des agents LLM. Le développement logiciel offre déjà un substrat stigmergique, ce qui rend l'approche praticable. La section suivante examine donc le terrain où cette approche peut être testée de manière rigoureuse : la transformation de code.
+
+\section{2.5 Transformation de code et workflows agentiques en pratique}\label{transformation-de-code-et-workflows-agentiques-en-pratique}
+
+La transformation de code constitue un terrain d'application pertinent pour trois raisons. Premièrement, elle est économiquement et stratégiquement importante pour les organisations confrontées à la modernisation de leurs systèmes. Deuxièmement, elle combine des tâches adaptées aux agents LLM - compréhension de code, génération de patches, documentation, analyse de logs - avec des contraintes fortes de validation. Troisièmement, elle produit naturellement des traces : diffs, commits, tests, tickets, métriques et revues. Elle permet donc d'évaluer concrètement une orchestration stigmergique.
+
+\subsection{2.5.1 Migration de code à grande échelle et validation industrielle}\label{migration-de-code-uxe0-grande-uxe9chelle-et-validation-industrielle}
+
+Ziftci et al.~(2025) documentent une migration de code assistée par LLM à grande échelle chez Google. Leur approche combine analyse statique, génération de modifications, validation automatisée et revue humaine sélective. Les résultats montrent qu'une partie importante des changements peut être appliquée sans modification humaine, tout en réduisant le temps développeur. Mais les auteurs identifient aussi des limites : fenêtre de contexte, tests existants insuffisants, cas complexes nécessitant une intervention humaine et dépendance à la qualité des artefacts d'entrée.
+
+Ces observations sont directement utiles pour cette recherche. Elles montrent que les LLM peuvent contribuer à la transformation de code, mais que leur valeur dépend d'un système de coordination plus large. Un patch généré n'est qu'une étape ; il doit être localisé, expliqué, testé, comparé, éventuellement corrigé, puis intégré. L'architecture d'orchestration doit donc coordonner des activités multiples et laisser des traces exploitables à chaque étape.
+
+Les cas industriels autour de la modernisation legacy, notamment les migrations COBOL vers Java ou les évolutions d'écosystèmes Java, confirment la réalité du besoin. Sneed (2010) montre la difficulté structurelle des migrations legacy. IBM (2023) et Amazon (2024) illustrent l'intérêt industriel pour l'automatisation de la modernisation applicative. Diggs et al.~(2025) soulignent également l'importance de la documentation générée par LLM pour comprendre du code ancien avant transformation. Ces travaux convergent : le problème n'est pas seulement de produire du code nouveau, mais de transformer du code existant en conservant sa signification.
+
+\subsection{2.5.2 Traduction cross-langage, évolution d'API et préservation sémantique}\label{traduction-cross-langage-uxe9volution-dapi-et-pruxe9servation-suxe9mantique}
+
+Rozière et al.~(2020) montrent que la traduction non supervisée entre langages de programmation peut atteindre des performances significatives grâce à des techniques de back-translation et de denoising auto-encoding. CodeRosetta (2024) prolonge cette logique vers la programmation parallèle. Ces travaux indiquent que les modèles peuvent apprendre des correspondances entre langages et produire des traductions plausibles.
+
+Cependant, la transformation de code ne se réduit pas à une traduction syntaxique. Lamothe, Guéhéneuc et Shang (2021) montrent, dans leur revue systématique, que l'évolution des API est un problème central du génie logiciel. Les breaking changes, les dépendances obsolètes, les comportements implicites et les différences de sémantique exigent une compréhension contextuelle. Dig et Johnson (2005) soulignent que les refactorings jouent un rôle important dans l'évolution des API et peuvent servir de base à des outils de migration automatisée.
+
+Pour un système multi-agents, ces travaux impliquent une division du travail possible : un agent peut localiser les usages d'une API, un autre proposer un mapping de migration, un autre générer le patch, un autre exécuter les tests, un autre analyser les erreurs. Mais cette division du travail n'est utile que si elle est coordonnée par des artefacts partagés. Sinon, les agents risquent de produire des corrections contradictoires, de perdre le contexte ou de répéter des erreurs déjà identifiées.
+
+\subsection{2.5.3 De l'automatisation des processus à l'Agentic BPM}\label{de-lautomatisation-des-processus-uxe0-lagentic-bpm}
+
+La transformation de code s'inscrit dans une évolution plus large de l'automatisation des processus. Les approches RPA traditionnelles automatisent des tâches déterministes et répétitives. L'automatisation cognitive ajoute des capacités de perception, de classification ou de génération. L'Agentic Business Process Management pousse plus loin cette évolution en introduisant des agents capables d'agir de manière plus autonome dans des processus métier.
+
+Vu et al.~(2026) proposent une conceptualisation de l'Agentic BPM qui distingue les agents pour le BPM et le BPM pour les agents. La première perspective utilise des agents pour exécuter ou améliorer des processus ; la seconde applique les principes du BPM pour gouverner les agents eux-mêmes. Dumas et al.~(2026) décrivent les Agentic BPMS comme des systèmes où les flux ne sont pas entièrement prédéterminés et où les adaptations peuvent s'opérer sans reconfiguration logicielle explicite.
+
+Cette distinction est importante pour la présente recherche. La transformation de code peut être vue comme un processus métier technique : elle comporte des étapes, des rôles, des validations, des exceptions et des logs. Mais l'introduction d'agents LLM rend ce processus moins linéaire. Des agents peuvent découvrir une erreur imprévue, proposer une stratégie alternative ou déclencher une boucle de réparation. L'enjeu est donc de concevoir un BPM pour agents : un cadre qui permet l'adaptation sans perdre la gouvernance.
+
+\subsection{2.5.4 Process mining, logs et apprentissage organisationnel}\label{process-mining-logs-et-apprentissage-organisationnel}
+
+Berti et al.~(2024) et Vidgof et al.~(2023) soulignent les opportunités offertes par le couplage entre LLM et process mining. Les agents produisent des logs, des événements et des traces qui peuvent être analysés pour comprendre les trajectoires d'exécution, identifier les blocages, comparer les stratégies et améliorer le processus. Dans une logique stigmergique, ces traces ne sont pas seulement des données d'évaluation a posteriori ; elles peuvent aussi nourrir l'apprentissage du système.
+
+Par exemple, une erreur récurrente détectée dans plusieurs migrations peut renforcer une règle de validation, déclencher une nouvelle stratégie de réparation ou modifier la manière dont les agents priorisent leurs actions. Une réussite répétée peut renforcer un pattern de transformation. L'environnement partagé devient alors une mémoire organisationnelle dynamique. Cette idée rejoint les capacités dynamiques de Teece (2007) : l'organisation apprend à transformer ses actifs logiciels grâce aux traces de ses transformations passées.
+
+\subsection{2.5.5 Synthèse intermédiaire}\label{synthuxe8se-intermuxe9diaire-3}
+
+La transformation de code est un terrain particulièrement adapté à l'orchestration stigmergique. Elle exige de l'autonomie, mais aussi des contrôles ; elle produit des traces, mais celles-ci doivent être structurées ; elle nécessite de la spécialisation, mais une spécialisation mal coordonnée peut accroître les erreurs. Ce terrain permet donc de tester la promesse centrale de la recherche : transformer des agents LLM en collectif gouvernable grâce à un médium de coordination par traces.
+
+\section{2.6 Évaluation des systèmes agentiques dans une logique DSR}\label{uxe9valuation-des-systuxe8mes-agentiques-dans-une-logique-dsr}
+
+L'évaluation des systèmes agentiques est difficile parce qu'ils sont stochastiques, coûteux, sensibles au contexte et multi-objectifs. Une amélioration de précision peut être obtenue au prix d'un coût en tokens disproportionné ; une bonne performance moyenne peut masquer des échecs critiques ; un résultat correct peut être difficile à reproduire ; une architecture performante peut être inacceptable si elle n'est pas traçable. Dans une démarche DSR, l'évaluation doit donc démontrer l'utilité de l'artefact, mais aussi la rigueur du protocole et la pertinence des critères retenus.
+
+\subsection{2.6.1 Limites des métriques uniques et frontière coût-performance}\label{limites-des-muxe9triques-uniques-et-frontiuxe8re-couxfbt-performance}
+
+Kapoor et al.~(2024) défendent l'utilisation de frontières de Pareto coût-précision pour évaluer les agents. Cette approche évite de considérer la précision comme un critère isolé. Un agent peut obtenir de meilleurs résultats en multipliant les essais, les appels de modèles ou les validations coûteuses, mais une organisation doit arbitrer entre performance, coût, délai et robustesse. Gao et al.~(2025) renforcent cette idée en montrant que les gains multi-agents peuvent diminuer avec des modèles plus performants, alors que les coûts de coordination augmentent.
+
+La présente recherche doit donc évaluer l'orchestration stigmergique sur plusieurs dimensions : performance de résolution, coût en tokens ou en appels modèles, temps d'exécution, stabilité des résultats, qualité des traces, capacité de correction, taux de rollback, satisfaction des contraintes et lisibilité pour les humains. L'objectif n'est pas de maximiser une métrique unique, mais d'identifier un compromis organisationnel acceptable.
+
+\subsection{2.6.2 Benchmarks de coordination et de planification}\label{benchmarks-de-coordination-et-de-planification}
+
+Les benchmarks de coordination permettent d'évaluer les systèmes multi-agents au-delà de la génération isolée. MultiAgentBench (Zhu et al., 2025) propose d'évaluer collaboration et compétition entre agents selon différentes topologies. REALM-Bench (Geng et Chang, 2025) examine des tâches de planification dynamique et de scheduling avec perturbations, ce qui se rapproche des environnements organisationnels où les contraintes changent en cours d'exécution.
+
+TravelPlanner (Xie et al., 2024) constitue également un benchmark utile pour les systèmes agentiques généralistes. Il évalue la capacité à produire des plans satisfaisant des contraintes multiples. Même si le domaine n'est pas le génie logiciel, la structure du problème est pertinente : plusieurs contraintes doivent être satisfaites simultanément, les erreurs peuvent être partielles, et la qualité finale dépend de la coordination des étapes intermédiaires. Pour un mémoire DSR, un benchmark généraliste de ce type peut servir à tester l'artefact avant sa spécialisation à la transformation de code.
+
+\subsection{2.6.3 Benchmarks de transformation de code}\label{benchmarks-de-transformation-de-code}
+
+SWE-bench (Jimenez et al., 2024) s'est imposé comme une référence pour l'évaluation d'agents de génie logiciel, car il repose sur des issues GitHub réelles nécessitant compréhension du contexte, localisation du bug et génération d'un patch. SWE-agent (Yang et al., 2024) illustre l'importance de l'interface agent-machine dans la performance des agents logiciels. Les benchmarks plus spécialisés, comme MigrationBench ou des jeux de migration Java, permettent de mesurer la capacité à transformer du code existant sous contraintes.
+
+Ghosh Paul et al.~(2024) rappellent que les métriques de génération de code doivent combiner plusieurs dimensions : similarité textuelle, correction fonctionnelle, qualité logicielle, sécurité, maintenabilité et préservation sémantique. Pour une migration, la réussite ne se réduit pas au passage d'un test. Il faut aussi examiner la lisibilité du patch, la conservation des comportements attendus, le coût de revue humaine et la compatibilité avec les pratiques de l'équipe.
+
+\subsection{2.6.4 Évaluation DSR et test d'utilité sans entretiens exploratoires}\label{uxe9valuation-dsr-et-test-dutilituxe9-sans-entretiens-exploratoires}
+
+Venable, Pries-Heje et Baskerville (2016) proposent le framework FEDS pour organiser l'évaluation en Design Science Research. Dans cette logique, l'évaluation peut combiner des épisodes naturalistes ou artificiels, formatifs ou sommatifs. Pour ce mémoire, cela permet d'articuler des benchmarks quantitatifs, une analyse qualitative des traces produites par l'artefact et un test d'utilité auprès d'experts.
+
+Il est important de distinguer ce test d'utilité d'une démarche par entretiens exploratoires. Le mémoire ne repose pas sur des entretiens destinés à construire inductivement le problème de recherche. Le problème est construit par la littérature et par le raisonnement DSR ; les experts interviennent, le cas échéant, pour évaluer l'utilité perçue, la lisibilité et la crédibilité opérationnelle de l'artefact. Cette distinction renforce la cohérence méthodologique : l'objet principal de collecte reste l'artefact, ses traces d'exécution, ses métriques et ses résultats expérimentaux.
+
+\subsection{2.6.5 Tableau de synthèse des critères d'évaluation}\label{tableau-de-synthuxe8se-des-crituxe8res-duxe9valuation}
+
+\begin{longtable}[]{@{}
+  >{\raggedright\arraybackslash}p{(\columnwidth - 4\tabcolsep) * \real{0.3333}}
+  >{\raggedright\arraybackslash}p{(\columnwidth - 4\tabcolsep) * \real{0.3333}}
+  >{\raggedright\arraybackslash}p{(\columnwidth - 4\tabcolsep) * \real{0.3333}}@{}}
+\toprule\noalign{}
+\begin{minipage}[b]{\linewidth}\raggedright
+Dimension évaluée
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
+Question associée
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
+Indicateurs possibles
+\end{minipage} \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+Performance fonctionnelle & L'artefact résout-il la tâche demandée ? & taux de réussite, pass@k, satisfaction des contraintes, tests passés \\
+Coût et efficience & La performance est-elle obtenue à un coût acceptable ? & tokens, appels modèles, durée, retries, coût par problème résolu \\
+Robustesse & Le système résiste-t-il aux erreurs intermédiaires ? & taux de rollback, échecs récupérés, stabilité entre runs \\
+Gouvernabilité & Les actions sont-elles auditables et supervisables ? & logs exploitables, liens issue-patch-test, traçabilité des décisions \\
+Qualité logicielle & Le code transformé est-il maintenable ? & lisibilité, sécurité, préservation sémantique, complexité du patch \\
+Utilité DSR & L'artefact apporte-t-il une valeur crédible pour des praticiens ? & test FEDS, appréciation de l'utilité, lisibilité du dispositif, conditions d'adoption \\
+\end{longtable}
+
+\subsection{2.6.6 Synthèse intermédiaire}\label{synthuxe8se-intermuxe9diaire-4}
+
+L'évaluation des systèmes agentiques doit donc être multidimensionnelle. Cette exigence rejoint directement le problème managérial initial : l'organisation n'adopte pas l'architecture la plus sophistiquée, mais celle qui offre le meilleur compromis entre performance, coût, contrôle et utilité. La section finale peut maintenant synthétiser les apports de la littérature et formuler le gap.
+
+\section{2.7 Cadre conceptuel et identification du gap}\label{cadre-conceptuel-et-identification-du-gap}
+
+Les sections précédentes ne décrivent pas des blocs indépendants. Elles construisent progressivement une même problématique : les organisations veulent transformer des systèmes complexes avec l'aide d'agents LLM, mais les architectures multi-agents classiques produisent des coûts de coordination, des risques de gouvernance et des difficultés d'évaluation. La stigmergie cognitive apparaît alors comme un mécanisme de coordination prometteur, à condition d'être opérationnalisée dans un artefact gouvernable et évalué rigoureusement.
+
+\subsection{2.7.1 Synthèse croisée de la littérature}\label{synthuxe8se-croisuxe9e-de-la-littuxe9rature}
+
+Un premier constat concerne l'industrialisation de l'IA générative. Les modèles et agents LLM peuvent produire de la valeur, mais cette valeur ne se stabilise pas automatiquement au niveau organisationnel. Les travaux sur la productivité, la confiance, l'aversion algorithmique, la résistance au changement et le management algorithmique montrent que l'adoption dépend de la capacité à organiser le contrôle, la responsabilité et l'agentivité humaine (Peng et al., 2023 ; Barke et al., 2023 ; Lee et See, 2004 ; Dietvorst et al., 2018 ; Kim et Kankanhalli, 2009 ; García-Ruiz et Rocchi, 2025).
+
+Un deuxième constat concerne les limites des architectures multi-agents centralisées. Agentless fixe un baseline de simplicité (Xia et al., 2024), MAST documente les modes d'échec (Cemri et al., 2025), les analyses coût-performance montrent que la multiplication des agents peut devenir inefficiente (Kapoor et al., 2024 ; Gao et al., 2025), et les critiques liées à la fragmentation du contexte soulignent les risques d'une coordination par messages trop coûteuse. Le multi-agent doit donc être justifié par un mécanisme de coordination supérieur, et non par une hypothèse générale selon laquelle plus d'agents produiraient mécaniquement plus d'intelligence.
+
+Un troisième constat concerne la gouvernance. Les exigences de supervision humaine, de traçabilité, de conformité, de sécurité et de responsabilité ne peuvent pas être ajoutées marginalement après la conception. Les travaux sur les guardrails, le Meaningful Human Control, la perspective principal-agent et la responsabilité distribuée montrent qu'une écologie agentique doit être gouvernée par construction (Grisold et al., 2025 ; Santoni de Sio et van den Hoven, 2018 ; Jarrahi et Ritala, 2025 ; Floridi, 2016).
+
+Un quatrième constat concerne la stigmergie. La théorie de la coordination permet de la comprendre comme gestion indirecte des dépendances par l'environnement (Malone et Crowston, 1994). Les travaux sur la stigmergie cognitive et les Agents \& Artifacts la rendent applicable à des agents rationnels et outillés (Ricci et al., 2007). L'observation du développement open source montre que les outils logiciels fonctionnent déjà en partie comme des environnements stigmergiques (Bolici et al., 2016). Le manque se situe donc dans le passage de ce principe à un framework agentique opérationnel.
+
+\subsection{2.7.2 Relations conceptuelles entre les blocs}\label{relations-conceptuelles-entre-les-blocs}
+
+Le cadre conceptuel proposé articule trois niveaux.
+
+Le premier niveau est managérial. Il définit le problème comme une tension entre autonomie, performance et contrôle. Les capacités dynamiques (Teece, 2007) expliquent pourquoi la transformation logicielle continue est stratégique. Les routines organisationnelles (Feldman et Pentland, 2003) expliquent pourquoi le code ne peut pas être modifié comme un simple texte. Les affordances (Strong et al., 2014) expliquent pourquoi la valeur de l'IA dépend de son actualisation dans un contexte organisationnel.
+
+Le deuxième niveau est coordinationnel. La théorie de la coordination (Malone et Crowston, 1994) identifie la gestion des dépendances comme coeur du problème. La stigmergie cognitive (Ricci et al., 2007) propose un mécanisme : les agents se coordonnent indirectement par des artefacts partagés, qui conservent et exposent des traces. Ce niveau fournit le principe de design central de l'artefact.
+
+Le troisième niveau est évaluatif et réglementaire. Les exigences de supervision, de traçabilité et de sécurité définissent les contraintes minimales d'acceptabilité. Les benchmarks et frontières coût-performance définissent les critères de preuve. Dans une logique DSR, l'artefact doit donc démontrer à la fois sa capacité à résoudre un problème et sa capacité à produire une connaissance de design généralisable.
+
+\subsection{2.7.3 Reconfiguration du rôle managérial : de la commande à l'orchestration gouvernée}\label{reconfiguration-du-ruxf4le-managuxe9rial-de-la-commande-uxe0-lorchestration-gouvernuxe9e}
+
+La Complexity Leadership Theory d'Uhl-Bien, Marion et McKelvey (2007) aide à comprendre la transformation du rôle managérial dans ce contexte. Elle distingue le leadership administratif, qui structure et contrôle ; le leadership adaptatif, qui favorise l'émergence et l'apprentissage ; et le leadership enabling, qui crée les conditions permettant aux dynamiques adaptatives de produire de la valeur. Une écologie stigmergique mobilise ces trois dimensions.
+
+Le management ne disparaît pas lorsque les agents deviennent plus autonomes. Il change de point d'application. Au lieu de prescrire chaque action, il définit les guardrails, les artefacts, les droits, les seuils d'escalade, les métriques et les règles de validation. Il ne commande pas directement chaque micro-décision, mais il conçoit l'environnement dans lequel les décisions locales deviennent collectivement acceptables. Shrestha, Ben-Menahem et von Krogh (2019) complètent ce point en distinguant plusieurs structures de décision humain-IA. Pour la transformation de code, la décision séquentielle hybride apparaît adaptée : les agents proposent et exécutent des actions réversibles, les guardrails filtrent, et les humains interviennent pour les cas critiques.
+
+Cette reconfiguration du rôle managérial renforce l'intérêt d'une approche stigmergique. Si le management doit gouverner par l'environnement plutôt que contrôler chaque action, alors le médium de coordination devient un objet central de design. Concevoir l'artefact revient à concevoir les conditions d'une auto-organisation contrôlée.
+
+\subsection{2.7.4 Gap identifié}\label{gap-identifiuxe9}
+
+À l'intersection de ces constats, le gap peut être formulé ainsi :
+
+\begin{quote}
+La coordination stigmergique est reconnue par la théorie de la coordination comme un mécanisme pertinent de gestion indirecte des dépendances et elle est empiriquement observable dans le développement logiciel open source. Pourtant, elle reste insuffisamment opérationnalisée pour l'orchestration gouvernable d'écologies d'agents LLM en entreprise, en particulier dans des tâches de transformation de code soumises à des exigences de coût, d'auditabilité, de supervision humaine et de conformité.
+\end{quote}
+
+Ce gap comporte quatre dimensions. Premièrement, la littérature multi-agents LLM documente des architectures et des benchmarks, mais elle traite encore rarement la coordination par artefacts comme principe central de design. Deuxièmement, la littérature sur la stigmergie fournit des fondements solides, mais peu de contributions les traduisent en mécanismes opérationnels pour agents LLM outillés. Troisièmement, la littérature sur la gouvernance de l'IA insiste sur la supervision et l'auditabilité, mais sans toujours proposer de mécanisme concret de coordination compatible avec l'autonomie agentique. Quatrièmement, les travaux sur la transformation de code montrent le potentiel des LLM, mais laissent ouverte la question d'une orchestration multi-agents à la fois efficace, traçable et économiquement justifiée.
+
+\subsection{2.7.5 Orientation de la contribution DSR}\label{orientation-de-la-contribution-dsr}
+
+La contribution attendue du mémoire est donc de concevoir, implémenter et évaluer un artefact qui transforme la stigmergie cognitive en principe d'orchestration pour agents LLM. Cet artefact doit permettre aux agents de déposer, lire, renforcer et invalider des traces dans un environnement partagé ; il doit intégrer des guardrails et des mécanismes de supervision ; il doit produire des traces exploitables pour l'audit ; et il doit être évalué sur des critères de performance, coût, robustesse et utilité.
+
+Dans la logique du Design Science Research, la revue de littérature aboutit ainsi à des exigences de conception plutôt qu'à une simple hypothèse causale. Les connaissances théoriques identifient pourquoi la coordination par traces est pertinente ; les limites de l'état de l'art indiquent ce que l'artefact doit dépasser ; les exigences de gouvernance définissent les contraintes d'acceptabilité ; les benchmarks et le framework FEDS définissent les modalités d'évaluation. Le chapitre suivant peut donc présenter la méthodologie DSR retenue pour transformer ce gap en artefact évalué.
+
+\begin{longtable}[]{@{}
+  >{\raggedright\arraybackslash}p{(\columnwidth - 4\tabcolsep) * \real{0.3333}}
+  >{\raggedright\arraybackslash}p{(\columnwidth - 4\tabcolsep) * \real{0.3333}}
+  >{\raggedright\arraybackslash}p{(\columnwidth - 4\tabcolsep) * \real{0.3333}}@{}}
+\toprule\noalign{}
+\begin{minipage}[b]{\linewidth}\raggedright
+Bloc de littérature
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
+Apport pour la recherche
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
+Exigence de conception dérivée
+\end{minipage} \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+Adoption de l'IA générative et transformation du travail & La valeur dépend du passage d'un gain individuel à une capacité organisationnelle & Concevoir un système lisible, supervisable et utile pour les acteurs SI \\
+Limites des systèmes multi-agents LLM & Les architectures complexes doivent justifier leur coût et éviter la fragmentation du contexte & Réduire la communication directe et mesurer coût-performance \\
+Gouvernance et conformité & L'autonomie agentique doit rester contrôlable et traçable & Intégrer audit, guardrails, supervision et rollback dès le design \\
+Théorie de la coordination & La coordination est gestion de dépendances entre activités & Utiliser l'environnement comme médium de coordination \\
+Stigmergie cognitive & Les agents cognitifs peuvent se coordonner par artefacts & Définir dépôt, renforcement, évaporation et interprétation des traces \\
+Transformation de code & Terrain riche en artefacts, tests et exigences de préservation sémantique & Évaluer l'artefact sur migrations et workflows de code réels ou réalistes \\
+Évaluation DSR & L'utilité doit être démontrée par des preuves multiples & Combiner benchmarks, analyse des traces et test d'utilité FEDS \\
+\end{longtable}
+
+\section{Conclusion du chapitre}\label{conclusion-du-chapitre}
+
+Cette revue de littérature a construit progressivement le problème que le mémoire cherche à traiter. L'IA générative agentique promet des gains importants, mais son déploiement organisationnel révèle des tensions de coordination, de gouvernance et d'évaluation. Les architectures multi-agents centralisées ne suffisent pas toujours à résoudre ces tensions, car elles peuvent accroître les coûts de communication, fragmenter le contexte et compliquer l'auditabilité. Les exigences réglementaires, sectorielles et éthiques imposent au contraire des systèmes supervisables, traçables et responsables.
+
+La stigmergie cognitive offre une piste de design cohérente avec ces exigences. En coordonnant les agents par des artefacts partagés, elle permet de transformer l'environnement en médium de coordination et de gouvernance. Le développement logiciel fournit déjà un substrat favorable à cette approche grâce aux dépôts de code, aux tickets, aux tests, aux logs et aux pipelines. La transformation de code devient ainsi un terrain pertinent pour concevoir et évaluer un framework d'orchestration stigmergique.
+
+Le gap identifié porte donc sur l'opérationnalisation de cette approche : il manque un cadre intégrateur, ancré dans les sciences de gestion et les systèmes d'information, capable de coordonner des agents LLM par traces, de satisfaire des exigences d'auditabilité et de supervision, et de démontrer son utilité par une évaluation DSR multidimensionnelle. C'est ce gap que le chapitre méthodologique puis la conception de l'artefact StigmergiAgentic visent à adresser.

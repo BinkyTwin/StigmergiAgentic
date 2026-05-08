@@ -105,7 +105,9 @@ class LLMConfig:
         trace_dir_raw = llm.get("trace_dir") or extras.get("llm_trace_dir")
         if trace_dir_raw is None and extras.get("out_dir"):
             trace_dir_raw = Path(str(extras["out_dir"])) / "llm_traces"
-        trace_dir = Path(str(trace_dir_raw)) if trace_enabled and trace_dir_raw else None
+        trace_dir = (
+            Path(str(trace_dir_raw)) if trace_enabled and trace_dir_raw else None
+        )
         return cls(
             provider=provider,
             model=str(llm.get("model", "deepseek-chat")),
@@ -294,6 +296,7 @@ def _trace_llm_call(
     candidate_emitted: bool,
     dropped_reason: str | None,
     files: dict[str, str],
+    normalization_issues: list[dict[str, Any]] | None = None,
     parent_candidate_id: str | None = None,
     feedback_failure_type: str | None = None,
 ) -> None:
@@ -330,13 +333,13 @@ def _trace_llm_call(
             "raw_response_chars": len(meta["raw_response"] or ""),
             "normalized_edits": normalized_edits,
             "normalized_edit_count": len(normalized_edits),
+            "normalization_issues": normalization_issues or [],
             "call_error": meta["call_error"],
             "duration_seconds": meta["duration_seconds"],
             "finish_reason": meta["finish_reason"],
             "usage": meta["usage"],
         },
     )
-
 
 
 _FENCE_RE = re.compile(r"```(?:json)?\s*(.+?)```", re.DOTALL)
@@ -412,7 +415,8 @@ _SYSTEM_PROMPT_INITIAL = (
     "Project context block below is informational — it does NOT mean you "
     "must migrate javax→jakarta or bump Spring Boot. Touch only what the "
     "build needs to clear the requested target Java.\n"
-    + _VERBATIM_RULE + "\n"
+    + _VERBATIM_RULE
+    + "\n"
     + _TEST_PRESERVATION_RULE
 )
 
@@ -431,9 +435,7 @@ _SYSTEM_PROMPT_REPAIR = (
     "in the files shown; official_eval_failed/#tests=-2 → keep every test "
     "intact and adjust Maven/Surefire/JUnit configuration so `mvn test -f .` "
     "runs the existing tests and prints the standard `[INFO] Results` summary). "
-    "Output JSON only.\n"
-    + _VERBATIM_RULE + "\n"
-    + _TEST_PRESERVATION_RULE
+    "Output JSON only.\n" + _VERBATIM_RULE + "\n" + _TEST_PRESERVATION_RULE
 )
 
 
@@ -619,22 +621,19 @@ def _format_project_context(
                 f"{d.get('groupId','?')}:{d.get('artifactId','?')}"
                 f":{d.get('version','?')}"
             )
-        parts.append(
-            f"  top_dependencies ({len(rendered)}): {', '.join(rendered)}"
-        )
+        parts.append(f"  top_dependencies ({len(rendered)}): {', '.join(rendered)}")
     javax = context.get("javax_imports") or []
     if javax:
-        parts.append(
-            f"  javax_imports_used ({len(javax)}): {', '.join(javax)}"
-        )
+        parts.append(f"  javax_imports_used ({len(javax)}): {', '.join(javax)}")
         target_text = (
             f"target Java {migration_context.target_java}"
             if migration_context is not None
             else "the requested target Java"
         )
         parts.append(
-            f"  hint: with {target_text} and Spring Boot 3.x these javax.* "
-            "must migrate to jakarta.* (servlet, persistence, validation, ws.rs)."
+            f"  hint: {target_text} alone does not require javax.* -> jakarta.*. "
+            "Keep javax imports unless the failure log explicitly requires a "
+            "framework upgrade to a Jakarta namespace."
         )
     if len(parts) == 1:
         return ""
@@ -688,9 +687,7 @@ def _build_repair_user_prompt(
         migration_context,
     )
     context_block = (project_context + "\n\n") if project_context else ""
-    signal_digest = _format_stigmergic_digest(
-        observation.data.get("stigmergic_digest")
-    )
+    signal_digest = _format_stigmergic_digest(observation.data.get("stigmergic_digest"))
     signal_block = (
         f"Stigmergic policy digest from prior candidates:\n{signal_digest}\n\n"
         if signal_digest
@@ -754,34 +751,58 @@ def _normalize_edits(
     raw: Any,
     files: dict[str, str] | None = None,
 ) -> list[dict[str, Any]]:
+    edits, _issues = _normalize_edits_with_issues(raw, files=files)
+    return edits
+
+
+def _normalize_edits_with_issues(
+    raw: Any,
+    files: dict[str, str] | None = None,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     """Coerce LLM output into the TypedEdit dict schema.
 
     When ``files`` is provided, every ``replace_text`` edit is checked
     against the visible file content: if ``old`` is not a verbatim
-    substring of ``files[path]``, the edit is dropped silently. This
-    deterministic guard prevents hallucinated edits from reaching the
-    apply layer and triggering ``replacement_count_too_low`` rejections.
+    substring of ``files[path]``, the edit is dropped and the reason is
+    returned for audit traces. This deterministic guard prevents hallucinated
+    edits from reaching the apply layer and triggering
+    ``replacement_count_too_low`` rejections.
     """
 
+    issues: list[dict[str, Any]] = []
+
+    def issue(index: int | None, reason: str, **extra: Any) -> None:
+        payload: dict[str, Any] = {"reason": reason}
+        if index is not None:
+            payload["edit_index"] = index
+        payload.update(extra)
+        issues.append(payload)
+
     if not isinstance(raw, dict):
-        return []
+        issue(None, "response_not_object")
+        return [], issues
     edits = raw.get("edits")
     if not isinstance(edits, list):
-        return []
+        issue(None, "edits_not_list")
+        return [], issues
     cleaned: list[dict[str, Any]] = []
-    for item in edits:
+    for index, item in enumerate(edits):
         if not isinstance(item, dict):
+            issue(index, "edit_not_object")
             continue
         kind = str(item.get("type", "")).strip()
         path = str(item.get("path", "")).strip().replace("\\", "/")
         if not path or path.startswith("/") or ".." in path.split("/"):
+            issue(index, "invalid_path", path=path, edit_type=kind)
             continue
         if kind == "replace_text":
             old = item.get("old")
             new = item.get("new")
             if not isinstance(old, str) or not old:
+                issue(index, "missing_old", path=path, edit_type=kind)
                 continue
             if not isinstance(new, str):
+                issue(index, "invalid_new", path=path, edit_type=kind)
                 continue
             # Verbatim guard: drop edits whose `old` is not present in the
             # file shown to the LLM. We intentionally do this only when we
@@ -794,7 +815,21 @@ def _normalize_edits(
                         "providers_llm: dropping hallucinated edit (old not in %s)",
                         path,
                     )
+                    issue(
+                        index,
+                        "old_span_absent_in_shown_file",
+                        path=path,
+                        edit_type=kind,
+                        old_chars=len(old),
+                    )
                     continue
+            elif files is not None:
+                issue(
+                    index,
+                    "path_not_shown_for_verbatim_check",
+                    path=path,
+                    edit_type=kind,
+                )
             # We deliberately clamp ``expected_replacements`` to 1 and force
             # ``allow_multiple=True``. Trusting the LLM's count regularly
             # produces ``replacement_count_too_low`` failures because the
@@ -814,6 +849,7 @@ def _normalize_edits(
         elif kind == "write_file":
             content = item.get("content")
             if not isinstance(content, str):
+                issue(index, "invalid_content", path=path, edit_type=kind)
                 continue
             cleaned.append(
                 {
@@ -822,7 +858,9 @@ def _normalize_edits(
                     "content": content,
                 }
             )
-    return cleaned
+        else:
+            issue(index, "unsupported_edit_type", path=path, edit_type=kind)
+    return cleaned, issues
 
 
 # ---------------------------------------------------------------------------
@@ -858,6 +896,7 @@ def make_migrationbench_llm_initial_provider(
         from scripts.bench.providers import (
             make_migrationbench_deterministic_provider,
         )
+
         return make_migrationbench_deterministic_provider(adapter, extras)
 
     n_target = max(1, int(extras.get("llm_initial_candidates", len(_TEMPERATURES))))
@@ -896,7 +935,9 @@ def make_migrationbench_llm_initial_provider(
                 if k == 0
                 else (
                     f"Diverse edit attempt {k}: optionally raise plugin versions "
-                    "or fix lombok/javax→jakarta if visible."
+                    "or fix visible target-Java incompatibilities. Do not perform "
+                    "javax→jakarta framework migration unless the failure log explicitly "
+                    "requires it."
                 )
             )
             user = _build_initial_user_prompt(
@@ -908,7 +949,10 @@ def make_migrationbench_llm_initial_provider(
                 user=user,
                 temperature=temperature,
             )
-            edits = _normalize_edits(response, files=files)
+            edits, normalization_issues = _normalize_edits_with_issues(
+                response,
+                files=files,
+            )
             if not edits:
                 _trace_llm_call(
                     config,
@@ -924,6 +968,7 @@ def make_migrationbench_llm_initial_provider(
                     candidate_emitted=False,
                     dropped_reason="empty_or_invalid_edits",
                     files=files,
+                    normalization_issues=normalization_issues,
                 )
                 LOGGER.info(
                     "providers_llm: empty/invalid edits for %s slot=%d",
@@ -947,6 +992,7 @@ def make_migrationbench_llm_initial_provider(
                     candidate_emitted=False,
                     dropped_reason="duplicate_signature",
                     files=files,
+                    normalization_issues=normalization_issues,
                 )
                 continue
             signatures.add(sig)
@@ -959,7 +1005,8 @@ def make_migrationbench_llm_initial_provider(
                         "edit_set": {
                             "edits": edits,
                             "rationale": (response or {}).get(
-                                "rationale", f"LLM proposal at temperature {temperature}"
+                                "rationale",
+                                f"LLM proposal at temperature {temperature}",
                             ),
                             "expected_build_command": (response or {}).get(
                                 "expected_build_command", "mvn clean verify"
@@ -989,6 +1036,7 @@ def make_migrationbench_llm_initial_provider(
                 candidate_emitted=True,
                 dropped_reason=None,
                 files=files,
+                normalization_issues=normalization_issues,
             )
         if not candidates:
             # API silent or all responses unparseable: fall back to a single
@@ -1051,6 +1099,7 @@ def make_migrationbench_llm_repair_provider(
     config = LLMConfig.from_extras(extras)
     if config is None:
         from scripts.bench.providers import make_migrationbench_noop_repair_provider
+
         return make_migrationbench_noop_repair_provider(adapter, extras)
 
     n_target = max(1, int(extras.get("llm_repair_candidates", 1)))
@@ -1077,7 +1126,10 @@ def make_migrationbench_llm_repair_provider(
                 user=user,
                 temperature=temperature,
             )
-            edits = _normalize_edits(response, files=files)
+            edits, normalization_issues = _normalize_edits_with_issues(
+                response,
+                files=files,
+            )
             if not edits:
                 _trace_llm_call(
                     config,
@@ -1093,6 +1145,7 @@ def make_migrationbench_llm_repair_provider(
                     candidate_emitted=False,
                     dropped_reason="empty_or_invalid_edits",
                     files=files,
+                    normalization_issues=normalization_issues,
                     parent_candidate_id=original.candidate_id,
                     feedback_failure_type=feedback.failure_type,
                 )
@@ -1113,6 +1166,7 @@ def make_migrationbench_llm_repair_provider(
                     candidate_emitted=False,
                     dropped_reason="duplicate_signature",
                     files=files,
+                    normalization_issues=normalization_issues,
                     parent_candidate_id=original.candidate_id,
                     feedback_failure_type=feedback.failure_type,
                 )
@@ -1160,6 +1214,7 @@ def make_migrationbench_llm_repair_provider(
                 candidate_emitted=True,
                 dropped_reason=None,
                 files=files,
+                normalization_issues=normalization_issues,
                 parent_candidate_id=original.candidate_id,
                 feedback_failure_type=feedback.failure_type,
             )

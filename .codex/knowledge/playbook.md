@@ -5,6 +5,26 @@
 
 ## Active Practices
 
+### V12 Autonomous-Agent Stigmergy Standard
+- Implement active V12 work under `core_v12/`; reuse V10/V11 verifier, event-log, guarded-edit, and migration-context primitives only as substrate.
+- Keep the medium guidance-only: it may expose pheromones, supported tools/actions, inhibited tools/actions, hot files, and feedback history, but it must never create patches or tool parameters.
+- Keep proposal tools non-mutating and target-aware; a tool whose advice depends on Java target version must reject missing migration context rather than defaulting to Java 17.
+- Compare S2 and V12 with identical tool registries, budgets, models, instances, and verifier contracts so any measured gain is attributable to the stigmergic local view.
+- Treat V11/B6 deterministic operators as archived baseline/diagnostic code and keep them out of the active V12 agent loop.
+
+### External Agent Repo Thesis-Triage Standard
+- Classify a third-party agent repo as related work, thesis artifact tooling, or an experimental baseline before integrating it into the narrative.
+- Treat domain-specific multi-agent pipelines as comparison context, not stigmergic evidence, unless they expose replayable shared-medium causality and ablation-ready telemetry.
+- For thesis diagrams, use generative figure tools as draft accelerators and verify/redraw final figures when arrows, labels, or causal mechanisms carry the argument.
+- Keep full third-party figure generators in a documentation-local workspace with ignored vendor code, tracked setup scripts, and no secrets in generated config.
+- For FranceStudent-backed PaperBanana runs, prefer `IMAGEN`, use text-only string payloads for `/responses`, and force `gpt-image-2` to `1024x1024`.
+- When replacing an existing thesis figure, score generated alternatives on two axes: presentation quality and exact semantic/label fidelity.
+- For rigid grid figures with precise labels, test direct `gpt-image-2` against PaperBanana before assuming the agentic pipeline is better.
+- For stigmergy illustrations, require both environmental write/modification arrows and read/perception arrows from the shared artifact.
+- Compare direct-vs-agentic figure generation with a fixed prompt and report wall-clock time; PaperBanana quality claims are weaker when `retrieval_setting=none`.
+- Before trusting PaperBanana `auto`, verify `top10_references` is non-empty; if FranceStudent returns 502 on retrieval, reduce the reference pool or avoid claiming retrieval benefits.
+- To reuse PaperBanana in another memoir repo, copy only the tracked helper scripts/skill and keep the cloned vendor plus generated records ignored; adapt the target repo's LaTeX image output directory and check API-key presence without copying or printing secrets.
+
 ### V11 Causal Medium Standard
 - Do not count `signal.emitted` as stigmergic evidence by itself; require at least `signal.read`, worker activation, `decision.influenced`, and `trajectory.diverged` before claiming causal coordination.
 - Convert verifier feedback into affordances before selecting workers; a signal should become an actionable gradient, not only prompt context.
@@ -22,6 +42,7 @@
 - Never present a currently running or manifest-only campaign as final evidence; label it as in-progress and direct review toward completed, versioned summaries.
 - For memoir/thesis review, include `documentation/memoire/latex/main.tex`, chapter sources, annexes, bibliography, and planning Markdown so reviewers can test whether the manuscript's claims match the implementation evidence.
 - When raw campaign review is needed, use allowlisted `campaign_results/` exceptions plus a local README; do not unignore legacy campaign trees with large SQLite/audit artifacts or active retry runs.
+- When pushing a handoff branch for GPT/GitHub review, stage code, tests, docs, memoir sources, and repo-local skills first; leave generated campaign outputs and local workspaces unstaged unless the user explicitly asks to publish them.
 
 ### V10 Branching Runtime Standard
 - Keep branching lineage and workspace lineage identical: every repair candidate with a parent must be applied from the parent hypothesis workspace.
@@ -647,7 +668,156 @@
 - Score affordance-worker pairs rather than selecting workers against a single top affordance.
 - Make deterministic smoke scripts idempotent by cleaning only their owned output subtrees before each run.
 
+### Home Skill Retirement Standard
+- Remove retired skills from `/Users/lotfi/.codex/AGENTS.md` active trigger lists before relying on automatic skill discovery.
+- Check the project `AGENTS.md` for stale duplicates, but keep the edit scoped to the file that actually declares the removed skill.
+
 ### Main Campaign Launch Gate Standard
 - Scope every multi-arm workspace and artifact root by arm id before running the first instance.
 - Treat replay parity, full denominator, and owned-output cleanup as launch gates, not post-hoc nice-to-haves.
 - Require causal activation only for instances or arms with repairable validation failures; no-repair local-green paths should remain launch-valid.
+
+### OpenAI-Compatible Proxy API Test Standard
+- Test third-party OpenAI-compatible keys against their provider base URL before calling `api.openai.com`.
+- Use `POST /responses` for text models when the provider warns that Chat Completions is unsupported.
+- If the proxy rejects the Responses `image_generation` tool, test GPT Image models through `POST /images/generations` with the same base URL.
+- Keep secrets in environment variables or local `.env` parsing and redact any diagnostic output that could expose credentials.
+- Save one-off image generations under `output/francestudent_api_tests/` with the raw response beside the decoded PNG when the user wants to inspect the result.
+
+### Repo-Local Provider Skill Standard
+- Create project-specific API skills under `.codex/skills/` so they are versionable with the project and do not pollute home-level skill discovery.
+- Keep `SKILL.md` as the operational routing layer, with provider-specific parameter lists in `references/`.
+- Add a small CLI when the workflow needs secret-safe, repeatable HTTP calls and local artifact decoding.
+
+### Repo-Local Docker No-Cache Skill Standard
+- Put benchmark Docker launch rules in `.codex/skills/` when they are project-specific and easy to forget under time pressure.
+- Build Compose services with `docker compose build --no-cache --pull --progress=plain <service>` before running them; do not rely on `docker compose run --build`.
+- Keep secrets out of CLI arguments, gate paid or full-denominator campaigns on explicit user intent, and record the compose file, service, env knobs, and output directory after each run.
+
+### Live Benchmark Mechanism Audit Standard
+- Watch treatment-specific activation counters while a long benchmark is still running; zero mechanism events in a treatment arm is a bug signal even if candidates and validations are flowing.
+- Resolve branch-local files through adapter-owned metadata paths before falling back to generic workspace roots.
+- After fixing a live-campaign bug, archive flawed partial outputs, relaunch only the invalidated arm, and rebuild aggregate reports from replayed EventLogs.
+
+### Guarded LLM Fallback Standard
+- Never let a free-form LLM edit candidate reach adapter validation until every `replace_text.old` span has been checked against the real parent branch workspace.
+- Simulate edit application sequentially per file inside the guard, because duplicate or overlapping spans can pass initial-file checks and still fail in the adapter.
+- Treat invalid guarded edits as causal events: reject the candidate, inhibit the unsafe origin/action, and support a safer worker/operator path.
+- Drive repair-frontier choices from best observed funnel progress, while reporting strict benchmark success only from the official final contract.
+- Audit guarded campaigns on two axes: final strict success for claims, and `replacement_count_too_low`/best-observed funnel for mechanism quality.
+
+### FranceStudent Oversized Prompt Triage Standard
+- For `/responses` 502s, measure the serialized JSON body, input characters/bytes, system-instruction size, and rough token estimate before escalating.
+- In PaperBanana auto retrieval, treat the default 200 diagram references as too large for proxy debugging unless the provider confirms a very large context path.
+- Prefer lowering `RetrieverAgent.ref_limit` and verifying non-empty `top10_references` over rerunning the same multi-megabyte retrieval prompt.
+
+### PaperBanana Proxy-Safe Retrieval Standard
+- Cap diagram retrieval references before calling hosted `/responses` proxies with documented input-token ceilings.
+- Filter unrelated cyber/security benchmark examples from generic reference corpora when the user's task is non-cyber and the provider enforces cyber-safety gates.
+- Make retriever parsing tolerant of equivalent JSON keys such as `top10_diagrams`, `top10_references`, and `ids`, then log selected IDs for auditability.
+
+### Same-Prompt Figure Comparison Standard
+- Keep one canonical direct prompt file for image-model comparisons, then reuse it unchanged across providers.
+- When PaperBanana needs a separate caption or visual intent, append that caption only for direct model UIs that accept a single prompt field.
+- Preserve explicit negative constraints in the prompt so generated figures do not contain source lines, captions, or paragraph text inside the image.
+
+### Memoir Figure Swap Standard
+- Prefer swapping only the `\includegraphics` target when the surrounding caption and source attribution remain scientifically valid.
+- Verify the new image file exists under the LaTeX image root and check logs for missing-graphic errors after a compile attempt.
+- Do not rename or delete superseded figure assets unless the user explicitly asks for cleanup.
+
+### Figure Generation Cost Comparison Standard
+- Count direct image generation as one useful image prompt per successful output, and separately note failed technical attempts such as unsupported sizes.
+- Count PaperBanana `demo_full` with one critic round as five useful calls when no revision is requested: retriever, planner, stylist, visualizer, and critic.
+- Include approximate user-prompt tokens and retriever-prompt tokens, because retrieval-heavy workflows can be much more expensive than the visible prompt suggests.
+
+### Mixed Figure Workflow Integration Standard
+- When comparing multiple image workflows, integrate the best output per figure rather than forcing one workflow across a whole section.
+- Keep the figure source/caption stable when the replacement is an adapted rendering of the same conceptual content.
+- Verify every selected image exists under `documentation/memoire/latex/images/` before changing the LaTeX include path.
+
+### Local Figure Sizing Standard
+- Resize acceptable figure assets at the LaTeX call site with `width=<fraction>\linewidth,keepaspectratio`.
+- Use local sizing for page-balance tweaks so global `\includegraphics` behavior stays stable for the rest of the memoir.
+- Keep captions and alt text unchanged when only the rendered scale changes.
+
+### Operator-Unavailable Coverage Standard
+- Build the coverage backlog from `operator.unavailable` events joined with raw verifier output, feedback evidence, affordance metadata, and best-observed stage.
+- Add only the smallest set of typed operators that covers the dominant failure families, using feasibility and scoped-edit risk to break frequency ties.
+- Prefer exact block-scoped POM upgrades for benchmark operators; leave internal snapshot dependencies, broad source rewrites, and ambiguous official-eval failures as explicit non-covered families until they recur enough to justify risk.
+
+### Target-Aware Migration Operator Standard
+- Introduce a typed migration context at the adapter boundary and fail fast when benchmark target fields are absent.
+- Keep operator names action-oriented and target-neutral; select Java/Maven/JAXB/Lombok thresholds from compatibility profiles keyed by target version.
+- Test prompts, deterministic fallbacks, and affordance metadata for non-default targets so removed hardcodes do not survive in secondary paths.
+
+### Targeted Operator Coverage Regression Standard
+- Promote `operator.unavailable` rows into specific affordances before changing operators; this keeps scheduler decisions auditable.
+- Keep diagnostic-only families explicit when a safe typed patch would require private repositories, broad framework upgrades, or complex source rewrites.
+- Re-run a small Docker subset built from the unavailable families and require replay parity plus zero `replacement_count_too_low` before relaunching main campaigns.
+
+### Benchmark Workspace Relaunch Standard
+- Reset reused base checkouts to their registered base commit before generating observations or validating guarded edits.
+- Purge stale candidate branch directories at adapter setup, then preserve branches only within the current run for apply/validate/finalize continuity.
+- When a stale workspace contaminates a live campaign, archive partial outputs, commit the workspace fix, rebuild Docker, and relaunch only the invalidated arm.
+
+### LLM Provider Trace Audit Standard
+- Persist every provider-level LLM call before candidate filtering can erase evidence of invalid, duplicate, or empty generations.
+- Include system prompt, user prompt, raw response, parsed JSON, normalized edits, usage metadata, candidate emission status, and drop reason; omit API keys and provider headers.
+- Write traces under the arm output directory so restored/recomposed benchmark campaigns keep their LLM evidence beside EventLogs, summaries, and artifacts.
+
+### V11 Campaign Audit Artifact Standard
+- Generate campaign-local `audits/` outputs from replayable artifacts rather than ad hoc terminal snippets.
+- Reconstruct best-observed funnel progress from all validation events, then compare treatment/control arms pairwise by instance.
+- Attribute operator impact by joining `operator.*`, `candidate.created`, `affordance.created`, `feedback.created`, and validation-score events before labeling helped, harmed, or neutral.
+
+### Agent Handoff Refresh Standard
+- Keep root handoff docs focused on the active architecture and mark legacy stacks as historical rather than documenting them as current scope.
+- Include the latest benchmark interpretation, not only commands, so future agents do not overclaim or optimize the wrong metric.
+- Link to canonical ADRs/artifacts for history and keep active commands, invariants, and ownership boundaries in the handoff itself.
+
+### B6 Trace-Driven Repair Hardening Standard
+- When `calls.jsonl` shows a useful LLM/source repair but B6 chooses a generic POM operator, first add the verifier-referenced source file to live repair context.
+- Add exact source operators only for narrow patterns whose old span is present and whose semantic preconditions are checkable locally.
+- Emit `operator.rejected` plus inhibition when an operator child scores below its parent, and classify it as blocked regression in follow-up audits.
+
+### V12 Agentic Tool Guardrail Audit Standard
+- Add negative tests with buggy registered handlers so `ToolExecutor` proves the `ToolSpec` mutation/proposal contract centrally, not only by convention.
+- Reject agent-provided shell control in verifier commands, and require official-eval commands to come from trusted workspace metadata.
+- Redact raw LLM response strings as well as structured fields, but keep non-secret metrics such as token counts visible for auditability.
+
+### V12 Native Tool-Call Provider Standard
+- Expose each agent tool as a separate native function with strict provider-facing schemas; do not wrap tools in a generic `call_tool`.
+- Add a required `rationale` argument to every native schema so traces preserve why the agent chose the tool.
+- Send `tool_choice="required"` whenever the scientific contract requires a native tool call; prompt wording alone is not a sufficient provider boundary.
+- Keep model defaults provider-scoped: DeepSeek may use the repo default, but OpenAI/OpenRouter-style routes must fail fast unless the benchmark config names an explicit model.
+- For DeepSeek V4 tool-choice calls, use `deepseek-v4-flash` with thinking disabled; the legacy `deepseek-chat` alias is non-thinking compatibility and should not be the long-term default.
+- Prefer direct HTTP with explicit timeout for DeepSeek smoke/campaign tool-choice calls if the OpenAI-compatible SDK path hangs locally.
+- Use the repo-local `.codex/skills/deepseek-api` skill before changing DeepSeek provider code or running live DeepSeek smoke tests.
+- Parse string booleans in benchmark extras before constructing provider configs so `"false"` cannot accidentally enable LLM providers, strict tools, or tracing.
+- Retry only malformed or schema-invalid provider tool calls; once a valid tool executes and returns `rejected` or `failed`, feed that outcome back through the medium instead of making an automatic replacement LLM call.
+
+### V12 Tool Annotation Autonomy Standard
+- Show the full non-forbidden domain toolbox to the LLM; never use medium support or inhibition as a hidden shortlist.
+- Encode stigmergic influence as per-tool annotations with support, inhibition, risk, recommendation, reason, evidence, and recent outcomes.
+- Audit autonomy by comparing followed, overridden, inhibited, forbidden, successful-override, and harmful-override tool choices.
+
+### V12 Agentic Campaign Runner Standard
+- Create candidate branches lazily after a valid LLM-selected mutating tool call; keep read/search/inspect tools on the active parent workspace.
+- Record S2/V12 tool registry names in each arm manifest and fail readiness if they differ.
+- Produce `comparison.json`, `v12_readiness_report.json`, best-observed funnel, pairwise deltas, tool trace calls, and medium-attribution CSVs from EventLogs before interpreting any V12 campaign.
+
+### V12 Medium Outcome-Guided Annotation Standard
+- Record tool outcomes in the medium and expose them as annotation evidence; do not use outcomes to hide non-forbidden tools.
+- After successful proposal or repeated inspection evidence, increase support for guarded edit tools and add caution to repeated non-mutating tools.
+- Compare V12 against S2 after every annotation change; a useful medium should improve or match S2 while keeping `medium_created_patch_count == 0`.
+
+### V12.4 SD-Feedback Patch Proposal Standard
+- Use SD-Feedback as the verifier-gated loop of truth: LLM proposes a patch, the harness guards/applies/verifies, then accepts or reverts.
+- Keep S2 and V12 read-only perception tools identical; the only treatment difference should be compact stigmergic feedback augmentation.
+- Treat invalid patch syntax/old-span failures as syntactic feedback and no-progress verifier outcomes as semantic feedback; do not spend benchmark validation slots on unguarded patch attempts.
+
+### UV Environment Recovery Standard
+- Rebuild `.venv` with `uv venv --python <version>` and `uv pip install -r requirements.txt`, then run `uv pip check` before assuming dependency conflicts remain.
+- If Python imports hang on macOS, check candidate source files with `ls -lO@`; a `dataless` file can block reads and should be rehydrated or recreated before rerunning tests.
+- Use `PYTHONPATH=.` plus focused `--confcutdir` pytest runs when validating active V12 modules so legacy root test fixtures do not obscure the environment signal.

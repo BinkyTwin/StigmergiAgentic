@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import gc
 import json
+import re
 import shutil
 from dataclasses import asdict, replace
 from pathlib import Path
@@ -64,6 +65,10 @@ from adapters_v10.migrationbench.workspace import (
 _BRANCH_KEY = "branch_id"
 _PARENT_BRANCH_KEY = "parent_branch_id"
 _VERIFICATION_DIRNAME = "_verify"
+_RAW_OUTPUT_JAVA_PATH_PATTERNS = (
+    re.compile(r"(?:^|\s)(?P<path>[\w./-]+\.java):\[\d+,\d+\]"),
+    re.compile(r"(?:^|\s)(?P<path>[\w./-]+\.java):\d+:"),
+)
 
 
 class MigrationBenchAdapterV10(DomainAdapterV10):
@@ -95,10 +100,14 @@ class MigrationBenchAdapterV10(DomainAdapterV10):
         """Materialise the base checkout for ``instance`` and return its handle."""
 
         mb_instance = self._coerce_instance(instance)
-        workspace_root = Path(instance.metadata["workspace_root"]).expanduser().resolve()
-        artifacts_dir = Path(
-            instance.metadata.get("artifacts_dir", workspace_root / "artifacts")
-        ).expanduser().resolve()
+        workspace_root = (
+            Path(instance.metadata["workspace_root"]).expanduser().resolve()
+        )
+        artifacts_dir = (
+            Path(instance.metadata.get("artifacts_dir", workspace_root / "artifacts"))
+            .expanduser()
+            .resolve()
+        )
         artifacts_dir.mkdir(parents=True, exist_ok=True)
 
         base = MigrationBenchWorkspaceV10(
@@ -189,9 +198,7 @@ class MigrationBenchAdapterV10(DomainAdapterV10):
             ),
         ]
 
-    def apply(
-        self, candidate: Candidate, workspace: WorkspaceHandle
-    ) -> ApplyResult:
+    def apply(self, candidate: Candidate, workspace: WorkspaceHandle) -> ApplyResult:
         if candidate.kind != CandidateKind.PATCH:
             return ApplyResult(
                 candidate_id=candidate.candidate_id,
@@ -262,7 +269,9 @@ class MigrationBenchAdapterV10(DomainAdapterV10):
         # Pre-flight apply check ahead of finalize to surface early failure.
         patch_path = self._candidate_patch_path(candidate)
         patch_stats = branch.export_patch(patch_path)
-        verification_root = branch.root_dir.parent / _VERIFICATION_DIRNAME / candidate.candidate_id
+        verification_root = (
+            branch.root_dir.parent / _VERIFICATION_DIRNAME / candidate.candidate_id
+        )
         verification = MigrationBenchWorkspaceV10(
             instance=self._require_instance(),
             root_dir=verification_root,
@@ -430,6 +439,22 @@ class MigrationBenchAdapterV10(DomainAdapterV10):
                         "rationale": failure_type,
                     }
                 )
+            if any(
+                token in lowered_output
+                for token in (
+                    "package jdk.jfr.events is not visible",
+                    "import jdk.jfr.events",
+                    "jdk.jfr.events.exceptionthrownevent",
+                    "package sun.reflect.misc is not visible",
+                    "does not export it",
+                )
+            ):
+                recommended.append(
+                    {
+                        "action": "replace_jdk_internal_api",
+                        "rationale": failure_type,
+                    }
+                )
             recommended.append(
                 {"action": "fix_compile_error", "rationale": failure_type}
             )
@@ -504,6 +529,7 @@ class MigrationBenchAdapterV10(DomainAdapterV10):
             severity=severity,
             summary=validation.summary or failure_type,
             evidence=[validation.raw_output[-2000:]] if validation.raw_output else [],
+            locations=_locations_from_raw_output(validation.raw_output or ""),
             candidate_causes=[],
             recommended_next_actions=recommended,
             anti_actions=anti,
@@ -524,7 +550,9 @@ class MigrationBenchAdapterV10(DomainAdapterV10):
         patch_path = self._candidate_patch_path(candidate)
         patch_stats: PatchStats = branch.export_patch(patch_path)
 
-        verification_root = branch.root_dir.parent / _VERIFICATION_DIRNAME / candidate.candidate_id
+        verification_root = (
+            branch.root_dir.parent / _VERIFICATION_DIRNAME / candidate.candidate_id
+        )
         verification = MigrationBenchWorkspaceV10(
             instance=instance,
             root_dir=verification_root,
@@ -577,7 +605,9 @@ class MigrationBenchAdapterV10(DomainAdapterV10):
             artifacts["patch.diff"] = patch_path
 
         signals_path = patch_path.with_name("signals.json")
-        signals_path.write_text(json.dumps(signals, indent=2, sort_keys=True), encoding="utf-8")
+        signals_path.write_text(
+            json.dumps(signals, indent=2, sort_keys=True), encoding="utf-8"
+        )
         artifacts["signals.json"] = signals_path
 
         metadata = {
@@ -592,7 +622,9 @@ class MigrationBenchAdapterV10(DomainAdapterV10):
                 "base_commit": instance.base_commit,
                 "target_java": int(instance.target_java),
                 "migration_mode": instance.migration_mode,
-                "migration_context": migration_context_from_instance(instance).to_dict(),
+                "migration_context": migration_context_from_instance(
+                    instance
+                ).to_dict(),
             },
             "candidate_id": candidate.candidate_id,
             "branch_id": self._branch_id(candidate),
@@ -605,7 +637,9 @@ class MigrationBenchAdapterV10(DomainAdapterV10):
             status=status,
             artifacts=artifacts,
             summary=(
-                "strict_success" if signals["strict_success"] else local.failure_taxonomy
+                "strict_success"
+                if signals["strict_success"]
+                else local.failure_taxonomy
             ),
             metadata=metadata,
         )
@@ -627,7 +661,9 @@ class MigrationBenchAdapterV10(DomainAdapterV10):
             candidate_id=artifact.candidate_id,
             strict_success=strict_success,
             metrics=metrics,
-            summary="strict_success" if strict_success else (artifact.summary or "failed"),
+            summary=(
+                "strict_success" if strict_success else (artifact.summary or "failed")
+            ),
             metadata={
                 "patch_stats": dict(artifact.metadata.get("patch_stats", {})),
                 "official": dict(artifact.metadata.get("official", {}) or {}),
@@ -769,7 +805,9 @@ def _local_to_dict(local: LocalVerificationResult) -> dict[str, Any]:
     return payload
 
 
-def _official_to_dict(official: OfficialVerificationResult | None) -> dict[str, Any] | None:
+def _official_to_dict(
+    official: OfficialVerificationResult | None,
+) -> dict[str, Any] | None:
     if official is None:
         return None
     payload = asdict(official)
@@ -786,6 +824,23 @@ def _official_feedback_text(official: OfficialVerificationResult) -> str:
     if official.log_path:
         parts.append(f"log_path: {official.log_path}")
     return "\n".join(parts)
+
+
+def _locations_from_raw_output(raw_output: str) -> list[dict[str, str]]:
+    locations: list[dict[str, str]] = []
+    seen: set[str] = set()
+    for pattern in _RAW_OUTPUT_JAVA_PATH_PATTERNS:
+        for match in pattern.finditer(raw_output):
+            path = match.group("path").replace("\\", "/")
+            if "/repo/" in path:
+                path = path.split("/repo/", 1)[1]
+            if path.startswith("/") or ".." in path.split("/"):
+                continue
+            if path in seen:
+                continue
+            seen.add(path)
+            locations.append({"path": path})
+    return locations
 
 
 __all__ = ["MigrationBenchAdapterV10"]

@@ -1,331 +1,304 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code when working in this repository.
+This file is the repository handoff for Claude agents.
+It describes the current source of truth, the active architecture, and the
+commands that matter now. Keep it current when the project direction changes.
 
-## Project Overview
+## Current Project State
 
-Stigmergic orchestration framework for thesis research (EMLV).
+StigmergiAgentic is a Master's thesis codebase about verifier-gated,
+stigmergic coordination for code migration benchmarks.
 
-**Current direction (2026-05-03)** : pivot V10 *from-scratch* en cours. L'architecture V3 (Sprint 9 complet) est figée comme baseline historique reproductible sur la branche `archive/v3-sprint9`. Le code actif évolue dans une nouvelle ligne `core_v10/` indépendante de `core/` legacy. Voir :
-- `documentation/redisgn_v2/plan_v10_from_scratch_rebuild.md` — plan technique canonique (architecture, phases A0..A6, ablations).
-- `documentation/redisgn_v2/pivot_v10_documentation_memoire.md` — documentation mémoire (problématique, diagnostic, reformulation scientifique, hypothèses H1/H2/H3/H4).
-- `documentation/decisions/20260503-pivot-v10-from-scratch.md` — ADR-018 du pivot.
+The active implementation line is **V12**:
 
-V3 (Sprint 9) reste documentée ci-dessous comme état du code legacy. Toute nouvelle fonctionnalité doit être implémentée dans `core_v10/` selon le plan canonique.
+- `core_v12/` is the active V12 autonomous-agent layer.
+- `core_v10/` is the active orchestration runtime.
+- `adapters_v10/` is the active adapter layer.
+- `scripts/bench/`, `scripts/v11/`, and `scripts/v12/` are the active
+  benchmark harness/audit surfaces.
+- `core/`, `adapters/`, `tools/`, `llm/`, and the old TravelPlanner stack are
+  legacy Sprint 9 / V3 code. Treat them as historical unless the user explicitly
+  asks for legacy work.
 
-### Phase 4 V10 livrée (2026-05-04) — MigrationBench V10 + bench harness unifié
+Do not build new features in the legacy `core/` runtime. New framework work
+belongs in `core_v12/` first, reusing `core_v10/` and `adapters_v10/` only as
+stable verifier, workspace, EventLog and MigrationContext substrate.
 
-L1→L7 du plan canonique livrées : `adapters_v10/migrationbench/{schemas, workspace, maven, verifier, adapter}.py`, `scripts/bench/{harness, telemetry, artifacts, providers, docker}.py`, service Docker `migrationbench-v10-smoke`, config `config/v10/migrationbench_v10_smoke_deepseek.yaml`. **126 tests V10 verts** (121 unit + 5 integration). Le `MigrationBenchVerifier` émet les 8 signaux canoniques (`patch_delivered`, `patch_applies`, `compile_success`, `test_success`, `class_version_ok`, `dependency_policy_ok`, `official_success`, `strict_success`). Invariant strict respecté : `strict_success=True` exige la chaîne complète apply→compile→test→class_version 61→official `Success=True`. Le fallback diagnostique V7.2 `_synthesize_best_partial_payload` n'a aucun équivalent (testé par AST scan). Aucune fuite d'import legacy (`core/`, `adapters/`) dans `core_v10/`, `adapters_v10/`, `scripts/bench/`.
+## Canonical Documents
 
-Smoke run via Docker (clone `external/MigrationBench` au premier lancement) :
+Use these first when orienting yourself:
 
-```bash
-DEEPSEEK_API_KEY=$(grep DEEPSEEK_API_KEY .env | cut -d= -f2) \
-  docker compose -f docker-compose.campaign.yml up migrationbench-v10-smoke
-```
+- `documentation/redisgn_v2/plan_v10_from_scratch_rebuild.md` — V10 rebuild plan.
+- `documentation/redisgn_v2/plan_v11_stigmergic_medium_kernel.md` — V11 plan.
+- `documentation/redisgn_v2/plan_v12_autonomous_agents_over_stigmergic_medium.md` — current V12 plan.
+- `documentation/redisgn_v2/phase_07_artifact.md` — current V11 artifact notes.
+- `documentation/redisgn_v2/phase_08_artifact.md` — current V12 foundation notes.
+- `documentation/decisions/20260503-pivot-v10-from-scratch.md` — V10 pivot ADR.
+- `documentation/decisions/20260506-v11-stigmergic-medium-kernel.md` — V11 ADR.
+- `documentation/decisions/20260507-v12-autonomous-agents-over-medium.md` — V12 ADR.
+- `campaign_results/v11/migrationbench_main30_targetaware_full_llmtraces/audits/`
+  — latest V11/B6 historical audit outputs.
 
-Le summary est dérivé de l'EventLog par `scripts.bench.telemetry.replay_summary_from_dir` ; `live==replay` est testé en intégration (`tests/integration/v10/test_migrationbench_smoke_consistency.py`).
+## Current V12 Status
 
-### Phase 5 V10 livrée (2026-05-04) — BranchingRepair A3 (dedup + suppression + selector explicable)
+V12 is the active research direction after the V11/B6 failure mode was
+identified. V11/B6 made the system safer, but drifted toward deterministic
+operators that repaired MigrationBench projects in Python. V12 restores the
+scientific principle: the medium guides; the LLM agent chooses tools and
+parameters; tools execute under guard; the verifier judges; feedback updates
+the medium.
 
-Surface `core_v10/strategy_runner.py` durcie : `_SignatureTracker` (sha256(kind+payload) sur 16 hex), events `candidate.deduped` / `candidate.repeat_failure_suppressed` / `selection.completed`, dataclass `SelectionRationale` (id sélectionné, reason, score, compétiteurs ordonnés). `StrategyResult` expose `selection_rationale`, `dedup_skipped`, `repeat_failure_suppressed`. `scripts/bench/telemetry.py` propage ces compteurs au summary (`dedup_skipped_total`, `repeat_failure_suppressed_total`, `instances[*].selection_rationale`) — toujours reconstructibles depuis l'EventLog. Nouveau module `scripts/bench/compare_strategies.py` exécute A1/A2/A3 sur la même fixture et écrit `comparison.json`. **136 tests V10 verts** (+10 vs Phase 4). A2 livré comme placeholder linear-repair (`branching_repair` avec `max_candidates=1`) ; la couche typed-blackboard complète (capability auto-election) reste un follow-up Phase 3. Voir `documentation/redisgn_v2/phase_05_artifact.md` et ADR-019.
+Implemented:
 
-Comparaison A1/A2/A3 sur le smoke MigrationBench :
+- `core_v12/tools/`: strict `ToolCall`, `ToolSpec`, `ToolResult`,
+  `ToolProposal`, registry and executor.
+- Default V12 tools: read/search/inspect, guarded edit, patch apply, Maven/test
+  verification, official-eval hook, and proposal-only `suggest_*` tools.
+- `core_v12/tools/native_schema.py`: OpenAI-compatible native tool-call
+  schemas for every V12 tool, with `strict:true`, `additionalProperties:false`,
+  required `rationale`, and local parse/schema validation.
+- `core_v12/medium/local_view.py`: `AgentLocalView` and
+  `V12StigmergicMedium`. Local views expose the complete non-forbidden toolbox
+  plus per-tool annotations; the medium annotates tools, it does not hide
+  inhibited tools.
+- `core_v12/agent_loop.py`: local view -> LLM native tool call -> tool
+  execution -> EventLog -> verifier feedback -> medium update.
+- `core_v12/sd_feedback.py`: V12.4 SD-Feedback primitives: explicit
+  `propose_patch` channel, patch guards, best-observed funnel scoring,
+  accept/revert policy, compact stigmergic feedback block, and V12.4 arm
+  definitions.
+- `core_v12/tools/executor.py`: two tool surfaces now exist. The V12.2/V12.3
+  default registry still contains guarded mutating tools, while
+  `build_sd_feedback_readonly_tool_registry()` exposes the V12.4 perception-only
+  toolbox: read/search/inspect, safe build-log reading, Maven-error parsing,
+  effective-pom/dependency-tree inspection, and dependency-version lookup.
+- `scripts/bench/providers_v12_llm.py`: MigrationBench V12.2 provider using
+  native OpenAI-compatible Chat Completions tool calls, compatible with
+  DeepSeek strict beta; no deterministic V10/V11 fallback and no patch
+  creation by the provider.
+- Full V12.2 LLM traces under `llm_traces/` with prompts, tool schemas, raw
+  tool calls, parsed call, parse errors, usage, and redacted secrets.
+- `scripts/v12/run_v12_agentic_comparison.py`: V12.3 targeted comparison
+  runner for `S1_sd_feedback_like`, `S2_tool_feedback_agent`, and
+  `V12_stigmergic_tool_agent`.
+- `scripts/v12/audit_v12_campaign.py`: V12.3 audit writer for
+  `best_observed_funnel.csv`, `pairwise_best_observed.csv`,
+  `tool_trace_calls.csv`, `medium_effect_attribution.csv`, and
+  `v12_readiness_report.json`.
+- `core_v12/metrics.py`: recommendation follow/override, inhibited usage,
+  forbidden-attempt and harmful/successful override metrics.
+- V12 experimental arm definitions:
+  - V12.3 archived/diagnostic arms: `S1_sd_feedback_like`,
+    `S2_tool_feedback_agent`, `V12_stigmergic_tool_agent`.
+  - V12.4 active design arms: `S1_sd_feedback_exact`,
+    `S2_sd_feedback_readonly_tools`, `V12_stigmergic_sd_feedback`.
+- Repo-local skill `.codex/skills/v12-agentic-migration/SKILL.md`.
+- Targeted subset `fixtures/migrationbench/subsets/targeted_v12_agentic_5.jsonl`.
 
-```bash
-.venv/bin/python -m scripts.bench.compare_strategies \
-  --adapter migrationbench \
-  --subset fixtures/migrationbench/subsets/smoke_5.jsonl \
-  --out-dir campaign_results/v10/migrationbench_smoke_compare \
-  --extras '{"out_dir": "campaign_results/v10/migrationbench_smoke_compare", "official_eval": false}'
-```
+Latest V12.4 code evidence:
 
-### Phase 6 V10 livrée (2026-05-05) — StigmergicBlackboard A4 (`core_v10/signals.py` + `signal_policy.py` + `run_stigmergic_blackboard`)
+- V12.4 re-centers SD-Feedback: LLM proposes a patch, the harness guards it,
+  the verifier runs automatically, accept/revert is decided by funnel progress,
+  and the medium only augments future feedback.
+- Unit tests validate the patch channel, invalid edit rejection,
+  accept/revert policy, read-only tool registry, V12.4 arm definitions,
+  compact patch-free stigmergic feedback block, and verifier-automatic prompt
+  contract.
 
-Plan canonique §"Phase 6 — StigmergicBlackboard A4" (lignes 891-903) livré : `core_v10/signals.py` étendu avec `SignalRecord` / `SignalStore` (active write surface + decay half-life), nouveau module `core_v10/signal_policy.py` (politique pure feedback→signaux : `INHIBIT failure_type:*`, `INHIBIT anti:preserve_existing_tests`, `SUPPORT origin:*`, `REINFORCE kind:*`, `INHIBIT signature:*`, `NOVELTY hypothesis_space`), `StrategyRunner.run_stigmergic_blackboard()` qui réutilise toute la mécanique A3 et ajoute (1) tri/filtrage du frontier par `support_for(origin)`, (2) drop signal-driven si `INHIBIT signature ≥ 0.8`, (3) update policy après chaque verify, (4) digest top-3 attaché à `Observation.data["stigmergic_digest"]` pour le repair_provider, (5) départage finalize par signal_score. Events canoniques : `signal.emitted` (un par mutation, record sérialisé) et `signal.applied` (un par décision modifiée, `effect ∈ {drop, reorder, finalize_tiebreak}`). Telemetry étendue avec `pheromone_hit_rate` (NOVELTY exclus), `feedback_reuse_rate`, `repeated_failure_suppression_total` — toutes reconstructibles depuis l'EventLog. Invariant strict : **A4 ≡ A3 quand le SignalStore reste cosmétique** (vérifié par `test_a4_equals_a3_when_signal_store_stays_empty`). `SignalStore.from_events()` rejoue les `signal.emitted` events vers le store live (parity prouvée par `test_a4_signal_store_snapshot_is_reconstructible_from_events`). ADR pré-registré `documentation/decisions/20260505-phase-6-stigmergic-blackboard-a4.md`. **202 tests V10 verts** (162 + 40 Phase 6).
+Still not ready:
 
-**Campagne main_30 A3 vs A4 (1 seed × 30 × DeepSeek)** : A3 strict 1/30, A4 strict 1/30 (instance `comic__con`), A4 émet 236 `signal.emitted` et 1 `signal.applied` (instance `citymonstret__rorledning`, `effect=finalize_tiebreak`, `target=origin:llm_repair_deepseek-chat_t0`, `intensity=0.700`). A4 a sélectionné des hypothèses différentes de A3 sur 3/30 instances (toutes celles ayant atteint compile+test). Gain en strict_success = 0 à ce budget × 1 seed (verrou `official_eval` Phase 5 inchangé). Live==replay parity ✓ sur les 2 bras. Voir `documentation/redisgn_v2/phase_06_ablation_main30.md`.
+- Do not run or interpret V12 `main_30`.
+- V12.4 has core primitives and tests, but not yet the full Docker campaign
+  runner for `S1_sd_feedback_exact` vs `S2_sd_feedback_readonly_tools` vs
+  `V12_stigmergic_sd_feedback`.
+- The next runner must use read-only tools plus the explicit LLM patch-proposal
+  channel. Do not reuse the V12.3 "LLM tool-calling for everything" runner as
+  the final V12.4 design.
 
-Comparaison A3 vs A4 sur smoke MigrationBench (Docker, DeepSeek `deepseek-chat`, providers LLM activés, sans digest) :
+Archived V11 result:
 
-```bash
-DEEPSEEK_API_KEY=$(grep DEEPSEEK_API_KEY .env | cut -d= -f2) \
-  docker compose -f docker-compose.campaign.yml up ablation-a3-vs-a4-smoke
-```
+- Root:
+  `campaign_results/v11/migrationbench_main30_targetaware_full_llmtraces`
+- Protocol:
+  B2/B5/B6, `official_eval=true`, `use_llm_providers=true`,
+  `b6_fallback_policy=guarded_only`.
+- Readiness:
+  `ready_for_main30_launch=true`, full denominator, replay parity true.
+- Strict success:
+  B2 = 1/30, B5 = 1/30, B6 = 1/30.
+- Safety:
+  B6 `replacement_count_too_low_total=0`, `validation_error_total=0`.
+- Operators:
+  B6 `operator_invoked_total=26`, `operator_applied_total=26`.
+- Best-observed:
+  B6 vs B5 = 28 same, 1 better, 1 worse; not superior overall.
 
-Comparaison A3 vs A4 sur main_30 :
+Interpretation:
 
-```bash
-DEEPSEEK_API_KEY=$(grep DEEPSEEK_API_KEY .env | cut -d= -f2) \
-  docker compose -f docker-compose.campaign.yml up ablation-a3-vs-a4-main30
-```
+> B6 is a historical deterministic-operator baseline. It eliminates unsafe
+> replacement errors, but it is not the active scientific direction because the
+> medium began coding solutions instead of guiding autonomous agents.
 
-Le `comparison.json` final est écrit dans `campaign_results/v10/ablation_a3_vs_a4_<smoke|main30>/`.
-
-### Phase 7 V11 livrée (2026-05-06) — Stigmergic Medium Kernel MVP
-
-V11 est maintenant implémentée comme couche causale au-dessus de V10 :
-`feedback vérifié -> signal.emitted -> affordance.created -> signal.read ->
-worker.activated -> decision.influenced -> trajectory.diverged -> candidate /
-operator -> verifier`.
-
-Surface ajoutée :
-- `core_v10/stigmergy/{events,records,affordances,medium,scheduler}.py`
-  (`StigmergicMediumKernel`, affordances, reads, influences, divergences,
-  scheduler déterministe).
-- `core_v10/operators/text_operator.py` (`ExactReplaceText` guardé).
-- `adapters_v10/migrationbench/{context,compatibility}.py` et
-  `operators/maven.py` (`MigrationContext` target-aware, profils Java
-  8/11/17/21, operators Maven exact-match paramétrés).
-- `StrategyRunner.run_stigmergic_scheduler()` (B5) et
-  `StrategyRunner.run_operator_search()` (B6).
-- `scripts/bench/compare_strategies.py --ladder v11` (B2/B5/B6),
-  `scripts/v11/run_v11_smoke.py`, service Docker `v11-smoke`.
-- `scripts/bench/telemetry.py` reconstruit les métriques causales V11 :
-  `signal_read_total`, `decision_influenced_total`,
-  `trajectory_divergence_total`, `stigmergic_causality_rate`,
-  `unused_signal_rate`, `unused_affordance_rate`, `operator_*`.
-
-Validation ciblée :
-```bash
-uv run pytest tests/unit/v11 tests/integration/v11/test_toy_patch_repair.py -q
-uv run pytest tests/unit/v10/test_signal_store.py tests/unit/v10/test_signal_policy.py \
-  tests/unit/v10/test_strategy_runner_phase6.py \
-  tests/unit/v10/bench/test_telemetry_phase6.py \
-  tests/unit/v10/bench/test_compare_strategies_phase6.py \
-  tests/integration/v10/test_phase6_smoke.py -q
-uv run pytest tests/unit/v10/test_import_boundaries.py tests/unit/v10/test_strategy_runner.py \
-  tests/unit/v10/bench/test_harness_toy.py tests/unit/v10/bench/test_harness_migrationbench.py \
-  tests/unit/v10/bench/test_compare_strategies.py tests/unit/v10/migrationbench/test_adapter.py \
-  tests/unit/v10/migrationbench/test_workspace.py -q
-uv run python -m scripts.v11.run_v11_smoke --out-dir /tmp/v11_smoke_script
-```
-
-Résultat : B2 reste contrôle sans causalité V11 ; B5/B6 produisent lectures,
-worker activation, influence et divergence ; B6 invoque/applique des
-operators typés sur toy avec `live==replay`. B7 memory et tout claim
-MigrationBench main_30 V11 restent hors scope.
-
-Durcissement post-audit (2026-05-06) : le scheduler score tous les couples
-`(worker, affordance)`, le médium rejoue les affordances
-`consumed/expired/inhibited` et les signaux `retired/decayed`, les candidates
-operators MigrationBench sont enfants de l'hypothèse originale, les upgrades
-Maven plugin remplacent le bloc `<plugin>` ciblé, et la télémétrie ne compte
-que les influences `changed=true`. Le smoke V11 nettoie ses sorties avant
-relance pour garder `live==replay` dans Docker. Validation hardening : 15 tests
-V11 verts, 41 tests runner/harness ciblés, 40 tests V10 signal/strategy/imports
-verts, Docker `v11-smoke` vert après rebuild.
-
-Gate MigrationBench `main_30` (2026-05-06) : lancer V11 via
-`scripts/v11/run_v11_migrationbench_campaign.py` ou Docker
-`v11-migrationbench-main30`. Le script nettoie son workspace, isole
-workspaces/artifacts par bras B2/B5/B6, vérifie `summary==replay`, écrit
-`v11_readiness_report.json`, calcule la divergence pairwise B2-vs-B5/B6 et
-expose `replacement_count_too_low_total/rate`. Commande full :
-`DEEPSEEK_API_KEY=$(grep DEEPSEEK_API_KEY .env | cut -d= -f2) docker compose -f docker-compose.campaign.yml up v11-migrationbench-main30`.
-
-Target-aware migration context (2026-05-06) : MigrationBench échoue désormais
-explicitement si `target_java` est absent. Les prompts LLM, affordances,
-fallback déterministe et operators Maven consomment un `MigrationContext`
-(`source_java`, `target_java`, `target_class_major`, `build_system`,
-`migration_mode`, `dependency_policy`) au lieu de coder Java 17 dans le
-framework. Les operator IDs restent génériques, par exemple
-`MavenEnsureCompilerRelease`.
-
-## Sprint 9 Complete Status (2026-04-21) — legacy `core/`
-
-## Sprint 9 Complete Status (2026-04-21)
-
-Implemented modules:
-- `core/marker.py`
-- `core/marker_store.py`
-- `core/decay.py`
-- `core/schemas.py`
-- `core/dependency.py`
-- `core/reinforcement.py`
-- `core/emergence.py`
-- `core/guardrails.py`
-- `core/audit.py`
-- `core/config.py`
-- `core/tool_registry.py`
-- `core/pressure.py`
-- `core/environment.py`
-- `core/agent.py`
-- `core/orchestrator.py`
-- `adapters/base.py`
-- `adapters/assistant/__init__.py`
-- `adapters/assistant/adapter.py`
-- `adapters/assistant/workspace.py`
-- `adapters/travelplanner/__init__.py`
-- `adapters/travelplanner/adapter.py`
-- `adapters/travelplanner/workspace.py`
-- `adapters/travelplanner/tools.py`
-- `adapters/travelplanner/evaluator.py`
-- `adapters/travelplanner/langgraph_supervisor.py`
-- `tools/__init__.py`
-- `tools/file_read.py`
-- `tools/file_write.py`
-- `tools/bash_exec.py`
-- `tools/web_search.py`
-- `tools/think.py`
-- `tools/decompose.py`
-- `llm/client.py`
-- `llm/prompts.py`
-- `config/default.yaml`
-- `config/assistant.yaml`
-- `config/travelplanner.yaml`
-- `config/travelplanner_adapt.yaml`
-- `config/travelplanner_eval.yaml`
-- `config/travelplanner_v4_only.yaml`
-- `config/ablation/v5_full.yaml`
-- `config/ablation/v6_base.yaml`
-- `config/ablation/v6_A.yaml`
-- `config/ablation/v6_B.yaml`
-- `config/ablation/v6_C.yaml`
-- `main.py`
-- `scripts/setup_travelplanner.py`
-- `scripts/run_travelplanner_framework_benchmark.py`
-- `scripts/tune_aco_travelplanner.py`
-- `tests/unit/*` + `tests/integration/*` (307 passed total, including Sprint 9 skill promotion, protocol persistence, and protocol compiler integration tests)
-
-Validated gate:
-- Sprint 8 non-regression: `uv run pytest tests/unit/test_config.py tests/unit/test_marker_store.py tests/unit/test_environment.py tests/unit/test_agent.py tests/unit/test_orchestrator.py tests/unit/test_travelplanner_tools.py -q` -> 81 passed
-- Sprint 9 existing: `uv run pytest tests/unit/test_emergence.py tests/unit/test_protocol_compiler.py -q` -> 14 passed
-- Sprint 9 new unit: `uv run pytest tests/unit/test_environment_skill_promotion.py tests/unit/test_protocol_persistence.py -q` -> 13 passed
-- Sprint 9 integration: `uv run pytest tests/integration/test_skill_persistence.py tests/integration/test_protocol_cross_run.py tests/integration/test_protocol_compiler_integration.py -q` -> 18 passed
-- Full suite (excluding optional langgraph): 307 passed
-
-## Design Principles
-
-- Coordination medium first: markers are the single shared trace primitive.
-- Separation of concerns: adapters provide domain logic through tool contracts.
-- Strong governance: traceability, budget checks, retry limits, lock TTL.
-- Auditability by default: append-only JSONL events with before/after payloads.
-- Role-free agents: same agent logic, specialization through pressures, local sensing, and marker availability.
-- Backward compatibility first: stigmergic-correction features are opt-in via config.
-- Extend the medium, not the agent source: Sprint 9 groundwork keeps self-improvement in persistent artifacts and optional protocol compilation paths.
-
-## Runtime Model
+## Active Project Structure
 
 ```text
-snapshot -> decide (parallel, optional local sensing) -> lock arbitration
--> execute (parallel) -> deposit (transactional)
--> maintain (TTL + decay + optional frequentation)
--> optional emergence feedback adaptation
+core_v12/
+  agent_loop.py             # V12 autonomous LLM tool loop and arm definitions
+  metrics.py                # Tool recommendation follow/override metrics
+  sd_feedback.py            # V12.4 patch channel, funnel policy, feedback block
+  tools/
+    schema.py               # ToolCall, ToolSpec, ToolResult, ToolProposal
+    registry.py             # Shared S2/V12 ToolRegistry
+    executor.py             # Controlled tools; includes V12.4 read-only registry
+    native_schema.py        # OpenAI-compatible native function schemas/parser
+  medium/
+    local_view.py           # AgentLocalView and V12StigmergicMedium
+
+scripts/bench/
+  providers_v12_llm.py      # V12.2 native tool-call provider/tracing
+
+scripts/v12/
+  run_v12_agentic_comparison.py  # V12.3 S1/S2/V12 targeted runner
+  audit_v12_campaign.py          # V12.3 audits/readiness report
+
+core_v10/
+  contracts.py              # Domain contracts: Candidate, Workspace, Validation, Score
+  event_log.py              # Append-only JSONL EventLog and replay records
+  hypothesis_graph.py       # Candidate lineage and workspace graph
+  verifier.py               # Apply -> validate -> diagnose -> score loop
+  strategy_runner.py        # A1/A2/A3/A4 and V11 B2/B5/B6 strategies
+  signals.py                # V10 signal records/store
+  signal_policy.py          # Signal policy for verifier feedback
+  blackboard.py             # Typed replay blackboard projection
+  replay.py                 # Replay helpers
+  operators/
+    guarded_edit_set.py     # Central guard for LLM edit sets vs real workspace
+    text_operator.py        # ExactReplaceText and text operator helpers
+  stigmergy/
+    events.py               # V11 event taxonomy constants
+    records.py              # Affordance, SignalRead, DecisionInfluence, etc.
+    affordances.py          # Feedback -> action affordance taxonomy
+    medium.py               # StigmergicMediumKernel
+    scheduler.py            # Worker registry and activation scoring
+
+adapters_v10/
+  base.py                   # Adapter interface
+  toy.py                    # Toy adapter for fast tests
+  migrationbench/
+    adapter.py              # DomainAdapterV10 implementation
+    workspace.py            # Isolated base/branch workspaces
+    verifier.py             # Maven + official MigrationBench verifier
+    schemas.py              # MigrationBench instance schemas
+    context.py              # MigrationContext source/target/build metadata
+    compatibility.py        # JavaCompatibilityProfile table
+    maven.py                # Maven inspection/helpers
+    operators/
+      maven.py              # Target-aware typed Maven operators
+
+scripts/
+  bench/
+    harness.py              # Unified benchmark harness
+    compare_strategies.py   # V10/V11 ladders and comparison.json
+    providers.py            # Deterministic providers
+    providers_llm.py        # DeepSeek/OpenAI-compatible LLM providers + traces
+    telemetry.py            # Summary reconstruction from EventLog
+    artifacts.py            # Artifact export helpers
+    docker.py               # Docker helper utilities
+  v11/
+    run_v11_smoke.py
+    run_v11_migrationbench_campaign.py
+    audit_v11_campaign.py
+  v12/
+    run_v12_agentic_comparison.py
+    audit_v12_campaign.py
+
+tests/
+  unit/v10/
+  unit/v11/
+  integration/v10/
+  integration/v11/
+
+fixtures/migrationbench/subsets/
+  smoke_5.jsonl
+  targeted_v12_agentic_5.jsonl
+  main_30.jsonl
+
+campaign_results/v11/
+  migrationbench_main30_targetaware_full_llmtraces/
+    comparison.json
+    v11_readiness_report.json
+    audits/
+
+campaign_results/v12/
+  # expected V12.3 output root, created by the runner:
+  # migrationbench_targeted_agentic/
+  #   comparison.json
+  #   v12_readiness_report.json
+  #   audits/
+  #   S1_sd_feedback_like/
+  #   S2_tool_feedback_agent/
+  #   V12_stigmergic_tool_agent/
 ```
 
-Stop conditions:
-- `all_terminal`
-- `idle_cycles`
-- `budget_exhausted`
-- `max_ticks`
+## Core Invariants
 
-## Marker State Machine Defaults
+- V12 medium guides, never patches.
+- V12 scheduler/local view recommends, never applies.
+- The V12 agent sees every non-forbidden compatible tool; support/inhibition
+  are annotations, not visibility filters.
+- Inhibited tools remain callable with rationale. Forbidden tools are rejected
+  because they are technically impossible or unsafe.
+- The LLM chooses tool and parameters.
+- Tools execute guarded operations only.
+- In V12.4, the agent may use read-only tools for perception, then proposes a
+  patch through an explicit `propose_patch` / `PatchProposal` channel.
+- The V12.4 harness, not the LLM, runs validation automatically after a patch
+  proposal.
+- V12.4 accept/revert is based on best-observed funnel score: accept progress,
+  optionally accept equal-score changed failure families as exploratory, revert
+  no-progress repeats.
+- The verifier is sovereign.
+- S2 and V12 must expose identical tools and budgets.
+- `suggest_*` tools must return proposals only and must not mutate workspaces.
+- EventLog is the source of truth for telemetry. Summaries must be replayable.
+- `live_summary == replay_summary_from_dir(out_dir)` must hold for benchmark arms.
+- `strict_success=True` requires the full verifier/finalization contract.
+- Do not count partial funnel progress as strict benchmark success.
+- B6 is archived as `B6_operator_search_deterministic`; do not use it as the
+  active V12 mechanism.
+- No candidate with free-form LLM `replace_text` may reach adapter validation
+  unless `guarded_edit_set` validated it against the real parent branch workspace.
+- Operators must be target-aware through `MigrationContext`; do not create
+  Java-17-specific operator names or silent Java-17 defaults.
+- MigrationBench target data must fail fast when missing in benchmark mode.
+- Docker is mandatory for real benchmark campaigns.
 
-```text
-pending -> active -> completed -> verified -> terminal
-pending -> active -> failed -> retry -> pending
-any -> skipped
-any -> escalated
-```
+## MigrationContext Rules
 
-The state machine remains configurable and validated through `StateMachine`.
+MigrationBench migrations are not hardcoded Java 17 migrations. Every adapter
+observation should carry a `MigrationContext` with at least:
 
-## Persistence Model
+- `source_language`
+- `source_version`
+- `target_language`
+- `target_version`
+- `target_class_major`
+- `build_system`
+- `migration_mode`
+- `dependency_policy`
+- `framework_hints`
 
-- Store: SQLite file `pheromones/markers.db`
-- Mode: `WAL`
-- Transaction model: `BEGIN IMMEDIATE` on all mutations
-- Audit stream: `pheromones/audit_log.jsonl`
-- Optional read-tracking table: `marker_reads`
-- Optional lock-attempt table: `marker_lock_events`
+Use `adapters_v10/migrationbench/compatibility.py` for Java-specific thresholds:
 
-## Current Public API Surface
-
-### `core.marker`
-- `Marker`
-- `StateMachine`
-- `InvalidMarkerError`
-- `InvalidTransitionError`
-
-### `core.marker_store`
-- `MarkerStore`
-- `MarkerStoreError`
-
-Important V6 additions:
-- `record_lock_attempt`
-- `lock_stats`
-- `lock_stats_snapshot`
-
-### `core.guardrails`
-- `GuardrailEngine`
-- `BudgetExceededError`
-- `TraceabilityError`
-- `ScopeLockError`
-
-### `core.tool_registry`
-- `Decision`
-- `ActionResult`
-- `RepairRequest`
-- `ValidationResult`
-- `build_repair_marker_id`
-- `Tool`
-- `ToolRegistry`
-
-`ActionResult.metadata` may contain `credited_lesson_ids` for lesson-to-skill promotion.
-
-### `core.pressure`
-- `compute_pressures`
-- `select_action`
-
-`compute_pressures` now accepts optional `heuristic_fn(marker, action)` for ACO heuristic substitution.
-
-### `core.environment`
-- `Environment`
-- `EnvironmentSnapshot`
-
-### `core.agent`
-- `StigmergicAgent`
-- `AgentAffinityProfile`
-- `AgentMemory`
-- `MemoryEntry`
-
-### `core.orchestrator`
-- `Orchestrator`
-- `TickRow`
-- `OrchestratorResult`
-
-`OrchestratorResult` now includes `emergence_summary`, and the runtime can optionally use emergent contention resolution plus in-memory emergence feedback adaptation.
-It can also use the V6 `recovery_controller`, dynamic idle, and per-tick `TickRow.control` telemetry.
-
-### `llm.client`
-- `LLMClient`
-- `LLMResponse`
-- `ModelPricing`
-
-### `tools`
-- `register_infrastructure_tools`
-- `FileReadTool`
-- `FileWriteTool`
-- `BashExecTool`
-- `WebSearchTool`
-- `ThinkTool`
-- `DecomposeTool`
-
-### `adapters.assistant`
-- `AssistantAdapter`
-- `LocalWorkspace`
-
-`AssistantAdapter` and `TravelPlannerAdapter` both expose an opt-in `compile_protocol()` path that transforms objectives into executable task DAGs when enabled and backed by an LLM.
-
-### `adapters.travelplanner`
-- `TravelPlannerAdapter`
-- `TravelPlannerWorkspace`
-- `TravelPlannerEvaluator`
+- compiler plugin minimum
+- surefire minimum
+- Lombok minimum
+- JavaFX version
+- JAXB namespace default
 
 ## Commands
 
-### Setup
+### Environment
 
 ```bash
 uv python install 3.11
@@ -333,160 +306,187 @@ uv venv --python 3.11 .venv
 uv pip install -r requirements.txt
 ```
 
-### Test (Sprint 9)
+### Focused Validation
+
+Use focused tests first; full historical suites are often unnecessary.
 
 ```bash
-# Non-regression Sprint 8
-uv run pytest tests/unit/test_config.py tests/unit/test_marker_store.py tests/unit/test_environment.py tests/unit/test_agent.py tests/unit/test_orchestrator.py tests/unit/test_travelplanner_tools.py -q
-
-# Sprint 9 existing
-uv run pytest tests/unit/test_emergence.py tests/unit/test_protocol_compiler.py -q
-
-# Sprint 9 new
-uv run pytest tests/unit/test_environment_skill_promotion.py tests/unit/test_protocol_persistence.py -q
-uv run pytest tests/integration/test_skill_persistence.py tests/integration/test_protocol_cross_run.py tests/integration/test_protocol_compiler_integration.py -q
-
-# MigrationBench V7 (repair colony) — surface opt-in
-uv run pytest tests/unit/test_migrationbench_v7_repair_colony.py tests/unit/test_orchestrator.py tests/unit/test_migrationbench_adapter.py tests/unit/test_migrationbench_workspace.py -q
-
-# MigrationBench V7.1 smoke gate — mandatory before main_30
-uv run python scripts/migrationbench_smoke_gate.py \
-  --config config/migrationbench_v7_repair_colony_deepseek.yaml \
-  --subset fixtures/migrationbench/subsets/smoke_5.jsonl \
-  --out-dir campaign_results/migrationbench_v7_smoke_gated
-
-# Smoke test
-uv run python main.py --adapter travelplanner --config config/travelplanner_adapt.yaml --objective "Query 0"
+uv run pytest tests/unit/v12 -q
+uv run pytest tests/unit/v11 -q
+uv run pytest tests/integration/v11 -q
+uv run pytest tests/unit/v10/bench -q
+uv run pytest tests/unit/v10/migrationbench -q
 ```
 
-### Benchmark Campaigns (Docker — mandatory)
-
-**All future benchmark campaigns must run inside Docker containers.** See `docker-compose.campaign.yml`.
-
-#### MigrationBench V7 — repair colony (opt-in, 2026-04-30)
-
-Le bras `stigmergic_v7_repair_colony` est branché en parallèle de `stigmergic_v6_static`, sans le remplacer. Il introduit :
-- boucle fermée `inspect → localize → propose candidate → apply branch → build → classify failure → repair marker → retest → finalize` ;
-- patchs candidats isolés par branche (`MigrationBenchWorkspace.branch_workspace` / `fork_branch_workspace`) ;
-- nouveaux outils dans `adapters/migrationbench/tools.py` avec taxonomie `pom_parse_error`, `dependency_resolution_error`, `compile_error`, `test_failure`, `class_version_error`, `patch_apply_error`, `official_eval_failed` ;
-- pool d'agents élastique opt-in dans `core/orchestrator.py` (clé `agents.num_agents_mode: elastic`) ;
-- métriques `repair_cycles`, `llm_calls`, `branch_count`, `best_branch_id`, `failure_taxonomy`, `dynamic_agents_*`, `caps_hit` exposées dans le contrat de sortie.
-
-V7.1 (2026-05-02) durcit ce bras sans toucher V6 :
-- modèle principal conservé : `deepseek-v4-flash` ;
-- normalisation/retry des edits typés LLM, rejet des edits vides/hors surface Maven/Java ;
-- validation official-like avec class versions Java 17 exactement `{61}` ;
-- sélection stricte sauf sortie explicite `best_partial_finalization` ;
-- lessons désactivées via `lessons.enabled: false` + garde runtime ;
-- `scripts/migrationbench_smoke_gate.py` bloque `main_30` tant que les gates techniques ne passent pas.
-
-Lancement Docker (le service `migrationbench-campaign` accepte `MIGRATION_CONFIG` et `MIGRATION_FRAMEWORKS`). Pour comparer V6 et V7, lancer le service deux fois avec le même `MIGRATION_OUT_DIR` mais des `MIGRATION_CONFIG`/`MIGRATION_FRAMEWORKS` différents :
+For V12 foundation work:
 
 ```bash
-# Build une fois si l'image n'existe pas encore
-docker compose -f docker-compose.campaign.yml build migrationbench-campaign
+uv run pytest tests/unit/v12 -q
+```
 
-# V6 static (référence)
+For V12.2 native LLM tool-call provider work:
+
+```bash
+PYTHONDONTWRITEBYTECODE=1 uv run pytest tests/unit/v12 -q
+PYTHONDONTWRITEBYTECODE=1 uv run pytest tests/unit/v12 tests/unit/v11/test_b6_guarded_fallback.py tests/unit/v11/test_operator_guards.py -q
+```
+
+For V12.3 targeted comparison work:
+
+```bash
+PYTHONDONTWRITEBYTECODE=1 uv run pytest tests/unit/v12 -q
+PYTHONDONTWRITEBYTECODE=1 uv run pytest tests/unit/v12 tests/unit/v11/test_b6_guarded_fallback.py tests/unit/v11/test_operator_guards.py -q
+
+uv run python -m scripts.v12.run_v12_agentic_comparison \
+  --subset fixtures/migrationbench/subsets/targeted_v12_agentic_5.jsonl \
+  --out-dir campaign_results/v12/migrationbench_targeted_agentic \
+  --max-steps 6 \
+  --extras '{"official_eval":true,"use_llm_providers":true}' \
+  --clean
+
+uv run python -m scripts.v12.audit_v12_campaign \
+  --campaign-root campaign_results/v12/migrationbench_targeted_agentic
+```
+
+For V12.4 SD-Feedback core work:
+
+```bash
+PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=. pytest tests/unit/v12/test_v12_sd_feedback.py -q --confcutdir=tests/unit/v12
+PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=. pytest tests/unit/v12 -q --confcutdir=tests/unit/v12
+```
+
+If the repo-local `.venv` is corrupted, a clean temporary environment is
+acceptable for unit validation:
+
+```bash
+uv venv /tmp/stig-v12-env --python 3.12
+uv pip install --python /tmp/stig-v12-env/bin/python pytest pydantic pydantic-core pyyaml gitpython parameterized javalang python-dotenv openai
+PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=. /tmp/stig-v12-env/bin/python -m pytest tests/unit/v12 -q --confcutdir=tests/unit/v12
+```
+
+For V11 campaign audit tooling:
+
+```bash
+uv run pytest tests/unit/v11/test_v11_campaign_audit.py -q
+```
+
+### V11 Smoke
+
+```bash
+uv run python -m scripts.v11.run_v11_smoke \
+  --out-dir campaign_results/v11/smoke_local
+```
+
+### V11 MigrationBench Main30
+
+Use Docker for real benchmark runs.
+
+```bash
 DEEPSEEK_API_KEY=$(grep DEEPSEEK_API_KEY .env | cut -d= -f2) \
-MIGRATION_CONFIG=config/migrationbench_v6_static_deepseek.yaml \
-MIGRATION_FRAMEWORKS="stigmergic_v6_static" \
-MIGRATION_OUT_DIR=campaign_results/migrationbench_v6v7 \
-MIGRATION_SUBSET=fixtures/migrationbench/subsets/main_30.jsonl \
-  docker compose -f docker-compose.campaign.yml up migrationbench-campaign
-
-# V7 repair colony (opt-in)
-DEEPSEEK_API_KEY=$(grep DEEPSEEK_API_KEY .env | cut -d= -f2) \
-MIGRATION_CONFIG=config/migrationbench_v7_repair_colony_deepseek.yaml \
-MIGRATION_FRAMEWORKS="stigmergic_v7_repair_colony" \
-MIGRATION_OUT_DIR=campaign_results/migrationbench_v6v7 \
-MIGRATION_SUBSET=fixtures/migrationbench/subsets/main_30.jsonl \
-  docker compose -f docker-compose.campaign.yml up migrationbench-campaign
-
-# Agrégation V6 vs V7
-uv run python scripts/aggregate_migrationbench_comparison.py \
-  --campaign-root campaign_results/migrationbench_v6v7 \
-  --output-dir output/migrationbench_v6v7_comparison
+V11_OUT_DIR=campaign_results/v11/migrationbench_main30_targetaware_full_llmtraces \
+V11_WORKSPACE_ROOT=workspaces/migrationbench_v11_targetaware_full_llmtraces \
+V11_MIGRATION_SUBSET=fixtures/migrationbench/subsets/main_30.jsonl \
+V11_OFFICIAL_EVAL=true \
+V11_USE_LLM_PROVIDERS=true \
+V11_B6_FALLBACK_POLICY=guarded_only \
+docker compose -f docker-compose.campaign.yml up --build v11-migrationbench-main30
 ```
 
-Smoke test rapide hors Docker (sans evaluator officiel, surface V7 uniquement) :
+The service writes:
+
+- `<out_dir>/B2_branching_repair/summary.json`
+- `<out_dir>/B5_stigmergic_scheduler/summary.json`
+- `<out_dir>/B6_operator_search/summary.json`
+- `<out_dir>/comparison.json`
+- `<out_dir>/v11_readiness_report.json`
+- `<out_dir>/<arm>/llm_traces/calls.jsonl`
+
+### V11 Campaign Audit
+
+Run this after a campaign completes:
 
 ```bash
-uv run python scripts/run_migrationbench_framework_benchmark.py \
-  --framework stigmergic_v7_repair_colony \
-  --subset fixtures/migrationbench/subsets/smoke_5.jsonl \
-  --out-dir campaign_results/migrationbench_v7_smoke \
-  --config config/migrationbench_v7_repair_colony_deepseek.yaml \
-  --skip-official-eval
+uv run python -m scripts.v11.audit_v11_campaign \
+  --campaign-root campaign_results/v11/migrationbench_main30_targetaware_full_llmtraces
 ```
 
-#### Pilote historique (Qwen / Gemma full-sweep — déprécié, abandonné 2026-04-22)
+The audit writes:
 
-```bash
-OPENROUTER_API_KEY=$(grep OPENROUTER_API_KEY .env | cut -d= -f2) \
-  docker compose -f docker-compose.campaign.yml up qwen-campaign
-OPENROUTER_API_KEY_2=$(grep OPENROUTER_API_KEY .env.key2 | cut -d= -f2) \
-  docker compose -f docker-compose.campaign.yml up gemma-campaign
-```
+- `audits/best_observed_funnel.csv`
+- `audits/pairwise_best_observed.csv`
+- `audits/operator_applied_by_family.csv`
+- `audits/operator_unavailable_by_failure_family.csv`
+- `audits/operator_helped_harmed_by_instance.csv`
+- `audits/llm_trace_calls.csv`
+- JSON equivalents and `audits/audit_summary.md`.
 
-#### Campagne scientifique finale (2026-04-22)
+## How To Interpret Campaign Results
 
-Voir `documentation/redisgn_v2/decision_log_model_switch.md`.
+Report these separately:
 
-Modèles :
-- Principal : Gemma (`google/gemma-4-31b-it` sur OpenRouter).
-- Fort (stigmergie uniquement) : DeepSeek V3 (`deepseek-chat`, `https://api.deepseek.com/v1`, clé `DEEPSEEK_API_KEY`).
-- Stress-test : Qwen 3.5 9B — **résultat pré-calculé** dans `output/travelplanner_framework_compare/v6c_retry_20260420_seed42/v6_C/seed42/` (23,88 % final_pass, pas de re-run).
+- Strict benchmark success: only `strict_success_count`.
+- Mechanism safety: `replacement_count_too_low_total`, `validation_error_total`.
+- Causal activation: `signal_read_total`, `decision_influenced_total`,
+  `trajectory_divergence_total`.
+- Operator surface: `operator_invoked_total`, `operator_applied_total`,
+  `operator_unavailable`.
+- Search quality: best-observed funnel and pairwise deltas from audits.
+- LLM behavior: `llm_traces` calls, parse errors, duplicate drops, empty/invalid drops.
 
-Périmètre :
-- Stigmergie = **C3 uniquement** (skills + protocols read-only + cross_run).
-- Baselines Gemma : `solo_direct`, `solo_cot`, `solo_self_refine`, `planner_executor` (fixé), `langgraph_supervisor`, `metagpt_sequential` (nouveau).
-- 1 seed par modèle (limitation assumée, cf. "Threats to validity").
+Do not claim that B6 is better than B5 unless pairwise best-observed or strict
+success supports it. The current evidence says B6 is safer, not stronger.
 
-Services Docker (3 clés distinctes, parallélisables) :
+## Known Current Follow-Ups
 
-```bash
-# Terminal 1 — baselines Gemma (clé OPENROUTER_API_KEY_2 via .env.key2)
-OPENROUTER_API_KEY_2=$(grep OPENROUTER_API_KEY .env.key2 | cut -d= -f2) \
-  docker compose -f docker-compose.campaign.yml up gemma-baselines
+Prioritize these for V12:
 
-# Terminal 2 — stigmergie C3 DeepSeek (clé DEEPSEEK_API_KEY via .env)
-docker compose -f docker-compose.campaign.yml up deepseek-stigmergie
+1. Run the V12.3 targeted subset and audit `v12_readiness_report.json`.
+2. Inspect `llm_traces/` and `audits/tool_trace_calls.csv` before changing
+   agent prompts or tools.
+3. Only consider V12 `main_30` after targeted readiness gates are clean.
+4. Keep S2 and V12 on identical tools, budgets, models, instances and verifier
+   contracts.
+5. Keep B6 operators out of the active V12 agent loop.
 
-# Terminal 3 (parallèle ou séquentiel) — stigmergie C3 Gemma (clé OPENROUTER_API_KEY via .env)
-docker compose -f docker-compose.campaign.yml up gemma-stigmergie
+## Code Style
 
-# Agrégation
-uv run python scripts/aggregate_campaign_comparison.py \
-  --gemma campaign_results/gemma-stigmergie \
-  --deepseek campaign_results/deepseek-stigmergie \
-  --baselines campaign_results/gemma-baselines \
-  --qwen-fixture output/travelplanner_framework_compare/v6c_retry_20260420_seed42/v6_C/seed42/benchmark_summary.json
-```
+- Python 3.11+.
+- Type hints on public functions and methods.
+- Keep edits scoped; prefer existing local abstractions.
+- Use structured APIs/parsers where practical.
+- Comments and code docs should be in English.
+- Do not add unrelated refactors while fixing benchmark behavior.
 
-## Coding Rules
+## Git And Workspace Safety
 
-- Python 3.11+, strict type hints
-- explicit exception classes for invalid state/contract violations
-- concise docstrings on public classes/methods
-- no hidden side-effects in store APIs
-- preserve append-only audit semantics
+- Branch prefix: `codex/`.
+- Commit convention: `type(scope): description`.
+- The worktree may already be dirty. Never revert user changes or unrelated
+  generated outputs.
+- Do not commit `campaign_results/` unless explicitly asked; they are often
+  large generated evidence.
+- Keep commits atomic by concern.
 
-## Documentation and Thesis Traceability
+## Documentation Requirements
 
-For each significant delivery:
-- append `documentation/construction_log.md`
-- add/update ADR in `documentation/decisions/`
-- keep `AGENTS.md` and `CLAUDE.md` synchronized
+When changing project direction or benchmark interpretation, update the relevant
+artifact/ADR, not only code:
 
-For each sprint closure (mandatory):
-- update or create `documentation/redisgn_v2/sprint_XX_artifact.md`
-- include: sprint scope, current artifact behavior, public interfaces, guardrails, known limits, and validation evidence
+- `documentation/redisgn_v2/phase_07_artifact.md`
+- `documentation/decisions/20260506-v11-stigmergic-medium-kernel.md`
+- `documentation/redisgn_v2/phase_08_artifact.md`
+- `documentation/decisions/20260507-v12-autonomous-agents-over-medium.md`
+- `documentation/construction_log.md` when the broader build narrative changes
 
-## Knowledge Governance
+Do not resurrect old V7 or Sprint 9 instructions as current guidance.
 
-Use project-local knowledge only:
-- `.codex/knowledge/captures.md`
-- `.codex/knowledge/playbook.md`
-- `.codex/knowledge/decision_log.md`
+## Knowledge Loop
 
-Add exactly one capture per task, with 1-3 reusable patterns and concrete evidence.
+At the end of each task:
+
+1. Add exactly one capture entry in `.codex/knowledge/captures.md`.
+2. Update the matching pattern in `.codex/knowledge/playbook.md`.
+3. Append one decision in `.codex/knowledge/decision_log.md`.
+
+Knowledge entries should use English metadata and the repo slug convention:
+`<sanitized-repo-name>-<sha1(path)[:6]>`.

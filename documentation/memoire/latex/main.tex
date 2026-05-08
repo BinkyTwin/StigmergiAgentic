@@ -1,8 +1,14 @@
+% !TeX program = xelatex
+% !BIB program = biber
 % =============================================================================
-% MAIN.TEX — Mémoire de Master EMLV
+% MAIN.TEX, Mémoire de Master EMLV
 % Auteur  : Abdelatif DJEDDOU
 % Sujet   : Orchestration stigmergique de systèmes multi-agents LLM
 % Build   : xelatex main && biber main && xelatex main && xelatex main
+% Note    : les deux directives "% !TeX program" / "% !BIB program" ci-dessus
+%           forcent LaTeX Workshop (VS Code) et la plupart des éditeurs LaTeX
+%           à utiliser xelatex + biber. Sans elles, pdflatex est tenté par
+%           défaut et échoue sur fontspec / Times New Roman.
 % =============================================================================
 \documentclass[12pt,a4paper,openany,oneside]{book}
 

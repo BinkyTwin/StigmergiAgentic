@@ -1,0 +1,19 @@
+{
+  "created_at": "2026-05-06T17:56:39.416073+00:00",
+  "name": "self_organizing_principles_paperbanana_auto_ref40_filtered_fr_academic",
+  "caption": "Principes fondamentaux des systèmes auto-organisés : décentralisation, contribution incrémentale, adaptation et mémoire environnementale partagée. Ne pas écrire cette phrase dans l'image.",
+  "content_file": "/Users/lotfi/Documents/EMLV/Memoire/StigmergiAgentic/documentation/memoire/image_generation/prompts/self_organizing_principles_fr_academic.md",
+  "output_path": "/Users/lotfi/Documents/EMLV/Memoire/StigmergiAgentic/documentation/memoire/latex/images/self_organizing_principles_paperbanana_auto_ref40_filtered_fr_academic.png",
+  "task": "diagram",
+  "aspect_ratio": "16:9",
+  "num_candidates": 1,
+  "max_critic_rounds": 1,
+  "retrieval_setting": "auto",
+  "exp_mode": "demo_full",
+  "main_model_name": "gpt-5.5",
+  "image_gen_model_name": "gpt-image-2",
+  "diagram_ref_limit": 40,
+  "skip_cyber_references": "1",
+  "returncode": 0,
+  "stdout": "Initialized OpenAI-compatible Client with base URL: https://api.francestudent.org/v1\nInitialized OpenRouter Client with API Key\n[Retriever] Running retrieval once for all candidates...\n[Retriever] Skipped 59 cybersecurity-sensitive references.\n[Retriever] Candidate pool capped at 40 references (ref_limit=40).\n[Retriever] Selected reference IDs: ref_26, ref_5, ref_23, ref_20, ref_32, ref_10, ref_41, ref_45, ref_9, ref_43\n[Retriever] Done. Retrieved 10 references.\n\nProcessing concurrently:   0%|          | 0/1 [00:00<?, ?it/s]\nProcessing concurrently:   0%|          | 0/1 [03:57<?, ?it/s]\nProcessing concurrently: 100%|##########| 1/1 [03:57<00:00, 237.89s/it]\nProcessing concurrently: 100%|##########| 1/1 [03:57<00:00, 237.90s/it]\n[Critic Round 0] No changes needed. Stopping iteration.\n/Users/lotfi/Documents/EMLV/Memoire/StigmergiAgentic/documentation/memoire/latex/images/self_organizing_principles_paperbanana_auto_ref40_filtered_fr_academic.png\n"
+}

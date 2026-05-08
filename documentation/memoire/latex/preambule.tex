@@ -1,5 +1,5 @@
 % =============================================================================
-% PRÉAMBULE — Mémoire de Master EMLV
+% PRÉAMBULE, Mémoire de Master EMLV
 % Conformité format : Times New Roman 12pt, marges 2,5 cm, interligne 1,5,
 % texte justifié, numéros de page, table des matières automatique.
 % Compilation : xelatex + biber.
@@ -78,6 +78,9 @@
   \setlength{\itemsep}{0pt}\setlength{\parskip}{0pt}}
 \providecommand{\pandocbounded}[1]{%
   \adjustbox{max width=0.94\linewidth,max totalheight=0.60\textheight,center}{#1}}
+% Helper Pandoc pour les largeurs de colonnes proportionnelles
+% (longtable générée par "pandoc → latex" : \real{0.3333} multiplie une dimension).
+\providecommand{\real}[1]{#1}
 \setlength{\textfloatsep}{10pt plus 2pt minus 2pt}
 \setlength{\intextsep}{10pt plus 2pt minus 2pt}
 

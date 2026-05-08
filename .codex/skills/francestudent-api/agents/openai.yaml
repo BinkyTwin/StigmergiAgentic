@@ -1,0 +1,4 @@
+interface:
+  display_name: "FranceStudent API"
+  short_description: "FranceStudent text and image API"
+  default_prompt: "Use the FranceStudent API skill to test a prompt through Responses or generate an image with gpt-image-2."

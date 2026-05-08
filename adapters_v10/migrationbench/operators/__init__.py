@@ -11,6 +11,7 @@ from adapters_v10.migrationbench.operators.maven import (
     maven_upgrade_lombok_for_target_java_edits,
     maven_upgrade_lombok_edits,
     maven_upgrade_surefire_plugin_edits,
+    replace_jdk_internal_api_edits,
     replace_sun_misc_base64_edits,
     target_java_replacements,
 )
@@ -26,6 +27,7 @@ __all__ = [
     "maven_upgrade_lombok_edits",
     "maven_upgrade_surefire_plugin_edits",
     "migrationbench_operator_candidates",
+    "replace_jdk_internal_api_edits",
     "replace_sun_misc_base64_edits",
     "target_java_replacements",
 ]

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Docker Benchmark Tests"
+  short_description: "Run Docker tests and benchmark campaigns with mandatory no-cache builds."
+  default_prompt: "Run the relevant Docker validation with no build cache and report the exact command and evidence."

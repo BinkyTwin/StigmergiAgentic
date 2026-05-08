@@ -29,6 +29,7 @@ from scripts.bench.providers_llm import (
     _extract_spring_boot_parent,
     _format_project_context,
     _normalize_edits,
+    _normalize_edits_with_issues,
     _safe_json_parse,
     _signature,
     make_migrationbench_llm_initial_provider,
@@ -92,9 +93,19 @@ def test_normalize_edits_drops_hallucinated_old_when_files_provided() -> None:
     raw = {
         "edits": [
             # Verbatim, must survive
-            {"type": "replace_text", "path": "pom.xml", "old": "<foo>1</foo>", "new": "<foo>2</foo>"},
+            {
+                "type": "replace_text",
+                "path": "pom.xml",
+                "old": "<foo>1</foo>",
+                "new": "<foo>2</foo>",
+            },
             # Hallucinated, must be dropped
-            {"type": "replace_text", "path": "pom.xml", "old": "<bar>nope</bar>", "new": "x"},
+            {
+                "type": "replace_text",
+                "path": "pom.xml",
+                "old": "<bar>nope</bar>",
+                "new": "x",
+            },
         ]
     }
     cleaned = _normalize_edits(raw, files=files)
@@ -112,12 +123,44 @@ def test_normalize_edits_keeps_unknown_paths_when_files_provided() -> None:
     raw = {
         "edits": [
             # Path not in files dict — guard does nothing, edit goes through.
-            {"type": "replace_text", "path": "src/main/resources/foo.xml", "old": "x", "new": "y"},
+            {
+                "type": "replace_text",
+                "path": "src/main/resources/foo.xml",
+                "old": "x",
+                "new": "y",
+            },
         ]
     }
     cleaned = _normalize_edits(raw, files=files)
     assert len(cleaned) == 1
     assert cleaned[0]["path"] == "src/main/resources/foo.xml"
+
+
+def test_normalize_edits_reports_drop_reasons_for_traces() -> None:
+    files = {"pom.xml": "<project/>"}
+    raw = {
+        "edits": [
+            {
+                "type": "replace_text",
+                "path": "pom.xml",
+                "old": "<missing/>",
+                "new": "<fixed/>",
+            },
+            {
+                "type": "replace_text",
+                "path": "src/main/java/Demo.java",
+                "old": "class Demo {}",
+                "new": "class Demo { }",
+            },
+        ]
+    }
+
+    cleaned, issues = _normalize_edits_with_issues(raw, files=files)
+
+    assert [edit["path"] for edit in cleaned] == ["src/main/java/Demo.java"]
+    reasons = {issue["reason"] for issue in issues}
+    assert "old_span_absent_in_shown_file" in reasons
+    assert "path_not_shown_for_verbatim_check" in reasons
 
 
 def test_signature_is_stable_for_same_payload() -> None:
@@ -359,7 +402,9 @@ def test_initial_provider_writes_full_llm_trace_for_each_call(
         usage={"prompt_tokens": 10, "completion_tokens": 5},
     )
     responses = iter([valid_response, valid_response, None])
-    monkeypatch.setattr(providers_llm, "_call_llm_json", lambda *a, **k: next(responses))
+    monkeypatch.setattr(
+        providers_llm, "_call_llm_json", lambda *a, **k: next(responses)
+    )
 
     provide = make_migrationbench_llm_initial_provider(
         adapter,
@@ -374,8 +419,7 @@ def test_initial_provider_writes_full_llm_trace_for_each_call(
     assert len(candidates) == 1
     trace_path = tmp_path / "llm_traces" / "calls.jsonl"
     rows = [
-        json.loads(line)
-        for line in trace_path.read_text(encoding="utf-8").splitlines()
+        json.loads(line) for line in trace_path.read_text(encoding="utf-8").splitlines()
     ]
     assert [row["candidate_emitted"] for row in rows] == [True, False, False]
     assert rows[1]["dropped_reason"] == "duplicate_signature"
@@ -388,6 +432,7 @@ def test_initial_provider_writes_full_llm_trace_for_each_call(
     assert first["raw_response"].startswith('{"edits"')
     assert first["parsed_response"]["rationale"] == "trace me"
     assert first["normalized_edits"][0]["path"] == "pom.xml"
+    assert "normalization_issues" in first
     assert first["usage"] == {"prompt_tokens": 10, "completion_tokens": 5}
 
 
@@ -465,7 +510,9 @@ def test_initial_provider_dedups_identical_llm_outputs(
         ]
     }
     responses = iter([duplicate, duplicate, duplicate, duplicate])
-    monkeypatch.setattr(providers_llm, "_call_llm_json", lambda *a, **k: next(responses))
+    monkeypatch.setattr(
+        providers_llm, "_call_llm_json", lambda *a, **k: next(responses)
+    )
 
     extras = {"use_llm_providers": True, "llm_initial_candidates": 4}
     provide = make_migrationbench_llm_initial_provider(adapter, extras)
@@ -604,7 +651,11 @@ def test_extract_dependencies_parses_top_level_pom() -> None:
     </project>
     """
     deps = _extract_dependencies(pom)
-    assert {"groupId": "org.springframework.boot", "artifactId": "spring-boot-starter-web", "version": "2.5.0"} in deps
+    assert {
+        "groupId": "org.springframework.boot",
+        "artifactId": "spring-boot-starter-web",
+        "version": "2.5.0",
+    } in deps
     assert any(d["artifactId"] == "junit-jupiter" for d in deps)
 
 
@@ -652,7 +703,9 @@ def test_collect_dependency_context_finds_javax_imports() -> None:
     }
     ctx = _collect_dependency_context(files)
     assert "2.7.0" in ctx["spring_boot_parent_versions"]
-    assert any(d["artifactId"] == "spring-boot-starter-web" for d in ctx["top_dependencies"])
+    assert any(
+        d["artifactId"] == "spring-boot-starter-web" for d in ctx["top_dependencies"]
+    )
     assert "javax.servlet.http.HttpServletRequest" in ctx["javax_imports"]
     assert "javax.persistence.Entity" in ctx["javax_imports"]
     assert all("java.util" not in s for s in ctx["javax_imports"])
@@ -674,9 +727,7 @@ def test_format_project_context_returns_empty_when_no_signal() -> None:
 def test_format_project_context_emits_blocks() -> None:
     ctx = {
         "spring_boot_parent_versions": ["2.7.5"],
-        "top_dependencies": [
-            {"groupId": "g", "artifactId": "a", "version": "1.0"}
-        ],
+        "top_dependencies": [{"groupId": "g", "artifactId": "a", "version": "1.0"}],
         "javax_imports": ["javax.servlet.http.HttpServletRequest"],
     }
     text = _format_project_context(ctx, _migration_context(21))
@@ -745,8 +796,14 @@ def test_initial_user_prompt_includes_project_context_and_test_rule(
     assert "Project context" in captured["user"]
     assert "javax.servlet.http.HttpServletRequest" in captured["user"]
     # System prompt carries the test preservation rule.
-    assert "preserve" in captured["system"].lower() or "do not delete" in captured["system"].lower()
-    assert "MigrationBench" in captured["system"] or "official" in captured["system"].lower()
+    assert (
+        "preserve" in captured["system"].lower()
+        or "do not delete" in captured["system"].lower()
+    )
+    assert (
+        "MigrationBench" in captured["system"]
+        or "official" in captured["system"].lower()
+    )
 
 
 def test_prompt_mentions_target_java_not_hardcoded_17(

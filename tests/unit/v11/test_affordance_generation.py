@@ -37,7 +37,9 @@ def test_replacement_count_too_low_generates_exact_edit_affordances() -> None:
     assert all(record.signal_id in aff.source_signal_ids for aff in affordances)
 
 
-def test_official_failure_creates_interpreter_and_test_preservation_affordances() -> None:
+def test_official_failure_creates_interpreter_and_test_preservation_affordances() -> (
+    None
+):
     feedback = FeedbackDigest(
         candidate_id="c1",
         failure_type="official_eval_failed",
@@ -132,6 +134,35 @@ def test_specific_operator_unavailable_families_create_specific_affordances() ->
     assert "replace_sun_misc_base64" in by_action
 
 
+def test_jdk_internal_api_compile_error_prefers_source_operator() -> None:
+    feedback = FeedbackDigest(
+        candidate_id="c1",
+        failure_type="compile_error",
+        severity="blocking",
+        summary=(
+            "package jdk.jfr.events is not visible "
+            "import jdk.jfr.events.ExceptionThrownEvent;"
+        ),
+    )
+
+    affordances = affordances_from_feedback(
+        feedback=feedback,
+        signals=(),
+        source_event_ids=(),
+        now_seq=1,
+    )
+
+    by_action = {aff.action_type: aff for aff in affordances}
+    assert (
+        by_action["replace_jdk_internal_api"].expected_worker_kind
+        == "java_source_operator"
+    )
+    assert (
+        by_action["replace_jdk_internal_api"].priority
+        > by_action["select_compile_operator"].priority
+    )
+
+
 def test_javafx_affordance_handles_symbol_only_compile_logs() -> None:
     feedback = FeedbackDigest(
         candidate_id="c1",
@@ -148,9 +179,10 @@ def test_javafx_affordance_handles_symbol_only_compile_logs() -> None:
     )
 
     by_action = {aff.action_type: aff for aff in affordances}
-    assert by_action["add_javafx_dependencies"].priority > by_action[
-        "select_compile_operator"
-    ].priority
+    assert (
+        by_action["add_javafx_dependencies"].priority
+        > by_action["select_compile_operator"].priority
+    )
 
 
 def test_bytecode_reader_and_internal_dependency_are_classified_not_generic() -> None:

@@ -31,6 +31,8 @@ Les ADRs suivent le format : `YYYYMMDD-titre-court.md`
 | 019 | 2026-05-04 | [Phase 5 V10 — BranchingRepair A3, signature dedup, repeated-failure suppression, explainable selector](20260504-phase5-a3-branching-repair.md) | Accepté | Extension de `core_v10/strategy_runner.py` : `_SignatureTracker`, events `candidate.deduped` / `candidate.repeat_failure_suppressed` / `selection.completed`, dataclass `SelectionRationale`, propagation dans `scripts/bench/telemetry.py`, ablation harness `scripts/bench/compare_strategies.py` (A1/A2/A3), 10 nouveaux tests verts (136/136 V10) |
 | 020 | 2026-05-05 | [Phase 6 V10 — StigmergicBlackboard A4](20260505-phase-6-stigmergic-blackboard-a4.md) | Accepté | Pré-enregistrement et livraison A4 : `SignalStore`, `signal.emitted`, `signal.applied`, feedback→signal policy, métriques `pheromone_hit_rate`, `feedback_reuse_rate`, `repeated_failure_suppression`, comparaison A3 vs A4 |
 | 021 | 2026-05-06 | [V11 — Stigmergic Medium Kernel](20260506-v11-stigmergic-medium-kernel.md) | Accepté | Couche causale V11 au-dessus de V10 : `signal.read`, affordances, scheduler workers, `decision.influenced`, `trajectory.diverged`, operators typés B6, ladder B2/B5/B6, smoke automatisé et télémétrie replayable |
+| 022 | 2026-05-07 | [V12 — Autonomous Agents over a Stigmergic Medium](20260507-v12-autonomous-agents-over-medium.md) | Accepté | Pivot V12 après dérive B6 : le médium guide sans patcher, l’agent LLM choisit tools+params, S2/V12 partagent les mêmes tools, `core_v12/` introduit ToolCall/ToolProposal/AgentLocalView/AgentLoop |
+| 023 | 2026-05-08 | [V12.4 — Stigmergic SD-Feedback Agent](20260508-v12-4-stigmergic-sd-feedback-agent.md) | Accepté | SD-Feedback redevient la boucle de vérité : tools read-only, canal explicite `propose_patch`, verifier automatique, accept/revert au funnel, médium comme augmentation compacte du feedback |
 
 ---
 
@@ -50,4 +52,4 @@ Quand NE PAS créer un ADR :
 
 ---
 
-**Dernière mise à jour** : 2026-05-06
+**Dernière mise à jour** : 2026-05-08

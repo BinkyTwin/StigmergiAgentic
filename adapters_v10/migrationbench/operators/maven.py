@@ -66,6 +66,16 @@ def migrationbench_operator_candidates(
             edits.extend(base64_edits)
             operator_ids.append("ReplaceSunMiscBase64WithJavaUtilBase64")
 
+    if _looks_like_jdk_internal_api_failure(
+        full_text=full_text,
+        java_texts=java_texts,
+        context=context,
+    ):
+        internal_api_edits = replace_jdk_internal_api_edits(java_texts, context)
+        if internal_api_edits:
+            edits.extend(internal_api_edits)
+            operator_ids.append("ReplaceJdkInternalApi")
+
     if pom_texts and _looks_like_lombok_target_failure(
         feedback=feedback,
         action=action,
@@ -82,7 +92,11 @@ def migrationbench_operator_candidates(
         full_text=full_text,
         pom_texts=pom_texts,
     ):
-        bundle_edits = maven_upgrade_bundle_plugin_edits(pom_texts, context)
+        bundle_edits = maven_upgrade_bundle_plugin_edits(
+            pom_texts,
+            context,
+            feedback_text=full_text,
+        )
         if bundle_edits:
             edits.extend(bundle_edits)
             operator_ids.append("MavenUpgradeBundlePlugin")
@@ -97,14 +111,16 @@ def migrationbench_operator_candidates(
             operator_ids.append("MavenEnsureCompilerRelease")
 
     if pom_texts and (
-        action in {
+        action
+        in {
             "fix_official_test_summary",
             "interpret_official_eval",
             "preserve_test_count",
             "preserve_test_count_and_maven_test_summary",
         }
         or any(
-        token in full_text for token in ("official", "#tests=-2", "surefire", "test summary")
+            token in full_text
+            for token in ("official", "#tests=-2", "surefire", "test summary")
         )
     ):
         surefire_edits = maven_upgrade_surefire_plugin_edits(pom_texts, context)
@@ -126,9 +142,13 @@ def migrationbench_operator_candidates(
             edits.extend(javafx_edits)
             operator_ids.append("MavenAddJavaFxDependencies")
 
-    if pom_texts and (action == "add_missing_dependency" or any(
-        token in full_text for token in ("javax.xml.bind", "jaxb", "dependency_resolution")
-    )):
+    if pom_texts and (
+        action == "add_missing_dependency"
+        or any(
+            token in full_text
+            for token in ("javax.xml.bind", "jaxb", "dependency_resolution")
+        )
+    ):
         dependency_edits = maven_add_jaxb_dependency_edits(
             pom_texts,
             context,
@@ -160,7 +180,9 @@ def migrationbench_operator_candidates(
 
     source_affordance_id = affordance.affordance_id if affordance is not None else None
     invocation = OperatorInvocation(
-        operator_id="+".join(operator_ids) if operator_ids else "MigrationBenchOperator",
+        operator_id=(
+            "+".join(operator_ids) if operator_ids else "MigrationBenchOperator"
+        ),
         params={
             "failure_type": feedback.failure_type,
             "action_type": action,
@@ -367,13 +389,34 @@ def maven_upgrade_lombok_for_target_java_edits(
 def maven_upgrade_bundle_plugin_edits(
     pom_texts: dict[str, str],
     context: MigrationContext,
+    *,
+    feedback_text: str = "",
 ) -> list[dict[str, Any]]:
     """Upgrade Felix maven-bundle-plugin for target-Java bnd failures."""
 
-    return _plugin_version_to_target_edits(
+    edits = _plugin_version_to_target_edits(
         pom_texts,
         plugin_artifact="maven-bundle-plugin",
         target_version=context.compatibility.bundle_plugin_min,
+    )
+    if edits:
+        return edits
+    lowered_feedback = feedback_text.lower()
+    if not any(
+        token in lowered_feedback
+        for token in (
+            "maven-bundle-plugin",
+            "org.apache.felix",
+            "bundleplugin",
+            "bnd",
+            "concurrentmodificationexception",
+        )
+    ):
+        return []
+    return _add_plugin_if_absent_edits(
+        pom_texts,
+        plugin_artifact="maven-bundle-plugin",
+        plugin_xml=_bundle_plugin_xml(context),
     )
 
 
@@ -397,9 +440,13 @@ def maven_add_javafx_dependencies_edits(
             continue
         xml = dependency_xml
         if not missing_controls:
-            xml = _javafx_dependency_xml("javafx-fxml", context.compatibility.javafx_version)
+            xml = _javafx_dependency_xml(
+                "javafx-fxml", context.compatibility.javafx_version
+            )
         elif not missing_fxml:
-            xml = _javafx_dependency_xml("javafx-controls", context.compatibility.javafx_version)
+            xml = _javafx_dependency_xml(
+                "javafx-controls", context.compatibility.javafx_version
+            )
         edit = _insert_dependencies_xml_edit(path=path, text=text, dependency_xml=xml)
         if edit is not None:
             edits.append(edit)
@@ -417,7 +464,10 @@ def replace_sun_misc_base64_edits(
         return []
     edits: list[dict[str, Any]] = []
     for path, text in java_texts.items():
-        if "sun.misc.BASE64Encoder" not in text and "sun.misc.BASE64Decoder" not in text:
+        if (
+            "sun.misc.BASE64Encoder" not in text
+            and "sun.misc.BASE64Decoder" not in text
+        ):
             continue
         updated = _replace_simple_sun_misc_base64_text(text)
         if updated is None or updated == text:
@@ -439,6 +489,36 @@ def replace_sun_misc_base64_edits(
     return edits
 
 
+def replace_jdk_internal_api_edits(
+    java_texts: dict[str, str],
+    context: MigrationContext,
+) -> list[dict[str, Any]]:
+    """Apply exact, conservative source edits for removed JDK-internal APIs."""
+
+    if context.target_language.lower() != "java" or context.target_java < 9:
+        return []
+    edits: list[dict[str, Any]] = []
+    for path, text in java_texts.items():
+        updated = _remove_unused_jdk_jfr_exception_import(text)
+        if updated is None or updated == text:
+            continue
+        edits.append(
+            {
+                "type": "replace_text",
+                "path": path,
+                "old": text,
+                "new": updated,
+                "expected_replacements": 1,
+                "allow_multiple": False,
+                "rationale": (
+                    "Remove an unused import of jdk.jfr.events.ExceptionThrownEvent, "
+                    "which is a non-exported JDK-internal API on the target Java runtime."
+                ),
+            }
+        )
+    return edits
+
+
 def maven_add_jaxb_dependency_edits(
     pom_texts: dict[str, str],
     context: MigrationContext,
@@ -450,13 +530,9 @@ def maven_add_jaxb_dependency_edits(
     edits: list[dict[str, Any]] = []
     namespace = binding_namespace or context.compatibility.jaxb_namespace_default
     dependency_xml = (
-        JAVAX_JAXB_DEPENDENCY_XML
-        if namespace == "javax"
-        else JAXB_DEPENDENCY_XML
+        JAVAX_JAXB_DEPENDENCY_XML if namespace == "javax" else JAXB_DEPENDENCY_XML
     )
-    dependency_marker = (
-        "jaxb-api" if namespace == "javax" else "jakarta.xml.bind-api"
-    )
+    dependency_marker = "jaxb-api" if namespace == "javax" else "jakarta.xml.bind-api"
     for path, text in pom_texts.items():
         if dependency_marker in text:
             continue
@@ -519,11 +595,7 @@ def _compiler_release_property_insert_edits(
     opening = _project_opening_tag(text)
     if opening is None:
         return []
-    properties_block = (
-        "\n  <properties>\n"
-        f"{property_xml}"
-        "  </properties>"
-    )
+    properties_block = "\n  <properties>\n" f"{property_xml}" "  </properties>"
     return [
         {
             "type": "replace_text",
@@ -593,7 +665,11 @@ def _compiler_plugin_block_with_release(
         )
     release_line = f"          <release>{target}</release>\n"
     if "</configuration>" in block:
-        closing = "        </configuration>" if "        </configuration>" in block else "</configuration>"
+        closing = (
+            "        </configuration>"
+            if "        </configuration>" in block
+            else "</configuration>"
+        )
         return block.replace(closing, f"{release_line}{closing}", 1)
     return block.replace(
         "      </plugin>" if "      </plugin>" in block else "</plugin>",
@@ -744,6 +820,16 @@ def _surefire_plugin_xml(context: MigrationContext) -> str:
     )
 
 
+def _bundle_plugin_xml(context: MigrationContext) -> str:
+    return (
+        "      <plugin>\n"
+        "        <groupId>org.apache.felix</groupId>\n"
+        "        <artifactId>maven-bundle-plugin</artifactId>\n"
+        f"        <version>{context.compatibility.bundle_plugin_min}</version>\n"
+        "      </plugin>\n"
+    )
+
+
 def _javafx_dependency_xml(artifact_id: str, version: str) -> str:
     return (
         "    <dependency>\n"
@@ -759,9 +845,13 @@ def _javafx_dependencies_xml(
     *,
     include_fxml: bool,
 ) -> str:
-    xml = _javafx_dependency_xml("javafx-controls", context.compatibility.javafx_version)
+    xml = _javafx_dependency_xml(
+        "javafx-controls", context.compatibility.javafx_version
+    )
     if include_fxml:
-        xml += _javafx_dependency_xml("javafx-fxml", context.compatibility.javafx_version)
+        xml += _javafx_dependency_xml(
+            "javafx-fxml", context.compatibility.javafx_version
+        )
     return xml
 
 
@@ -788,7 +878,9 @@ def _replace_simple_sun_misc_base64_text(text: str) -> str | None:
                 1,
             )
         else:
-            package_match = re.search(r"(^package\s+[^;]+;\n)", updated, flags=re.MULTILINE)
+            package_match = re.search(
+                r"(^package\s+[^;]+;\n)", updated, flags=re.MULTILINE
+            )
             if package_match:
                 updated = updated.replace(
                     package_match.group(1),
@@ -797,6 +889,18 @@ def _replace_simple_sun_misc_base64_text(text: str) -> str | None:
                 )
             else:
                 updated = f"import java.util.Base64;\n{updated}"
+    return updated
+
+
+def _remove_unused_jdk_jfr_exception_import(text: str) -> str | None:
+    import_line = "import jdk.jfr.events.ExceptionThrownEvent;\n"
+    if import_line not in text:
+        return None
+    updated = text.replace(import_line, "", 1)
+    # Only remove the import when the symbol is otherwise unused. More complex
+    # replacements need a dedicated operator rather than a blind deletion.
+    if "ExceptionThrownEvent" in updated:
+        return None
     return updated
 
 
@@ -947,9 +1051,7 @@ def _property_version_edits(
                 if (path, old) in seen:
                     continue
                 seen.add((path, old))
-                new = (
-                    f"<{property_name}>{target_version}</{property_name}>"
-                )
+                new = f"<{property_name}>{target_version}</{property_name}>"
                 result = ExactReplaceText().apply(
                     current_text=text,
                     old=old,
@@ -1066,7 +1168,9 @@ def _dependency_blocks_for_artifact(
     group_marker: str | None = None,
 ) -> tuple[str, ...]:
     blocks: list[str] = []
-    for match in re.finditer(r"<dependency\b[^>]*>.*?</dependency>", text, flags=re.DOTALL):
+    for match in re.finditer(
+        r"<dependency\b[^>]*>.*?</dependency>", text, flags=re.DOTALL
+    ):
         block = match.group(0)
         if artifact_marker in block and (group_marker is None or group_marker in block):
             blocks.append(block)
@@ -1108,10 +1212,9 @@ def _looks_like_lombok_target_failure(
         )
     ):
         return True
-    return (
-        action in {"fix_compile_error", "select_compile_operator"}
-        and str(feedback.failure_type or "") in {"compile_error", "build_failure"}
-    )
+    return action in {"fix_compile_error", "select_compile_operator"} and str(
+        feedback.failure_type or ""
+    ) in {"compile_error", "build_failure"}
 
 
 def _looks_like_compiler_release_failure(
@@ -1200,6 +1303,31 @@ def _looks_like_sun_misc_base64_failure(
     )
 
 
+def _looks_like_jdk_internal_api_failure(
+    *,
+    full_text: str,
+    java_texts: dict[str, str],
+    context: MigrationContext,
+) -> bool:
+    if context.target_language.lower() != "java" or context.target_java < 9:
+        return False
+    if any(
+        token in full_text
+        for token in (
+            "package jdk.jfr.events is not visible",
+            "import jdk.jfr.events",
+            "jdk.jfr.events.exceptionthrownevent",
+            "module jdk.jfr",
+            "does not export it",
+        )
+    ):
+        return True
+    return any(
+        "import jdk.jfr.events.ExceptionThrownEvent;" in text
+        for text in java_texts.values()
+    )
+
+
 def _pom_contains(pom_texts: dict[str, str], needle: str) -> bool:
     return any(needle in text for text in pom_texts.values())
 
@@ -1256,6 +1384,7 @@ __all__ = [
     "maven_upgrade_lombok_edits",
     "maven_upgrade_surefire_plugin_edits",
     "migrationbench_operator_candidates",
+    "replace_jdk_internal_api_edits",
     "replace_sun_misc_base64_edits",
     "target_java_replacements",
 ]

@@ -1,5 +1,101 @@
 # Decision Log
 
+## 2026-05-08 (Push Reviewable V12 Thesis Handoff Without Raw Campaign Trees)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: Commit and push the current reviewable V12 thesis handoff scope while excluding generated `campaign_results/`, local outputs, and workspace scratch directories from the staged commit.
+- `rationale`: The user needs a GitHub-visible state for GPT Pro review, but the repository policy keeps raw campaign outputs out of commits unless explicitly requested. The reviewer can inspect implementation, tests, ADRs, memoir sources, and summarized evidence without pulling bulky or unstable generated artifacts.
+- `alternatives_rejected`: Commit every dirty file including generated campaigns, delay the handoff until all local artifacts are curated, or push only memoir text without the V12 implementation and tests.
+- `linked_adr`: `documentation/decisions/20260508-v12-4-stigmergic-sd-feedback-agent.md`
+
+## 2026-05-07 (Reuse PaperBanana As A Target-Local Memoir Figure Tool)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: Reuse the FranceStudent-backed PaperBanana workflow in `memoire_bouda` as a target-local figure-generation helper workspace, with ignored vendor/generated outputs and an explicit output directory under the target memoir tree.
+- `rationale`: The second research project has its own `.env` and LaTeX layout, so a local helper copy is simpler and safer than coupling it to the StigmergiAgentic repository. It preserves reproducibility while keeping secrets, generated figures, and third-party vendor code out of tracked framework history.
+- `alternatives_rejected`: Import PaperBanana as shared framework code, copy the full vendor clone and records into the new repository, or rely on the source repo's default output path that points to `documentation/memoire/latex/images`.
+- `linked_adr`: `documentation/memoire/image_generation/README.md`
+
+## 2026-05-07 (Use A Repo-Local No-Cache Docker Test Skill)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: Add a repo-local `docker-benchmark-tests` skill and wrapper script as the default Codex path for Docker tests, smoke runs, and benchmark campaign launches that must never use Docker build cache.
+- `rationale`: Docker evidence is central to MigrationBench validity, but cached images can silently preserve stale runtime behavior. A focused skill plus deterministic wrapper makes the safe command path discoverable, repeatable, and aligned with V12 targeted-subset discipline.
+- `alternatives_rejected`: Rely on AGENTS.md prose alone, teach agents to remember long Compose commands manually, or put the Docker workflow in a home-level skill that would apply too broadly to unrelated repositories.
+- `linked_adr`: `.codex/skills/docker-benchmark-tests/SKILL.md`
+
+## 2026-05-07 (Adopt V12 Autonomous Agents Over Deterministic Operator Search)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: Make V12 the active MigrationBench research direction: autonomous LLM agents operate over a stigmergic local view and shared guarded tools, while V11/B6 deterministic operator search becomes a historical baseline.
+- `rationale`: The B6 target-aware guarded line removed unsafe replacement errors but failed the scientific objective because deterministic Python operators increasingly repaired the benchmark instead of helping agents decide. V12 restores attribution by holding tools constant between S2 and V12 and changing only the stigmergic local view.
+- `alternatives_rejected`: Continue adding deterministic Maven/source operators to B6, disable all tooling and return to patch-only SD-Feedback, or compare V12 against S2 with different tools.
+- `linked_adr`: `documentation/decisions/20260507-v12-autonomous-agents-over-medium.md`
+
+## 2026-05-06 (Do Not Claim PaperBanana Retrieval Benefit Until Reference Selection Succeeds)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: Treat current PaperBanana `retrieval_setting=auto` runs as retrieval-attempted but not retrieval-effective until logs show non-empty selected references.
+- `rationale`: Local auto retrieval first fetched no dataset files because the HuggingFace dataset is zipped. After extracting the zip, the Retriever's large reference-selection prompt caused five FranceStudent Cloudflare 502 responses and produced no usable references.
+- `alternatives_rejected`: Present the auto run as full PaperBanana evidence, ignore the dataset packaging issue, or discard PaperBanana without trying a reduced reference-pool retry later.
+- `linked_adr`: `documentation/memoire/image_generation/records/definitions_operatoires_paperbanana_auto_real.json`
+
+## 2026-05-06 (Use PaperBanana Selectively For Conceptual Memoir Figures)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: Treat PaperBanana as a selective tool for conceptual, under-specified, or editorially simplified memoir figures, not as the default replacement for direct `gpt-image-2`.
+- `rationale`: The operational-definitions comparison showed direct generation was faster and richer, but PaperBanana produced a more readable body-figure candidate. The PaperBanana paper's claimed advantage relies on reference retrieval, planning, styling, and critique; local runs with retrieval disabled only test part of that system.
+- `alternatives_rejected`: Always use PaperBanana because it is agentic, always use direct generation because it is faster, or infer a general result from one prompt family.
+- `linked_adr`: `documentation/memoire/image_generation/comparisons/definitions_operatoires_agent_mas_orchestration_medium.md`
+
+## 2026-05-06 (Prefer Direct GPT Image For The Malone-Crowston Stigmergy Contrast Figure)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: Use the direct FranceStudent `gpt-image-2` output as the stronger candidate for the Malone-Crowston coordination passage, while keeping the PaperBanana version as a comparison artifact.
+- `rationale`: The passage's key thesis move is distinguishing stigmergy from authority, price adjustment, and direct messaging. The direct image explicitly separates environmental modification and read/perception arrows around the shared artifact, whereas PaperBanana produced a cleaner but more generic shared-artifact quadrant.
+- `alternatives_rejected`: Choose the PaperBanana output solely because it used agents, use neither output, or omit the read/write distinction from the figure.
+- `linked_adr`: `documentation/memoire/image_generation/records/malone_crowston_coordination_direct_response.json`
+
+## 2026-05-06 (Prefer Direct GPT Image For Highly Constrained Governance Grid Drafts)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: For the governance five-panel figure prompt, treat direct FranceStudent `gpt-image-2` as the stronger candidate than PaperBanana, while keeping PaperBanana for less specified figure-design tasks.
+- `rationale`: With a fully specified panel layout and exact French labels, the direct generation preserved numbering, structure, and label readability better. PaperBanana's planning/styling layer improved aesthetics but introduced label simplification risk.
+- `alternatives_rejected`: Assume PaperBanana is always better because it uses agents, use only the old source figure, or compare generations with different prompts.
+- `linked_adr`: `documentation/memoire/image_generation/records/cadre_gouvernance_direct_response.json`
+
+## 2026-05-06 (Use PaperBanana Governance Figures As Drafts Pending Label Verification)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: Treat the generated PaperBanana governance figure as a visual replacement candidate, not an automatically final thesis figure, until each French label is checked against the intended wording.
+- `rationale`: The generated figure improves layout, readability, and professional appearance, but image models can simplify or alter labels such as orchestration/value-alignment phrases. For a thesis figure, exact semantics matter as much as aesthetics.
+- `alternatives_rejected`: Replace the original figure blindly, discard the generated figure because of minor label simplification, or keep the original despite its overlapping and low-readability text.
+- `linked_adr`: `documentation/memoire/image_generation/records/cadre_gouvernance_paperbanana.json`
+
+## 2026-05-06 (Route Memoir PaperBanana Through Hardened FranceStudent Defaults)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: Run the memoir-local PaperBanana integration with `IMAGEN` prioritized over generic `OPENAI_API_KEY`, text-only `/responses` payloads collapsed to strings, a 4096 text output cap, and `gpt-image-2` forced to `1024x1024`.
+- `rationale`: End-to-end execution showed that the API itself was healthy, but PaperBanana's first payload could stall or fail because it used the wrong key priority, heavy structured Responses payloads, very large output caps, and a `1536x1024` image size rejected by FranceStudent.
+- `alternatives_rejected`: Leave PaperBanana's default OpenAI SDK assumptions untouched, keep retrying the failed wide-size image request, or bypass PaperBanana after the direct FranceStudent image endpoint succeeded.
+- `linked_adr`: `documentation/memoire/image_generation/README.md`
+
+## 2026-05-06 (Keep PaperBanana Integration As A Memoir-Local Figure Tool)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: Integrate PaperBanana under `documentation/memoire/image_generation/` as a local figure-generation tool, with the cloned vendor ignored and tracked scripts responsible for cloning, patching, and routing FranceStudent API calls.
+- `rationale`: The user wants PaperBanana only to help produce thesis figures, not as part of the StigmergiAgentic runtime or scientific benchmark stack. Keeping the integration documentation-local preserves that boundary while still making the workflow reproducible.
+- `alternatives_rejected`: Add PaperBanana into V10/V11 runtime code, commit the full third-party repository into the project tree, or use only the simple FranceStudent image CLI without PaperBanana's planner/stylist/critic pipeline.
+- `linked_adr`: `documentation/memoire/image_generation/README.md`
+
+## 2026-05-06 (Use PaperBanana As Related Work And Figure Drafting, Not As A Stigmergic Baseline)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: Treat PaperBanana as useful related work for agentic research automation and as optional tooling for thesis illustration drafts, but do not use it as a direct MigrationBench or stigmergic-coordination baseline.
+- `rationale`: PaperBanana orchestrates specialized agents for academic illustration through retrieval, planning, styling, visualization, and critique. That is adjacent to multi-agent workflow research, but its task, artifact contract, and coordination mechanism differ from V10/V11's verifier-gated code-migration loop and causal stigmergic medium.
+- `alternatives_rejected`: Ignore it entirely because it is not code migration, cite it as evidence for stigmergy, or add it to the benchmark ladder despite incomparable outputs.
+- `linked_adr`: `documentation/decisions/20260506-v11-stigmergic-medium-kernel.md`
+
 ## 2026-05-06 (Build V11 Around A Causal Stigmergic Medium Before Memory/Search)
 
 - `repo_slug`: `stigmergiagentic-33b989`
@@ -1040,6 +1136,14 @@
 - `alternatives_rejected`: Treat the initial V11 commit as complete, jump directly to MigrationBench `main_30`, or add B7 memory before the causal MVP is mechanically robust.
 - `linked_adr`: `documentation/decisions/20260506-v11-stigmergic-medium-kernel.md`
 
+## 2026-05-06 (Remove Retired LLM Orchestration Skill Trigger)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: Remove `llm-orchestration` from the home-level active skill matrix in `/Users/lotfi/.codex/AGENTS.md`.
+- `rationale`: The local orchestration skill has been retired, so keeping its trigger active would make Codex attempt to use a missing or obsolete workflow.
+- `alternatives_rejected`: Leave the stale trigger in place, rename it speculatively to `llm_orchestrator`, or edit the project `AGENTS.md` despite no matching reference there.
+- `linked_adr`: `/Users/lotfi/.codex/AGENTS.md`
+
 ## 2026-05-06 (Launch V11 main30 Only Through Replay-Gated Runner)
 
 - `repo_slug`: `stigmergiagentic-33b989`
@@ -1047,3 +1151,259 @@
 - `rationale`: A local smoke exposed cross-arm branch contamination when B2/B5/B6 shared the same workspace root. A dedicated launch gate prevents that class of false `replacement_count_too_low` result and ensures replay parity before the long campaign starts.
 - `alternatives_rejected`: Continue launching `compare_strategies` manually with shared extras, rely on post-hoc cleanup, or require causal activation on local-green instances where no repair decision exists.
 - `linked_adr`: `documentation/decisions/20260506-v11-stigmergic-medium-kernel.md`
+
+## 2026-05-06 (Use FranceStudent Base URL For IMAGEN API Tests)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: Treat `https://api.francestudent.org/v1` as the base URL for the `IMAGEN` key, using `/responses` for `gpt-5.5` text checks and `/images/generations` for `gpt-image-2`.
+- `rationale`: The key is rejected by OpenAI's direct API but succeeds through FranceStudent. The FranceStudent `/responses` endpoint supports text responses but explicitly rejects the Responses `image_generation` tool, while the native image generation endpoint works for `gpt-image-2`.
+- `alternatives_rejected`: Keep testing against `api.openai.com`, use Chat Completions despite provider guidance, or treat the Responses image-tool rejection as proof that image generation is unavailable.
+- `linked_adr`: `N/A (local provider connectivity test)`
+
+## 2026-05-06 (Store FranceStudent Image Test Artifacts Locally)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: Save ad hoc FranceStudent `gpt-image-2` generations under `output/francestudent_api_tests/` with both raw JSON and decoded PNG artifacts.
+- `rationale`: Keeping the response and rendered image together makes it easy to verify the endpoint behavior and show the generated result without exposing API credentials or mixing transient tests into benchmark outputs.
+- `alternatives_rejected`: Only print the returned image data, overwrite the first image smoke artifact, or store generated images under campaign result directories.
+- `linked_adr`: `N/A (local API smoke artifact convention)`
+
+## 2026-05-06 (Create Repo-Local FranceStudent API Skill)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: Add `.codex/skills/francestudent-api` as the reusable workflow for FranceStudent `IMAGEN` calls, including a parameter reference and secret-safe CLI.
+- `rationale`: The project now has a verified provider-specific base URL and endpoint split: text through `/responses`, images through `/images/generations`. Encoding that as a repo-local skill prevents future agents from retesting against `api.openai.com` or trying the unsupported Responses image tool.
+- `alternatives_rejected`: Keep the workflow only in conversation history, create a home-level skill, or document only a curl snippet without validation and parameter coverage.
+- `linked_adr`: `N/A (local Codex skill)`
+
+## 2026-05-06 (Treat V11 main30 As Mechanism-Valid, Not Performance-Positive)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: Accept the completed V11 `main_30` as a valid mechanism-activation run for B2/B5/B6, while keeping performance claims out because strict success remains 1/30 on all arms.
+- `rationale`: Replay parity, full denominator, causal activation, and operator surface checks all pass after the live `repo_dir` fix. However, B6 mainly proves typed operators are invoked/applied on real MigrationBench branches; it does not improve strict success over B2/B5 and increases replacement-count errors.
+- `alternatives_rejected`: Claim V11 benchmark improvement from operator activation alone, discard the campaign because B6 required a mid-run fix, or rerun all B2/B5 arms despite their replay-valid outputs being unaffected by the operator file-read bug.
+- `linked_adr`: `campaign_results/v11/migrationbench_main30/v11_readiness_report.json`
+
+## 2026-05-06 (Reject Unsafe B6 LLM Fallbacks Before Validation)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: Add a central workspace-backed edit guard and require B6 fallback candidates to pass it before adapter apply/validation; expose `b6_fallback_policy` with `guarded_only` default and Docker override support.
+- `rationale`: The B6 main30 audit showed `replacement_count_too_low` came from LLM initial/fallback candidates, not typed operators. Validating against the real parent branch converts those failures into auditable rejections and prevents wasted Maven validation slots.
+- `alternatives_rejected`: Keep trusting prompt-observation spans, scatter guard checks inside individual providers, or allow `free_llm` as a scientific campaign default.
+- `linked_adr`: `core_v10/operators/guarded_edit_set.py`
+
+## 2026-05-06 (Diagnose PaperBanana Auto Retrieval 502 As Oversized Prompt Pressure)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: Treat the observed FranceStudent 502 during PaperBanana `retrieval_setting=auto` as an oversized retrieval-prompt/proxy-origin pressure issue until a reduced reference-pool run proves otherwise.
+- `rationale`: The failing `/responses` call carried about 2.99M input characters and a 3.06 MB JSON body, dominated by 200 PaperBananaBench candidate diagrams, and returned five consecutive Cloudflare `origin_bad_gateway` responses rather than an authentication or image-generation error.
+- `alternatives_rejected`: Retry the same 200-reference auto retrieval unchanged, blame `gpt-image-2`, or claim PaperBanana retrieval quality from a run where `top10_references` stayed empty.
+- `linked_adr`: `documentation/memoire/image_generation/records/definitions_operatoires_paperbanana_auto_real.json`
+
+## 2026-05-06 (Use Ref40 Plus Cyber Filter For PaperBanana FranceStudent Auto Retrieval)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: Default the local PaperBanana-FranceStudent workflow to 40 diagram references, cyber-sensitive reference filtering, deterministic retriever selection, and tolerant JSON parsing before claiming `retrieval_setting=auto` is active.
+- `rationale`: The FranceStudent maintainer reported a 272k input-token drop threshold. A 40-reference prompt is about 150k tokens by character heuristic, while the raw PaperBananaBench pool also contains unrelated red-team/jailbreak/malware examples that can trigger cyber-safety refusal. The filtered ref40 run selected 10 references and completed successfully.
+- `alternatives_rejected`: Use PaperBanana's 200-reference default, disable retrieval permanently, manually pick references without logging, or treat `Retrieved 0 references` runs as equivalent to PaperBanana auto.
+- `linked_adr`: `documentation/memoire/image_generation/records/definitions_operatoires_paperbanana_auto_ref40_filtered.json`
+
+## 2026-05-06 (Use Canonical Same Prompt For Figure Provider Comparisons)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: Use `definitions_operatoires_agent_mas_orchestration_medium_direct_same_prompt.md` as the canonical direct prompt for comparing Imagen direct, PaperBanana without refs, PaperBanana with refs, and Gemini Nano Banana.
+- `rationale`: Holding the visible prompt constant isolates provider and workflow differences better than rewriting the instruction for each generator. PaperBanana can still receive the caption as its separate visual-intent field, while one-field UIs can use the appended caption section.
+- `alternatives_rejected`: Hand-tune a Nano Banana-specific prompt, omit the caption/intention from direct tests, or compare PaperBanana agent prompts against a different direct prompt.
+- `linked_adr`: `documentation/memoire/image_generation/prompts/definitions_operatoires_agent_mas_orchestration_medium_direct_same_prompt.md`
+
+## 2026-05-06 (Use Direct GPT Image For Chapter 2 Operational Definitions Figure)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: Replace the Chapter 2 Figure 2.3 image source with `images/definitions_operatoires_direct.png` while keeping the existing caption and source line.
+- `rationale`: The direct GPT Image version is the preferred editorial rendering for the agent-vs-MAS operational-definitions passage, and the caption/source attribution still describes the intended conceptual comparison.
+- `alternatives_rejected`: Keep the older `agentLLMvsMAS.png`, switch to the PaperBanana ref40 output, or alter the figure caption during an image-only replacement.
+- `linked_adr`: `documentation/memoire/latex/chapitres/chap_02_revue_litterature.tex`
+
+## 2026-05-06 (Prefer Direct GPT Image For Well-Specified Stigmergy Figures)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: For figures 2.4 and 2.5, treat the direct `gpt-image-2` outputs as the recommended replacements unless a later editorial pass specifically prefers PaperBanana's more pedagogical style.
+- `rationale`: The prompts were explicit and structured, so direct generation produced French-only academic diagrams in one useful image call each. PaperBanana real retrieval worked, but required five useful calls per figure plus roughly 150k-token retriever prompts, without a visual advantage on these well-specified diagrams.
+- `alternatives_rejected`: Replace immediately with PaperBanana for agentic purity, keep bilingual originals, or judge PaperBanana only by image output without counting hidden retrieval/planner/stylist/critic calls.
+- `linked_adr`: `documentation/memoire/image_generation/comparisons/stigmergie_figures_24_25_academic_fr.md`
+
+## 2026-05-06 (Integrate Direct Figure 2.4 And PaperBanana Figure 2.5)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: Use `stigmergic_feedback_loop_direct_fr_academic.png` for Figure 2.4 and `self_organizing_principles_paperbanana_auto_ref40_filtered_fr_academic.png` for Figure 2.5 in Chapter 2.
+- `rationale`: The user preferred the direct image for the feedback loop and the PaperBanana rendering for the self-organization principles. Both images are French-only replacements for the same conceptual captions, so no caption/source rewrite was needed.
+- `alternatives_rejected`: Keep one generator's outputs for both figures, leave the bilingual originals, or alter the surrounding literature text during an image-selection edit.
+- `linked_adr`: `documentation/memoire/latex/chapitres/chap_02_revue_litterature.tex`
+
+## 2026-05-06 (Make B6 Edit Guard Sequential)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: Validate guarded B6 free-form edit sets by simulating sequential file mutations before adapter apply/validation.
+- `rationale`: The guarded `main_30` audit found a B6 initial LLM candidate whose duplicated Maven property replacements existed in the original POM but failed on the second application pass. Matching the adapter's sequential semantics prevents these from leaking as `replacement_count_too_low`.
+- `alternatives_rejected`: Keep independent per-edit checks, deduplicate edits silently, or rely on the MigrationBench adapter to reject duplicated spans during validation.
+- `linked_adr`: `core_v10/operators/guarded_edit_set.py`
+
+## 2026-05-06 (Classify V11 Main30 Guarded As Mechanism-Valid Only)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: Use the recomposed guarded `main_30` as evidence that B6 eliminates unsafe replacement failures and activates operators, but not as evidence of improved strict MigrationBench performance.
+- `rationale`: The recomposed report has replay parity, full denominators, B6 `guarded_only`, zero B6 `replacement_count_too_low`, and 15 operator invocations/applications. However, strict success remains 1/30 for B2, B5, and B6, and B6 only improves best-observed funnel versus B2, not versus B5.
+- `alternatives_rejected`: Claim B6 benchmark superiority from cleaner validation errors, discard the run because strict success is flat, or ignore best-observed progress when diagnosing next operator coverage work.
+- `linked_adr`: `campaign_results/v11/migrationbench_main30_guarded/v11_readiness_report.json`
+
+## 2026-05-06 (Prioritize Three Typed Operators From B6 Unavailable Audit)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: Add Lombok/Javac Java 17, Spring Boot ASM Java 17, and Felix maven-bundle-plugin operators as the next B6 coverage increment.
+- `rationale`: The guarded B6 audit has 21 `operator.unavailable` rows. Lombok/Javac internals are the largest family (5), Spring Boot ASM class-major 61 is second (3), and the 2-row tie is best served by Felix bundle-plugin because it has a deterministic POM-scoped version upgrade. JavaFX, snapshot dependency, and official-eval families remain classified but intentionally not implemented in this pass.
+- `alternatives_rejected`: Add every family-specific operator at once, choose JavaFX despite `com.sun.javafx` module risk, or invent missing internal/snapshot dependencies.
+- `linked_adr`: `audits/operator_unavailable_by_failure_family.csv`
+
+## 2026-05-06 (Use MigrationContext Instead Of Java-Target Hardcodes)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: Require MigrationBench target data to flow through `MigrationContext` and Java compatibility profiles instead of Java-17-specific provider/operator names or defaults.
+- `rationale`: The current campaigns target Java 17, but V11's operator layer is meant to be a migration framework. Encoding 17 in deterministic fallbacks, prompt text, affordance action names, or operator IDs would make future Java 11/21 campaigns scientifically ambiguous.
+- `alternatives_rejected`: Keep Java 17 as the implicit default, create separate operators such as compiler-release-17 variants, or rely on prompt wording alone to communicate the target.
+- `linked_adr`: `adapters_v10/migrationbench/context.py`
+
+## 2026-05-06 (Scale Chapter 2 Stigmergy Figures To 82 Percent Line Width)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: Render the selected Figure 2.4 and Figure 2.5 images at `width=0.82\linewidth` in Chapter 2.
+- `rationale`: The selected images were visually too large in the memoir layout, but the raster outputs and captions were otherwise acceptable. A local LaTeX width constraint improves page balance without altering the image files or global graphics behavior.
+- `alternatives_rejected`: Regenerate smaller images, change the global `\includegraphics` wrapper, or shrink unrelated figures in the chapter.
+- `linked_adr`: `documentation/memoire/latex/chapitres/chap_02_revue_litterature.tex`
+
+## 2026-05-06 (Keep Unsafe Operator-Unavailable Families Diagnostic-Only)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: Implement target-aware typed operators for safe recurring B6 families while keeping Spring/ASM framework upgrades, internal/snapshot dependencies, and complex `sun.misc.BASE64*` rewrites as explicit diagnostic/no-operator paths.
+- `rationale`: The targeted unavailable regression showed that safe POM-scoped operators cover JavaFX, Lombok, compiler release, and bundle cases without replacement errors. Private artifacts and broad framework/source migrations need stronger preconditions before they can be scientific operators.
+- `alternatives_rejected`: Auto-upgrade Spring Boot for any ASM major-version error, invent missing snapshot dependencies, or let generic `fix_compile_error` outrank specific diagnostics.
+- `linked_adr`: `documentation/decisions/20260506-v11-stigmergic-medium-kernel.md`
+
+## 2026-05-06 (Reset Candidate Branch Cache On MigrationBench Setup)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: Reset the reused base checkout and remove stale MigrationBench candidate branches during adapter setup before relaunching B6 target-aware guarded campaigns.
+- `rationale`: The live B6 audit showed guarded initial candidates could validate against the clean base while adapter apply reused an old `c1_llm` branch from a previous run, producing false `replacement_count_too_low` validation errors. Removing stale branches at setup keeps guard and apply semantics aligned.
+- `alternatives_rejected`: Manually delete workspaces before each Docker relaunch, force-reset branches on every adapter open operation, or rely on post-hoc filtering of replacement errors.
+- `linked_adr`: `adapters_v10/migrationbench/workspace.py`
+
+## 2026-05-07 (Run V12.3 As Agentic Branch-Isolated Comparison)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: Implement V12.3 as a dedicated S1/S2/V12 runner where S2 and V12 share the exact V12 tool registry, mutating tools execute on isolated candidate branches, and campaign audits are generated from EventLogs.
+- `rationale`: V12 can only test whether the medium improves autonomous agents if the agent, not the scheduler or deterministic operators, chooses tools and parameters. Branch isolation prevents `edit_file_guarded`/`apply_patch` from corrupting the base or parent workspace while preserving verifier-sovereign scoring.
+- `alternatives_rejected`: Fold V12 into the V10/V11 `StrategyRunner`, pre-create branches before knowing the selected tool, or interpret targeted campaigns from `summary.json` without pairwise and trace audits.
+- `linked_adr`: `scripts/v12/run_v12_agentic_comparison.py`
+
+## 2026-05-07 (Persist Full LLM Provider Traces)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: Persist full MigrationBench LLM provider traces by default under `<arm_out_dir>/llm_traces/` for future V11 campaigns.
+- `rationale`: EventLogs and artifacts preserve normalized candidates but not the raw prompts/responses needed to audit why the LLM produced unsafe, empty, duplicate, or non-operator edits. Provider-level JSONL traces keep all generated evidence available without exposing API secrets.
+- `alternatives_rejected`: Rely only on `candidate.created` events, log only emitted candidates, or store raw provider traces in a global directory detached from campaign artifacts.
+- `linked_adr`: `scripts/bench/providers_llm.py`
+
+## 2026-05-07 (Use Replayable V11 Audit Files For Main30 Claims)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: Use a campaign-local audit CLI to derive best-observed funnel, pairwise B6/B5/B2 deltas, operator family coverage, operator helped/harmed rows, and LLM trace summaries before making V11 main_30 claims.
+- `rationale`: The readiness report proves replay parity and denominator checks, but scientific interpretation needs per-instance best observed progress and operator attribution. A reusable audit command keeps those claims grounded in EventLogs and provider traces instead of manual notebook state.
+- `alternatives_rejected`: Trust only `summary.json`, rely on one-off shell snippets, or treat strict final success as the only diagnostic signal.
+- `linked_adr`: `scripts/v11/audit_v11_campaign.py`
+
+## 2026-05-07 (Make AGENTS.md A Current V11 Handoff)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: Rewrite `AGENTS.md` as a concise current-state handoff for V10/V11 and demote V3/Sprint 9/V7 material to historical context.
+- `rationale`: Future agents were likely to start in obsolete modules or overread old benchmark instructions because the root guide mixed current V11 work with lengthy legacy architecture notes. A current handoff reduces navigation error and preserves the key warning that B6 is safer but not yet stronger than B5.
+- `alternatives_rejected`: Append another status section to the old file, keep all historical command blocks inline, or move current V11 guidance only into phase artifacts.
+- `linked_adr`: `AGENTS.md`
+
+## 2026-05-07 (Use Trace-Derived Source Context And Operator Regression Guards In B6)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: Feed verifier-referenced files into B6 repair/operator context and reject operator children that regress their parent funnel score.
+- `rationale`: The B6 `calls.jsonl` audit showed useful source clues were absent from operator context (`jdk.jfr.events`) while generic POM operators could create lower-funnel children. Grounding repairs in failure files and blocking regressed operators preserves best-observed progress while keeping typed operator actions auditable.
+- `alternatives_rejected`: Keep relying on the initial Java sample, let Maven compiler operators handle all compile errors, or only diagnose regressions post-campaign.
+- `linked_adr`: `core_v10/strategy_runner.py`
+
+## 2026-05-07 (Enforce V12.1 Tool Contracts At Execution Boundary)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: Enforce V12 tool mutation/proposal contracts inside `ToolExecutor`, reject unsafe Maven shell syntax, and allow official-eval execution only from trusted workspace metadata.
+- `rationale`: End-to-end V12.1 verification showed default happy-path tests did not catch buggy handlers that reported read-only mutations, raw trace secret leakage, shell-control Maven commands, or agent-supplied official evaluator commands. The execution boundary is the smallest shared place to enforce those invariants for both S2 and V12.
+- `alternatives_rejected`: Rely on each handler to self-police, keep `startswith("mvn ")` as sufficient command validation, or let the LLM provide arbitrary official-eval commands.
+- `linked_adr`: `core_v12/tools/executor.py`
+
+## 2026-05-07 (Use Native Tool Calls For V12.2)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: Implement V12.2 as a native OpenAI-compatible Chat Completions tool-call provider, compatible with DeepSeek strict beta, instead of JSON-object edit-set fallback.
+- `rationale`: The V12 scientific contract requires the LLM to choose tools and parameters while the medium only guides. Native tool calls give a provider-enforced decision boundary, auditable raw tool-call arguments, schema retries, and no path for deterministic V10/V11 patch providers to re-enter.
+- `alternatives_rejected`: Ask the model for free-form `TypedEditSet`, use one generic `call_tool` function, or silently fallback to deterministic Maven target edits when the provider fails.
+- `linked_adr`: `scripts/bench/providers_v12_llm.py`
+
+## 2026-05-07 (Annotate Tools Instead Of Hiding Them In V12)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: V12 local views expose the full non-forbidden compatible tool registry and carry medium influence as per-tool annotations rather than shortlisting visible tools.
+- `rationale`: The scientific claim is that stigmergic traces guide autonomous agents, not that the environment removes choices. Keeping inhibited tools callable with rationale lets experiments measure whether the agent follows, overrides, benefits from, or is harmed by the medium's guidance.
+- `alternatives_rejected`: Hide unsupported/inhibited tools per step, let the scheduler choose a small tool subset, or treat inhibition as a hard ban.
+- `linked_adr`: `core_v12/medium/local_view.py`
+
+## 2026-05-07 (Force Required Tool Choice In V12.2 Provider)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: Force `tool_choice="required"` for V12.2 native Chat Completions calls, default DeepSeek to `deepseek-v4-flash`, and require explicit model ids for non-DeepSeek providers.
+- `rationale`: V12.2 claims the LLM chooses exactly one tool; relying only on prompt text lets the provider default to prose, and a global `deepseek-chat` fallback can silently misroute invalid model ids through OpenRouter/OpenAI configs.
+- `alternatives_rejected`: Keep prompt-only tool enforcement, keep `deepseek-chat` as a provider-agnostic default, or allow non-DeepSeek providers to infer a model implicitly.
+- `linked_adr`: `scripts/bench/providers_v12_llm.py`
+
+## 2026-05-07 (Disable DeepSeek Thinking For Required V12.2 Tool Choice)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: Use `deepseek-v4-flash` with thinking disabled and direct HTTP timeout handling for live DeepSeek V12.2 native tool-choice calls.
+- `rationale`: The official pricing/model page says `deepseek-chat` is a future-deprecated alias for V4 Flash non-thinking mode, while live testing showed `tool_choice="required"` is rejected on the reasoner path and accepted when thinking is disabled.
+- `alternatives_rejected`: Revert to the deprecated `deepseek-chat` alias, keep using the SDK path that hung locally, or relax V12.2 back to prompt-only/tool-choice auto behavior.
+- `linked_adr`: `scripts/bench/providers_v12_llm.py`
+
+## 2026-05-07 (Maintain DeepSeek API Knowledge As A Repo Skill)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: Maintain DeepSeek API usage rules, official-doc pointers, and smoke-test code in `.codex/skills/deepseek-api`.
+- `rationale`: V12.2 correctness depends on current DeepSeek model aliases, thinking-mode defaults, strict beta schemas, and secret-safe smoke testing. A repo-local skill keeps that procedural knowledge discoverable without bloating `AGENTS.md`.
+- `alternatives_rejected`: Store all DeepSeek details only in `AGENTS.md`, rely on model memory for provider quirks, or create a home-level skill detached from the thesis repo.
+- `linked_adr`: `.codex/skills/deepseek-api/SKILL.md`
+
+## 2026-05-07 (Use Tool Outcomes To Strengthen V12 Medium Guidance)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: Record agent tool outcomes in the V12 medium and feed them back as tool annotations for the next step.
+- `rationale`: The targeted S2/V12 campaign showed that the medium was scientifically safe but too weak when it kept recommending inspections or suggestions after enough evidence existed. Outcome-guided annotations preserve agent autonomy while making the medium more useful.
+- `alternatives_rejected`: Add deterministic repair operators, hide tools from the LLM, increase the step budget without improving guidance, or let the scheduler apply patches.
+- `linked_adr`: `documentation/redisgn_v2/phase_08_artifact.md`
+
+## 2026-05-08 (Make V12.4 A Stigmergic SD-Feedback Agent)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: Recenter the active V12 design on SD-Feedback with read-only perception tools, an explicit LLM `propose_patch` channel, automatic verifier execution, funnel-based accept/revert, and compact medium feedback augmentation.
+- `rationale`: V12.3 showed that native tool calls restored autonomy but still blurred the loop by making the agent choose verification and mutation tools. SD-Feedback gives the correct scientific baseline; the medium's contribution should be accumulated guidance over that loop, not extra repair capacity.
+- `alternatives_rejected`: Continue V12.3 as final, keep mutating edit tools in the main action registry, make the LLM choose when to run Maven/tests, or reintroduce deterministic V11/B6 operators under V12 names.
+- `linked_adr`: `documentation/decisions/20260508-v12-4-stigmergic-sd-feedback-agent.md`
+
+## 2026-05-08 (Rebuild UV Environment And Recreate Dataless MigrationBench Init)
+
+- `repo_slug`: `stigmergiagentic-33b989`
+- `decision`: Recreate the repo-local `.venv` with uv and replace the macOS dataless `adapters_v10/migrationbench/__init__.py` with the lazy initializer used by V12-focused imports.
+- `rationale`: The dependency install succeeded, but validation hung while reading a dataless source file, making the environment look broken even though packages were compatible. Recreating the source file and keeping imports lazy restored deterministic local validation.
+- `alternatives_rejected`: Keep debugging package versions, run tests from a temporary external environment only, or restore the eager package initializer that imports the full MigrationBench verifier stack during simple helper imports.
+- `linked_adr`: `adapters_v10/migrationbench/__init__.py`

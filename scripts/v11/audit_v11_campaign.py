@@ -56,10 +56,14 @@ def _iter_jsonl(path: Path) -> Iterable[dict[str, Any]]:
 
 def _write_json(path: Path, payload: Any) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    path.write_text(
+        json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
 
 
-def _write_csv(path: Path, rows: Sequence[dict[str, Any]], fieldnames: Sequence[str]) -> None:
+def _write_csv(
+    path: Path, rows: Sequence[dict[str, Any]], fieldnames: Sequence[str]
+) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8", newline="") as stream:
         writer = csv.DictWriter(stream, fieldnames=fieldnames, extrasaction="ignore")
@@ -77,7 +81,11 @@ def _csv_cell(value: Any) -> Any:
 
 
 def _campaign_arms(root: Path, comparison: dict[str, Any]) -> list[str]:
-    arm_ids = [str(arm.get("arm_id")) for arm in comparison.get("arms", []) if arm.get("arm_id")]
+    arm_ids = [
+        str(arm.get("arm_id"))
+        for arm in comparison.get("arms", [])
+        if arm.get("arm_id")
+    ]
     if arm_ids:
         return arm_ids
     return sorted(
@@ -136,7 +144,11 @@ def _stage_flags(validations: Iterable[dict[str, Any]]) -> dict[str, bool]:
         for stage, _score in FUNNEL_STAGES:
             key = f"best_{stage}"
             flags[key] = bool(flags[key] or signals.get(stage))
-        flags["best_patch_applies"] = bool(flags["best_patch_applies"] or signals.get("patch_applies") or signals.get("applied"))
+        flags["best_patch_applies"] = bool(
+            flags["best_patch_applies"]
+            or signals.get("patch_applies")
+            or signals.get("applied")
+        )
     return flags
 
 
@@ -165,21 +177,80 @@ def _failure_family(*parts: Any) -> str:
         return "official_eval_summary_or_tests_minus2"
     if "upgrade_lombok_for_target_java" in text:
         return "lombok_or_javac_internal_api"
-    if any(token in text for token in ("lombok", "delombok", "jdk.compiler", "com.sun.tools.javac")):
+    if any(
+        token in text
+        for token in ("lombok", "delombok", "jdk.compiler", "com.sun.tools.javac")
+    ):
         return "lombok_or_javac_internal_api"
-    if any(token in text for token in ("spring", "asm", "classreader", "major version 61", "unsupported class file major", "cglib")):
+    if any(
+        token in text
+        for token in (
+            "spring",
+            "asm",
+            "classreader",
+            "major version 61",
+            "unsupported class file major",
+            "cglib",
+        )
+    ):
         return "spring_asm_class_major"
-    if any(token in text for token in ("#tests=-2", "test summary", "surefire summary", "official_eval_failed", "standard maven/surefire")):
+    if any(
+        token in text
+        for token in (
+            "#tests=-2",
+            "test summary",
+            "surefire summary",
+            "official_eval_failed",
+            "standard maven/surefire",
+        )
+    ):
         return "official_eval_summary_or_tests_minus2"
-    if any(token in text for token in ("snapshot", "internal", "could not find artifact", "non-resolvable", "camunda", "hashids")):
+    if any(
+        token in text
+        for token in (
+            "snapshot",
+            "internal",
+            "could not find artifact",
+            "non-resolvable",
+            "camunda",
+            "hashids",
+        )
+    ):
         return "missing_internal_or_snapshot_dependency"
-    if any(token in text for token in ("javafx", "openjfx", "textfield", "pane", "stage", "javafx.application")):
+    if any(
+        token in text
+        for token in (
+            "javafx",
+            "openjfx",
+            "textfield",
+            "pane",
+            "stage",
+            "javafx.application",
+        )
+    ):
         return "javafx_missing_dependencies"
-    if any(token in text for token in ("maven-bundle-plugin", "org.apache.felix", "bnd", "concurrentmodificationexception")):
+    if any(
+        token in text
+        for token in (
+            "maven-bundle-plugin",
+            "org.apache.felix",
+            "bnd",
+            "concurrentmodificationexception",
+        )
+    ):
         return "maven_bundle_felix"
     if any(token in text for token in ("sun.misc", "base64encoder", "base64decoder")):
         return "removed_jdk_internal_api_sun_misc_base64"
-    if any(token in text for token in ("maven.compiler", "compiler release", "source/target", "class_version_error", "class version")):
+    if any(
+        token in text
+        for token in (
+            "maven.compiler",
+            "compiler release",
+            "source/target",
+            "class_version_error",
+            "class version",
+        )
+    ):
         return "maven_compiler_release_or_class_version"
     if any(token in text for token in ("jfr", "add-exports", "module export")):
         return "jdk_internal_module_export_jfr"
@@ -199,17 +270,23 @@ def _index_events(events: Sequence[EventRow]) -> dict[str, Any]:
         key2 = (event.arm_id, event.instance_id)
         if event.event_type == "validation.completed":
             validation = dict(event.payload.get("validation") or {})
-            candidate_id = str(validation.get("candidate_id") or event.hypothesis_id or "")
+            candidate_id = str(
+                validation.get("candidate_id") or event.hypothesis_id or ""
+            )
             if candidate_id:
                 validations[(*key2, candidate_id)] = validation
         elif event.event_type == "feedback.created":
             feedback = dict(event.payload.get("feedback") or {})
-            candidate_id = str(feedback.get("candidate_id") or event.hypothesis_id or "")
+            candidate_id = str(
+                feedback.get("candidate_id") or event.hypothesis_id or ""
+            )
             if candidate_id:
                 feedbacks[(*key2, candidate_id)] = feedback
         elif event.event_type == "candidate.created":
             candidate = dict(event.payload.get("candidate") or {})
-            candidate_id = str(candidate.get("candidate_id") or event.hypothesis_id or "")
+            candidate_id = str(
+                candidate.get("candidate_id") or event.hypothesis_id or ""
+            )
             if candidate_id:
                 candidates[(*key2, candidate_id)] = candidate
         elif event.event_type == "affordance.created":
@@ -242,20 +319,30 @@ def _best_observed_rows(
             summary_by_instance[(arm_id, str(inst.get("instance_id")))] = dict(inst)
 
     validations_by_key: dict[tuple[str, str], list[dict[str, Any]]] = defaultdict(list)
-    for (arm_id, instance_id, _candidate_id), validation in indexes["validations"].items():
+    for (arm_id, instance_id, _candidate_id), validation in indexes[
+        "validations"
+    ].items():
         validations_by_key[(arm_id, instance_id)].append(validation)
 
-    all_keys = sorted(set(summary_by_instance) | set(validations_by_key) | set(indexes["run_completed"]))
+    all_keys = sorted(
+        set(summary_by_instance)
+        | set(validations_by_key)
+        | set(indexes["run_completed"])
+    )
     rows: list[dict[str, Any]] = []
     for arm_id, instance_id in all_keys:
         validations = validations_by_key.get((arm_id, instance_id), [])
         scored: list[tuple[int, str, str, dict[str, Any]]] = []
         for validation in validations:
             score, stage = _score_validation(validation)
-            scored.append((score, stage, str(validation.get("candidate_id") or ""), validation))
+            scored.append(
+                (score, stage, str(validation.get("candidate_id") or ""), validation)
+            )
         best_score, best_stage, best_candidate_id = 0, "none", ""
         if scored:
-            best_score, best_stage, best_candidate_id, _validation = max(scored, key=lambda row: (row[0], row[2]))
+            best_score, best_stage, best_candidate_id, _validation = max(
+                scored, key=lambda row: (row[0], row[2])
+            )
         run_payload = indexes["run_completed"].get((arm_id, instance_id), {})
         summary_inst = summary_by_instance.get((arm_id, instance_id), {})
         flags = _stage_flags(validations)
@@ -265,10 +352,16 @@ def _best_observed_rows(
             "best_candidate_id": best_candidate_id,
             "best_stage": best_stage,
             "best_funnel_score": int(best_score),
-            "run_completed_best_stage": (run_payload.get("best_observed") or {}).get("best_stage"),
-            "run_completed_best_score": (run_payload.get("best_observed") or {}).get("best_funnel_score"),
-            "selected_hypothesis_id": summary_inst.get("selected_hypothesis_id") or run_payload.get("selected_hypothesis_id"),
-            "stop_reason": summary_inst.get("stop_reason") or run_payload.get("stop_reason"),
+            "run_completed_best_stage": (run_payload.get("best_observed") or {}).get(
+                "best_stage"
+            ),
+            "run_completed_best_score": (run_payload.get("best_observed") or {}).get(
+                "best_funnel_score"
+            ),
+            "selected_hypothesis_id": summary_inst.get("selected_hypothesis_id")
+            or run_payload.get("selected_hypothesis_id"),
+            "stop_reason": summary_inst.get("stop_reason")
+            or run_payload.get("stop_reason"),
             "strict_success": bool(summary_inst.get("strict_success")),
             "validation_count": len(validations),
             **flags,
@@ -306,12 +399,15 @@ def _pairwise_rows(best_rows: Sequence[dict[str, Any]]) -> list[dict[str, Any]]:
                     "treatment_best_score": int(t_row["best_funnel_score"]),
                     "control_best_score": int(c_row["best_funnel_score"]),
                     "delta": int(delta),
-                    "relation": "better" if delta > 0 else "worse" if delta < 0 else "same",
+                    "relation": (
+                        "better" if delta > 0 else "worse" if delta < 0 else "same"
+                    ),
                     "treatment_best_stage": t_row["best_stage"],
                     "control_best_stage": c_row["best_stage"],
                     "treatment_strict_success": bool(t_row.get("strict_success")),
                     "control_strict_success": bool(c_row.get("strict_success")),
-                    "strict_delta": int(bool(t_row.get("strict_success"))) - int(bool(c_row.get("strict_success"))),
+                    "strict_delta": int(bool(t_row.get("strict_success")))
+                    - int(bool(c_row.get("strict_success"))),
                     "treatment_best_candidate_id": t_row.get("best_candidate_id"),
                     "control_best_candidate_id": c_row.get("best_candidate_id"),
                 }
@@ -319,7 +415,9 @@ def _pairwise_rows(best_rows: Sequence[dict[str, Any]]) -> list[dict[str, Any]]:
     return rows
 
 
-def _latest_feedback_before(events: Sequence[EventRow], event: EventRow) -> dict[str, Any]:
+def _latest_feedback_before(
+    events: Sequence[EventRow], event: EventRow
+) -> dict[str, Any]:
     latest: dict[str, Any] = {}
     for prior in events:
         if prior.sequence >= event.sequence:
@@ -345,26 +443,56 @@ def _operator_audit_rows(
 
     for key, instance_events in by_instance_events.items():
         arm_id, instance_id = key
+        rejected_by_candidate = {
+            str(event.payload.get("candidate_id") or ""): dict(event.payload)
+            for event in instance_events
+            if event.event_type == "operator.rejected"
+            and event.payload.get("candidate_id")
+        }
         for event in instance_events:
             if event.event_type == "operator.applied":
                 invocation = dict(event.payload.get("operator_invocation") or {})
                 params = dict(invocation.get("params") or {})
                 source_affordance_id = str(invocation.get("source_affordance_id") or "")
-                affordance = indexes["affordances"].get((arm_id, instance_id, source_affordance_id), {})
-                candidate_id = str(event.payload.get("candidate_id") or event.hypothesis_id or "")
-                candidate = indexes["candidates"].get((arm_id, instance_id, candidate_id), {})
+                affordance = indexes["affordances"].get(
+                    (arm_id, instance_id, source_affordance_id), {}
+                )
+                candidate_id = str(
+                    event.payload.get("candidate_id") or event.hypothesis_id or ""
+                )
+                rejection = rejected_by_candidate.get(candidate_id, {})
+                candidate = indexes["candidates"].get(
+                    (arm_id, instance_id, candidate_id), {}
+                )
                 parent_id = str(candidate.get("parent_id") or "")
-                parent_validation = indexes["validations"].get((arm_id, instance_id, parent_id), {})
-                op_validation = indexes["validations"].get((arm_id, instance_id, candidate_id), {})
-                parent_score, parent_stage = _score_validation(parent_validation) if parent_validation else (0, "none")
-                op_score, op_stage = _score_validation(op_validation) if op_validation else (0, "none")
+                parent_validation = indexes["validations"].get(
+                    (arm_id, instance_id, parent_id), {}
+                )
+                op_validation = indexes["validations"].get(
+                    (arm_id, instance_id, candidate_id), {}
+                )
+                parent_score, parent_stage = (
+                    _score_validation(parent_validation)
+                    if parent_validation
+                    else (0, "none")
+                )
+                op_score, op_stage = (
+                    _score_validation(op_validation) if op_validation else (0, "none")
+                )
                 delta = op_score - parent_score
                 family = _failure_family(
                     invocation.get("operator_id"),
                     params.get("failure_type"),
                     params.get("action_type"),
                     affordance.get("reason"),
-                    _brief_text((indexes["feedbacks"].get((arm_id, instance_id, parent_id), {}) or {}).get("evidence")),
+                    _brief_text(
+                        (
+                            indexes["feedbacks"].get(
+                                (arm_id, instance_id, parent_id), {}
+                            )
+                            or {}
+                        ).get("evidence")
+                    ),
                 )
                 row = {
                     "arm_id": arm_id,
@@ -372,11 +500,14 @@ def _operator_audit_rows(
                     "operator_id": invocation.get("operator_id"),
                     "failure_family": family,
                     "failure_type": params.get("failure_type"),
-                    "affordance_action_type": params.get("action_type") or affordance.get("action_type"),
+                    "affordance_action_type": params.get("action_type")
+                    or affordance.get("action_type"),
                     "source_affordance_id": source_affordance_id,
                     "candidate_id": candidate_id,
                     "parent_candidate_id": parent_id,
-                    "parent_branch_id": (candidate.get("payload") or {}).get("parent_branch_id"),
+                    "parent_branch_id": (candidate.get("payload") or {}).get(
+                        "parent_branch_id"
+                    ),
                     "target_files": invocation.get("target_files") or [],
                     "applied": bool(event.payload.get("applied")),
                     "errors": event.payload.get("errors") or [],
@@ -388,7 +519,16 @@ def _operator_audit_rows(
                         "parent_score": int(parent_score),
                         "operator_score": int(op_score),
                         "delta": int(delta),
-                        "relation": "helped" if delta > 0 else "harmed" if delta < 0 else "neutral",
+                        "relation": (
+                            "blocked_regression"
+                            if rejection.get("reason") == "operator_regressed_funnel"
+                            else (
+                                "helped"
+                                if delta > 0
+                                else "harmed" if delta < 0 else "neutral"
+                            )
+                        ),
+                        "rejection_reason": rejection.get("reason"),
                         "parent_stage": parent_stage,
                         "operator_stage": op_stage,
                     }
@@ -396,9 +536,15 @@ def _operator_audit_rows(
             elif event.event_type == "operator.unavailable":
                 payload = dict(event.payload)
                 affordance_id = str(payload.get("affordance_id") or "")
-                affordance = indexes["affordances"].get((arm_id, instance_id, affordance_id), {})
+                affordance = indexes["affordances"].get(
+                    (arm_id, instance_id, affordance_id), {}
+                )
                 feedback = _latest_feedback_before(instance_events, event)
-                summary = _brief_text(feedback.get("summary") or feedback.get("evidence") or feedback.get("failure_type"))
+                summary = _brief_text(
+                    feedback.get("summary")
+                    or feedback.get("evidence")
+                    or feedback.get("failure_type")
+                )
                 family = _failure_family(
                     feedback.get("failure_type"),
                     summary,
@@ -414,7 +560,8 @@ def _operator_audit_rows(
                         "failure_family": family,
                         "failure_type": feedback.get("failure_type"),
                         "summary": summary,
-                        "affordance_action_type": payload.get("action_type") or affordance.get("action_type"),
+                        "affordance_action_type": payload.get("action_type")
+                        or affordance.get("action_type"),
                         "expected_worker_kind": affordance.get("expected_worker_kind"),
                         "worker_id": payload.get("worker_id"),
                         "source_affordance_id": affordance_id,
@@ -427,7 +574,9 @@ def _operator_audit_rows(
     return applied_rows, unavailable_rows, helped_rows
 
 
-def _llm_trace_rows(root: Path, arm_ids: Sequence[str]) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+def _llm_trace_rows(
+    root: Path, arm_ids: Sequence[str]
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     call_rows: list[dict[str, Any]] = []
     for arm_id in arm_ids:
         trace_path = root / arm_id / "llm_traces" / "calls.jsonl"
@@ -446,13 +595,28 @@ def _llm_trace_rows(root: Path, arm_ids: Sequence[str]) -> tuple[list[dict[str, 
                     "call_error": item.get("call_error"),
                     "parse_ok": item.get("parse_ok"),
                     "normalized_edit_count": item.get("normalized_edit_count"),
-                    "paths": sorted({str(edit.get("path")) for edit in normalized_edits if isinstance(edit, dict) and edit.get("path")}),
+                    "normalization_issue_reasons": sorted(
+                        {
+                            str(issue.get("reason"))
+                            for issue in (item.get("normalization_issues") or [])
+                            if isinstance(issue, dict) and issue.get("reason")
+                        }
+                    ),
+                    "paths": sorted(
+                        {
+                            str(edit.get("path"))
+                            for edit in normalized_edits
+                            if isinstance(edit, dict) and edit.get("path")
+                        }
+                    ),
                     "feedback_failure_type": item.get("feedback_failure_type"),
                     "provider": item.get("provider"),
                     "model": item.get("model"),
                     "duration_seconds": item.get("duration_seconds"),
                     "prompt_tokens": (item.get("usage") or {}).get("prompt_tokens"),
-                    "completion_tokens": (item.get("usage") or {}).get("completion_tokens"),
+                    "completion_tokens": (item.get("usage") or {}).get(
+                        "completion_tokens"
+                    ),
                     "total_tokens": (item.get("usage") or {}).get("total_tokens"),
                     "system_prompt_chars": item.get("system_prompt_chars"),
                     "user_prompt_chars": item.get("user_prompt_chars"),
@@ -482,13 +646,20 @@ def _llm_trace_rows(root: Path, arm_ids: Sequence[str]) -> tuple[list[dict[str, 
     return call_rows, aggregate_rows
 
 
-def _aggregate_counts(rows: Sequence[dict[str, Any]], keys: Sequence[str]) -> list[dict[str, Any]]:
+def _aggregate_counts(
+    rows: Sequence[dict[str, Any]], keys: Sequence[str]
+) -> list[dict[str, Any]]:
     counter: Counter[tuple[Any, ...]] = Counter()
     for row in rows:
         counter[tuple(row.get(key) for key in keys)] += 1
     return [
-        {**{key: value for key, value in zip(keys, values, strict=False)}, "count": count}
-        for values, count in sorted(counter.items(), key=lambda item: (-item[1], item[0]))
+        {
+            **{key: value for key, value in zip(keys, values, strict=False)},
+            "count": count,
+        }
+        for values, count in sorted(
+            counter.items(), key=lambda item: (-item[1], item[0])
+        )
     ]
 
 
@@ -529,18 +700,40 @@ def _write_markdown_summary(
     for arm in sorted(count_by_arm):
         scores = best_score_by_arm[arm]
         avg = sum(scores) / len(scores) if scores else 0.0
-        lines.append(f"| {arm} | {count_by_arm[arm]} | {strict_by_arm[arm]} | {avg:.1f} |")
-    lines.extend(["", "## Pairwise Best-Observed", "", "| comparison | relation | count |", "| --- | --- | ---: |"])
+        lines.append(
+            f"| {arm} | {count_by_arm[arm]} | {strict_by_arm[arm]} | {avg:.1f} |"
+        )
+    lines.extend(
+        [
+            "",
+            "## Pairwise Best-Observed",
+            "",
+            "| comparison | relation | count |",
+            "| --- | --- | ---: |",
+        ]
+    )
     for row in pairwise_counts:
-        lines.append(f"| {row.get('comparison')} | {row.get('relation')} | {row.get('count')} |")
+        lines.append(
+            f"| {row.get('comparison')} | {row.get('relation')} | {row.get('count')} |"
+        )
     lines.extend(["", "## Operator Coverage", ""])
     lines.append(f"- operator.applied rows: {len(applied_rows)}")
     lines.append(f"- operator.unavailable rows: {len(unavailable_rows)}")
     lines.append(f"- LLM trace calls: {len(llm_calls)}")
-    lines.extend(["", "### operator.unavailable by family", "", "| family | count |", "| --- | ---: |"])
+    lines.extend(
+        [
+            "",
+            "### operator.unavailable by family",
+            "",
+            "| family | count |",
+            "| --- | ---: |",
+        ]
+    )
     for row in family_counts:
         lines.append(f"| {row.get('failure_family')} | {row.get('count')} |")
-    lines.extend(["", "### operator effect", "", "| relation | count |", "| --- | ---: |"])
+    lines.extend(
+        ["", "### operator effect", "", "| relation | count |", "| --- | ---: |"]
+    )
     for row in help_counts:
         lines.append(f"| {row.get('relation')} | {row.get('count')} |")
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
@@ -553,9 +746,13 @@ def audit_campaign(root: Path) -> dict[str, Any]:
     indexes = _index_events(events)
     audits_dir = root / "audits"
 
-    best_rows = _best_observed_rows(root=root, arm_ids=arm_ids, events=events, indexes=indexes)
+    best_rows = _best_observed_rows(
+        root=root, arm_ids=arm_ids, events=events, indexes=indexes
+    )
     pairwise_rows = _pairwise_rows(best_rows)
-    applied_rows, unavailable_rows, helped_rows = _operator_audit_rows(events, indexes, best_rows)
+    applied_rows, unavailable_rows, helped_rows = _operator_audit_rows(
+        events, indexes, best_rows
+    )
     llm_calls, llm_aggregates = _llm_trace_rows(root, arm_ids)
 
     _write_csv(
@@ -650,10 +847,14 @@ def audit_campaign(root: Path) -> dict[str, Any]:
             "best_observed_score",
         ),
     )
-    _write_json(audits_dir / "operator_unavailable_by_failure_family.json", unavailable_rows)
+    _write_json(
+        audits_dir / "operator_unavailable_by_failure_family.json", unavailable_rows
+    )
     _write_json(
         audits_dir / "operator_unavailable_by_failure_family_counts.json",
-        _aggregate_counts(unavailable_rows, ("failure_family", "affordance_action_type", "worker_id")),
+        _aggregate_counts(
+            unavailable_rows, ("failure_family", "affordance_action_type", "worker_id")
+        ),
     )
 
     _write_csv(
@@ -670,6 +871,7 @@ def audit_campaign(root: Path) -> dict[str, Any]:
             "operator_score",
             "delta",
             "relation",
+            "rejection_reason",
             "parent_stage",
             "operator_stage",
             "source_affordance_id",
@@ -694,6 +896,7 @@ def audit_campaign(root: Path) -> dict[str, Any]:
             "call_error",
             "parse_ok",
             "normalized_edit_count",
+            "normalization_issue_reasons",
             "paths",
             "feedback_failure_type",
             "provider",

@@ -263,6 +263,26 @@ def test_verify_local_dependency_failure_taxonomy(
     assert local.compile_success is False
 
 
+def test_collect_class_versions_reads_class_header_without_javap(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    repo_dir = tmp_path / "repo"
+    classes_dir = repo_dir / "target" / "classes" / "pkg"
+    classes_dir.mkdir(parents=True)
+    (classes_dir / "Outer$Inner.class").write_bytes(
+        b"\xca\xfe\xba\xbe" + (0).to_bytes(2, "big") + (61).to_bytes(2, "big")
+    )
+    (classes_dir / "bad.class").write_bytes(b"not-a-class")
+
+    def fail_run_command(*args: Any, **kwargs: Any) -> Any:
+        raise AssertionError("class version collection must not spawn javap")
+
+    monkeypatch.setattr(verifier_mod, "run_command", fail_run_command)
+
+    verifier = MigrationBenchVerifier()
+    assert verifier._collect_class_versions(repo_dir) == {61}
+
+
 def test_official_evaluator_missing_returns_explicit_failure(tmp_path: Path) -> None:
     instance = _instance()
     evaluator = OfficialEvaluator(migrationbench_root=tmp_path / "missing")

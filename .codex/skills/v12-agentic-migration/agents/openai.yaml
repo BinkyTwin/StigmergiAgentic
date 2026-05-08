@@ -1,0 +1,4 @@
+interface:
+  display_name: "V12 Agentic Migration"
+  short_description: "Keep V12 MigrationBench agents autonomous over a guidance-only stigmergic medium."
+  default_prompt: "Use the V12 agentic migration rules to implement or audit this MigrationBench change."

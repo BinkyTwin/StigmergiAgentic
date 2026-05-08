@@ -129,6 +129,242 @@ Sprint 9 completion (C1/C2/C3):
 
 ## Log des Sessions
 
+### 2026-05-07 15:10 — V12.3 Agentic MigrationBench Runner
+
+**Assistant IA utilisé** : Codex (GPT-5)
+
+**Objectif** : Implémenter le protocole V12.3 sans réintroduire le drift B6 :
+comparer S1/S2/V12 avec agents autonomes, tools identiques pour S2/V12,
+branches isolées et audits replayables.
+
+**Actions effectuées** :
+- Ajout de `AgentLoop.context_preparer` pour créer une branche candidate isolée
+  uniquement après un choix explicite d'un tool mutateur par le LLM.
+- Ajout de `scripts/v12/run_v12_agentic_comparison.py` pour exécuter
+  `S1_sd_feedback_like`, `S2_tool_feedback_agent` et
+  `V12_stigmergic_tool_agent` sur le même subset.
+- Ajout de `scripts/v12/audit_v12_campaign.py` pour produire
+  `best_observed_funnel.csv`, `pairwise_best_observed.csv`,
+  `tool_trace_calls.csv`, `medium_effect_attribution.csv` et
+  `v12_readiness_report.json`.
+- Mise à jour des handoffs `AGENTS.md` / `CLAUDE.md` et de l'artifact V12.
+
+**Décisions prises** :
+- S1 reste le contrôle SD-Feedback-like à patch libre historique.
+- S2 et V12 partagent exactement la registry V12 ; la seule différence est la
+  présence de la local view stigmergique annotée.
+- Les tools `suggest_*` restent proposal-only ; seuls `edit_file_guarded` et
+  `apply_patch` peuvent créer une candidate branch.
+
+**Validation** :
+
+```bash
+PYTHONDONTWRITEBYTECODE=1 uv run pytest tests/unit/v12 -q
+# 44 passed
+
+PYTHONDONTWRITEBYTECODE=1 uv run pytest tests/unit/v12 tests/unit/v11/test_b6_guarded_fallback.py tests/unit/v11/test_operator_guards.py -q
+# 77 passed
+
+uv run ruff check core_v12 scripts/v12 scripts/bench/providers_v12_llm.py tests/unit/v12
+# All checks passed
+```
+
+**Résultat** : Succès contrôlé — V12.3 est implémenté et testable sur le
+targeted subset. Aucun claim de performance V12 n'est encore formulé avant une
+campagne live auditée.
+
+**Fichiers modifiés** :
+- `core_v12/agent_loop.py`
+- `scripts/v12/run_v12_agentic_comparison.py`
+- `scripts/v12/audit_v12_campaign.py`
+- `tests/unit/v12/test_v12_agentic_comparison.py`
+- `AGENTS.md`, `CLAUDE.md`
+- `documentation/redisgn_v2/phase_08_artifact.md`
+- `documentation/redisgn_v2/plan_v12_autonomous_agents_over_stigmergic_medium.md`
+
+---
+
+### 2026-05-07 14:05 — V12.2 Provider Verification And Hardening
+
+**Assistant IA utilisé** : Codex (GPT-5)
+
+**Objectif** : Vérifier V12.2 de bout en bout et corriger les défauts de
+configuration/tool-call qui pouvaient fausser une campagne avant V12.3.
+
+**Actions effectuées** :
+- Ajout de `tool_choice="required"` aux appels Chat Completions V12.2 afin que
+  le provider soit explicitement contraint à produire un tool call natif.
+- Remplacement du défaut DeepSeek V12.2 par `deepseek-v4-flash`, déjà utilisé
+  comme défaut DeepSeek V4 du projet.
+- Désactivation explicite du thinking DeepSeek pour les appels de tool choice,
+  conformément au mapping officiel `deepseek-chat` = V4 Flash non-thinking.
+- Passage du chemin live DeepSeek par HTTP direct à timeout explicite, car le
+  SDK OpenAI-compatible restait suspendu localement alors que l’appel HTTP
+  équivalent répondait correctement.
+- Ajout d’un fail-fast si `openrouter` ou `openai` est sélectionné sans modèle
+  explicite, évitant de router silencieusement `deepseek-chat` vers un autre
+  provider.
+- Durcissement du parsing des booléens de config (`"false"`, `"off"`, etc.) pour
+  `use_v12_llm_provider`, `v12_strict_tools` et `llm_trace_enabled`.
+- Extension des tests unitaires V12.2 provider et mise à jour de l’artifact de
+  phase 8.
+
+**Validation** :
+- `PYTHONDONTWRITEBYTECODE=1 uv run pytest tests/unit/v12 -q` — 38 passed.
+- `PYTHONDONTWRITEBYTECODE=1 uv run pytest tests/unit/v12 tests/unit/v11/test_b6_guarded_fallback.py tests/unit/v11/test_operator_guards.py -q` — 71 passed.
+- `PYTHONDONTWRITEBYTECODE=1 uv run pytest tests/unit/v10/bench -q` — 68 passed.
+- `PYTHONDONTWRITEBYTECODE=1 uv run pytest tests/unit/v10/migrationbench -q` — 62 passed.
+- `uv run ruff check core_v12 scripts/bench/providers_v12_llm.py tests/unit/v12` — passed.
+- Live DeepSeek V12.2 smoke via `V12NativeToolClient` — `deepseek-v4-flash`,
+  `tool_name=inspect_pom`, one trace JSONL line under `/tmp`.
+
+### 2026-05-07 14:20 — V12 Tool Annotations Instead Of Tool Hiding
+
+**Assistant IA utilisé** : Codex (GPT-5)
+
+**Objectif** : Corriger le contrat V12 pour que le médium oriente les tools par
+annotations sans réduire l’autonomie de l’agent.
+
+**Actions effectuées** :
+- Extension de `AgentLocalView` avec `tool_registry`, `tool_annotations` et
+  `forbidden_tools`.
+- Conservation des projections `supported_tools`/`inhibited_tools` comme
+  compatibilité legacy, mais elles ne filtrent plus la toolbox.
+- Modification du provider V12.2 pour envoyer au modèle toute la toolbox
+  non-forbidden, et non une shortlist médium.
+- Ajout d’un rejet explicite des tentatives de tool forbidden dans `AgentLoop`.
+- Ajout de `core_v12/metrics.py` pour mesurer follow/override des
+  recommandations, usage de tools inhibés, overrides utiles/nocifs et tentatives
+  forbidden.
+- Mise à jour des tests et docs pour verrouiller le principe :
+  inhibited != forbidden.
+
+**Décisions prises** :
+- `inhibited` signifie déconseillé mais autorisé avec rationale.
+- `forbidden` signifie non appelable uniquement pour impossibilité technique ou
+  sécurité.
+- La différence scientifique S2/V12 reste la local view annotée, pas la surface
+  de tools.
+
+**Validation** :
+- `PYTHONDONTWRITEBYTECODE=1 uv run pytest tests/unit/v12 tests/unit/v11/test_b6_guarded_fallback.py tests/unit/v11/test_operator_guards.py -q` → `75 passed`
+- `PYTHONDONTWRITEBYTECODE=1 uv run python -m compileall core_v12 scripts/bench/providers_v12_llm.py` → succès
+
+**Résultat** : Succès contrôlé — V12 teste maintenant si les phéromones guident
+l’agent sans supprimer ses choix.
+
+**Fichiers modifiés** :
+- `core_v12/medium/local_view.py`
+- `core_v12/agent_loop.py`
+- `core_v12/metrics.py`
+- `scripts/bench/providers_v12_llm.py`
+- `tests/unit/v12/`
+- `AGENTS.md`, `CLAUDE.md`
+- `.codex/skills/v12-agentic-migration/SKILL.md`
+- `documentation/redisgn_v2/plan_v12_autonomous_agents_over_stigmergic_medium.md`
+- `documentation/redisgn_v2/phase_08_artifact.md`
+
+---
+
+### 2026-05-07 13:49 — V12.2 Native OpenAI-Compatible Tool Calls
+
+**Assistant IA utilisé** : Codex (GPT-5)
+
+**Objectif** : Brancher V12 sur un choix de tool LLM natif
+OpenAI-compatible/DeepSeek, sans revenir aux edit-sets libres V10/V11.
+
+**Actions effectuées** :
+- Ajout de `core_v12/tools/native_schema.py` pour convertir la registry V12 en
+  fonctions natives strictes, parser exactement un `message.tool_calls[0]`, et
+  rejeter les sorties sans tool call, multi-tool, tool inconnu, JSON invalide ou
+  arguments hors schéma.
+- Ajout de `scripts/bench/providers_v12_llm.py` avec `V12LLMConfig`,
+  `V12NativeToolClient`, `V12ToolTraceWriter` et
+  `make_migrationbench_v12_tool_chooser`.
+- Utilisation des Chat Completions OpenAI-compatible avec `tools=[...]`,
+  `strict:true`, DeepSeek strict beta par défaut, et fallback tracé uniquement
+  si `parallel_tool_calls=false` est refusé par le provider.
+- Ajout de traces complètes `v12.llm_native_tool_trace.v1` sous `llm_traces/`,
+  avec prompts, local view, schémas, réponse brute, tool call brut, tool call
+  parsé, parse errors, usage et redaction des secrets.
+- Extension de `AgentLoop` avec `ToolChoiceError` et l’événement
+  `agent.tool_call.parse_failed`.
+- Ajout des tests V12.2 de schémas natifs, provider fake, retries de parsing,
+  redaction de traces et absence de création de patch/candidate par le provider.
+
+**Décisions prises** :
+- V12.2 expose chaque tool comme fonction native séparée ; pas de fonction
+  générique `call_tool`.
+- Les échecs de parsing/schema peuvent être retentés ; les `ToolResult`
+  `rejected` ou `failed` ne déclenchent pas de nouvel appel LLM.
+- Le provider V12.2 ne crée jamais `Candidate`, `TypedEditSet` ou patch : seule
+  l’exécution explicite de `edit_file_guarded`/`apply_patch` peut muter.
+
+**Validation** :
+- `PYTHONDONTWRITEBYTECODE=1 uv run pytest tests/unit/v12 -q` → `35 passed`
+- `PYTHONDONTWRITEBYTECODE=1 uv run pytest tests/unit/v12 tests/unit/v11/test_b6_guarded_fallback.py tests/unit/v11/test_operator_guards.py -q` → `68 passed`
+
+**Résultat** : Succès contrôlé — V12 dispose maintenant du `ToolChooser` LLM
+natif et des traces auditables. Le runner comparatif S1/S2/V12 reste V12.3.
+
+**Fichiers modifiés** :
+- `core_v12/tools/native_schema.py`
+- `scripts/bench/providers_v12_llm.py`
+- `core_v12/agent_loop.py`
+- `tests/unit/v12/test_native_tool_schema.py`
+- `tests/unit/v12/test_v12_llm_tool_provider.py`
+- `tests/unit/v12/test_v12_agentic_tool_medium.py`
+- `AGENTS.md`, `CLAUDE.md`
+- `documentation/redisgn_v2/plan_v12_autonomous_agents_over_stigmergic_medium.md`
+- `documentation/redisgn_v2/phase_08_artifact.md`
+
+---
+
+### 2026-05-07 11:20 — V12 Autonomous Agents over a Stigmergic Medium Foundation
+
+**Assistant IA utilisé** : Codex (GPT-5)
+
+**Objectif** : Démarrer V12 après l’échec conceptuel de V11/B6, en séparant
+strictement le médium stigmergique des mécanismes qui créent des patches.
+
+**Actions effectuées** :
+- Création du plan canonique V12 et de l’ADR 022.
+- Ajout de `core_v12/` avec schémas de tools, registry, executor, local view
+  stigmergique et boucle agentique.
+- Ajout d’un registry de tools partagé par S2 et V12.
+- Ajout des tools proposal-only `suggest_*`, explicitement non mutants.
+- Blocage des suggestions target-dépendantes quand le contexte de migration est
+  absent, au lieu de retomber silencieusement sur Java 17.
+- Ajout du subset ciblé `targeted_v12_agentic_5.jsonl`.
+- Mise à jour de `AGENTS.md`, `CLAUDE.md` et ajout du skill repo-local
+  `v12-agentic-migration`.
+
+**Décisions prises** :
+- Archiver B6 comme baseline historique, pas comme direction active.
+- Interdire au médium et aux tools `suggest_*` de créer ou appliquer des patches.
+- Faire de `ToolCall` la frontière stricte où l’agent LLM choisit tool et
+  paramètres.
+- Garantir que S2 et V12 utilisent la même registry de tools.
+
+**Validation** :
+- `uv run pytest tests/unit/v12 -q` → `13 passed`
+- `uv run python -m compileall core_v12` → succès
+
+**Résultat** : Succès contrôlé — V12 dispose d’une fondation testée pour agents
+LLM outillés, mais le runner MigrationBench live S1/S2/V12 reste à implémenter.
+
+**Fichiers modifiés** :
+- `core_v12/` — nouvelles surfaces V12.
+- `tests/unit/v12/` — tests de schéma, medium, tools et EventLog.
+- `documentation/redisgn_v2/plan_v12_autonomous_agents_over_stigmergic_medium.md`
+- `documentation/redisgn_v2/phase_08_artifact.md`
+- `documentation/decisions/20260507-v12-autonomous-agents-over-medium.md`
+- `fixtures/migrationbench/subsets/targeted_v12_agentic_5.jsonl`
+- `.codex/skills/v12-agentic-migration/SKILL.md`
+- `AGENTS.md`, `CLAUDE.md`
+
+---
+
 ### 2026-04-18 18:10 — Sprint 8 V6 General Runtime Controls and Targeted Repair
 
 **Assistant IA utilisé** : Codex (GPT-5)
@@ -1457,6 +1693,167 @@ Phase 6 (StigmergicBlackboard A4 = cœur thèse H2).
 
 ---
 
+### 2026-05-05 — Refonte de la revue de littérature et retrait des entretiens
+
+**Assistant IA utilisé** : Claude Code (Opus 4.7, 1M context)
+
+**Objectif** : Refondre le chapitre 2 (Revue de littérature) du mémoire EMLV
+en 7 sections (2.1 à 2.7), volume cible 25-35 pages, fil rouge inversé
+(stigmergie comme réponse technique à un problème managérial). Retirer
+toutes les références aux entretiens semi-directifs du chapitre 3 et du
+plan global, en alignement avec l'instruction de la superviseure du
+2026-05-05.
+
+**Plan de référence** :
+`documentation/memoire/plan_refonte_revue_litterature.md` (validé par
+l'auteur le 2026-05-05).
+
+**Actions effectuées** :
+
+*Phase A — Édits chirurgicaux (faible risque)* :
+- `chap_03_methodologie.tex` : 4 édits.
+  - L96-117 : Activité 5 DSRM reformulée en « test d'utilité FEDS » (panel
+    5-8 experts via questionnaire Likert structuré).
+  - L137-138 : tableau Hevner G3 mis à jour (« test d'utilité d'experts »).
+  - L193-205 : Source 3 réécrite, suppression des phrases sur entretiens
+    semi-directifs et entretiens informels, ajout d'une formulation
+    négative explicite excluant l'élicitation qualitative.
+  - L232-233 : reformulation « richesse qualitative » → « profondeur du
+    test d'utilité FEDS, sans prétention à la représentativité statistique ».
+- `plan_memoire_detaille.md` : 8 édits.
+  - Bloc Ch.2 (L54-L116) : entièrement réécrit avec la nouvelle structure
+    7 sections, mention du fil rouge inversé.
+  - Source 3 (L143) : reformulée en « test d'utilité FEDS ».
+  - Bloc Ch.7 (L322-L351) : titre renommé « Test d'utilité FEDS et
+    validation OC5 », suppression des questions ouvertes / verbatims /
+    références à `consigne/guide_entretien_complementaire.md`.
+  - Annexe G (L427) : renommée « Protocole FEDS et instruments du test
+    d'utilité ».
+  - Tableau de pilotage (L440) : Ch.2 passe de « 1 jour relecture » à
+    « refonte 25-35 p. en cours ».
+  - Volume total (L449) : ajusté de 90-120 p. à 95-125 p.
+  - Séquençage (L468) : « entretiens du panel » → « test d'utilité FEDS ».
+  - Changelog 2026-05-05 ajouté en fin de fichier listant les trois
+    changements structurants.
+- `chap_07_evaluation_experts.tex` (stub) : titre, sources et sections
+  alignés avec la reformulation FEDS.
+- `annexe_g_panel_experts.tex` (stub) : titre et TODO mis à jour.
+
+*Phase B — Refonte du chapitre 2* :
+- Réécriture complète du fichier
+  `chap_02_revue_litterature.tex` en une passe, structure 7 sections :
+  - 2.1 Le défi managérial de la GenAI agentique en entreprise (NOUVELLE,
+    4-5 p. cible).
+  - 2.2 Gouvernance, auditabilité et conformité (renforcée, ajout
+    régulation sectorielle banque RGPD/DORA/ACPR/EBA).
+  - 2.3 Théorie de la coordination organisationnelle et apport au
+    management des SI (recyclée, condensée).
+  - 2.4 La stigmergie comme mécanisme de coordination indirecte
+    (fusion + condensation forte, suppression Holland/Kauffman et tons
+    pédagogiques).
+  - 2.5 Transformation de code et workflows agentiques en pratique
+    (condensée, BPM réduit à un paragraphe synthétique).
+  - 2.6 Évaluation des systèmes agentiques et frontière coût-précision
+    (condensée).
+  - 2.7 Cadre conceptuel et identification du gap (réécrite, gap
+    reformulé en termes managériaux).
+- 5 figures conservées : `stigmergic_feedback_loop.png`,
+  `fundamental_principles_self_organizing_systems.png`,
+  `agentLLMvsMAS.png`, `taxomanie_MAST.png`, `cadre_de_gouvernance.png`.
+- Toutes les citations clés préservées : Grassé 1959, Bonabeau 1999,
+  Theraulaz & Bonabeau 1999, Heylighen 2016, Ricci 2007, Malone &
+  Crowston 1994, Teece 2007, Feldman & Pentland 2003, Strong 2014,
+  Bolici 2016, Cemri 2025, Xia 2024, Kapoor 2024, Gao 2025, Ziftci
+  2025, Grisold 2025, Jarrahi & Ritala 2025, Santoni de Sio & van den
+  Hoven 2018, Uhl-Bien 2007, Hevner 2004, Peffers 2007, Venable 2016.
+
+*Phase C — Vérification et livrables annexes* :
+- `documentation/memoire/sources_a_ajouter_revue.md` : créé. Inventaire
+  des sources externes à ajouter par section (McKinsey/BCG/Gartner pour
+  adoption GenAI, TAM/UTAUT pour MIS, textes RGPD/DORA/EBA/ACPR pour
+  régulation, cas industriels banque). Aucune recherche autonome menée,
+  liste à valider par l'auteur.
+
+**Décisions prises** :
+
+- Réécriture complète plutôt qu'édits incrémentaux du chap_02 : cohérence
+  narrative supérieure pour une refonte structurelle (8 sections → 7,
+  fil rouge inversé). Volume cible atteint en une passe.
+- Apostrophes encodées via `\textquotesingle` pour respecter la
+  convention du fichier hérité du DSR (cohérence typographique
+  préservée).
+- Pas de conversion BibTeX dans cette passe : citations APA inline
+  conservées telles quelles. La conversion sera traitée dans une passe
+  ultérieure dédiée.
+- Pas de modification de `consigne/revue_litterature_v2_DSR.tex`
+  (archive) ni de `consigne/guide_entretien_complementaire.md`
+  (référence retirée du plan, fichier conservé en archive).
+- L'argument banque (RGPD/DORA/ACPR/EBA) est introduit avec mention
+  générique des textes ; les citations exactes des règlements sont à
+  ajouter dans la passe bibliographique suivante (cf.
+  `sources_a_ajouter_revue.md`).
+
+**Validation** :
+
+```bash
+# Compilation propre
+cd documentation/memoire/latex
+latexmk -xelatex -interaction=nonstopmode main.tex
+# → main.pdf 70 pages, 0 erreur
+
+# Comptage de mots du chap. 2 refondu
+texcount -inc -sum -1 chapitres/chap_02_revue_litterature.tex
+# → 8 723 mots ≈ 29 pages (interligne 1,5, Times 12pt)
+# Cible 25-35 pages : ATTEINTE
+
+# Aucune occurrence d'entretiens hors changelog
+grep -rnE "entretien|semi-directif|guide_entretien" \
+  documentation/memoire/latex/ documentation/memoire/plan_memoire_detaille.md
+# → 3 occurrences résiduelles dans le changelog du plan global
+#   (mentions historiques décrivant l'opération de retrait, légitimes)
+```
+
+**Problèmes rencontrés** :
+
+- Dossier `documentation/memoire/latex/images/` vide → les 5 figures du
+  chap. 2 s'affichent en placeholder cadré « [Figure à fournir] » via le
+  wrapper `\includegraphics` du préambule. **État préexistant**, à
+  corriger en fournissant les fichiers image dans une passe ultérieure
+  (les 5 noms de fichiers sont fixés et figurent dans le `.tex` refondu).
+- Compilation chap_02 : aucun problème de syntaxe LaTeX malgré la
+  réécriture intégrale (1681 → 1240 lignes).
+
+**Résultat** : succès — refonte livrée, compilation propre, volume
+cible atteint, entretiens purgés, plan détaillé synchronisé, changelog
+ajouté, livrable annexe `sources_a_ajouter_revue.md` produit.
+
+**Fichiers modifiés** :
+- `documentation/memoire/latex/chapitres/chap_02_revue_litterature.tex`
+  (1 681 → 1 240 lignes, refonte structurelle)
+- `documentation/memoire/latex/chapitres/chap_03_methodologie.tex`
+  (4 édits chirurgicaux)
+- `documentation/memoire/latex/chapitres/chap_07_evaluation_experts.tex`
+  (stub aligné FEDS)
+- `documentation/memoire/latex/annexes/annexe_g_panel_experts.tex`
+  (stub aligné FEDS)
+- `documentation/memoire/plan_memoire_detaille.md`
+  (Ch.2 réécrit, Ch.7 reformulé, annexe G renommée, volumes ajustés,
+  séquençage, changelog ajouté)
+
+**Fichiers créés** :
+- `documentation/memoire/sources_a_ajouter_revue.md` (livrable annexe)
+
+**Suivi** : prochaines passes recommandées :
+1. Fournir les 5 fichiers image manquants dans
+   `documentation/memoire/latex/images/`.
+2. Compléter la bibliographie avec les sources listées dans
+   `sources_a_ajouter_revue.md` (priorité haute pour 2.1 et 2.2).
+3. Conversion BibTeX progressive de
+   `liminaires/bibliographie_manuelle.tex`.
+4. Rédaction des chapitres restants (4, 5, 6, 8, 9) selon le plan
+   global.
+
+---
 
 ## 2026-05-06 — Phase 7 V11 Stigmergic Medium Kernel MVP
 
@@ -1514,60 +1911,51 @@ docker compose -f docker-compose.campaign.yml run --rm v11-smoke
 # status ok, campaign_results/v11/smoke/v11_smoke_summary.json
 ```
 
-**Résultat** : le microbench toy prouve le différentiel attendu :
-B2 ne produit aucune causalité V11 ; B5/B6 produisent `signal.read`,
-`worker.activated`, `decision.influenced`, `trajectory.diverged`; B6 invoque
-et applique un operator typé. `live==replay` reste l'invariant central.
-
-**Limites** : pas de claim MigrationBench V11 `main_30` ; B7 memory
-verifier-gated et B8 search restent hors scope de cet incrément.
-
 ---
 
-## 2026-05-06 — Durcissement post-audit V11 MVP
+## 2026-05-06 — B6 guarded fallback et best-observed funnel
 
-**Objectif** : intégrer les retours d'audit sur le MVP V11 sans élargir le
-claim scientifique au-delà du toy causal.
+**Objectif** : corriger la source principale des
+`replacement_count_too_low` B6 observés sur `main_30` : des candidats LLM
+libres dont les spans `replace_text.old` n'existaient pas dans la branche
+réelle utilisée par l'adapter.
 
 **Corrections livrées** :
 
-- Scheduler V11 : scoring de tous les couples `(worker, affordance)` au lieu
-  d'une décision basée uniquement sur la première affordance visible.
-- Medium replay : reconstruction des affordances consommées, expirées et
-  inhibées, des signaux retirés et des records `signal.decayed`.
-- Operators MigrationBench : `parent_id=original.candidate_id`, upgrades
-  Maven compiler/surefire scopés au bloc `<plugin>`, ajout JAXB `javax` ou
-  `jakarta` selon le feedback.
-- Télémétrie : `decision.influenced` ne compte que `changed=true` ; le harm est
-  détecté dans les `downstream_delta` structurés.
-- Smoke V11 : nettoyage des sous-répertoires de sortie avant relance pour
-  éviter l'accumulation d'events et préserver `live==replay`.
+- Guard central `core_v10/operators/guarded_edit_set.py` : vérification path,
+  path traversal, présence fichier, count `replace_text.old`,
+  `expected_replacements` et justification des modifications de tests.
+- B6 : tout `edit_set` libre passe par le guard avant `adapter.apply()` ;
+  rejet via `candidate.rejected` / `operator.rejected` si invalide.
+- B6 : événement `operator.unavailable`, inhibition de l'affordance/action et
+  signal de support vers le prochain choix scheduler quand aucun operator ne
+  couvre l'affordance.
+- Config : `b6_fallback_policy` (`disabled`, `guarded_only`, `free_llm`) exposé
+  dans le harness, le runner MigrationBench V11 et Docker.
+- Runner : `BestObservedTracker`, score de funnel interne, réparation depuis le
+  meilleur parent non terminal et export `artifact.best_partial`.
 
 **Validation** :
 
 ```bash
-uv run pytest tests/unit/v11 tests/integration/v11/test_toy_patch_repair.py -q
-# 15 passed
-
-uv run pytest tests/integration/v11/test_toy_patch_repair.py \
-  tests/unit/v10/bench/test_harness_toy.py \
-  tests/unit/v10/bench/test_harness_migrationbench.py \
-  tests/unit/v10/bench/test_compare_strategies.py \
-  tests/unit/v10/bench/test_compare_strategies_phase6.py \
+uv run pytest tests/unit/v11 tests/integration/v11/test_toy_patch_repair.py \
+  tests/unit/v10/test_repair_live_files.py \
+  tests/unit/v10/test_strategy_runner_phase5.py \
   tests/unit/v10/test_strategy_runner_phase6.py \
-  tests/unit/v10/migrationbench/test_adapter.py \
-  tests/unit/v10/migrationbench/test_workspace.py -q
-# 41 passed
-
-uv run pytest tests/unit/v10/test_import_boundaries.py \
-  tests/unit/v10/test_signal_store.py tests/unit/v10/test_signal_policy.py \
   tests/unit/v10/test_strategy_runner.py \
-  tests/unit/v10/bench/test_telemetry_phase6.py -q
-# 40 passed
+  tests/unit/v10/bench/test_harness_migrationbench.py -q
+# 58 passed
 
-docker compose -f docker-compose.campaign.yml build v11-smoke
-docker compose -f docker-compose.campaign.yml run --rm v11-smoke
-# status ok, campaign_results/v11/smoke/v11_smoke_summary.json
+uv run python -m scripts.v11.run_v11_smoke --out-dir /tmp/v11_guard_smoke
+# status ok
+
+V11_MIGRATION_LIMIT=1 V11_OFFICIAL_EVAL=false V11_USE_LLM_PROVIDERS=false \
+V11_B6_FALLBACK_POLICY=disabled \
+V11_OUT_DIR=/tmp/v11_migrationbench_guard_dryrun \
+V11_WORKSPACE_ROOT=/tmp/v11_migrationbench_guard_workspaces \
+  docker compose -f docker-compose.campaign.yml run --rm --build \
+  v11-migrationbench-smoke
+# ready_for_main30_launch=true
 ```
 
 ---
@@ -1629,3 +2017,59 @@ DEEPSEEK_API_KEY=$(grep DEEPSEEK_API_KEY .env | cut -d= -f2) \
 
 **Statut** : version lançable en `main_30`. Les résultats produits devront
 encore être audités avant tout claim de performance.
+
+**Résultat** : le microbench toy prouve le différentiel attendu :
+B2 ne produit aucune causalité V11 ; B5/B6 produisent `signal.read`,
+`worker.activated`, `decision.influenced`, `trajectory.diverged`; B6 invoque
+et applique un operator typé. `live==replay` reste l'invariant central.
+
+**Limites** : pas de claim MigrationBench V11 `main_30` ; B7 memory
+verifier-gated et B8 search restent hors scope de cet incrément.
+
+---
+
+## 2026-05-06 — Durcissement post-audit V11 MVP
+
+**Objectif** : intégrer les retours d'audit sur le MVP V11 sans élargir le
+claim scientifique au-delà du toy causal.
+
+**Corrections livrées** :
+
+- Scheduler V11 : scoring de tous les couples `(worker, affordance)` au lieu
+  d'une décision basée uniquement sur la première affordance visible.
+- Medium replay : reconstruction des affordances consommées, expirées et
+  inhibées, des signaux retirés et des records `signal.decayed`.
+- Operators MigrationBench : `parent_id=original.candidate_id`, upgrades
+  Maven compiler/surefire scopés au bloc `<plugin>`, ajout JAXB `javax` ou
+  `jakarta` selon le feedback.
+- Télémétrie : `decision.influenced` ne compte que `changed=true` ; le harm est
+  détecté dans les `downstream_delta` structurés.
+- Smoke V11 : nettoyage des sous-répertoires de sortie avant relance pour
+  éviter l'accumulation d'events et préserver `live==replay`.
+
+**Validation** :
+
+```bash
+uv run pytest tests/unit/v11 tests/integration/v11/test_toy_patch_repair.py -q
+# 15 passed
+
+uv run pytest tests/integration/v11/test_toy_patch_repair.py \
+  tests/unit/v10/bench/test_harness_toy.py \
+  tests/unit/v10/bench/test_harness_migrationbench.py \
+  tests/unit/v10/bench/test_compare_strategies.py \
+  tests/unit/v10/bench/test_compare_strategies_phase6.py \
+  tests/unit/v10/test_strategy_runner_phase6.py \
+  tests/unit/v10/migrationbench/test_adapter.py \
+  tests/unit/v10/migrationbench/test_workspace.py -q
+# 41 passed
+
+uv run pytest tests/unit/v10/test_import_boundaries.py \
+  tests/unit/v10/test_signal_store.py tests/unit/v10/test_signal_policy.py \
+  tests/unit/v10/test_strategy_runner.py \
+  tests/unit/v10/bench/test_telemetry_phase6.py -q
+# 40 passed
+
+docker compose -f docker-compose.campaign.yml build v11-smoke
+docker compose -f docker-compose.campaign.yml run --rm v11-smoke
+# status ok, campaign_results/v11/smoke/v11_smoke_summary.json
+```

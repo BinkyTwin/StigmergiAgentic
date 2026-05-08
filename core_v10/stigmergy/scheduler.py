@@ -29,7 +29,12 @@ def default_worker_specs() -> tuple[WorkerSpec, ...]:
             worker_kind="exact_edit_guard",
             reads=common_reads,
             writes=("repair_region",),
-            handles=("answer_mismatch", "replacement_count_too_low", "replace_answer", "derive_exact_old_span"),
+            handles=(
+                "answer_mismatch",
+                "replacement_count_too_low",
+                "replace_answer",
+                "derive_exact_old_span",
+            ),
             cost=0.05,
             risk=0.05,
         ),
@@ -90,6 +95,7 @@ def default_worker_specs() -> tuple[WorkerSpec, ...]:
             handles=(
                 "compile_error",
                 "removed_jdk_internal_api",
+                "replace_jdk_internal_api",
                 "replace_sun_misc_base64",
             ),
             cost=0.16,
@@ -109,7 +115,11 @@ def default_worker_specs() -> tuple[WorkerSpec, ...]:
             worker_kind="test_preservation_checker",
             reads=common_reads,
             writes=("repair_region",),
-            handles=("preserve_existing_tests", "guard_existing_tests", "preserve_test_count"),
+            handles=(
+                "preserve_existing_tests",
+                "guard_existing_tests",
+                "preserve_test_count",
+            ),
             cost=0.05,
             risk=0.05,
         ),
@@ -170,7 +180,9 @@ class StigmergicScheduler:
             tuple(affordances) if affordances else (None,)
         )
         for affordance in candidate_affordances:
-            for worker in self.eligible_workers(affordance=affordance, feedback=feedback):
+            for worker in self.eligible_workers(
+                affordance=affordance, feedback=feedback
+            ):
                 score, terms = _activation_score(worker, affordance, signals, feedback)
                 scored.append((score, worker, affordance, terms))
         scored.sort(
@@ -274,7 +286,10 @@ def _support_score(
         record.intensity
         for record in signals
         if record.kind in {SignalKind.SUPPORT, SignalKind.REINFORCE}
-        and (record.target in targets or any(handle in record.target for handle in worker.handles))
+        and (
+            record.target in targets
+            or any(handle in record.target for handle in worker.handles)
+        )
     ]
     return max(values) if values else 0.0
 
@@ -291,14 +306,15 @@ def _inhibition_score(
     values = [
         record.intensity
         for record in signals
-        if record.kind == SignalKind.INHIBIT
-        and record.target in targets
+        if record.kind == SignalKind.INHIBIT and record.target in targets
     ]
     return max(values) if values else 0.0
 
 
 def _novelty_score(signals: Sequence[SignalRecord]) -> float:
-    values = [record.intensity for record in signals if record.kind == SignalKind.NOVELTY]
+    values = [
+        record.intensity for record in signals if record.kind == SignalKind.NOVELTY
+    ]
     return max(values) if values else 0.0
 
 
@@ -306,7 +322,8 @@ def _affinity_score(worker: WorkerSpec, signals: Sequence[SignalRecord]) -> floa
     values = [
         record.intensity
         for record in signals
-        if record.target in {f"worker:{worker.worker_id}", f"worker:{worker.worker_kind}"}
+        if record.target
+        in {f"worker:{worker.worker_id}", f"worker:{worker.worker_kind}"}
     ]
     return max(values) if values else 0.0
 

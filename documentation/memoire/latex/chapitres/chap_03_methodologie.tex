@@ -111,9 +111,12 @@ pas dans le tableau principal en raison de sa non-reproductibilité dans
 le protocole contrôlé ;
 (2) Étude de cas sur un projet open source réaliste documentant les
 comportements émergents et les patterns de coordination ;
-(3) Évaluation par experts (5-8 professionnels, architectes logiciels,
-managers SI, ingénieurs IA) évaluant utilité, faisabilité,
-gouvernabilité et valeur organisationnelle du framework.
+(3) Test d\textquotesingle utilité auprès d\textquotesingle un panel de
+5-8 experts (architectes logiciels, managers SI, ingénieurs IA) au sens
+du framework FEDS, mesurant l\textquotesingle utilité perçue, la
+faisabilité, la gouvernabilité et la valeur organisationnelle de
+l\textquotesingle artefact via un questionnaire structuré à items
+Likert.
 
 \emph{Activité 6, Communication.}
 Le présent mémoire constitue le vecteur principal de communication.
@@ -135,7 +138,7 @@ instanciation + principes de conception) \\
 G2. Pertinence du problème & Échecs documentés des MAS hiérarchiques ;
 besoins industriels de modernisation flexible \\
 G3. Évaluation rigoureuse & Trois épisodes FEDS : benchmarks quantitatifs,
-étude de cas, évaluation par experts \\
+étude de cas, test d\textquotesingle utilité d\textquotesingle experts \\
 G4. Contributions à la recherche & Principes de conception généralisables ;
 extension de la théorie de la coordination aux agents LLM \\
 G5. Rigueur scientifique & Ancrage théorique multi-disciplinaire ;
@@ -190,19 +193,18 @@ d\textquotesingle émergence ou d\textquotesingle impasse). Les
 frontières de Pareto coût-précision (Kapoor et al., 2024) permettront de
 situer l\textquotesingle approche par rapport aux alternatives.
 
-Source 3, Données d\textquotesingle évaluation par experts.
+Source 3, Données du test d\textquotesingle utilité d\textquotesingle experts.
 Un panel de 5-8 experts (architectes logiciels, managers SI, ingénieurs
-IA) évaluera le framework via un protocole structuré : présentation du
-concept stigmergique, démonstration live, questionnaire avec items
-Likert sur utilité, faisabilité, gouvernabilité et valeur
-organisationnelle, puis questions ouvertes. Ce dispositif remplace les
-entretiens semi-directifs exploratoires initialement envisagés : dans
-le cadre DSR, les experts évaluent l\textquotesingle artefact plutôt que
-de fournir des données exploratoires (Venable et al., 2016). Des
-entretiens complémentaires informels avec des praticiens du terrain
-(data scientists, responsables IA, managers de programmes de
-transformation) pourront enrichir la compréhension du contexte
-organisationnel et nourrir la discussion.
+IA) évaluera l\textquotesingle artefact via un protocole structuré au
+sens du framework FEDS (Venable et al., 2016) : présentation du concept
+stigmergique, démonstration de l\textquotesingle artefact en exécution,
+puis renseignement d\textquotesingle un questionnaire structuré à items
+Likert mesurant l\textquotesingle utilité perçue, la faisabilité, la
+gouvernabilité et la valeur organisationnelle. Le test d\textquotesingle utilité
+ne constitue pas une collecte exploratoire qualitative : la stratégie
+FEDS retenue est centrée sur l\textquotesingle évaluation de
+l\textquotesingle artefact et non sur l\textquotesingle élicitation de
+données primaires.
 
 \section{Analyse des données}\label{analyse-des-donnuxe9es}
 
@@ -230,8 +232,8 @@ Plusieurs limites méthodologiques sont anticipées. Le prototype sera
 évalué sur un ensemble de benchmarks et de cas, mais la
 généralisabilité restera conditionnée par le volume et la diversité des
 scénarios effectivement testés. Le panel d\textquotesingle experts
-(5-8 personnes) vise la richesse qualitative mais ne prétend pas à la
-représentativité statistique. Les résultats dépendront des modèles LLM
+(5-8 personnes) vise la profondeur du test d\textquotesingle utilité
+FEDS, sans prétention à la représentativité statistique. Les résultats dépendront des modèles LLM
 disponibles au moment du développement, dont les capacités évoluent
 rapidement. Le protocole expérimental peut engendrer des coûts
 d\textquotesingle API non négligeables, ce qui peut contraindre

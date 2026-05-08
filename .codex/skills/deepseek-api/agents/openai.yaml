@@ -1,0 +1,4 @@
+interface:
+  display_name: "DeepSeek API"
+  short_description: "Use DeepSeek APIs safely in Codex"
+  default_prompt: "Use $deepseek-api to run a safe DeepSeek API smoke test."

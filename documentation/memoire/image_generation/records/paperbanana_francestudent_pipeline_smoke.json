@@ -1,0 +1,17 @@
+{
+  "created_at": "2026-05-06T12:54:19.815531+00:00",
+  "name": "paperbanana_francestudent_pipeline_smoke",
+  "caption": "Pipeline local de production de figures académiques du mémoire : sources rédactionnelles, agents PaperBanana, génération FranceStudent gpt-image-2, export vers LaTeX et traçabilité.",
+  "content_file": "/Users/lotfi/Documents/EMLV/Memoire/StigmergiAgentic/documentation/memoire/image_generation/prompts/paperbanana_francestudent_pipeline.md",
+  "output_path": "/Users/lotfi/Documents/EMLV/Memoire/StigmergiAgentic/documentation/memoire/latex/images/paperbanana_francestudent_pipeline_smoke.png",
+  "task": "diagram",
+  "aspect_ratio": "16:9",
+  "num_candidates": 1,
+  "max_critic_rounds": 0,
+  "retrieval_setting": "none",
+  "exp_mode": "demo_planner_critic",
+  "main_model_name": "gpt-5.5",
+  "image_gen_model_name": "gpt-image-2",
+  "returncode": 0,
+  "stdout": "Initialized OpenAI-compatible Client with base URL: https://api.francestudent.org/v1\nInitialized OpenRouter Client with API Key\n[Retriever] Running retrieval once for all candidates...\n[Retriever] Done. Retrieved 0 references.\n\nProcessing concurrently:   0%|          | 0/1 [00:00<?, ?it/s]\nProcessing concurrently:   0%|          | 0/1 [01:17<?, ?it/s]\nProcessing concurrently: 100%|##########| 1/1 [01:17<00:00, 77.66s/it]\nProcessing concurrently: 100%|##########| 1/1 [01:17<00:00, 77.66s/it]\n/Users/lotfi/Documents/EMLV/Memoire/StigmergiAgentic/documentation/memoire/latex/images/paperbanana_francestudent_pipeline_smoke.png\n"
+}
